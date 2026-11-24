@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { GlyphDecodeHeading, ScrollReveal } from './MotionPrimitives';
 import {
   EvenG2Logo,
   GmailLogo,
@@ -193,18 +194,17 @@ export function PairingSection({
     <section id="pair" className="section-rule py-20 sm:py-28">
       <div className="container-page grid grid-cols-1 lg:grid-cols-12 gap-12">
         {/* Left: Onboarding & Local Run CLI */}
-        <div className="lg:col-span-5 space-y-6">
-          <p className="font-pixel text-xs uppercase tracking-[0.25em] text-[var(--lightgray)]">
-            PAIRING &amp; LIVE WORKSPACE SETUP
+        <ScrollReveal className="lg:col-span-5 space-y-6">
+          <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
+            LIVE PAIRING &amp; CREDENTIALS
           </p>
           <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem]">
-            <span className="block text-[var(--lightgray)]">Zero keys in WebView.</span>
-            <span className="block text-[var(--bright)]">Pair from your phone.</span>
+            <span className="block text-[var(--lightgray)]">Zero keys in glasses.</span>
+            <GlyphDecodeHeading text="Pair from your phone." className="block text-[var(--bright)]" />
           </h2>
           <p className="text-sm leading-relaxed text-[var(--lightgray)]">
-            Google blocks OAuth inside embedded glasses WebViews. OnCue runs OAuth on this companion
-            page, binds a 6-digit pairing code (15m TTL, 10-attempt lockout), supports zero-config
-            .ics calendar import, and stores refresh tokens in a mode-0600 AES-256-GCM vault.
+            OAuth runs in your phone browser via a 15-minute 6-digit code, keeping AES-256-GCM refresh
+            tokens on your local relay at mode 0600. Or paste any .ics feed without credentials.
           </p>
 
           <div className="border border-dashed border-[var(--hairline)] bg-[var(--surface)] p-4 space-y-3">
@@ -243,10 +243,10 @@ export function PairingSection({
               </button>
             )}
           </div>
-        </div>
+        </ScrollReveal>
 
         {/* Right: Interactive Pairing, Notion Auto-Schema, and .ics Import */}
-        <div className="lg:col-span-7 border border-dashed border-[var(--hairline)] bg-[var(--surface)]">
+        <ScrollReveal delay={0.06} className="lg:col-span-7 border border-dashed border-[var(--hairline)] bg-[var(--surface)]">
           <div className="p-6 border-b border-dashed border-[var(--hairline)] flex flex-wrap items-center justify-between gap-4">
             <div>
               <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lightgray)]">
@@ -402,7 +402,7 @@ export function PairingSection({
               </span>
             </div>
           </form>
-        </div>
+        </ScrollReveal>
       </div>
     </section>
   );

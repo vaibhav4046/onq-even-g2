@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   createInitialHudState,
   encodePcm16ToWav,
@@ -13,10 +14,17 @@ import type {
   SourceMode,
 } from '@oncue/core';
 import { EvidenceSection } from './components/EvidenceSection';
+import { G2Hardware3D } from './components/G2Hardware3D';
 import { G2LensCanvas } from './components/G2LensCanvas';
-import { HalftoneArtwork } from './components/HalftoneArtwork';
 import { startBrowserMicCapture } from './components/MicRecorder';
 import type { MicRecordingHandle } from './components/MicRecorder';
+import {
+  GlyphDecodeHeading,
+  KineticNumber,
+  MOTION_EASE,
+  ScrollProgressRail,
+  ScrollReveal,
+} from './components/MotionPrimitives';
 import { PairingSection } from './components/PairingSection';
 import {
   ClaudeLogo,
@@ -33,6 +41,7 @@ import {
   ShieldLockLogo,
   WhisperLogo,
 } from './components/PixelLogos';
+import { StickySafetyStory } from './components/StickySafetyStory';
 
 interface SnapshotState {
   calendarEvents: Array<{
@@ -625,8 +634,9 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-[var(--ink)] text-[var(--bright)]">
+      <ScrollProgressRail />
       {/* Sticky KaneCLI-styled Navbar */}
-      <header className="sticky top-0 z-40 h-16 bg-[var(--ink)] border-b border-[var(--hairline)]">
+      <header className="sticky top-0 z-40 h-16 bg-[var(--ink)]/95 backdrop-blur-sm border-b border-[var(--hairline)]">
         <div className="container-page h-full flex items-center justify-between gap-4">
           <a href="#top" className="flex items-center gap-3 group">
             <EvenG2Logo className="w-8 h-[19px]" />
@@ -647,14 +657,14 @@ export function App() {
           <div className="flex items-center gap-3">
             <a
               href="#pair"
-              className="px-4 py-2 border border-[var(--lime)] text-[var(--lime)] hover:bg-[var(--lime)] hover:text-[var(--ink)] text-xs sm:text-sm transition-colors"
+              className="px-4 py-2 border border-[var(--hairline)] text-[var(--bright)] hover:border-[var(--lime)] hover:text-[var(--lime)] text-xs sm:text-sm transition-colors"
             >
               Pair G2
             </a>
             <button
               type="button"
               onClick={() => void runVoicePreset('Push 15m and tell Priya')}
-              className="px-4 py-2 bg-[var(--bright)] text-[var(--ink)] hover:bg-[var(--lime)] text-xs sm:text-sm font-medium transition-colors cursor-pointer"
+              className="px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] hover:bg-[var(--bright)] text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
             >
               Run Voice Demo
             </button>
@@ -662,46 +672,86 @@ export function App() {
         </div>
       </header>
 
-      {/* Hero + Interactive 576x288 Simulator Workbench */}
+      {/* Hero + Interactive 3D G2 + Live Workbench */}
       <main id="top">
         <section id="simulator" className="py-12 sm:py-16 relative overflow-hidden">
-          <div className="container-page relative">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center mb-10 animate-rise">
-              <div className="lg:col-span-8 space-y-5">
-                <p className="font-pixel text-xs uppercase tracking-[0.25em] text-[var(--lightgray)]">
-                  TRACK 04 · AI ASSISTANTS &amp; WORK · EVEN HUB SDK 0.0.16
+          <div className="container-page relative space-y-12">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, ease: MOTION_EASE }}
+                className="lg:col-span-7 space-y-5"
+              >
+                <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
+                  EVEN REALITIES G2 · TRACK 04 · SDK 0.0.16
                 </p>
-                <h1 className="font-dots font-black leading-[0.95] tracking-[-0.02em] text-[2.4rem] sm:text-[3.5rem] lg:text-[4.25rem]">
+                <h1 className="font-dots font-black leading-[0.94] tracking-[-0.02em] text-[2.3rem] sm:text-[3.1rem] lg:text-[3.35rem] xl:text-[3.85rem]">
                   <span className="block text-[var(--lightgray)]">Own the 90 seconds</span>
                   <span className="block text-[var(--bright)]">between meetings.</span>
                 </h1>
-                <p className="text-sm md:text-base leading-relaxed text-[var(--lightgray)] max-w-2xl">
-                  OnCue fuses Google Calendar, Gmail, Drive, Notion, and .ics feeds into one 42-column
-                  glance on Even Realities G2, then executes voice-staged updates behind a Default-NO gate,
-                  2.0s optical Undo Ring, and HTTP 409 conflict hard-lock.
+                <p className="text-sm md:text-base leading-relaxed text-[var(--lightgray)] max-w-xl">
+                  Calendar, Gmail, Drive, and Notion fused onto Even G2 behind a Default-NO gate,
+                  2.0s undo ring, and HTTP 409 conflict hard-lock.
                 </p>
-                <div className="flex flex-wrap gap-2 pt-1" aria-label="Supported integrations and models">
-                  <PixelLogoChip icon={<GoogleWorkspaceLogo />} label="Google Workspace" />
-                  <PixelLogoChip icon={<GoogleCalendarLogo />} label="Calendar" />
-                  <PixelLogoChip icon={<GmailLogo />} label="Gmail" />
-                  <PixelLogoChip icon={<GoogleDriveLogo />} label="Drive" />
-                  <PixelLogoChip icon={<NotionLogo />} label="Notion" />
-                  <PixelLogoChip icon={<IcsCalendarLogo />} label=".ics RFC 5545" />
-                  <PixelLogoChip icon={<WhisperLogo />} label="Local Whisper" />
-                  <PixelLogoChip icon={<ClaudeLogo />} label="Claude" />
-                  <PixelLogoChip icon={<OpenAILogo />} label="ChatGPT / OpenRouter" />
-                  <PixelLogoChip icon={<NeonPostgresLogo />} label="Neon Postgres" />
+
+                {/* Quiet single-line pixel-SVG ecosystem rail */}
+                <div
+                  className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 pt-1 text-[10.5px] text-[var(--lightgray)]"
+                  aria-label="Supported integrations and models"
+                >
+                  <span className="inline-flex items-center gap-1.5 text-[var(--bright)]">
+                    <GoogleWorkspaceLogo className="w-3.5 h-3.5" /> Workspace
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <GoogleCalendarLogo className="w-3.5 h-3.5" /> Calendar
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <GmailLogo className="w-3.5 h-3.5" /> Gmail
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <GoogleDriveLogo className="w-3.5 h-3.5" /> Drive
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <NotionLogo className="w-3.5 h-3.5" /> Notion
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <IcsCalendarLogo className="w-3.5 h-3.5" /> .ics
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <WhisperLogo className="w-3.5 h-3.5" /> Whisper
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <ClaudeLogo className="w-3.5 h-3.5" /> Claude
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <OpenAILogo className="w-3.5 h-3.5" /> ChatGPT
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <NeonPostgresLogo className="w-3.5 h-3.5" /> Neon
+                  </span>
                 </div>
-              </div>
-              <div className="lg:col-span-4 flex flex-col items-end">
-                <div className="border border-dashed border-[var(--hairline)] bg-[var(--surface)] p-3 w-full max-w-[340px]">
-                  <HalftoneArtwork variant="optics" theme="dark" className="w-full h-auto" />
-                  <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--lightgray)]">
-                    <span>[ 1 ] 576x288 waveguide field</span>
-                    <span className="font-pixel text-[10px] text-[var(--lime)]">{sessionMode}</span>
-                  </div>
-                </div>
-              </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.55, delay: 0.08, ease: MOTION_EASE }}
+                className="lg:col-span-5"
+              >
+                <G2Hardware3D
+                  phase={hudState.phase}
+                  headerLine={`${sessionMode} | ${hudState.phase.toUpperCase()}`}
+                  primaryLine={
+                    hudState.cards[hudState.selectedCardIndex]?.title ?? 'VC Sync - Priya Nair'
+                  }
+                  ringProgress={
+                    hudState.countdownRemainingMs !== undefined
+                      ? Math.max(0.08, 1 - hudState.countdownRemainingMs / 2000)
+                      : 0
+                  }
+                />
+              </motion.div>
             </div>
 
             {/* Interactive 576x288 Simulator + Live Companion Control Center */}
@@ -743,7 +793,17 @@ export function App() {
                         SYNCING CORRIDOR DOSSIER...
                       </div>
                     ) : (
-                      <G2LensCanvas hudState={hudState} opticsMode={opticsMode} />
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={`${hudState.phase}-${hudState.selectedCardIndex}`}
+                          initial={{ opacity: 0.72, y: 3 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0.72 }}
+                          transition={{ duration: 0.16, ease: MOTION_EASE }}
+                        >
+                          <G2LensCanvas hudState={hudState} opticsMode={opticsMode} />
+                        </motion.div>
+                      </AnimatePresence>
                     )}
                   </div>
 
@@ -1039,67 +1099,8 @@ export function App() {
         {/* Research Citations, Problem Framework & 54-Entry Gallery Benchmark */}
         <EvidenceSection />
 
-        {/* 4-Layer Safety Matrix (#safety) */}
-        <section id="safety" className="section-rule py-20 sm:py-28">
-          <div className="container-page space-y-8">
-            <div className="space-y-3">
-              <p className="font-pixel text-xs uppercase tracking-[0.25em] text-[var(--lightgray)]">
-                WRITE SAFETY ARCHITECTURE
-              </p>
-              <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem] lg:text-[3.5rem]">
-                <span className="block text-[var(--lightgray)]">Voice never fires blind.</span>
-                <span className="block text-[var(--bright)]">Four deterministic locks.</span>
-              </h2>
-            </div>
-
-            <div>
-              <div className="bg-[var(--lime)] text-[#0a0a0a] p-6 border border-dashed border-[var(--hairline)] border-b-0 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <span className="font-pixel text-[10px] uppercase tracking-[0.2em] block">
-                    PREREQUISITE INVARIANT
-                  </span>
-                  <p className="font-display text-xl sm:text-2xl font-bold mt-1">
-                    Zero unconfirmed writes. Every workspace mutation passes all four checks:
-                  </p>
-                </div>
-                <span className="font-pixel text-xs uppercase tracking-[0.18em] bg-[#0a0a0a] text-[#f2f2f2] px-3 py-2 shrink-0">
-                  RMS &ge; 0.012 · TTL 45S
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px border border-dashed border-[var(--hairline)] bg-[var(--hairline)]">
-                {[
-                  {
-                    num: '01',
-                    title: 'Default-NO Gate',
-                    desc: 'Voice only stages a diff preview. Selection locks to [NO - CANCEL] until you swipe and tap.',
-                  },
-                  {
-                    num: '02',
-                    title: '2.0s PNG Undo Ring',
-                    desc: 'Custom 76x76 4-bit ring sweeps at 4 Hz. Any tap cancels with zero writes; 0.0s locks inputs synchronously.',
-                  },
-                  {
-                    num: '03',
-                    title: 'HTTP 409 Hard-Lock',
-                    desc: 'Re-queries Calendar Free/Busy, Gmail historyId, and Notion last_edited_time at commit time.',
-                  },
-                  {
-                    num: '04',
-                    title: 'Code-Guard Verifier',
-                    desc: 'Recipients bind strictly from server thread metadata. LLM-invented emails, times, or injections fall back safely.',
-                  },
-                ].map((item) => (
-                  <div key={item.num} className="bg-[var(--ink)] hover:bg-[var(--surface)] p-6 space-y-3 transition-colors">
-                    <div className="font-dots text-4xl font-black text-[var(--lime)]">{item.num}</div>
-                    <h3 className="font-display text-xl font-bold text-[var(--bright)]">{item.title}</h3>
-                    <p className="text-sm leading-relaxed text-[var(--lightgray)]">{item.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* Sticky Scroll Safety Story (#safety) */}
+        <StickySafetyStory />
 
         {/* Full-Bleed Light-Inversion Section (#hardware) */}
         <section
@@ -1108,17 +1109,16 @@ export function App() {
         >
           <div className="container-page space-y-12">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-              <div className="lg:col-span-7 space-y-4">
-                <p className="font-pixel text-xs uppercase tracking-[0.25em] text-[#525252]">
+              <ScrollReveal className="lg:col-span-6 space-y-4">
+                <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[#525252]">
                   HARDWARE &amp; UNIT ECONOMICS
                 </p>
                 <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem] lg:text-[3.5rem]">
                   <span className="block text-[#525252]">Built for 576x288.</span>
-                  <span className="block text-[#0a0a0a]">Zero phone clutter.</span>
+                  <GlyphDecodeHeading text="Zero phone clutter." className="block text-[#0a0a0a]" />
                 </h2>
-                <p className="text-sm md:text-base leading-relaxed text-[#525252] max-w-xl">
-                  Exercises all three Even Hub SDK 0.0.16 containers (Text, native List, 4-bit Image),
-                  proto3 omitted-zero normalization, defensive audio frame slicing, and zero-custody local Whisper.
+                <p className="text-sm md:text-base leading-relaxed text-[#525252] max-w-lg">
+                  Text, native List, and 76x76 4-bit Ring containers packed cleanly into Even Hub SDK 0.0.16.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1" aria-label="Hardware and local runtime stack">
                   <PixelLogoChip theme="light" icon={<EvenG2Logo theme="light" className="w-6 h-3.5" />} label="Even G2" />
@@ -1126,49 +1126,55 @@ export function App() {
                   <PixelLogoChip theme="light" icon={<NeonPostgresLogo theme="light" />} label="Neon Postgres" />
                   <PixelLogoChip theme="light" icon={<ShieldLockLogo theme="light" />} label="Zero Keys in WebView" />
                 </div>
-              </div>
-              <div className="lg:col-span-5 flex flex-col items-end">
-                <div className="border border-dashed border-[#c4c4c4] bg-[#e8e8e8] p-4 w-full max-w-[340px]">
-                  <HalftoneArtwork variant="ring" theme="light" className="w-full h-auto" />
-                  <div className="mt-2 text-[11px] text-[#525252]">
-                    [ 2 ] 76x76 4-bit Gray8 Countdown Ring
-                  </div>
-                </div>
-              </div>
+              </ScrollReveal>
+              <ScrollReveal delay={0.08} className="lg:col-span-6">
+                <G2Hardware3D
+                  theme="light"
+                  defaultMode="ring"
+                  phase={hudState.phase}
+                  headerLine="R1 GESTURE + G2"
+                  primaryLine="76x76 4-BIT RING"
+                />
+              </ScrollReveal>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 border-t border-b border-dashed border-[#c4c4c4] divide-y md:divide-y-0 md:divide-x divide-dashed divide-[#c4c4c4]">
-              {[
-                {
-                  rank: '42col',
-                  metric: '576x288 / <= 999B',
-                  tag: 'OPTICAL BUDGET',
-                  desc: 'Word-boundary wrapped body lines capped at 999 UTF-8 bytes with >= 70% pure black transparent waveguide pixels.',
-                },
-                {
-                  rank: '0ms',
-                  metric: 'Local Rules + Whisper',
-                  tag: 'ZERO PAID KEYS NEEDED',
-                  desc: 'Deterministic triage rules, chrono-node dates, and local faster-whisper 16 kHz PCM STT run at £0 API cost.',
-                },
-                {
-                  rank: '$7/mo',
-                  metric: '~$0.001 / brief est.',
-                  tag: 'TARGET PRO MODEL',
-                  desc: 'Planned Work-Pro tier (unlaunched). Deterministic rules handle 80% of ranking before optional LLM compression.',
-                },
-              ].map((spec) => (
-                <div key={spec.rank} className="py-8 md:px-6 first:md:pl-0 last:md:pr-0 space-y-3">
-                  <div className="font-dots text-5xl sm:text-6xl font-black leading-none text-[#0a0a0a]">
-                    {spec.rank}
-                  </div>
-                  <div className="font-display text-2xl font-bold text-[#0a0a0a]">{spec.metric}</div>
-                  <span className="inline-block bg-[var(--lime)] text-[#0a0a0a] px-2 py-0.5 font-pixel text-[10px] uppercase tracking-[0.15em]">
-                    {spec.tag}
-                  </span>
-                  <p className="text-sm text-[#525252] leading-relaxed">{spec.desc}</p>
+              <div className="py-8 md:pr-6 space-y-2.5">
+                <div className="font-dots text-5xl sm:text-6xl font-black leading-none text-[#0a0a0a]">
+                  <KineticNumber value={163} />
                 </div>
-              ))}
+                <div className="font-display text-2xl font-bold text-[#0a0a0a]">Passing Tests</div>
+                <span className="inline-block bg-[#0a0a0a] text-[#f2f2f2] px-2 py-0.5 font-pixel text-[10px] uppercase tracking-[0.15em]">
+                  CLEAN-ROOM VERIFIED
+                </span>
+                <p className="text-sm text-[#525252] leading-relaxed">
+                  113 pure core + 50 server/live-provider tests plus 11/11 Chromium geometry checks.
+                </p>
+              </div>
+              <div className="py-8 md:px-6 space-y-2.5">
+                <div className="font-dots text-5xl sm:text-6xl font-black leading-none text-[#0a0a0a]">
+                  <KineticNumber value={576} />px
+                </div>
+                <div className="font-display text-2xl font-bold text-[#0a0a0a]">&lt;= 999 UTF-8 Bytes</div>
+                <span className="inline-block bg-[#0a0a0a] text-[#f2f2f2] px-2 py-0.5 font-pixel text-[10px] uppercase tracking-[0.15em]">
+                  OPTICAL BUDGET
+                </span>
+                <p className="text-sm text-[#525252] leading-relaxed">
+                  42-column word wrapping with &gt;= 97% pure black transparent waveguide background.
+                </p>
+              </div>
+              <div className="py-8 md:pl-6 space-y-2.5">
+                <div className="font-dots text-5xl sm:text-6xl font-black leading-none text-[#0a0a0a]">
+                  $<KineticNumber value={7} />/mo
+                </div>
+                <div className="font-display text-2xl font-bold text-[#0a0a0a]">~$0.001 / brief est.</div>
+                <span className="inline-block bg-[var(--lime)] text-[#0a0a0a] px-2 py-0.5 font-pixel text-[10px] uppercase tracking-[0.15em]">
+                  PLANNED PRO TIER
+                </span>
+                <p className="text-sm text-[#525252] leading-relaxed">
+                  Local Whisper, chrono-node, and SQLite run at £0 API cost; cloud LLM stays optional.
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -1176,17 +1182,18 @@ export function App() {
         {/* 4-Column Corridor Modes (#modes) */}
         <section id="modes" className="section-rule py-20 sm:py-28">
           <div className="container-page space-y-8">
-            <div className="space-y-3">
-              <p className="font-pixel text-xs uppercase tracking-[0.25em] text-[var(--lightgray)]">
+            <ScrollReveal className="space-y-2">
+              <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
                 CORRIDOR WORKFLOWS
               </p>
               <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem] lg:text-[3.5rem]">
                 <span className="block text-[var(--lightgray)]">Four core loops.</span>
-                <span className="block text-[var(--bright)]">Zero dead widgets.</span>
+                <GlyphDecodeHeading text="Zero dead widgets." className="block text-[var(--bright)]" />
               </h2>
-            </div>
+            </ScrollReveal>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px border border-dashed border-[var(--hairline)] bg-[var(--hairline)]">
+            <ScrollReveal delay={0.06}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px border border-dashed border-[var(--hairline)] bg-[var(--hairline)]">
               {[
                 {
                   num: '01',
@@ -1282,6 +1289,7 @@ export function App() {
                 </div>
               ))}
             </div>
+            </ScrollReveal>
           </div>
         </section>
 
@@ -1310,38 +1318,38 @@ export function App() {
         {/* Technical FAQ (#faq) */}
         <section id="faq" className="section-rule py-20 sm:py-28">
           <div className="container-page grid grid-cols-1 lg:grid-cols-12 gap-12">
-            <div className="lg:col-span-5 space-y-4">
-              <p className="font-pixel text-xs uppercase tracking-[0.25em] text-[var(--lightgray)]">
-                TECHNICAL NOTES &amp; HONEST LIMITS
+            <ScrollReveal className="lg:col-span-5 space-y-4">
+              <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
+                TECHNICAL NOTES
               </p>
               <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem]">
                 <span className="block text-[var(--lightgray)]">How it works.</span>
-                <span className="block text-[var(--bright)]">No guesswork.</span>
+                <GlyphDecodeHeading text="No guesswork." className="block text-[var(--bright)]" />
               </h2>
               <ul className="space-y-2 text-sm text-[var(--lightgray)] pt-2">
-                <li>-&gt; Tested in Even Hub Simulator 0.9.5 and Chromium Geometry Gate.</li>
+                <li>-&gt; Verified on Even Hub Simulator 0.9.5 &amp; Chromium Geometry Gate.</li>
                 <li>-&gt; Physical Even G2 + R1 ring hardware testing pending.</li>
-                <li>-&gt; Strictly Track 04 providers: Google Workspace, Notion, Claude/OpenRouter/ChatGPT.</li>
+                <li>-&gt; Google Workspace, Notion 2026-03-11, Claude / OpenRouter / ChatGPT.</li>
               </ul>
-            </div>
+            </ScrollReveal>
 
-            <div className="lg:col-span-7 divide-y divide-dashed divide-[var(--hairline)] border-t border-b border-dashed border-[var(--hairline)]">
+            <ScrollReveal delay={0.06} className="lg:col-span-7 divide-y divide-dashed divide-[var(--hairline)] border-t border-b border-dashed border-[var(--hairline)]">
               {[
                 {
-                  q: 'Why does OnCue pair OAuth on the phone instead of inside the G2 WebView?',
-                  a: 'Google blocks OAuth consent screens inside embedded WebViews. Pairing generates a 15-minute single-use 6-digit code (locked after 10 wrong tries) and keeps AES-256-GCM encrypted refresh tokens strictly on your local relay at mode 0600.',
+                  q: 'Why pair OAuth on phone instead of inside the G2 WebView?',
+                  a: 'Google blocks OAuth inside embedded WebViews. Pairing uses a 15m single-use code (10-try lockout) and stores AES-256-GCM tokens on disk at mode 0600.',
                 },
                 {
-                  q: 'What prevents an email prompt injection from emailing an attacker?',
-                  a: 'External email and Drive bodies are wrapped in <untrusted_workspace_data> tags, reply recipients are bound strictly from Gmail thread metadata on the server (spoofed "to" fields return HTTP 400), and Code-Guard validates every fact before staging a Default-NO preview.',
+                  q: 'How are email prompt injections blocked?',
+                  a: 'Workspace bodies stay inside <untrusted_workspace_data> tags, reply recipients bind server-side (HTTP 400 on spoofed "to"), and Code-Guard validates every fact.',
                 },
                 {
-                  q: 'What happens if I tap twice right as the 2.0s Undo Ring hits 0.0s?',
-                  a: 'At 0.0s, the state machine synchronously transitions from armed to committing before awaiting network I/O, locking all taps and scrolls. On the server, preview tokens are single-use (409 on replay) and backed by a SHA-256 idempotency key.',
+                  q: 'What happens if I tap right as the 2.0s Undo Ring hits 0.0s?',
+                  a: 'The state machine locks inputs synchronously at 0.0s before network I/O. Server preview tokens are single-use (409 on replay) with SHA-256 idempotency keys.',
                 },
                 {
-                  q: 'Does OnCue require an LLM API key or cloud database to work?',
-                  a: 'No. Triage ranking, chrono-node date resolution, conflict hard-locking, faster-whisper STT, and node:sqlite storage all run locally with zero paid keys. Optional Claude/OpenRouter/ChatGPT keys and Neon DATABASE_URL plug in cleanly when provided.',
+                  q: 'Does OnCue need paid API keys or cloud hosting to run?',
+                  a: 'No. Rules triage, chrono-node, faster-whisper STT, and node:sqlite run locally at £0; Claude/OpenRouter/ChatGPT and Neon Postgres remain optional.',
                 },
               ].map((item) => (
                 <details key={item.q} className="group py-5">
@@ -1354,7 +1362,7 @@ export function App() {
                   <p className="mt-3 text-sm leading-relaxed text-[var(--lightgray)]">{item.a}</p>
                 </details>
               ))}
-            </div>
+            </ScrollReveal>
           </div>
         </section>
       </main>

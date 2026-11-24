@@ -60,6 +60,7 @@ export function discoverNotionDatabaseSchema(
 
 export class NotionWorkspaceClient {
   private cachedSchema: DiscoveredNotionSchema | null = null;
+  private cachedDataSourceId: string | null = null;
 
   constructor(
     private readonly token: string,
@@ -69,10 +70,14 @@ export class NotionWorkspaceClient {
     registerSecretForRedaction(token);
   }
 
+  private apiVersion(): string {
+    return process.env.NOTION_API_VERSION ?? '2026-03-11';
+  }
+
   private headers(): Record<string, string> {
     return {
       Authorization: `Bearer ${this.token}`,
-      'Notion-Version': process.env.NOTION_API_VERSION ?? '2022-06-28',
+      'Notion-Version': this.apiVersion(),
       'Content-Type': 'application/json',
     };
   }
@@ -87,10 +92,13 @@ export class NotionWorkspaceClient {
   }
 
   async archivePage(pageId: string): Promise<void> {
+    const useTrash =
+      Boolean(this.cachedDataSourceId) ||
+      (process.env.NOTION_API_VERSION !== undefined && process.env.NOTION_API_VERSION >= '2026-03-11');
     const res = await this.fetchImpl(`https://api.notion.com/v1/pages/${encodeURIComponent(pageId)}`, {
       method: 'PATCH',
       headers: this.headers(),
-      body: JSON.stringify({ archived: true }),
+      body: JSON.stringify(useTrash ? { in_trash: true } : { archived: true }),
     });
     if (!res.ok) throw new Error(`Notion archive failed: HTTP ${res.status}`);
   }
@@ -117,15 +125,38 @@ export class NotionWorkspaceClient {
       { headers: this.headers() },
     );
     if (!res.ok) throw new Error(`Notion inspect failed: HTTP ${res.status}`);
-    const data = (await res.json()) as { properties: Record<string, NotionPropertySchema> };
+    const data = (await res.json()) as {
+      properties?: Record<string, NotionPropertySchema>;
+      data_sources?: Array<{ id: string; name?: string }>;
+    };
+
+    // Notion API 2025-09-03 / 2026-03-11: databases are containers with child data_sources
+    const firstDsId = data.data_sources?.[0]?.id;
+    if (firstDsId) {
+      this.cachedDataSourceId = firstDsId;
+      if (!data.properties) {
+        const dsRes = await this.fetchImpl(
+          `https://api.notion.com/v1/data_sources/${encodeURIComponent(firstDsId)}`,
+          { headers: this.headers() },
+        );
+        if (!dsRes.ok) throw new Error(`Notion data source inspect failed: HTTP ${dsRes.status}`);
+        const dsData = (await dsRes.json()) as { properties?: Record<string, NotionPropertySchema> };
+        this.cachedSchema = discoverNotionDatabaseSchema(dsData.properties ?? {});
+        return this.cachedSchema;
+      }
+    }
+
     this.cachedSchema = discoverNotionDatabaseSchema(data.properties ?? {});
     return this.cachedSchema;
   }
 
   async queryOpenTasks(): Promise<NotionTaskItem[]> {
     const schema = await this.inspectSchema();
+    const queryUrl = this.cachedDataSourceId
+      ? `https://api.notion.com/v1/data_sources/${encodeURIComponent(this.cachedDataSourceId)}/query`
+      : `https://api.notion.com/v1/databases/${encodeURIComponent(this.databaseId)}/query`;
     const res = await this.fetchImpl(
-      `https://api.notion.com/v1/databases/${encodeURIComponent(this.databaseId)}/query`,
+      queryUrl,
       {
         method: 'POST',
         headers: this.headers(),
@@ -175,7 +206,9 @@ export class NotionWorkspaceClient {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({
-        parent: { database_id: this.databaseId },
+        parent: this.cachedDataSourceId
+          ? { type: 'data_source_id', data_source_id: this.cachedDataSourceId }
+          : { database_id: this.databaseId },
         properties: props,
       }),
     });

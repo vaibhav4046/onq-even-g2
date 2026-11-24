@@ -911,4 +911,70 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
     };
     expect(ws.auditLog.some((e) => e.kind === 'RMS_BLOCK')).toBe(true);
   });
+
+  it('25. NotionWorkspaceClient supports 2026-03-11 data_sources schema, query, create, and in_trash undo', async () => {
+    const calls: Array<{ url: string; method: string; body?: string; version?: string }> = [];
+    const dsFetch = (async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? 'GET';
+      const headers = (init?.headers ?? {}) as Record<string, string>;
+      calls.push({ url, method, body: init?.body ? String(init.body) : undefined, version: headers['Notion-Version'] });
+      if (url.endsWith('/v1/databases/db-2026')) {
+        return new Response(JSON.stringify({ id: 'db-2026', data_sources: [{ id: 'ds-99', name: 'Tasks' }] }), { status: 200 });
+      }
+      if (url.endsWith('/v1/data_sources/ds-99') && method === 'GET') {
+        return new Response(
+          JSON.stringify({
+            id: 'ds-99',
+            properties: {
+              TaskName: { id: 'title', type: 'title' },
+              TargetDate: { id: 'dt', type: 'date' },
+              DoneFlag: { id: 'chk', type: 'checkbox' },
+            },
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.endsWith('/v1/data_sources/ds-99/query') && method === 'POST') {
+        return new Response(
+          JSON.stringify({
+            results: [
+              {
+                id: 'pg-ds-1',
+                last_edited_time: '2026-11-24T12:00:00Z',
+                properties: {
+                  TaskName: { title: [{ plain_text: 'Send Q4 metrics' }] },
+                  TargetDate: { date: { start: '2026-11-26' } },
+                  DoneFlag: { checkbox: false },
+                },
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.endsWith('/v1/pages') && method === 'POST') {
+        return new Response(JSON.stringify({ id: 'pg-new-2026', last_edited_time: '2026-11-24T12:01:00Z' }), { status: 200 });
+      }
+      if (url.endsWith('/v1/pages/pg-new-2026') && method === 'PATCH') {
+        return new Response(JSON.stringify({ id: 'pg-new-2026' }), { status: 200 });
+      }
+      return new Response('not found', { status: 404 });
+    }) as unknown as typeof fetch;
+
+    const notion = new NotionWorkspaceClient('secret_test_notion_2026', 'db-2026', dsFetch);
+    const tasks = await notion.queryOpenTasks();
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].title).toBe('Send Q4 metrics');
+    const created = await notion.createTask('Follow up Priya', '2026-11-27');
+    expect(created.pageId).toBe('pg-new-2026');
+    await notion.archivePage(created.pageId);
+
+    expect(calls[0].version).toBe('2026-03-11');
+    expect(calls.some((c) => c.url.endsWith('/v1/data_sources/ds-99/query'))).toBe(true);
+    const createBody = JSON.parse(calls.find((c) => c.url.endsWith('/v1/pages'))?.body ?? '{}');
+    expect(createBody.parent).toEqual({ type: 'data_source_id', data_source_id: 'ds-99' });
+    const trashBody = JSON.parse(calls.find((c) => c.url.endsWith('/v1/pages/pg-new-2026'))?.body ?? '{}');
+    expect(trashBody).toEqual({ in_trash: true });
+  });
 });
