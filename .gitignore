@@ -1,0 +1,16 @@
+node_modules/
+dist/
+apps/*/dist/
+packages/*/dist/
+data/
+.env
+.env.*
+*.sqlite
+*.sqlite-*
+*.ehpk
+!dist/oncue.ehpk
+media/audio/*.wav
+media/out/frame-check-*.png
+docs/screenshots/*.tmp.png
+.DS_Store
+Thumbs.db

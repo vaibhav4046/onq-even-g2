@@ -1,0 +1,29 @@
+{
+  "name": "oncue-even-g2",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @oncue/core && npm run build -w @oncue/server && npm run build -w @oncue/glasses && npm run build -w @oncue/web",
+    "test": "vitest run",
+    "pack": "node scripts/pack-ehpk.mjs",
+    "verify:geometry": "node scripts/verify-geometry.mjs",
+    "verify:sim": "node scripts/verify-sim.mjs",
+    "verify:security": "node scripts/security-scan.mjs",
+    "dev:server": "npm run dev -w @oncue/server",
+    "dev:web": "npm run dev -w @oncue/web",
+    "dev": "node scripts/dev.mjs"
+  },
+  "devDependencies": {
+    "@evenrealities/evenhub-cli": "0.2.0",
+    "@evenrealities/evenhub-simulator": "0.9.5",
+    "playwright": "^1.52.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.2",
+    "vitest": "^3.1.1"
+  }
+}

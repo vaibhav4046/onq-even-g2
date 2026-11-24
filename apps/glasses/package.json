@@ -1,0 +1,17 @@
+{
+  "name": "@oncue/glasses",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite --port 5174"
+  },
+  "dependencies": {
+    "@evenrealities/even_hub_sdk": "0.0.16",
+    "@oncue/core": "*"
+  },
+  "devDependencies": {
+    "vite": "^6.2.0"
+  }
+}

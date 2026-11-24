@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OnCue - Even G2</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #000000;
+        color: #34f57e;
+        font-family: 'Courier New', Courier, monospace;
+      }
+      #g2-preview {
+        width: 576px;
+        height: 288px;
+        background: #000000;
+        border: 1px solid #1a261f;
+        box-sizing: border-box;
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      pre {
+        margin: 0;
+        font-size: 16px;
+        line-height: 1.45;
+        white-space: pre;
+      }
+      .ring-wrap {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      #ring-img {
+        width: 76px;
+        height: 76px;
+        display: none;
+        image-rendering: pixelated;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="g2-preview">
+      <div class="ring-wrap">
+        <img id="ring-img" alt="Countdown ring" />
+        <pre id="lens-text">ONCUE | INITIALIZING...</pre>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
