@@ -1,0 +1,233 @@
+﻿=== CLEAN ROOM CLONE VERIFICATION ===
+Commit: 68c5233
+Timestamp: 2026-11-24T18:31:14.5018010+00:00
+--- npm ci ---
+
+added 134 packages, and audited 145 packages in 7s
+
+24 packages are looking for funding
+  run `npm fund` for details
+
+3 vulnerabilities (1 moderate, 2 critical)
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+node.exe : npm warn install-scripts 2 packages have install scripts not yet covered by allowScripts:
+At line:1 char:1
++ & "D:\/node.exe" "D:\/node_modules/npm/bin/npm-cli.js" ci
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn instal...y allowScripts::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+npm warn install-scripts   esbuild@0.25.12 (postinstall: node install.js)
+npm warn install-scripts   esbuild@0.28.2 (postinstall: node install.js)
+npm warn install-scripts
+npm warn install-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.
+
+--- npm test ---
+
+> oncue-even-g2@1.0.0 pretest
+> npm run build -w @oncue/core
+
+
+> @oncue/core@1.0.0 build
+> tsc -p tsconfig.json
+
+
+> oncue-even-g2@1.0.0 test
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/lalwa/AppData/Local/Temp/oncue-clean-clone[39m
+
+ [32m✓[39m packages/core/tests/conflictEngine.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m packages/core/tests/factGuard.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m packages/core/tests/formatter.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m packages/core/tests/evenEvents.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m packages/core/tests/pngRing.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m packages/core/tests/stateMachine.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+ [32m✓[39m packages/core/tests/intentParser.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 94[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m1. /api/health returns DEMO mode when no live keys configured
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63208
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m2. rejects unknown CORS Origin with HTTP 403
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63210
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m3. rejects unauthenticated requests to protected routes with HTTP 401
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63212
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m4. pairing code exchange works and locks out after 10 wrong attempts (HTTP 429)
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63215
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m5. valid pairing code returns opaque Bearer token and single-use blocks reuse
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63218
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m6. RMS silence gate rejects silent WAV with 0 STT engine calls
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63221
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m7. spoken 16 kHz PCM WAV passes silence gate and transcribes cleanly
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63224
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m8. rejects oversized WAV (> 512 KB) with HTTP 413
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63227
+
+node.exe : [90mstderr[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & 
+fault-injection suite[2m > [22m[2m8. rejects oversized WAV (> 512 KB) with HTTP 413
+At line:1 char:1
++ & "D:\/node.exe" "D:\/node_modules/npm/bin/npm-cli.js" test
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([90mstderr[2m...) with HTTP 413:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[22m[39m[oncue:http:error] Payload exceeds 524288 byte cap
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m9. full end-to-end Read -> Stage -> Commit -> Receipt shifts calendar & sends email
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63230
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m10. rejects client-spoofed recipient "to" field with HTTP 400
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63233
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m11. Calendar conflict returns HTTP 409 CONFLICT_CALENDAR_BUSY with nextFreeSlot and 0 writes
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63236
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m12. Stale thread drift at commit time hard-locks with HTTP 409
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63239
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m13. expired previewToken (45s TTL) returns HTTP 410
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63243
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m14. previewToken replay (without matching idempotencyKey) returns HTTP 409
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63248
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m15. idempotencyKey retry returns cached receipt with 1 total execution
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63251
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m16. SEND_UNKNOWN 504 records receipt status and never auto-retries
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63254
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m17. offline Workspace outage returns STALE cached dossier instead of blank screen
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63257
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m18. upstream 429 rate limit surfaces honest 429 retry message
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63260
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m19. surgical undo reverses Calendar move and deletes draft
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63263
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m20. per-minute write rate cap blocks > 10 commits with HTTP 429
+[22m[39m[oncue:server] OnCue relay listening on http://127.0.0.1:63266
+
+ [32m✓[39m apps/server/tests/server.integration.test.ts [2m([22m[2m25 tests[22m[2m)[22m[33m 1913[2mms[22m[39m
+   [33m[2m✓[22m[39m apps/server integration & fault-injection suite[2m > [22m14. previewToken replay (without matching idempotencyKey) returns HTTP 409 [33m 410[2mms[22m[39m
+   [33m[2m✓[22m[39m apps/server integration & fault-injection suite[2m > [22m20. per-minute write rate cap blocks > 10 commits with HTTP 429 [33m 357[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[32m130 passed[39m[22m[90m (130)[39m
+[2m   Start at [22m 18:31:24
+[2m   Duration [22m 3.25s[2m (transform 610ms, setup 0ms, collect 5.05s, tests 2.10s, environment 2ms, prepare 1.37s)[22m
+
+
+--- npm run build ---
+
+> oncue-even-g2@1.0.0 build
+> npm run build -w @oncue/core && npm run build -w @oncue/server && npm run build -w @oncue/glasses && npm run build -w @oncue/web
+
+
+> @oncue/core@1.0.0 build
+> tsc -p tsconfig.json
+
+
+> @oncue/server@1.0.0 build
+> tsc -p tsconfig.json
+
+
+> @oncue/glasses@1.0.0 build
+> vite build
+
+[36mvite v6.4.6 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 280 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                [39m[1m[2m  1.34 kB[22m[1m[22m[2m │ gzip:  0.65 kB[22m
+[2mdist/[22m[36massets/index-YCA6BTl6.js  [39m[1m[2m106.64 kB[22m[1m[22m[2m │ gzip: 40.70 kB[22m
+[32m✓ built in 817ms[39m
+
+> @oncue/web@1.0.0 build
+> vite build
+
+[36mvite v7.3.8 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m✓[39m 307 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                 [39m[1m[2m  0.82 kB[22m[1m[22m[2m │ gzip:  0.45 kB[22m
+[2mdist/[22m[35massets/index-NV44PTYj.css  [39m[1m[2m 21.92 kB[22m[1m[22m[2m │ gzip:  5.11 kB[22m
+[2mdist/[22m[36massets/index-gW49Zm2K.js   [39m[1m[2m280.80 kB[22m[1m[22m[2m │ gzip: 86.00 kB[22m
+[32m✓ built in 1.38s[39m
+
+--- npm run pack ---
+
+> oncue-even-g2@1.0.0 pack
+> node scripts/pack-ehpk.mjs
+
+Stamped C:\Users\lalwa\AppData\Local\Temp\oncue-clean-clone\dist\oncue.ehpk (44228 bytes)
+min_app_version 2.2.10  (SDK 0.0.16, --sdk-ver)
+Next  evenhub create C:\Users\lalwa\AppData\Local\Temp\oncue-clean-clone\dist\oncue.ehpk --name <name> --tagline <tagline>, or evenhub upload C:\Users\lalwa\AppData\Local\Temp\oncue-clean-clone\dist\oncue.ehpk -m <changelog>
+[pack] Built C:\Users\lalwa\AppData\Local\Temp\oncue-clean-clone\dist\oncue.ehpk (44228 bytes)
+
+--- npm run verify:geometry ---
+
+> oncue-even-g2@1.0.0 verify:geometry
+> node scripts/verify-geometry.mjs
+
+[geometry:PASS] DOSSIER            | lines=7 | bytes=255 | dark=97.3%
+[geometry:PASS] DETAIL             | lines=7 | bytes=220 | dark=97.8%
+[geometry:PASS] VOICE_LISTENING    | lines=7 | bytes=216 | dark=98.0%
+[geometry:PASS] PREVIEW_DEFAULT_NO | lines=7 | bytes=257 | dark=97.4%
+[geometry:PASS] ARMED_RING         | lines=7 | bytes=242 | dark=97.3%
+[geometry:PASS] CONFLICT_409       | lines=7 | bytes=235 | dark=97.6%
+[geometry:PASS] RECEIPT_DONE       | lines=7 | bytes=223 | dark=97.7%
+[geometry:PASS] STALE_OFFLINE      | lines=7 | bytes=238 | dark=97.6%
+[geometry:PASS] EMPTY_ALL_CLEAR    | lines=6 | bytes=204 | dark=98.0%
+[geometry:PASS] CHECK 11 NEGATIVE CONTROL caught 3 injected defects
+[geometry:PASS] All 11 checks + desktop/mobile UI checks passed with 0 console errors.
+
+--- npm run verify:security ---
+
+> oncue-even-g2@1.0.0 verify:security
+> node scripts/security-scan.mjs
+
+[oncue:server] OnCue relay listening on http://127.0.0.1:63291
+node.exe : [oncue:http:error] Payload exceeds 524288 byte cap
+At line:1 char:1
++ & "D:\/node.exe" "D:\/node_modules/npm/bin/npm-cli.js" run verify:sec ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([oncue:http:err...524288 byte cap:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+# OnCue Security Audit Report
+
+Generated: 2026-11-24T18:32:02.534Z
+Overall Verdict: PASS (0 High/Critical findings)
+
+| Security Domain | Status | Evidence |
+| :--- | :--- | :--- |
+| 1. Zero Secrets in Source | PASS | 0 hits across 53 files |
+| 2. Zero Secrets in .ehpk Bundle | PASS | EHPK (44228 bytes) + 4 packed files scanned, 0 secret hits |
+| 3. Static Hygiene (No eval / dangerouslySetInnerHTML) | PASS | 0 hits |
+| 4. Strict CORS Allowlist | PASS | Evil origin -> HTTP 403 |
+| 5. Bearer Session Enforcement | PASS | Missing token -> HTTP 401 |
+| 6. Server-Bound Recipient Guard | PASS | Spoofed "to" -> HTTP 400 |
+| 7. Audio Payload Cap (<= 512 KB) | PASS | 600 KB WAV -> HTTP 413 |
+| 8. RMS Silence Gate | PASS | rejectedSilent=true, engine=rms-silence-gate |
+| 9. AES-256-GCM Encrypted Token Vault | PASS | Plaintext secret absent on disk; AES-256-GCM envelope verified |
+| 10. Production Dependency Audit | PASS | npm audit --omit=dev: 0 vulnerabilities |
+
+## Findings
+None. All automated static and negative HTTP security gates passed.
+
+
+=== ALL CLEAN ROOM GATES PASSED ===
