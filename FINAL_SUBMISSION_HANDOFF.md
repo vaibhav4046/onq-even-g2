@@ -1,6 +1,6 @@
 # OnQ - Final Hackathon & Product Hunt Submission Handoff
 
-**Clean-Room Verified Code Commit:** Updating cleanly on clean-room run (verified in `docs/VERIFICATION_LOG.txt`)
+**Clean-Room Verified Code Commit:** `bbed3f1` (verified in `docs/VERIFICATION_LOG.txt`)
 **Project Root:** `C:\Users\lalwa\.gemini\antigravity\scratch\oncue-even-g2`
 **Hard Safety Stop Enforced:** All local building, testing, `.ehpk` packaging, simulator capture, security auditing, UI overhaul, and launch film rendering are complete. External DoraHacks / Product Hunt submission and any paid hosting remain unsubmitted for your manual review and final click.
 
