@@ -5,7 +5,7 @@ const SAMPLE_ICS = [
   'BEGIN:VCALENDAR',
   'VERSION:2.0',
   'BEGIN:VEVENT',
-  'UID:evt-101@oncue.test',
+  'UID:evt-101@onq.test',
   'DTSTART:20261124T140000Z',
   'DTEND:20261124T143000Z',
   'SUMMARY:VC Sync with Priya Nair',
@@ -13,14 +13,14 @@ const SAMPLE_ICS = [
   'DESCRIPTION:Agenda and deck at https://docs.google.com/document/d/abc123',
   'END:VEVENT',
   'BEGIN:VEVENT',
-  'UID:evt-102@oncue.test',
+  'UID:evt-102@onq.test',
   'DTSTART;TZID=Europe/London:20261124T151500',
   'SUMMARY:Folded Line',
   '  Partner Review',
   'ATTENDEE;CN=Alex Chen:mailto:alex@partner.example',
   'END:VEVENT',
   'BEGIN:VEVENT',
-  'UID:evt-old@oncue.test',
+  'UID:evt-old@onq.test',
   'DTSTART:20261124T080000Z',
   'DTEND:20261124T083000Z',
   'SUMMARY:Morning Standup',
@@ -32,7 +32,7 @@ describe('icsParser.ts', () => {
   it('1. parses UTC VEVENTs, attendees, and linked Google Doc URLs', () => {
     const events = parseIcsEvents(SAMPLE_ICS);
     expect(events).toHaveLength(3);
-    expect(events[1].uid).toBe('evt-101@oncue.test');
+    expect(events[1].uid).toBe('evt-101@onq.test');
     expect(events[1].summary).toBe('VC Sync with Priya Nair');
     expect(events[1].startIso).toBe('2026-11-24T14:00:00.000Z');
     expect(events[1].attendeeEmail).toBe('priya@tvm.example');
@@ -42,7 +42,7 @@ describe('icsParser.ts', () => {
 
   it('2. unfolds RFC 5545 continuation lines and parses TZID timestamps', () => {
     const events = parseIcsEvents(SAMPLE_ICS);
-    const partner = events.find((e) => e.uid === 'evt-102@oncue.test');
+    const partner = events.find((e) => e.uid === 'evt-102@onq.test');
     expect(partner?.summary).toBe('Folded Line Partner Review');
     expect(partner?.startIso).toBe('2026-11-24T15:15:00.000Z');
     // Defaults endIso to +30m when DTEND omitted
@@ -51,7 +51,7 @@ describe('icsParser.ts', () => {
 
   it('3. filters past events older than 30m when nowIso is supplied', () => {
     const events = parseIcsEvents(SAMPLE_ICS, '2026-11-24T13:45:00.000Z');
-    expect(events.map((e) => e.uid)).toEqual(['evt-101@oncue.test', 'evt-102@oncue.test']);
+    expect(events.map((e) => e.uid)).toEqual(['evt-101@onq.test', 'evt-102@onq.test']);
   });
 
   it('4. parses all-day YYYYMMDD dates cleanly', () => {

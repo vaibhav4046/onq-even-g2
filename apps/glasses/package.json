@@ -1,5 +1,5 @@
 {
-  "name": "@oncue/glasses",
+  "name": "@onq/glasses",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@evenrealities/even_hub_sdk": "0.0.16",
-    "@oncue/core": "*"
+    "@onq/core": "*"
   },
   "devDependencies": {
     "vite": "^6.2.0"

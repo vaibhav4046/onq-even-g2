@@ -4,7 +4,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { chromium } from 'playwright';
-import { createOnCueServer } from '../apps/server/dist/server.js';
+import { createOnQServer } from '../apps/server/dist/server.js';
 
 const ROOT = process.cwd();
 const WEB_DIST = path.join(ROOT, 'apps', 'web', 'dist');
@@ -199,8 +199,8 @@ async function recordClip(browser, url, outName, runnerFn) {
 }
 
 async function main() {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-rec-'));
-  const relay = await createOnCueServer({ port: 8787, dataDir, allowTestFaultControls: true });
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-rec-'));
+  const relay = await createOnQServer({ port: 8787, dataDir, allowTestFaultControls: true });
   const webSrv = await startStaticWebWithApiProxy(8787);
 
   try {
@@ -214,8 +214,8 @@ async function main() {
     // Reset relay sandbox before web video captures
     await relay.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
-    const dataDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-rec2-'));
-    const relay2 = await createOnCueServer({ port: 8787, dataDir: dataDir2, allowTestFaultControls: true });
+    const dataDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-rec2-'));
+    const relay2 = await createOnQServer({ port: 8787, dataDir: dataDir2, allowTestFaultControls: true });
 
     const browser = await chromium.launch({ headless: true });
     try {

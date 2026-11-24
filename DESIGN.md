@@ -1,4 +1,4 @@
-# OnCue Design Direction
+# OnQ Design Direction
 
 Direction source: user-specified reference `https://www.kaneclihack.sh/` paired with Even Realities G2 hardware waveguide optical constraints.
 

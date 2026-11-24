@@ -2,19 +2,21 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, execSync } from 'node:child_process';
-import { createOnCueServer } from '../apps/server/dist/server.js';
+import { createOnQServer } from '../apps/server/dist/server.js';
 import { encodePcm16ToWav } from '../packages/core/dist/index.js';
 
 const ROOT = process.cwd();
-const EHPK_PATH = path.join(ROOT, 'dist', 'oncue.ehpk');
+const EHPK_PATH = path.join(ROOT, 'dist', 'onq.ehpk');
 
 const SECRET_PATTERNS = [
   /sk-[A-Za-z0-9_-]{16,}/g,
+  /sk-ant-[A-Za-z0-9_-]{16,}/g,
   /gsk_[A-Za-z0-9_-]{16,}/g,
   /ntn_[A-Za-z0-9_-]{16,}/g,
   /AIza[A-Za-z0-9_-]{20,}/g,
   /ya29\.[A-Za-z0-9._-]{16,}/g,
   /GOCSPX-[A-Za-z0-9_-]{12,}/g,
+  /ASSEMBLYAI_API_KEY\s*[:=]\s*['"]?[a-f0-9]{24,}/gi,
 ];
 
 const UNSAFE_CODE_PATTERNS = [
@@ -100,8 +102,8 @@ for (const file of sourceFiles.filter((f) => f.includes(`${path.sep}src${path.se
 checks.push({ domain: '3. Static Hygiene (No eval / dangerouslySetInnerHTML)', status: unsafeHits === 0 ? 'PASS' : 'FAIL', detail: `${unsafeHits} hits` });
 
 // 4. Live negative security checks against ephemeral server
-const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-sec-'));
-const srv = await createOnCueServer({ port: 0, dataDir, allowTestFaultControls: true });
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-sec-'));
+const srv = await createOnQServer({ port: 0, dataDir, allowTestFaultControls: true });
 try {
   // CORS 403
   const corsRes = await fetch(`${srv.url}/api/health`, { headers: { Origin: 'https://attacker.invalid' } });
@@ -172,7 +174,7 @@ try {
 checks.push({ domain: '10. Production Dependency Audit', status: findings.some((f) => f.includes('npm audit')) ? 'FAIL' : 'PASS', detail: auditSummary });
 
 const report = [
-  '# OnCue Security Audit Report',
+  '# OnQ Security Audit Report',
   '',
   `Generated: ${new Date().toISOString()}`,
   `Overall Verdict: ${checks.every((c) => c.status === 'PASS') && findings.length === 0 ? 'PASS (0 High/Critical findings)' : 'FAIL'}`,

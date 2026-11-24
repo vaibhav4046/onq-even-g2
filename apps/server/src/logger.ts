@@ -20,10 +20,10 @@ export function redactSecrets(input: string): string {
 }
 
 export function logInfo(scope: string, message: string): void {
-  console.log(`[oncue:${scope}] ${redactSecrets(message)}`);
+  console.log(`[onq:${scope}] ${redactSecrets(message)}`);
 }
 
 export function logError(scope: string, err: unknown): void {
   const msg = err instanceof Error ? err.message : String(err);
-  console.error(`[oncue:${scope}:error] ${redactSecrets(msg)}`);
+  console.error(`[onq:${scope}:error] ${redactSecrets(msg)}`);
 }

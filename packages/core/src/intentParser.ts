@@ -112,7 +112,10 @@ export function parseVoiceCommand(
     activeCard?: CorridorCard;
   } = {},
 ): ParsedVoiceIntent {
-  const rawText = (transcript ?? '').trim();
+  const rawText = (transcript ?? '')
+    .trim()
+    .replace(/^(?:hey\s+|ok\s+)?(?:onq|on\s+q|cue|on\s+cue)[,\s:]+/i, '')
+    .trim();
   const lower = rawText.toLowerCase();
   const now = options.now ?? new Date();
   const cards = options.cards ?? [];

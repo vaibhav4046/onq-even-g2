@@ -152,6 +152,36 @@ export function formatLensFrame(state: HudState): FormattedLensFrame {
       body.push('RECONNECT RELAY TO SYNC');
     }
     footer = 'TAP: RETRY SYNC    2xTAP: EXIT';
+  } else if (state.phase === 'meeting_live' && state.meeting) {
+    const mins = String(Math.floor(state.meeting.elapsedSec / 60)).padStart(2, '0');
+    const secs = String(state.meeting.elapsedSec % 60).padStart(2, '0');
+    const recBadge = state.meeting.providerMode === 'LIVE_ASSEMBLYAI' ? 'LIVE' : 'DEMO';
+    header = padHeaderLine(`REC ${mins}:${secs} | ${state.meeting.speakerCount} SPK | ${recBadge}`, 'RAM');
+    const lastTurn = state.meeting.turns[state.meeting.turns.length - 1];
+    if (lastTurn) {
+      body.push(clipLine42(`${lastTurn.attendeeName}: ${lastTurn.text}`));
+    } else {
+      body.push('LISTENING TO MEETING ROOM...');
+    }
+    if (state.answerLines.length > 0) {
+      body.push(clipLine42(state.answerLines[0]));
+    } else {
+      body.push(
+        clipLine42(
+          `${state.meeting.decisions.length} DECISIONS | ${state.meeting.actions.length} ACTIONS`,
+        ),
+      );
+    }
+    footer = 'SAY "ONQ, ..." ASK | "WRAP UP"';
+  } else if (state.phase === 'wrap_up' && state.preview) {
+    header = padHeaderLine(`${provenanceTag} | WRAP-UP DEFAULT NO`, '45s');
+    for (const ln of state.preview.summaryLines.slice(0, 3)) {
+      body.push(clipLine42(ln));
+    }
+    const noMarker = state.previewSelection === 'NO' ? '> [NO-CANCEL]' : '  NO-CANCEL ';
+    const yesMarker = state.previewSelection === 'YES' ? '> [YES-ARM 2s]' : '  YES-ARM 2s ';
+    body.push(clipLine42(`${noMarker}  ${yesMarker}`));
+    footer = 'SAY "CONFIRM ACTION" | TAP RING';
   } else if (state.phase === 'listening') {
     header = padHeaderLine(`${provenanceTag} | VOICE MIC 16KHZ`, 'REC');
     body.push('SPEAK CORRIDOR COMMAND:');

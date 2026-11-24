@@ -118,6 +118,8 @@ export type HudPhase =
   | 'idle'
   | 'detail'
   | 'listening'
+  | 'meeting_live'
+  | 'wrap_up'
   | 'preview'
   | 'armed'
   | 'committing'
@@ -126,6 +128,54 @@ export type HudPhase =
   | 'conflict'
   | 'error'
   | 'stale';
+
+export type VoiceOrbState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'armed' | 'conflict';
+
+export interface TtsWordBoundary {
+  word: string;
+  start: number;
+  end: number;
+  confidence?: number;
+}
+
+export interface MeetingTurn {
+  id: string;
+  speakerLabel: string;
+  attendeeName: string;
+  text: string;
+  atIso: string;
+  isWearer: boolean;
+  isFinal: boolean;
+}
+
+export interface MeetingDecision {
+  id: string;
+  summary: string;
+  speaker: string;
+  atIso: string;
+}
+
+export interface MeetingActionItem {
+  id: string;
+  title: string;
+  owner: string;
+  dueIso?: string;
+  dueLabel?: string;
+}
+
+export type MeetingProviderMode = 'LIVE_ASSEMBLYAI' | 'LOCAL_WHISPER' | 'DEMO_SANDBOX';
+
+export interface MeetingSessionState {
+  active: boolean;
+  startedAtIso: string;
+  elapsedSec: number;
+  speakerCount: number;
+  providerMode: MeetingProviderMode;
+  attendees: string[];
+  turns: MeetingTurn[];
+  decisions: MeetingDecision[];
+  actions: MeetingActionItem[];
+}
 
 export interface HudState {
   phase: HudPhase;
@@ -145,6 +195,9 @@ export interface HudState {
   rmsLevel: number;
   transcript: string;
   syncedAtIso: string;
+  meeting?: MeetingSessionState | null;
+  voiceEngineLabel?: string;
+  ttsVoiceId?: string;
 }
 
 export type NormalizedEvenEventKind =

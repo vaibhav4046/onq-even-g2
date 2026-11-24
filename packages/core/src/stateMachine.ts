@@ -4,6 +4,7 @@ import type {
   ConflictLockDetail,
   CorridorCard,
   HudState,
+  MeetingSessionState,
   NormalizedEvenEvent,
   SourceMode,
 } from './types.js';
@@ -43,6 +44,7 @@ export function createInitialHudState(cards: CorridorCard[] = [], sourceMode: So
     rmsLevel: 0,
     transcript: '',
     syncedAtIso: nowIso,
+    meeting: null,
   };
 }
 
@@ -62,7 +64,7 @@ function isConflictDetail(val: unknown): val is ConflictLockDetail {
  * - At 0.0s: synchronously transitions to committing BEFORE awaiting network I/O
  * - Monotonic commitId prevents stale async responses from mutating newer transitions
  */
-export class OnCueHudController {
+export class OnQHudController {
   private state: HudState;
   private armTimer: ReturnType<typeof setInterval> | null = null;
   private armStartedAt = 0;
@@ -114,12 +116,27 @@ export class OnCueHudController {
     });
   }
 
-  stagePreview(preview: ActionPreview): void {
+  stagePreview(preview: ActionPreview, isWrapUp = false): void {
     this.clearArmTimer();
     this.setState({
-      phase: 'preview',
+      phase: isWrapUp ? 'wrap_up' : 'preview',
       preview,
       previewSelection: 'NO', // ALWAYS Default-NO
+      conflict: null,
+      errorMessage: null,
+    });
+  }
+
+  setMeetingSession(meeting: MeetingSessionState | null, answerLines: string[] = []): void {
+    if (this.state.phase === 'committing' || this.state.phase === 'armed') return;
+    if (!meeting) {
+      this.setState({ phase: 'idle', meeting: null, answerLines });
+      return;
+    }
+    this.setState({
+      phase: 'meeting_live',
+      meeting,
+      answerLines,
       conflict: null,
       errorMessage: null,
     });
@@ -165,7 +182,7 @@ export class OnCueHudController {
   }
 
   armCountdown(): void {
-    if (this.state.phase !== 'preview' || !this.state.preview) return;
+    if ((this.state.phase !== 'preview' && this.state.phase !== 'wrap_up') || !this.state.preview) return;
     this.clearArmTimer();
     this.armStartedAt = this.nowFn();
     this.setState({
@@ -293,7 +310,7 @@ export class OnCueHudController {
       return;
     }
 
-    if (this.state.phase === 'preview') {
+    if (this.state.phase === 'preview' || this.state.phase === 'wrap_up') {
       if (ev.kind === 'SCROLL_UP' || ev.kind === 'SCROLL_DOWN') {
         this.setState({
           previewSelection: this.state.previewSelection === 'NO' ? 'YES' : 'NO',

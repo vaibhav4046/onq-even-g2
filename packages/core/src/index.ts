@@ -7,3 +7,4 @@ export * from './factGuard.js';
 export * from './conflictEngine.js';
 export * from './stateMachine.js';
 export * from './icsParser.js';
+export * from './meetingLifecycle.js';

@@ -6,7 +6,7 @@ import type {
   ConflictLockDetail,
   CorridorCard,
   SourceMode,
-} from '@oncue/core';
+} from '@onq/core';
 
 export interface WorkspaceSnapshot {
   sourceMode: SourceMode;

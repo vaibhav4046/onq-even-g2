@@ -8,7 +8,7 @@ fs.mkdirSync(distDir, { recursive: true });
 
 const manifestPath = path.join(root, 'apps', 'glasses', 'app.json');
 const buildDir = path.join(root, 'apps', 'glasses', 'dist');
-const outEhpk = path.join(distDir, 'oncue.ehpk');
+const outEhpk = path.join(distDir, 'onq.ehpk');
 
 const cliBin = path.join(root, 'node_modules', '@evenrealities', 'evenhub-cli', 'main.js');
 execFileSync(process.execPath, [cliBin, 'pack', manifestPath, buildDir, '-o', outEhpk, '--sdk-ver', '0.0.16'], {

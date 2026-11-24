@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
-import type { HudPhase } from '@oncue/core';
+import type { HudPhase } from '@onq/core';
 
 export type HardwareViewMode = 'optics' | 'exploded' | 'ring';
 
@@ -41,7 +41,7 @@ function projectPoint(pt: Pt3, yaw: number, pitch: number, cx: number, cy: numbe
  * and R1 smart ring with live synced phosphor waveguide HUD projection.
  */
 export function G2Hardware3D({
-  phase = 'dossier',
+  phase = 'idle',
   headerLine = 'LIVE CORRIDOR BRIEF',
   primaryLine = 'VC Sync - Priya Nair',
   ringProgress = 0,

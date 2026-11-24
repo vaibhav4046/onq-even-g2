@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { encodePcm16ToWav } from '@oncue/core';
-import { createOnCueServer } from '../src/server.js';
+import { encodePcm16ToWav } from '@onq/core';
+import { createOnQServer } from '../src/server.js';
 import { generateGroundedDraft } from '../src/llm.js';
 import { redactSecrets, registerSecretForRedaction } from '../src/logger.js';
 import { discoverNotionDatabaseSchema } from '../src/providers/notionProvider.js';
@@ -33,9 +33,9 @@ afterEach(async () => {
   }
 });
 
-async function startTestServer(extra: Parameters<typeof createOnCueServer>[0] = {}) {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-test-'));
-  const srv = await createOnCueServer({
+async function startTestServer(extra: Parameters<typeof createOnQServer>[0] = {}) {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-test-'));
+  const srv = await createOnQServer({
     port: 0,
     dataDir,
     allowTestFaultControls: true,
@@ -141,7 +141,7 @@ describe('apps/server integration & fault-injection suite', () => {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${sessionToken}`,
-        'X-OnCue-Preset': 'Push 15m and tell Priya',
+        'X-OnQ-Preset': 'Push 15m and tell Priya',
       },
       body: makeSpokenWav(500),
     });
@@ -546,7 +546,7 @@ describe('apps/server integration & fault-injection suite', () => {
   });
 
   it('24. EncryptedTokenVault stores encrypted ciphertext on disk without plaintext secrets', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-vault-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-vault-'));
     closers.push(async () => fs.rmSync(dir, { recursive: true, force: true }));
     const vault = new EncryptedTokenVault(dir);
     vault.save({ googleRefreshToken: '1//secret-refresh-token-999', notionToken: 'ntn_super_secret_token_888' });

@@ -1,11 +1,11 @@
 import os from 'node:os';
 import path from 'node:path';
-import { createOnCueServer } from './server.js';
+import { createOnQServer } from './server.js';
 
 const port = Number(process.env.PORT ?? 8787);
-const dataDir = process.env.ONCUE_DATA_DIR ?? path.join(os.homedir(), '.oncue');
+const dataDir = process.env.ONQ_DATA_DIR ?? path.join(os.homedir(), '.onq');
 
-createOnCueServer({ port, dataDir }).catch((err) => {
-  console.error('Failed to start OnCue server:', err);
+createOnQServer({ port, dataDir }).catch((err) => {
+  console.error('Failed to start OnQ server:', err);
   process.exit(1);
 });

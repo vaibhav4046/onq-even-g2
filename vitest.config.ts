@@ -7,7 +7,7 @@ const ROOT = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   resolve: {
     alias: {
-      '@oncue/core': path.join(ROOT, 'packages', 'core', 'src', 'index.ts'),
+      '@onq/core': path.join(ROOT, 'packages', 'core', 'src', 'index.ts'),
     },
   },
   test: {

@@ -1,7 +1,7 @@
 import {
   verifyDraftAndPayload,
   wrapUntrustedWorkspaceData,
-} from '@oncue/core';
+} from '@onq/core';
 import { registerSecretForRedaction } from './logger.js';
 
 export interface CompressReplyInput {

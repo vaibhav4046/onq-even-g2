@@ -52,7 +52,7 @@ def make_opening_slate(path: str) -> None:
     f_sub = load_font(30)
     f_stat = load_font(22, mono=True)
 
-    d.text((130, 190), "ONCUE // EVEN REALITIES G2 · TRACK 04", fill=(218, 255, 82), font=f_eyebrow)
+    d.text((130, 190), "ONQ // EVEN REALITIES G2 · TRACK 04", fill=(218, 255, 82), font=f_eyebrow)
     d.text((130, 250), "Own the 90 seconds", fill=(160, 160, 168), font=f_h1)
     d.text((130, 350), "between meetings.", fill=(242, 242, 242), font=f_h1)
     d.text(
@@ -99,7 +99,7 @@ def make_closing_slate(path: str) -> None:
     cards = [
         ("163 / 163", "Automated Tests", "113 core + 50 server, live API, Postgres, and fault tests"),
         ("11 / 11", "Geometry Gate", "9 lens states <= 999B plus Negative Control gate"),
-        ("10 / 10", "Security Audit", "Zero secrets in source, web bundle, or oncue.ehpk"),
+        ("10 / 10", "Security Audit", "Zero secrets in source, web bundle, or onq.ehpk"),
         ("$7 / mo", "Pro Economics", "~$0.001 per brief with rules first and optional LLM"),
     ]
     cw = 395
@@ -120,7 +120,7 @@ def make_closing_slate(path: str) -> None:
     d.text((165, 727), "CLONE, VERIFY & SIDELOAD", fill=(218, 255, 82), font=f_eyebrow)
     d.text(
         (165, 769),
-        "npm ci && npm test && npm run build && npm run pack   ->   dist/oncue.ehpk (SDK 0.0.16)",
+        "npm ci && npm test && npm run build && npm run pack   ->   dist/onq.ehpk (SDK 0.0.16)",
         fill=(242, 242, 242),
         font=f_body,
     )
@@ -148,7 +148,7 @@ def make_stage_frame(
     # Top sleek black strip (0..56)
     d.rectangle([0, 0, W, 56], fill=(0, 0, 0, 255))
     d.line([0, 56, W, 56], fill=(42, 44, 48, 255), width=1)
-    d.text((48, 18), "ONCUE // LIVE PRODUCT RECORDING", fill=(218, 255, 82, 255), font=load_font(18, bold=True, mono=True))
+    d.text((48, 18), "ONQ // LIVE PRODUCT RECORDING", fill=(218, 255, 82, 255), font=load_font(18, bold=True, mono=True))
     d.text((W - 430, 18), "SANDBOX: DEMO  |  LIVE RELAY: 127.0.0.1:8787", fill=(154, 158, 166, 255), font=load_font(16, mono=True))
 
     # Right dedicated Simulator panel when sim_img_path is supplied (zero overlap with web UI!)
@@ -247,7 +247,7 @@ def main() -> None:
     chapters = meta["chapters"]
     total_dur = float(meta["total_duration_s"])
 
-    temp_dir = tempfile.mkdtemp(prefix="oncue_vid_")
+    temp_dir = tempfile.mkdtemp(prefix="onq_vid_")
     open_slate = os.path.join(temp_dir, "open.png")
     close_slate = os.path.join(temp_dir, "close.png")
     make_opening_slate(open_slate)
@@ -358,7 +358,7 @@ def main() -> None:
         stderr=subprocess.DEVNULL,
     )
 
-    out_mp4 = os.path.join(OUT_DIR, "oncue-launch-demo.mp4")
+    out_mp4 = os.path.join(OUT_DIR, "onq-launch-demo.mp4")
     master_wav = os.path.join(AUDIO_DIR, "launch_master.wav")
     subprocess.run(
         [

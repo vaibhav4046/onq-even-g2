@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { createOnCueServer } from '../apps/server/dist/server.js';
+import { createOnQServer } from '../apps/server/dist/server.js';
 
 const ROOT = process.cwd();
 const GLASSES_DIST = path.join(ROOT, 'apps', 'glasses', 'dist');
@@ -76,8 +76,8 @@ async function captureGlasses(autoBase, filename) {
 }
 
 async function main() {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-sim-'));
-  const relay = await createOnCueServer({ port: 8787, dataDir, allowTestFaultControls: true });
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-sim-'));
+  const relay = await createOnQServer({ port: 8787, dataDir, allowTestFaultControls: true });
   const staticSrv = await startStaticGlassesServer();
 
   const simBin = path.join(ROOT, 'node_modules', '@evenrealities', 'evenhub-simulator', 'bin', 'index.js');

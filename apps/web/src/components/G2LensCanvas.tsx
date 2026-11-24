@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { encodeCountdownRingPng, formatLensFrame } from '@oncue/core';
-import type { HudState } from '@oncue/core';
+import { encodeCountdownRingPng, formatLensFrame } from '@onq/core';
+import type { HudState } from '@onq/core';
 
 interface G2LensCanvasProps {
   hudState: HudState;

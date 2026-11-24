@@ -1,5 +1,5 @@
 {
-  "name": "oncue-even-g2",
+  "name": "onq-even-g2",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -8,15 +8,15 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "npm run build -w @oncue/core && npm run build -w @oncue/server && npm run build -w @oncue/glasses && npm run build -w @oncue/web",
-    "pretest": "npm run build -w @oncue/core",
+    "build": "npm run build -w @onq/core && npm run build -w @onq/server && npm run build -w @onq/glasses && npm run build -w @onq/web",
+    "pretest": "npm run build -w @onq/core",
     "test": "vitest run",
     "pack": "node scripts/pack-ehpk.mjs",
     "verify:geometry": "node scripts/verify-geometry.mjs",
     "verify:sim": "node scripts/verify-sim.mjs",
     "verify:security": "node scripts/security-scan.mjs",
-    "dev:server": "npm run dev -w @oncue/server",
-    "dev:web": "npm run dev -w @oncue/web",
+    "dev:server": "npm run dev -w @onq/server",
+    "dev:web": "npm run dev -w @onq/web",
     "dev": "node scripts/dev.mjs"
   },
   "devDependencies": {

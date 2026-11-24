@@ -8,7 +8,7 @@ data/
 *.sqlite
 *.sqlite-*
 *.ehpk
-!dist/oncue.ehpk
+!dist/onq.ehpk
 media/audio/*.wav
 media/raw/
 media/out/frame-check-*.png

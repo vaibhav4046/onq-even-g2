@@ -2,13 +2,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { encodePcm16ToWav } from '@oncue/core';
+import { encodePcm16ToWav } from '@onq/core';
 import { PostgresLedgerStore } from '../src/ledger.js';
 import type { PgPoolLike } from '../src/ledger.js';
 import { GoogleWorkspaceClient } from '../src/providers/googleProvider.js';
 import { LiveWorkspaceProvider } from '../src/providers/liveProvider.js';
 import { NotionWorkspaceClient } from '../src/providers/notionProvider.js';
-import { createOnCueServer } from '../src/server.js';
+import { createOnQServer } from '../src/server.js';
 import { transcribeWavBuffer } from '../src/stt.js';
 import { EncryptedTokenVault } from '../src/tokenVault.js';
 
@@ -289,7 +289,7 @@ function makeMockFetch() {
 
 describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () => {
   it('1. GoogleWorkspaceClient fetches events, authoritative thread metadata, and sends threaded reply', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-g-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-g-'));
     closers.push(async () => fs.rmSync(dir, { recursive: true, force: true }));
     const vault = new EncryptedTokenVault(dir);
     vault.save({ googleClientId: 'cid', googleClientSecret: 'csec', googleRefreshToken: '1//ref' });
@@ -306,7 +306,7 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
   });
 
   it('2. GoogleWorkspaceClient refreshes expired access token automatically', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-g2-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-g2-'));
     closers.push(async () => fs.rmSync(dir, { recursive: true, force: true }));
     const vault = new EncryptedTokenVault(dir);
     vault.save({
@@ -341,7 +341,7 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
   });
 
   it('4. LiveWorkspaceProvider aggregates Google + Notion with honest LIVE provenance', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-live-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-live-'));
     closers.push(async () => fs.rmSync(dir, { recursive: true, force: true }));
     const vault = new EncryptedTokenVault(dir);
     vault.save({ googleClientId: 'cid', googleClientSecret: 'csec', googleRefreshToken: '1//ref' });
@@ -361,7 +361,7 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
   });
 
   it('5. LiveWorkspaceProvider detects FreeBusy conflict and thread historyId drift', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-live-conf-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-live-conf-'));
     closers.push(async () => fs.rmSync(dir, { recursive: true, force: true }));
     const vault = new EncryptedTokenVault(dir);
     vault.save({ googleClientId: 'cid', googleClientSecret: 'csec', googleRefreshToken: '1//ref' });
@@ -405,7 +405,7 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
   });
 
   it('6. LiveWorkspaceProvider executes Calendar patch + Draft and supports surgical undo', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-live-exec-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-live-exec-'));
     closers.push(async () => fs.rmSync(dir, { recursive: true, force: true }));
     const vault = new EncryptedTokenVault(dir);
     vault.save({ googleClientId: 'cid', googleClientSecret: 'csec', googleRefreshToken: '1//ref' });
@@ -501,8 +501,8 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
   });
 
   it('9. /api/pair/ics parses real RFC 5545 calendar events and upgrades session to LIVE mode', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-ics-'));
-    const srv = await createOnCueServer({ port: 0, dataDir: dir, allowTestFaultControls: true });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-ics-'));
+    const srv = await createOnQServer({ port: 0, dataDir: dir, allowTestFaultControls: true });
     closers.push(async () => {
       await srv.close();
       fs.rmSync(dir, { recursive: true, force: true });
@@ -542,9 +542,9 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
   });
 
   it('10. /api/pair/inspect-notion auto-discovers live database schema', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-not-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-not-'));
     const { fetchImpl } = makeMockFetch();
-    const srv = await createOnCueServer({ port: 0, dataDir: dir, fetchImpl });
+    const srv = await createOnQServer({ port: 0, dataDir: dir, fetchImpl });
     closers.push(async () => {
       await srv.close();
       fs.rmSync(dir, { recursive: true, force: true });
@@ -564,8 +564,8 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
   });
 
   it('11. /api/workspace/calendar/add and /gmail/incoming trigger real dynamic 409 locks', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-mut-'));
-    const srv = await createOnCueServer({ port: 0, dataDir: dir, allowTestFaultControls: true });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-mut-'));
+    const srv = await createOnQServer({ port: 0, dataDir: dir, allowTestFaultControls: true });
     closers.push(async () => {
       await srv.close();
       fs.rmSync(dir, { recursive: true, force: true });
@@ -619,8 +619,8 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
   });
 
   it('12. /api/workspace/notion/add & toggle update workspace state and /api/stream emits SSE', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-sse-'));
-    const srv = await createOnCueServer({ port: 0, dataDir: dir, allowTestFaultControls: true });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-sse-'));
+    const srv = await createOnQServer({ port: 0, dataDir: dir, allowTestFaultControls: true });
     closers.push(async () => {
       await srv.close();
       fs.rmSync(dir, { recursive: true, force: true });
@@ -662,8 +662,8 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
   });
 
   it('13. /api/pair/google-callback rejects missing OAuth code cleanly with HTTP 400', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-cb-'));
-    const srv = await createOnCueServer({ port: 0, dataDir: dir });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-cb-'));
+    const srv = await createOnQServer({ port: 0, dataDir: dir });
     closers.push(async () => {
       await srv.close();
       fs.rmSync(dir, { recursive: true, force: true });
@@ -719,7 +719,7 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
   });
 
   it('17. LiveWorkspaceProvider refuses recall on sent Gmail replies (canUndo = false)', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-sent-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-sent-'));
     closers.push(async () => fs.rmSync(dir, { recursive: true, force: true }));
     const vault = new EncryptedTokenVault(dir);
     vault.save({ googleClientId: 'cid', googleClientSecret: 'csec', googleRefreshToken: '1//ref' });
@@ -771,7 +771,7 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
   });
 
   it('19. LiveWorkspaceProvider creates Calendar hold and reverses via deleteEvent undo', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-hold-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-hold-'));
     closers.push(async () => fs.rmSync(dir, { recursive: true, force: true }));
     const vault = new EncryptedTokenVault(dir);
     vault.save({ googleClientId: 'cid', googleClientSecret: 'csec', googleRefreshToken: '1//ref' });
@@ -854,7 +854,7 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
   });
 
   it('22. GoogleWorkspaceClient exports Drive doc snippet cleanly and falls back to empty on 404', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-drv-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-drv-'));
     closers.push(async () => fs.rmSync(dir, { recursive: true, force: true }));
     const vault = new EncryptedTokenVault(dir);
     vault.save({ googleClientId: 'cid', googleClientSecret: 'csec', googleRefreshToken: '1//ref', googleAccessToken: 'ya29.ok', googleAccessExpiresAt: Date.now() + 300_000 });
@@ -870,8 +870,8 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
   });
 
   it('23. Demo server ASK_NOTES returns cited Drive snippet without staging any write', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-ask-'));
-    const srv = await createOnCueServer({ port: 0, dataDir: dir });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-ask-'));
+    const srv = await createOnQServer({ port: 0, dataDir: dir });
     closers.push(async () => {
       await srv.close();
       fs.rmSync(dir, { recursive: true, force: true });
@@ -891,8 +891,8 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
   });
 
   it('24. Demo server records audit telemetry entries for RMS silence blocks and commits', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oncue-aud-'));
-    const srv = await createOnCueServer({ port: 0, dataDir: dir });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-aud-'));
+    const srv = await createOnQServer({ port: 0, dataDir: dir });
     closers.push(async () => {
       await srv.close();
       fs.rmSync(dir, { recursive: true, force: true });

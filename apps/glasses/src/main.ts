@@ -18,9 +18,9 @@ import {
   encodeCountdownRingPng,
   formatLensFrame,
   normalizeEvenEvent,
-  OnCueHudController,
+  OnQHudController,
   PcmRingBuffer,
-} from '@oncue/core';
+} from '@onq/core';
 import type {
   ActionPreview,
   CommitReceipt,
@@ -29,10 +29,10 @@ import type {
   HudPhase,
   HudState,
   SourceMode,
-} from '@oncue/core';
+} from '@onq/core';
 
 const RELAY_BASE =
-  (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_ONCUE_RELAY ??
+  (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_ONQ_RELAY ??
   'http://127.0.0.1:8787';
 
 const TEXT_CONTAINER_ID = 1;
@@ -53,7 +53,7 @@ async function ensureSession(): Promise<string> {
   if (sessionToken) return sessionToken;
   if (bridge) {
     try {
-      const stored = await bridge.getLocalStorage('oncue_session_token');
+      const stored = await bridge.getLocalStorage('onq_session_token');
       if (stored && stored.startsWith('oc_')) {
         sessionToken = stored;
         return sessionToken;
@@ -67,7 +67,7 @@ async function ensureSession(): Promise<string> {
   sessionToken = json.sessionToken;
   if (bridge) {
     try {
-      await bridge.setLocalStorage('oncue_session_token', sessionToken);
+      await bridge.setLocalStorage('onq_session_token', sessionToken);
     } catch {
       // ignore storage failure
     }
@@ -106,7 +106,7 @@ function renderLocalDom(state: HudState): void {
       ringImgEl.style.display = 'none';
     }
   }
-  (window as unknown as Record<string, unknown>).__ONCUE_G2__ = {
+  (window as unknown as Record<string, unknown>).__ONQ_G2__ = {
     phase: state.phase,
     sourceMode: state.sourceMode,
     containerMode,
@@ -268,7 +268,7 @@ async function persistSnapshot(): Promise<void> {
   const st = controller.getState();
   try {
     await bridge.setLocalStorage(
-      'oncue_cache',
+      'onq_cache',
       JSON.stringify({
         selectedCardIndex: st.selectedCardIndex,
         cards: st.cards,
@@ -283,7 +283,7 @@ async function persistSnapshot(): Promise<void> {
 async function hydrateFromCache(): Promise<void> {
   if (!bridge) return;
   try {
-    const raw = await bridge.getLocalStorage('oncue_cache');
+    const raw = await bridge.getLocalStorage('onq_cache');
     if (raw) {
       const parsed = JSON.parse(raw) as { cards?: CorridorCard[]; syncedAtIso?: string };
       if (parsed.cards && parsed.cards.length > 0 && controller.getState().cards.length === 0) {
@@ -295,7 +295,7 @@ async function hydrateFromCache(): Promise<void> {
   }
 }
 
-const controller = new OnCueHudController(createInitialHudState([], 'DEMO'), {
+const controller = new OnQHudController(createInitialHudState([], 'DEMO'), {
   onStateChange: (state) => {
     void paintToGlasses(state);
   },
@@ -482,7 +482,7 @@ async function bootstrap(): Promise<void> {
     else if (e.key === 'Escape') void controller.handleEvent({ kind: 'DOUBLE_CLICK' });
   });
 
-  (window as unknown as Record<string, unknown>).__ONCUE_G2_ACTION__ = async (
+  (window as unknown as Record<string, unknown>).__ONQ_G2_ACTION__ = async (
     phaseOrCommand: HudPhase | string,
   ) => {
     if (phaseOrCommand === 'reset') {

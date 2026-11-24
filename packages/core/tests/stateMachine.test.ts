@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   createInitialHudState,
-  OnCueHudController,
+  OnQHudController,
 } from '../src/index.js';
 import type { ActionPreview, CommitReceipt, CorridorCard } from '../src/index.js';
 
@@ -49,13 +49,13 @@ const RECEIPT: CommitReceipt = {
 
 describe('stateMachine.ts', () => {
   it('1. initializes in idle phase with Default-NO selection', () => {
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A, CARD_B], 'DEMO'));
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A, CARD_B], 'DEMO'));
     expect(ctrl.getState().phase).toBe('idle');
     expect(ctrl.getState().previewSelection).toBe('NO');
   });
 
   it('2. scrolls cards down and wraps up on idle dossier', async () => {
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A, CARD_B], 'DEMO'));
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A, CARD_B], 'DEMO'));
     await ctrl.handleEvent({ kind: 'SCROLL_DOWN' });
     expect(ctrl.getState().selectedCardIndex).toBe(1);
     await ctrl.handleEvent({ kind: 'SCROLL_DOWN' });
@@ -66,13 +66,13 @@ describe('stateMachine.ts', () => {
 
   it('3. root DOUBLE_CLICK calls onRequestShutdown (shutDownPageContainer(1))', async () => {
     const onRequestShutdown = vi.fn();
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A], 'DEMO'), { onRequestShutdown });
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A], 'DEMO'), { onRequestShutdown });
     await ctrl.handleEvent({ kind: 'DOUBLE_CLICK' });
     expect(onRequestShutdown).toHaveBeenCalledTimes(1);
   });
 
   it('4. tap on card enters detail and double-tap returns to idle', async () => {
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A], 'DEMO'));
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A], 'DEMO'));
     await ctrl.handleEvent({ kind: 'CLICK' });
     expect(ctrl.getState().phase).toBe('detail');
     await ctrl.handleEvent({ kind: 'DOUBLE_CLICK' });
@@ -81,7 +81,7 @@ describe('stateMachine.ts', () => {
 
   it('5. selecting detail action stages preview defaulting strictly to NO', async () => {
     const onStageAction = vi.fn().mockResolvedValue(PREVIEW);
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A], 'DEMO'), { onStageAction });
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A], 'DEMO'), { onStageAction });
     await ctrl.handleEvent({ kind: 'CLICK' }); // detail
     await ctrl.handleEvent({ kind: 'CLICK' }); // stage action 0
     expect(ctrl.getState().phase).toBe('preview');
@@ -90,7 +90,7 @@ describe('stateMachine.ts', () => {
 
   it('6. tapping on Default-NO cancels with ZERO writes', async () => {
     const onCommitPreview = vi.fn();
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A], 'DEMO'), { onCommitPreview });
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A], 'DEMO'), { onCommitPreview });
     ctrl.stagePreview(PREVIEW);
     await ctrl.handleEvent({ kind: 'CLICK' });
     expect(ctrl.getState().phase).toBe('undone');
@@ -99,7 +99,7 @@ describe('stateMachine.ts', () => {
 
   it('7. swiping from NO to YES and tapping arms 2.0s ring', async () => {
     let clock = 1000;
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A], 'DEMO'), {}, () => clock);
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A], 'DEMO'), {}, () => clock);
     ctrl.stagePreview(PREVIEW);
     await ctrl.handleEvent({ kind: 'SCROLL_DOWN' });
     expect(ctrl.getState().previewSelection).toBe('YES');
@@ -112,7 +112,7 @@ describe('stateMachine.ts', () => {
   it('8. tapping at 1.9s while armed disarms immediately with ZERO commits', async () => {
     let clock = 1000;
     const onCommitPreview = vi.fn().mockResolvedValue(RECEIPT);
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A], 'DEMO'), { onCommitPreview }, () => clock);
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A], 'DEMO'), { onCommitPreview }, () => clock);
     ctrl.stagePreview(PREVIEW);
     await ctrl.handleEvent({ kind: 'SCROLL_DOWN' });
     await ctrl.handleEvent({ kind: 'CLICK' }); // armed at 1000
@@ -130,7 +130,7 @@ describe('stateMachine.ts', () => {
     const onCommitPreview = vi.fn(
       () => new Promise<CommitReceipt>((res) => { resolveCommit = res; }),
     );
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A], 'DEMO'), { onCommitPreview }, () => clock);
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A], 'DEMO'), { onCommitPreview }, () => clock);
     ctrl.stagePreview(PREVIEW);
     await ctrl.handleEvent({ kind: 'SCROLL_DOWN' });
     await ctrl.handleEvent({ kind: 'CLICK' });
@@ -151,7 +151,7 @@ describe('stateMachine.ts', () => {
 
   it('10. FOREGROUND_EXIT while armed disarms immediately without committing', async () => {
     const onCommitPreview = vi.fn();
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A], 'DEMO'), { onCommitPreview });
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A], 'DEMO'), { onCommitPreview });
     ctrl.stagePreview(PREVIEW);
     await ctrl.handleEvent({ kind: 'SCROLL_DOWN' });
     await ctrl.handleEvent({ kind: 'CLICK' });
@@ -168,7 +168,7 @@ describe('stateMachine.ts', () => {
       provenanceLabel: 'GCAL+GMAIL',
       syncedAtIso: '2026-11-24T13:51:00.000Z',
     });
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A], 'DEMO'), { onRefreshCorridor });
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A], 'DEMO'), { onRefreshCorridor });
     await ctrl.handleEvent({ kind: 'FOREGROUND_ENTER' });
     expect(ctrl.getState().phase).toBe('idle');
     expect(ctrl.getState().sourceMode).toBe('LIVE');
@@ -177,7 +177,7 @@ describe('stateMachine.ts', () => {
 
   it('12. FOREGROUND_ENTER failure switches gracefully to STALE preserving cached cards', async () => {
     const onRefreshCorridor = vi.fn().mockRejectedValue(new Error('offline'));
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A], 'LIVE'), { onRefreshCorridor });
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A], 'LIVE'), { onRefreshCorridor });
     await ctrl.handleEvent({ kind: 'FOREGROUND_ENTER' });
     expect(ctrl.getState().phase).toBe('stale');
     expect(ctrl.getState().sourceMode).toBe('STALE');
@@ -187,7 +187,7 @@ describe('stateMachine.ts', () => {
   it('13. LONG_PRESS opens listening and LONG_PRESS_RELEASE triggers stopVoice', async () => {
     const onStartVoice = vi.fn();
     const onStopVoice = vi.fn().mockResolvedValue(undefined);
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A], 'DEMO'), { onStartVoice, onStopVoice });
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A], 'DEMO'), { onStartVoice, onStopVoice });
     await ctrl.handleEvent({ kind: 'LONG_PRESS' });
     expect(ctrl.getState().phase).toBe('listening');
     expect(onStartVoice).toHaveBeenCalledTimes(1);
@@ -204,7 +204,7 @@ describe('stateMachine.ts', () => {
       nextFreeEndIso: '2026-11-24T15:15:00.000Z',
       nextFreeLabel: '14:45 (30m)',
     });
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A], 'DEMO'), { onCommitPreview }, () => clock);
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A], 'DEMO'), { onCommitPreview }, () => clock);
     ctrl.stagePreview(PREVIEW);
     await ctrl.handleEvent({ kind: 'SCROLL_DOWN' });
     await ctrl.handleEvent({ kind: 'CLICK' });
@@ -217,7 +217,7 @@ describe('stateMachine.ts', () => {
 
   it('15. tapping on conflict screen stages suggested next free slot', async () => {
     const onStageSlot = vi.fn().mockResolvedValue(PREVIEW);
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A], 'DEMO'), { onStageSlot });
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A], 'DEMO'), { onStageSlot });
     ctrl.showConflict({
       code: 'CONFLICT_CALENDAR_BUSY',
       message: '14:15 busy',
@@ -234,7 +234,7 @@ describe('stateMachine.ts', () => {
     let clock = 1000;
     const onCommitPreview = vi.fn().mockResolvedValue(RECEIPT);
     const onUndoReceipt = vi.fn().mockResolvedValue({ ...RECEIPT, status: 'UNDONE', canUndo: false });
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A], 'DEMO'), { onCommitPreview, onUndoReceipt }, () => clock);
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A], 'DEMO'), { onCommitPreview, onUndoReceipt }, () => clock);
     ctrl.stagePreview(PREVIEW);
     await ctrl.handleEvent({ kind: 'SCROLL_DOWN' });
     await ctrl.handleEvent({ kind: 'CLICK' });
@@ -250,7 +250,7 @@ describe('stateMachine.ts', () => {
   it('17. commit error transitions cleanly to error state without crashing', async () => {
     let clock = 1000;
     const onCommitPreview = vi.fn().mockRejectedValue(new Error('HTTP 504 SEND_UNKNOWN'));
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A], 'DEMO'), { onCommitPreview }, () => clock);
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A], 'DEMO'), { onCommitPreview }, () => clock);
     ctrl.stagePreview(PREVIEW);
     await ctrl.handleEvent({ kind: 'SCROLL_DOWN' });
     await ctrl.handleEvent({ kind: 'CLICK' });
@@ -262,7 +262,7 @@ describe('stateMachine.ts', () => {
   });
 
   it('18. double-tap on preview ALWAYS cancels without arming even when YES is highlighted', async () => {
-    const ctrl = new OnCueHudController(createInitialHudState([CARD_A], 'DEMO'));
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A], 'DEMO'));
     ctrl.stagePreview(PREVIEW);
     await ctrl.handleEvent({ kind: 'SCROLL_DOWN' });
     expect(ctrl.getState().previewSelection).toBe('YES');

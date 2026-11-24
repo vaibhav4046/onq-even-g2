@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { GlyphDecodeHeading, MOTION_EASE } from './MotionPrimitives';
-import { ShieldLockLogo } from './PixelLogos';
+import { ShieldPixelSvg } from './EcosystemIcons';
 
 const SAFETY_BEATS = [
   {
@@ -90,7 +90,7 @@ export function StickySafetyStory() {
             <div className="border border-dashed border-[var(--hairline)] bg-[var(--surface)] p-4 space-y-4">
               <div className="flex items-center justify-between gap-2">
                 <span className="inline-flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.18em] text-[var(--bright)]">
-                  <ShieldLockLogo className="w-4 h-4" />
+                  <ShieldPixelSvg className="w-4 h-4" />
                   <span>LOCK 0{activeIdx + 1} / 04</span>
                 </span>
                 <span className={`border px-2 py-0.5 font-pixel text-[9px] uppercase tracking-[0.12em] ${beat.accent}`}>

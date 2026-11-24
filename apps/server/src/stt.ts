@@ -9,7 +9,7 @@ import {
   MIN_VOICE_RMS,
   parseWavToPcm16,
   PCM_MAX_BYTES,
-} from '@oncue/core';
+} from '@onq/core';
 import { registerSecretForRedaction } from './logger.js';
 
 const execFileAsync = promisify(execFile);
@@ -45,7 +45,7 @@ function resolveDefaultFasterWhisperScript(): string {
 
 /**
  * Accepts 16 kHz mono PCM16 WAV, enforces size & RMS silence gate, and routes to:
- * 1) Explicit demo preset clip (when X-OnCue-Preset header is sent in sandbox/CI)
+ * 1) Explicit demo preset clip (when X-OnQ-Preset header is sent in sandbox/CI)
  * 2) Local whisper.cpp binary (WHISPER_CPP_BIN + WHISPER_MODEL_PATH)
  * 3) Local faster-whisper Python runtime (scripts/local-whisper-stt.py)
  * 4) Optional OpenAI Whisper endpoint (OPENAI_API_KEY)
@@ -95,7 +95,7 @@ export async function transcribeWavBuffer(
   const whisperBin = opts.whisperCppBin ?? process.env.WHISPER_CPP_BIN;
   const whisperModel = opts.whisperModelPath ?? process.env.WHISPER_MODEL_PATH;
   if (whisperBin && whisperModel && fs.existsSync(whisperBin) && fs.existsSync(whisperModel)) {
-    const tmpFile = path.join(os.tmpdir(), `oncue-stt-${Date.now()}-${Math.random().toString(16).slice(2)}.wav`);
+    const tmpFile = path.join(os.tmpdir(), `onq-stt-${Date.now()}-${Math.random().toString(16).slice(2)}.wav`);
     fs.writeFileSync(tmpFile, wavBytes);
     try {
       const { stdout } = await execFileAsync(
@@ -127,7 +127,7 @@ export async function transcribeWavBuffer(
     opts.enableLocalFasterWhisper ?? process.env.NODE_ENV !== 'test';
   const fwScript = opts.fasterWhisperScriptPath ?? resolveDefaultFasterWhisperScript();
   if (allowFasterWhisper && fs.existsSync(fwScript)) {
-    const tmpFile = path.join(os.tmpdir(), `oncue-fw-${Date.now()}-${Math.random().toString(16).slice(2)}.wav`);
+    const tmpFile = path.join(os.tmpdir(), `onq-fw-${Date.now()}-${Math.random().toString(16).slice(2)}.wav`);
     fs.writeFileSync(tmpFile, wavBytes);
     try {
       const { stdout } = await execFileAsync(

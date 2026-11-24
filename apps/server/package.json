@@ -1,5 +1,5 @@
 {
-  "name": "@oncue/server",
+  "name": "@onq/server",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -10,9 +10,12 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@oncue/core": "*"
+    "@onq/core": "*",
+    "assemblyai": "^4.43.4",
+    "ws": "^8.23.0"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0"
+    "@types/node": "^22.14.0",
+    "@types/ws": "^8.18.2"
   }
 }

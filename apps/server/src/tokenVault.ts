@@ -25,7 +25,7 @@ export class EncryptedTokenVault {
     fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
     this.vaultPath = path.join(dataDir, 'tokens.vault.json');
 
-    const keySource = explicitKeyHex ?? process.env.ONCUE_VAULT_KEY;
+    const keySource = explicitKeyHex ?? process.env.ONQ_VAULT_KEY;
     if (keySource && /^[0-9a-fA-F]{64}$/.test(keySource)) {
       this.key = Buffer.from(keySource, 'hex');
     } else {

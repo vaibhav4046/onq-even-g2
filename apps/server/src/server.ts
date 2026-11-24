@@ -2,18 +2,25 @@ import crypto from 'node:crypto';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
+import { WebSocketServer } from 'ws';
+import type WebSocket from 'ws';
 import {
+  canVoiceConfirmWrite,
   checkCalendarConflict,
+  computePcmRms,
+  MeetingTranscriptBuffer,
   parseIcsEvents,
   parseVoiceCommand,
-} from '@oncue/core';
+  parseWakeCommand,
+} from '@onq/core';
 import type {
   ActionOperation,
   ActionPreview,
   CommitReceipt,
   CorridorCard,
   SourceMode,
-} from '@oncue/core';
+} from '@onq/core';
+import { loadLocalEnvFile } from './env.js';
 import { generateGroundedDraft } from './llm.js';
 import type { LlmConfig } from './llm.js';
 import { createConfiguredLedgerStore, SqliteLedgerStore } from './ledger.js';
@@ -27,12 +34,30 @@ import { NotionWorkspaceClient } from './providers/notionProvider.js';
 import type { WorkspaceProvider } from './providers/types.js';
 import { MAX_WAV_UPLOAD_BYTES, transcribeWavBuffer } from './stt.js';
 import type { SttOptions } from './stt.js';
+import { AssemblyAiRealtimeSession } from './stt/assemblyaiRealtime.js';
+import type { AssemblyAiSttMode, WsFactory } from './stt/assemblyaiRealtime.js';
+import {
+  AssemblyAiTtsSession,
+  buildDemoWordBoundaries,
+  listAvailableTtsVoices,
+  synthesizeTtsUtterance,
+} from './tts/assemblyaiTts.js';
 import { EncryptedTokenVault } from './tokenVault.js';
 
 export interface AuditTelemetryEvent {
   id: string;
   atIso: string;
-  kind: 'RMS_BLOCK' | 'CONFLICT_409' | 'CODE_GUARD' | 'COMMIT' | 'UNDO' | 'PAIR_LIVE' | 'ICS_IMPORT';
+  kind:
+    | 'RMS_BLOCK'
+    | 'CONFLICT_409'
+    | 'CODE_GUARD'
+    | 'COMMIT'
+    | 'UNDO'
+    | 'PAIR_LIVE'
+    | 'ICS_IMPORT'
+    | 'MEETING_START'
+    | 'MEETING_WIPE'
+    | 'TTS_BARGE_IN';
   detail: string;
 }
 
@@ -46,6 +71,7 @@ export interface ServerOptions {
   allowedOrigins?: string[];
   llmConfig?: LlmConfig;
   sttOptions?: SttOptions;
+  assemblyAiWsFactory?: WsFactory;
   fetchImpl?: typeof fetch;
   nowFn?: () => number;
   allowTestFaultControls?: boolean;
@@ -105,7 +131,7 @@ function extractBearer(req: http.IncomingMessage): string | undefined {
   return m ? m[1].trim() : undefined;
 }
 
-export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
+export async function createOnQServer(opts: ServerOptions = {}): Promise<{
   server: http.Server;
   url: string;
   port: number;
@@ -115,17 +141,19 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
   close: () => Promise<void>;
 }> {
   const nowFn = opts.nowFn ?? (() => Date.now());
-  const dataDir = opts.dataDir ?? path.join(os.tmpdir(), `oncue-data-${process.pid}`);
+  loadLocalEnvFile();
+  const dataDir = opts.dataDir ?? path.join(os.tmpdir(), `onq-data-${process.pid}`);
   const ledger =
     opts.ledger ??
     (opts.dataDir
-      ? new SqliteLedgerStore(path.join(dataDir, 'oncue.sqlite'), nowFn)
+      ? new SqliteLedgerStore(path.join(dataDir, 'onq.sqlite'), nowFn)
       : await createConfiguredLedgerStore(dataDir, nowFn));
   const vault = new EncryptedTokenVault(dataDir);
   const demoProvider = opts.demoProvider ?? new DemoWorkspaceProvider();
   const allowedOrigins = new Set(opts.allowedOrigins ?? DEFAULT_ORIGINS);
   const sseClients = new Set<http.ServerResponse>();
   const auditLog: AuditTelemetryEvent[] = [];
+  const meetingBuffer = new MeetingTranscriptBuffer(48);
   let activeIcsFeed: string | null = null;
 
   let lastCorridorCache: {
@@ -187,7 +215,7 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-OnCue-Preset');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-OnQ-Preset');
     return true;
   }
 
@@ -217,12 +245,23 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
       if (req.method === 'GET' && pathname === '/api/health') {
         const creds = vault.load();
         const hasLive = Boolean(creds.googleRefreshToken || creds.notionToken || activeIcsFeed);
+        const hasAai = Boolean(process.env.ASSEMBLYAI_API_KEY);
         jsonResponse(res, 200, {
           ok: true,
+          brand: 'OnQ',
           mode: hasLive ? 'LIVE' : 'DEMO',
-          sttEngine: process.env.WHISPER_CPP_BIN
-            ? 'whisper.cpp-local'
-            : 'faster-whisper-local',
+          voiceEngine: hasAai
+            ? 'LIVE · ASSEMBLYAI'
+            : process.env.WHISPER_CPP_BIN
+              ? 'LOCAL · WHISPER'
+              : 'DEMO · SANDBOX',
+          sttEngine: hasAai
+            ? 'assemblyai-stt-3-7'
+            : process.env.WHISPER_CPP_BIN
+              ? 'whisper.cpp-local'
+              : 'faster-whisper-local',
+          ttsEngine: hasAai ? 'assemblyai-tts-1' : 'demo-timing',
+          ttsVoices: listAvailableTtsVoices(),
           llmProvider: process.env.ANTHROPIC_API_KEY
             ? 'Claude'
             : process.env.OPENROUTER_API_KEY
@@ -231,7 +270,7 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
                 ? 'ChatGPT'
                 : 'Rules (Deterministic)',
           storage: process.env.DATABASE_URL ? 'neon-postgres' : 'node:sqlite',
-          version: '1.1.0',
+          version: '2.0.0',
         });
         return;
       }
@@ -431,7 +470,7 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
         const session = await requireAuth(req, res);
         if (!session) return;
         const wavBuf = await readBodyBuffer(req, MAX_WAV_UPLOAD_BYTES);
-        const presetHeader = req.headers['x-oncue-preset'];
+        const presetHeader = req.headers['x-onq-preset'];
         const presetTranscript = typeof presetHeader === 'string' ? presetHeader : opts.sttOptions?.presetTranscript;
         const stt = await transcribeWavBuffer(wavBuf, {
           ...opts.sttOptions,
@@ -802,13 +841,258 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
         return;
       }
 
+      // 12c. Hands-Free Meeting Lifecycle (Before / During / After — RAM-only transcript)
+      if (req.method === 'POST' && pathname === '/api/meeting/start') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ attendees?: string[] }>(req);
+        const provider = resolveProvider(session.mode);
+        const snap = provider.getSnapshot();
+        const attendees =
+          body.attendees && body.attendees.length > 0
+            ? body.attendees
+            : snap.calendarEvents.map((e) => e.attendeeName ?? '').filter(Boolean);
+        const providerMode = process.env.ASSEMBLYAI_API_KEY ? 'LIVE_ASSEMBLYAI' : 'DEMO_SANDBOX';
+        const state = meetingBuffer.start({
+          providerMode,
+          attendees: attendees.length > 0 ? attendees : ['Priya Nair', 'Alex Chen'],
+          startedAtIso: new Date(nowFn()).toISOString(),
+        });
+        recordAudit('MEETING_START', `RAM-only scribe started (${providerMode}; 0 audio saved)`);
+        broadcastSse('meeting', state);
+        jsonResponse(res, 200, state);
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/meeting/turn') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{
+          speakerLabel?: string;
+          text?: string;
+          isFinal?: boolean;
+          rms?: number;
+        }>(req);
+        if (!body.text?.trim()) {
+          jsonResponse(res, 400, { error: 'text required' });
+          return;
+        }
+        const turnAtIso = new Date(nowFn()).toISOString();
+        const state = meetingBuffer.pushTurn({
+          speakerLabel: body.speakerLabel ?? 'Speaker A',
+          text: body.text,
+          isFinal: body.isFinal ?? true,
+          atIso: turnAtIso,
+        });
+        const wake = parseWakeCommand(body.text);
+        if (wake.wakeMatched && wake.kind === 'CONFIRM') {
+          const lastTurn = state.turns[state.turns.length - 1];
+          const guard = canVoiceConfirmWrite({
+            transcript: body.text,
+            rms: body.rms ?? 0.05,
+            isWearer: Boolean(lastTurn?.isWearer),
+            speakerLabel: body.speakerLabel,
+          });
+          if (!guard.allowed) {
+            recordAudit('CODE_GUARD', `Voice confirm rejected (${guard.reason})`);
+          }
+        }
+        broadcastSse('meeting', state);
+        jsonResponse(res, 200, { state, wake });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/meeting/ask') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ question?: string; voiceId?: string }>(req);
+        const question = (body.question ?? '').trim();
+        const meeting = meetingBuffer.getState(nowFn());
+        const snap = resolveProvider(session.mode).getSnapshot();
+        const qLower = question.toLowerCase();
+
+        let answerLine = 'No matching note in live RAM transcript or Drive.';
+        let sourceCitation = 'SRC: Corridor Dossier';
+
+        const matchingTurn = [...meeting.turns]
+          .reverse()
+          .find((t) =>
+            qLower.includes(t.attendeeName.toLowerCase()) ||
+            qLower.split(/\s+/).some((w) => w.length > 3 && t.text.toLowerCase().includes(w)),
+          );
+
+        if (matchingTurn) {
+          answerLine = `${matchingTurn.attendeeName}: ${matchingTurn.text}`;
+          sourceCitation = `SRC: Live ${matchingTurn.atIso.slice(11, 16)} (${matchingTurn.speakerLabel})`;
+        } else if (snap.cards[0]?.driveSnippet) {
+          answerLine = `${snap.gmailThreads[0]?.fromName ?? 'Notes'}: ${snap.cards[0].driveSnippet}`;
+          sourceCitation = `SRC: Drive ${snap.cards[0].driveDocTitle ?? 'Brief'}`;
+        }
+
+        const spoken = await synthesizeTtsUtterance({
+          text: `${answerLine}. ${sourceCitation}`,
+          voiceId: body.voiceId ?? 'aai-kyla',
+          wsFactory: opts.assemblyAiWsFactory,
+        });
+
+        jsonResponse(res, 200, {
+          readOnlyAnswer: true,
+          lines: [answerLine, sourceCitation],
+          speech: spoken,
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/meeting/wrapup') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ followUpIso?: string; attendees?: string[] }>(req);
+        const provider = resolveProvider(session.mode);
+        const { cards } = await provider.fetchCorridor();
+        const primaryCard = cards[0];
+        const meeting = meetingBuffer.getState(nowFn());
+
+        const actionTitle =
+          meeting.actions[0]?.title ??
+          'Send Q4 metrics deck + follow-up notes';
+        const holdStart = body.followUpIso ?? new Date(nowFn() + 180 * 60_000).toISOString();
+        const holdEnd = new Date(Date.parse(holdStart) + 30 * 60_000).toISOString();
+        const holdHhMm = holdStart.slice(11, 16);
+
+        const operations: ActionOperation[] = [
+          {
+            provider: 'NOTION',
+            op: 'CREATE_TASK',
+            targetLabel: 'Meeting Notes & Actions',
+            afterValue: actionTitle,
+          },
+          {
+            provider: 'GCAL',
+            op: 'CREATE_HOLD',
+            targetLabel: `Follow-up: ${primaryCard?.title ?? 'Sync'}`,
+            afterValue: `${holdStart}|${holdEnd}`,
+          },
+        ];
+
+        const summaryLines = [
+          `1) NOTION: ${actionTitle.slice(0, 26)}`,
+          `2) GCAL: Follow-up ${holdHhMm} (30m)`,
+        ];
+
+        if (primaryCard?.attendeeEmail && primaryCard.gmailThreadId) {
+          const recapBody = `Meeting recap (${meeting.decisions.length} decisions, ${meeting.actions.length} actions): ${actionTitle}.`;
+          const grounded = await generateGroundedDraft(
+            {
+              recipientName: primaryCard.attendeeName ?? 'there',
+              recipientEmail: primaryCard.attendeeEmail,
+              allowedRecipients: cards.map((c: CorridorCard) => c.attendeeEmail ?? '').filter(Boolean),
+              sourceEmailText: meeting.turns.map((t) => `${t.attendeeName}: ${t.text}`).join(' '),
+              userUtterance: `Wrap up meeting and draft recap for ${holdHhMm}`,
+              computedFacts: [holdHhMm],
+              fallbackDraft: recapBody,
+            },
+            opts.llmConfig,
+          );
+          operations.push({
+            provider: 'GMAIL',
+            op: 'SAVE_DRAFT',
+            targetLabel: `${primaryCard.attendeeEmail} (${primaryCard.gmailThreadId})`,
+            afterValue: grounded.draft,
+          });
+          summaryLines.push(`3) MAIL: Draft ${primaryCard.attendeeName} (${grounded.providerLabel})`);
+        }
+
+        const built = await buildAndValidatePreview({
+          intent: 'CREATE_ACTION_PACK',
+          cardId: primaryCard?.id,
+          operations,
+          summaryLines,
+          nowFn,
+          provider,
+          ledger,
+          sessionHash: session.tokenHash,
+        });
+        if ('conflict' in built) {
+          recordAudit('CONFLICT_409', String((built.conflict as { message?: string }).message ?? 'Wrap-up 409 lock'));
+          jsonResponse(res, 409, built.conflict);
+          return;
+        }
+        jsonResponse(res, 200, { preview: built.preview, meeting });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/meeting/wipe') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        meetingBuffer.wipe();
+        recordAudit('MEETING_WIPE', 'In-RAM meeting transcript wiped (0 audio persisted)');
+        broadcastSse('meeting', { active: false, turns: [], decisions: [], actions: [] });
+        jsonResponse(res, 200, { ok: true, wiped: true });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/meeting/demo-run') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const baseNow = nowFn();
+        meetingBuffer.start({
+          providerMode: process.env.ASSEMBLYAI_API_KEY ? 'LIVE_ASSEMBLYAI' : 'DEMO_SANDBOX',
+          attendees: ['Priya Nair', 'Alex Chen'],
+          startedAtIso: new Date(baseNow - 245_000).toISOString(),
+        });
+        meetingBuffer.pushTurn({
+          speakerLabel: 'Speaker A',
+          text: 'Agreed: let us lock the Q4 launch timeline for Thursday.',
+          atIso: new Date(baseNow - 120_000).toISOString(),
+          isFinal: true,
+        });
+        const state = meetingBuffer.pushTurn({
+          speakerLabel: 'Speaker B',
+          text: 'Send Q4 metrics deck to Alex by Thursday 15:00.',
+          atIso: new Date(baseNow - 15_000).toISOString(),
+          isFinal: true,
+        });
+        recordAudit('MEETING_START', 'Live Meeting Demo: 2 speakers diarized (RAM-only)');
+        broadcastSse('meeting', state);
+        jsonResponse(res, 200, state);
+        return;
+      }
+
+      // 12d. AssemblyAI-TTS-1 voice catalog & speech synthesis endpoint
+      if (req.method === 'GET' && pathname === '/api/tts/voices') {
+        jsonResponse(res, 200, {
+          voices: listAvailableTtsVoices(),
+          hardwareNote: 'Companion Phone / Bluetooth Earbuds Audio Out (Even G2 has no speaker)',
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/tts/speak') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ text?: string; voiceId?: string }>(req);
+        if (!body.text?.trim()) {
+          jsonResponse(res, 400, { error: 'text required' });
+          return;
+        }
+        const spoken = await synthesizeTtsUtterance({
+          text: body.text.trim(),
+          voiceId: body.voiceId ?? 'aai-kyla',
+          wsFactory: opts.assemblyAiWsFactory,
+        });
+        jsonResponse(res, 200, spoken);
+        return;
+      }
+
       // 13. Sandbox fault & reset controls
       if (req.method === 'POST' && pathname === '/api/workspace/reset') {
         const session = await requireAuth(req, res);
         if (!session) return;
         demoProvider.resetSandbox();
+        meetingBuffer.wipe();
         activeIcsFeed = null;
         broadcastSse('reset', { ok: true });
+        broadcastSse('meeting', { active: false, turns: [], decisions: [], actions: [] });
         broadcastSse('corridor', { reason: 'reset' });
         jsonResponse(res, 200, { ok: true });
         return;
@@ -844,13 +1128,163 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
     }
   });
 
+  // Real-time binary 16kHz PCM WebSocket bridge (/api/voice/stream)
+  const wss = new WebSocketServer({ noServer: true });
+  server.on('upgrade', (req, socket, head) => {
+    const reqUrl = new URL(req.url ?? '/', 'http://127.0.0.1');
+    if (reqUrl.pathname !== '/api/voice/stream') {
+      socket.destroy();
+      return;
+    }
+    const origin = req.headers.origin;
+    if (origin && !allowedOrigins.has(origin) && !/^https?:\/\/(127\.0\.0\.1|localhost):\d+$/.test(origin)) {
+      socket.destroy();
+      return;
+    }
+    const token = reqUrl.searchParams.get('token') ?? extractBearer(req);
+    void ledger.validateSession(token).then((session) => {
+      if (!session) {
+        socket.destroy();
+        return;
+      }
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit('connection', ws, req, session);
+      });
+    });
+  });
+
+  wss.on('connection', (ws: WebSocket, _req: http.IncomingMessage, session: { mode: SourceMode }) => {
+    let sttMode: AssemblyAiSttMode = 'agent';
+    let sttSession: AssemblyAiRealtimeSession | null = null;
+    let ttsSession: AssemblyAiTtsSession | null = null;
+    let hadMeetingActive = false;
+
+    const sendJson = (payload: unknown) => {
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify(payload));
+      }
+    };
+
+    const connectSttIfConfigured = async () => {
+      const apiKey = process.env.ASSEMBLYAI_API_KEY;
+      if (!apiKey) return;
+      sttSession?.terminate();
+      sttSession = new AssemblyAiRealtimeSession({
+        apiKey,
+        mode: sttMode,
+        region: process.env.ASSEMBLYAI_REGION === 'eu' ? 'eu' : 'us',
+        wsFactory: opts.assemblyAiWsFactory,
+        onEvent: (ev) => {
+          sendJson({ ...ev, sttType: ev.type, type: 'stt_event' });
+          if (ev.type === 'Turn' && ev.transcript && sttMode === 'meeting') {
+            hadMeetingActive = true;
+            const st = meetingBuffer.pushTurn({
+              speakerLabel: ev.speakerLabel ?? 'PENDING',
+              text: ev.transcript,
+              isFinal: Boolean(ev.endOfTurn),
+            });
+            broadcastSse('meeting', st);
+            sendJson({ type: 'meeting_state', state: st });
+          }
+        },
+      });
+      await sttSession.connect().catch(() => {
+        // Fallback stays clean if upstream WS unavailable
+      });
+    };
+
+    sendJson({
+      type: 'orb_state',
+      state: 'idle',
+      engine: process.env.ASSEMBLYAI_API_KEY ? 'LIVE · ASSEMBLYAI' : 'DEMO · SANDBOX',
+    });
+
+    ws.on('message', async (data: Buffer | ArrayBuffer | Buffer[], isBinary: boolean) => {
+      if (isBinary) {
+        const buf = Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer);
+        const rms = computePcmRms(buf);
+        sendJson({ type: 'orb_rms', rms });
+        if (!sttSession && process.env.ASSEMBLYAI_API_KEY) {
+          await connectSttIfConfigured();
+        }
+        sttSession?.sendAudioPcm(buf);
+        return;
+      }
+
+      try {
+        const msg = JSON.parse(data.toString()) as {
+          type?: string;
+          mode?: AssemblyAiSttMode;
+          text?: string;
+          voiceId?: string;
+        };
+        if (msg.type === 'mode' && (msg.mode === 'agent' || msg.mode === 'meeting')) {
+          sttMode = msg.mode;
+          if (sttMode === 'meeting') {
+            hadMeetingActive = true;
+            const snap = resolveProvider(session.mode).getSnapshot();
+            meetingBuffer.start({
+              providerMode: process.env.ASSEMBLYAI_API_KEY ? 'LIVE_ASSEMBLYAI' : 'DEMO_SANDBOX',
+              attendees: snap.calendarEvents.map((e) => e.attendeeName ?? '').filter(Boolean),
+            });
+          }
+          await connectSttIfConfigured();
+          sendJson({ type: 'orb_state', state: sttMode === 'meeting' ? 'listening' : 'idle' });
+        } else if (msg.type === 'barge_in') {
+          ttsSession?.cancel();
+          recordAudit('TTS_BARGE_IN', 'Wearer interrupted TTS-1 playback via barge-in cancel()');
+          sendJson({ type: 'tts_cancelled' });
+          sendJson({ type: 'orb_state', state: 'listening' });
+        } else if (msg.type === 'speak' && msg.text) {
+          sendJson({ type: 'orb_state', state: 'speaking' });
+          const apiKey = process.env.ASSEMBLYAI_API_KEY;
+          if (apiKey) {
+            ttsSession?.terminate();
+            ttsSession = new AssemblyAiTtsSession({
+              apiKey,
+              voiceId: msg.voiceId ?? 'aai-kyla',
+              region: process.env.ASSEMBLYAI_REGION === 'eu' ? 'eu' : 'us',
+              wsFactory: opts.assemblyAiWsFactory,
+              callbacks: {
+                onAudioChunk: (audioBase64, flushId) =>
+                  sendJson({ type: 'tts_audio', audioBase64, flushId }),
+                onWordBoundaries: (words, flushId, audioStartMs) =>
+                  sendJson({ type: 'tts_words', words, flushId, audioStartMs }),
+                onFlushDone: () => sendJson({ type: 'orb_state', state: 'idle' }),
+              },
+            });
+            await ttsSession.connect().catch(() => null);
+            ttsSession.generate(msg.text);
+            ttsSession.flush();
+          } else {
+            const demo = buildDemoWordBoundaries(msg.text);
+            sendJson({ type: 'tts_words', words: demo.words, flushId: 0, audioStartMs: 0 });
+            sendJson({ type: 'orb_state', state: 'idle' });
+          }
+        }
+      } catch {
+        // ignore invalid WS control message
+      }
+    });
+
+    ws.on('close', () => {
+      sttSession?.terminate();
+      ttsSession?.terminate();
+      if (hadMeetingActive || meetingBuffer.getState().active) {
+        meetingBuffer.wipe();
+        recordAudit('MEETING_WIPE', 'WebSocket disconnected: RAM meeting transcript wiped');
+        broadcastSse('meeting', { active: false, turns: [], decisions: [], actions: [] });
+      }
+    });
+  });
+
   await new Promise<void>((resolve) => {
     server.listen(opts.port ?? 0, opts.host ?? '127.0.0.1', resolve);
   });
   const addr = server.address();
   const actualPort = typeof addr === 'object' && addr ? addr.port : opts.port ?? 8787;
   const url = `http://127.0.0.1:${actualPort}`;
-  logInfo('server', `OnCue relay listening on ${url}`);
+  logInfo('server', `OnQ relay listening on ${url}`);
 
   return {
     server,
@@ -860,6 +1294,15 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
     vault,
     demoProvider,
     close: async () => {
+      meetingBuffer.wipe();
+      for (const client of wss.clients) {
+        try {
+          client.close();
+        } catch {
+          // ignore
+        }
+      }
+      wss.close();
       for (const c of sseClients) c.end();
       sseClients.clear();
       await new Promise<void>((resolve, reject) => server.close((e) => (e ? reject(e) : resolve())));
@@ -911,4 +1354,13 @@ async function buildAndValidatePreview(params: {
   return { preview };
 }
 
-export { GoogleWorkspaceClient, LiveWorkspaceProvider, NotionWorkspaceClient, checkCalendarConflict };
+export {
+  AssemblyAiRealtimeSession,
+  AssemblyAiTtsSession,
+  GoogleWorkspaceClient,
+  LiveWorkspaceProvider,
+  NotionWorkspaceClient,
+  checkCalendarConflict,
+  listAvailableTtsVoices,
+  synthesizeTtsUtterance,
+};

@@ -4,14 +4,14 @@ import {
   checkThreadFreshness,
   parseIcsEvents,
   rankCorridorCards,
-} from '@oncue/core';
+} from '@onq/core';
 import type {
   ActionPreview,
   BusySlot,
   CommitReceipt,
   ConflictLockDetail,
   CorridorCard,
-} from '@oncue/core';
+} from '@onq/core';
 import type { GoogleWorkspaceClient } from './googleProvider.js';
 import type { NotionWorkspaceClient } from './notionProvider.js';
 import type {

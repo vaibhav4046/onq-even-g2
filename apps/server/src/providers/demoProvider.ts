@@ -4,14 +4,14 @@ import {
   checkNotionFreshness,
   checkThreadFreshness,
   rankCorridorCards,
-} from '@oncue/core';
+} from '@onq/core';
 import type {
   ActionPreview,
   BusySlot,
   CommitReceipt,
   ConflictLockDetail,
   CorridorCard,
-} from '@oncue/core';
+} from '@onq/core';
 import type {
   WorkspaceExecutionInput,
   WorkspaceProvider,

@@ -3,16 +3,30 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   createInitialHudState,
   encodePcm16ToWav,
-  OnCueHudController,
-} from '@oncue/core';
+  OnQHudController,
+} from '@onq/core';
 import type {
   ActionPreview,
   CommitReceipt,
   ConflictLockDetail,
   CorridorCard,
   HudState,
+  MeetingSessionState,
   SourceMode,
-} from '@oncue/core';
+  TtsWordBoundary,
+  VoiceOrbState,
+} from '@onq/core';
+import {
+  AssemblyAiPixelSvg,
+  CalendarPixelSvg,
+  ClaudePixelSvg,
+  DrivePixelSvg,
+  EcosystemStrip,
+  EvenG2PixelSvg,
+  GmailPixelSvg,
+  NotionPixelSvg,
+  ShieldPixelSvg,
+} from './components/EcosystemIcons';
 import { EvidenceSection } from './components/EvidenceSection';
 import { G2Hardware3D } from './components/G2Hardware3D';
 import { G2LensCanvas } from './components/G2LensCanvas';
@@ -25,22 +39,9 @@ import {
   ScrollProgressRail,
   ScrollReveal,
 } from './components/MotionPrimitives';
+import { OnQLogo } from './components/OnQLogo';
+import { OnQVoiceOrb } from './components/OnQVoiceOrb';
 import { PairingSection } from './components/PairingSection';
-import {
-  ClaudeLogo,
-  EvenG2Logo,
-  GmailLogo,
-  GoogleCalendarLogo,
-  GoogleDriveLogo,
-  GoogleWorkspaceLogo,
-  IcsCalendarLogo,
-  NeonPostgresLogo,
-  NotionLogo,
-  OpenAILogo,
-  PixelLogoChip,
-  ShieldLockLogo,
-  WhisperLogo,
-} from './components/PixelLogos';
 import { StickySafetyStory } from './components/StickySafetyStory';
 
 interface SnapshotState {
@@ -166,6 +167,55 @@ function buildGeometryState(stateName: string): HudState {
       return { ...base, phase: 'stale', sourceMode: 'STALE', provenanceLabel: 'OFFLINE 3m AGO' };
     case 'EMPTY_ALL_CLEAR':
       return { ...base, phase: 'idle', cards: [] };
+    case 'MEETING_LIVE':
+      return {
+        ...base,
+        phase: 'meeting_live',
+        meeting: {
+          active: true,
+          startedAtIso: '2026-11-24T13:55:00.000Z',
+          elapsedSec: 252,
+          speakerCount: 2,
+          providerMode: 'DEMO_SANDBOX',
+          attendees: ['Priya Nair', 'Alex Chen'],
+          turns: [
+            {
+              id: 't1',
+              speakerLabel: 'Speaker A',
+              attendeeName: 'You',
+              text: 'Agreed: let us lock Q4 metrics for Thursday.',
+              atIso: '2026-11-24T13:58:00.000Z',
+              isWearer: true,
+              isFinal: true,
+            },
+            {
+              id: 't2',
+              speakerLabel: 'Speaker B',
+              attendeeName: 'Priya',
+              text: 'Send Q4 deck to Alex by Thursday 15:00.',
+              atIso: '2026-11-24T13:59:10.000Z',
+              isWearer: false,
+              isFinal: true,
+            },
+          ],
+          decisions: [{ id: 'd1', summary: 'Lock Q4 metrics for Thursday', speaker: 'You', atIso: '2026-11-24T13:58:00.000Z' }],
+          actions: [{ id: 'a1', title: 'Send Q4 deck to Alex', owner: 'Priya' }],
+        },
+      };
+    case 'WRAP_UP':
+      return {
+        ...base,
+        phase: 'wrap_up',
+        preview: {
+          ...preview,
+          summaryLines: [
+            '1) NOTION: Send Q4 deck to Alex',
+            '2) GCAL: Follow-up 17:00 (30m)',
+            '3) MAIL: Draft Priya Nair (Rules)',
+          ],
+        },
+        previewSelection: 'NO',
+      };
     default:
       return base;
   }
@@ -201,6 +251,12 @@ export function App() {
   const [voiceFeedback, setVoiceFeedback] = useState<string>('Ready. Speak with Live Mic or click a preset WAV clip.');
   const [simLoading, setSimLoading] = useState(false);
   const [micActive, setMicActive] = useState(false);
+  const [voiceEngineLabel, setVoiceEngineLabel] = useState('DEMO · SANDBOX');
+  const [ttsVoiceId, setTtsVoiceId] = useState('aai-kyla');
+  const [speakingNow, setSpeakingNow] = useState(false);
+  const [activeSpokenWord, setActiveSpokenWord] = useState('');
+  const [meetingState, setMeetingState] = useState<MeetingSessionState | null>(null);
+  const [thinkingNow, setThinkingNow] = useState(false);
 
   // Live workspace mutation inputs
   const [newBusyTitle, setNewBusyTitle] = useState('');
@@ -209,8 +265,11 @@ export function App() {
 
   const tokenRef = useRef<string | null>(null);
   tokenRef.current = sessionToken;
-  const ctrlRef = useRef<OnCueHudController | null>(null);
+  const ctrlRef = useRef<OnQHudController | null>(null);
   const micHandleRef = useRef<MicRecordingHandle | null>(null);
+  const voiceWsRef = useRef<WebSocket | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const ttsTimersRef = useRef<number[]>([]);
 
   const refreshWorkspaceInspector = useCallback(async (tok: string) => {
     try {
@@ -251,7 +310,7 @@ export function App() {
   useEffect(() => {
     if (geometryMode) return;
 
-    const ctrl = new OnCueHudController(createInitialHudState([GEOMETRY_SAMPLE_CARD], 'DEMO'), {
+    const ctrl = new OnQHudController(createInitialHudState([GEOMETRY_SAMPLE_CARD], 'DEMO'), {
       onStateChange: (next) => setHudState({ ...next }),
       onRefreshCorridor: async () => {
         if (!tokenRef.current) throw new Error('No session');
@@ -314,6 +373,15 @@ export function App() {
     (async () => {
       setSimLoading(true);
       try {
+        try {
+          const hRes = await fetch('/api/health');
+          if (hRes.ok) {
+            const hJson = (await hRes.json()) as { voiceEngine?: string };
+            if (!cancelled && hJson.voiceEngine) setVoiceEngineLabel(hJson.voiceEngine);
+          }
+        } catch {
+          // ignore
+        }
         const res = await fetch('/api/demo/session', { method: 'POST' });
         if (!res.ok) throw new Error('Relay unavailable');
         const json = (await res.json()) as { sessionToken: string };
@@ -386,6 +454,19 @@ export function App() {
     es.addEventListener('audit', () => {
       if (tokenRef.current) void refreshWorkspaceInspector(tokenRef.current);
     });
+    es.addEventListener('meeting', (ev) => {
+      try {
+        const parsed = JSON.parse((ev as MessageEvent).data) as MeetingSessionState;
+        if (parsed.active) {
+          setMeetingState(parsed);
+          ctrlRef.current?.setMeetingSession(parsed);
+        } else {
+          setMeetingState(null);
+        }
+      } catch {
+        // ignore
+      }
+    });
     return () => es.close();
   }, [geometryMode, sessionToken, refreshCorridor, refreshWorkspaceInspector]);
 
@@ -413,37 +494,203 @@ export function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [geometryMode]);
 
+  const clearTtsPlayback = () => {
+    for (const id of ttsTimersRef.current) window.clearTimeout(id);
+    ttsTimersRef.current = [];
+    setSpeakingNow(false);
+    setActiveSpokenWord('');
+    if (audioCtxRef.current) {
+      void audioCtxRef.current.close().catch(() => null);
+      audioCtxRef.current = null;
+    }
+    if (voiceWsRef.current && voiceWsRef.current.readyState === WebSocket.OPEN) {
+      voiceWsRef.current.send(JSON.stringify({ type: 'barge_in' }));
+    }
+  };
+
+  const playSpeechOutput = async (speech: {
+    audioChunksBase64?: string[];
+    sampleRate?: number;
+    wordBoundaries?: TtsWordBoundary[];
+    durationMs?: number;
+    engine?: string;
+  }) => {
+    clearTtsPlayback();
+    setSpeakingNow(true);
+    const words = speech.wordBoundaries ?? [];
+    for (const wb of words) {
+      const id = window.setTimeout(() => setActiveSpokenWord(wb.word), wb.start);
+      ttsTimersRef.current.push(id);
+    }
+    const endMs = Math.max(speech.durationMs ?? 1600, words[words.length - 1]?.end ?? 1600) + 180;
+    ttsTimersRef.current.push(
+      window.setTimeout(() => {
+        setSpeakingNow(false);
+        setActiveSpokenWord('');
+      }, endMs),
+    );
+
+    if (speech.audioChunksBase64 && speech.audioChunksBase64.length > 0 && typeof AudioContext !== 'undefined') {
+      try {
+        const sr = speech.sampleRate || 24000;
+        const decodedParts = speech.audioChunksBase64.map((b64) => {
+          const bin = atob(b64);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          return bytes;
+        });
+        const totalBytes = decodedParts.reduce((a, b) => a + b.byteLength, 0);
+        const merged = new Uint8Array(totalBytes);
+        let pos = 0;
+        for (const p of decodedParts) {
+          merged.set(p, pos);
+          pos += p.byteLength;
+        }
+        // Raw PCM16 little-endian stream -> Float32 AudioBuffer
+        const samples = Math.floor(merged.byteLength / 2);
+        const ctx = new AudioContext({ sampleRate: sr });
+        audioCtxRef.current = ctx;
+        const buf = ctx.createBuffer(1, samples, sr);
+        const ch = buf.getChannelData(0);
+        const dv = new DataView(merged.buffer);
+        for (let i = 0; i < samples; i++) {
+          ch[i] = dv.getInt16(i * 2, true) / 32768;
+        }
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctx.destination);
+        src.start();
+      } catch {
+        // ignore audio autoplay blocks in headless mode
+      }
+    }
+  };
+
+  const runLiveMeetingDemo = async () => {
+    const tok = tokenRef.current;
+    if (!tok) return;
+    const res = await fetch('/api/meeting/demo-run', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    if (res.ok) {
+      const state = (await res.json()) as MeetingSessionState;
+      setMeetingState(state);
+      ctrlRef.current?.setMeetingSession(state);
+      setVoiceFeedback('Live Meeting Scribe active (RAM-only · 2 speakers diarized). Say "OnQ, wrap up" or ask a question.');
+      await refreshWorkspaceInspector(tok);
+    }
+  };
+
+  const askMeetingClaude = async (question: string) => {
+    const tok = tokenRef.current;
+    if (!tok) return;
+    setThinkingNow(true);
+    try {
+      const res = await fetch('/api/meeting/ask', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, voiceId: ttsVoiceId }),
+      });
+      const data = (await res.json()) as {
+        lines?: string[];
+        speech?: {
+          audioChunksBase64?: string[];
+          sampleRate?: number;
+          wordBoundaries?: TtsWordBoundary[];
+          durationMs?: number;
+          engine?: string;
+        };
+      };
+      if (data.lines) {
+        ctrlRef.current?.showAnswer(data.lines);
+        setVoiceFeedback(`Claude + RAM Scribe (${data.speech?.engine ?? 'TTS'}): ${data.lines.join(' | ')}`);
+      }
+      if (data.speech) {
+        await playSpeechOutput(data.speech);
+      }
+    } finally {
+      setThinkingNow(false);
+    }
+  };
+
+  const runMeetingWrapUp = async () => {
+    const tok = tokenRef.current;
+    if (!tok) return;
+    setThinkingNow(true);
+    try {
+      const res = await fetch('/api/meeting/wrapup', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      const data = await res.json();
+      await refreshWorkspaceInspector(tok);
+      if (res.status === 409) {
+        ctrlRef.current?.showConflict(data as ConflictLockDetail);
+        setVoiceFeedback(`409 CONFLICT LOCKED: ${(data as ConflictLockDetail).message}`);
+        return;
+      }
+      if (res.ok && data.preview) {
+        ctrlRef.current?.stagePreview(data.preview as ActionPreview, true);
+        setVoiceFeedback('Wrap-Up Recap Pack staged (Default-NO). Say "Confirm action" or swipe/tap to arm 2.0s Undo Ring.');
+      }
+    } finally {
+      setThinkingNow(false);
+    }
+  };
+
+  const wipeMeetingScribe = async () => {
+    const tok = tokenRef.current;
+    if (!tok) return;
+    await fetch('/api/meeting/wipe', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    setMeetingState(null);
+    ctrlRef.current?.setMeetingSession(null);
+    await refreshCorridor(tok);
+    setVoiceFeedback('In-RAM meeting transcript wiped clean (0 audio persisted).');
+  };
+
   const stageCommand = async (cmd: string) => {
     const tok = tokenRef.current;
     if (!tok) {
       setVoiceFeedback('Relay offline. Start local server with npm run dev.');
       return;
     }
-    const card = ctrlRef.current?.getState().cards[ctrlRef.current.getState().selectedCardIndex];
-    const res = await fetch('/api/actions/stage', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ commandText: cmd, cardId: card?.id }),
-    });
-    const data = await res.json();
-    await refreshWorkspaceInspector(tok);
-    if (res.status === 409) {
-      ctrlRef.current?.showConflict(data as ConflictLockDetail);
-      setVoiceFeedback(`409 CONFLICT LOCKED: ${(data as ConflictLockDetail).message}`);
-      return;
+    setThinkingNow(true);
+    try {
+      const card = ctrlRef.current?.getState().cards[ctrlRef.current.getState().selectedCardIndex];
+      const res = await fetch('/api/actions/stage', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commandText: cmd, cardId: card?.id }),
+      });
+      const data = await res.json();
+      await refreshWorkspaceInspector(tok);
+      if (res.status === 409) {
+        ctrlRef.current?.showConflict(data as ConflictLockDetail);
+        setVoiceFeedback(`409 CONFLICT LOCKED: ${(data as ConflictLockDetail).message}`);
+        return;
+      }
+      if (!res.ok) {
+        ctrlRef.current?.showError((data as { error?: string }).error ?? `HTTP ${res.status}`);
+        setVoiceFeedback((data as { error?: string }).error ?? `HTTP ${res.status}`);
+        return;
+      }
+      if (data.readOnlyAnswer && data.lines) {
+        ctrlRef.current?.showAnswer(data.lines as string[]);
+        setVoiceFeedback(`Read-only answer: ${(data.lines as string[]).join(' | ')}`);
+        return;
+      }
+      ctrlRef.current?.stagePreview(data as ActionPreview);
+      setVoiceFeedback('Staged Default-NO preview. Swipe to YES and tap to arm 2.0s Undo Ring.');
+    } finally {
+      setThinkingNow(false);
     }
-    if (!res.ok) {
-      ctrlRef.current?.showError((data as { error?: string }).error ?? `HTTP ${res.status}`);
-      setVoiceFeedback((data as { error?: string }).error ?? `HTTP ${res.status}`);
-      return;
-    }
-    if (data.readOnlyAnswer && data.lines) {
-      ctrlRef.current?.showAnswer(data.lines as string[]);
-      setVoiceFeedback(`Read-only answer: ${(data.lines as string[]).join(' | ')}`);
-      return;
-    }
-    ctrlRef.current?.stagePreview(data as ActionPreview);
-    setVoiceFeedback('Staged Default-NO preview. Swipe to YES and tap to arm 2.0s Undo Ring.');
   };
 
   const toggleLiveMic = async () => {
@@ -451,14 +698,53 @@ export function App() {
     if (!tok) return;
     if (!micActive) {
       try {
+        clearTtsPlayback();
         ctrlRef.current?.setListening(0.05, '');
-        setVoiceFeedback('Listening via browser mic (16 kHz PCM)... click Stop & Transcribe when done.');
-        micHandleRef.current = await startBrowserMicCapture((rms) => {
-          ctrlRef.current?.setListening(rms, '');
-        });
+        setVoiceFeedback('Streaming 16 kHz PCM via /api/voice/stream...');
+
+        try {
+          const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          const ws = new WebSocket(`${proto}//${window.location.host}/api/voice/stream?token=${encodeURIComponent(tok)}`);
+          voiceWsRef.current = ws;
+          ws.onopen = () => {
+            ws.send(JSON.stringify({ type: 'mode', mode: meetingState?.active ? 'meeting' : 'agent' }));
+          };
+          ws.onmessage = (ev) => {
+            try {
+              const msg = JSON.parse(String(ev.data)) as {
+                type?: string;
+                transcript?: string;
+                state?: MeetingSessionState;
+              };
+              if ((msg.type === 'meeting_state' || msg.type === 'meeting') && msg.state) {
+                setMeetingState(msg.state);
+                ctrlRef.current?.setMeetingSession(msg.state);
+              } else if (msg.transcript) {
+                ctrlRef.current?.setListening(0.32, msg.transcript);
+              }
+            } catch {
+              // ignore malformed stream frame
+            }
+          };
+        } catch {
+          voiceWsRef.current = null;
+        }
+
+        micHandleRef.current = await startBrowserMicCapture(
+          (rms) => {
+            ctrlRef.current?.setListening(rms, '');
+          },
+          (pcm16) => {
+            if (voiceWsRef.current && voiceWsRef.current.readyState === WebSocket.OPEN) {
+              voiceWsRef.current.send(pcm16);
+            }
+          },
+        );
         setMicActive(true);
       } catch (err) {
         setMicActive(false);
+        voiceWsRef.current?.close();
+        voiceWsRef.current = null;
         ctrlRef.current?.showError('MIC PERMISSION DENIED');
         setVoiceFeedback(err instanceof Error ? err.message : 'Microphone unavailable');
       }
@@ -466,11 +752,15 @@ export function App() {
     }
 
     setMicActive(false);
+    if (voiceWsRef.current) {
+      voiceWsRef.current.close();
+      voiceWsRef.current = null;
+    }
     const handle = micHandleRef.current;
     micHandleRef.current = null;
     if (!handle) return;
     const { wavBlob } = await handle.stop();
-    setVoiceFeedback('Running RMS silence gate + local Whisper STT...');
+    setVoiceFeedback('Running RMS silence gate + AssemblyAI / Whisper STT...');
     const res = await fetch('/api/stt', {
       method: 'POST',
       headers: { Authorization: `Bearer ${tok}` },
@@ -507,7 +797,7 @@ export function App() {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${tok}`,
-        'X-OnCue-Preset': presetText,
+        'X-OnQ-Preset': presetText,
       },
       body: wavBlob,
     });
@@ -620,6 +910,24 @@ export function App() {
     }
   };
 
+  const armProgress01 =
+    hudState.armRemainingMs !== undefined
+      ? Math.max(0.06, Math.min(1, 1 - hudState.armRemainingMs / 2000))
+      : 0;
+
+  const orbState: VoiceOrbState =
+    hudState.phase === 'conflict'
+      ? 'conflict'
+      : hudState.phase === 'armed'
+        ? 'armed'
+        : speakingNow
+          ? 'speaking'
+          : thinkingNow
+            ? 'thinking'
+            : micActive || hudState.phase === 'listening'
+              ? 'listening'
+              : 'idle';
+
   if (geometryMode) {
     return (
       <main className="min-h-screen bg-black p-6 flex items-start justify-start">
@@ -639,10 +947,7 @@ export function App() {
       <header className="sticky top-0 z-40 h-16 bg-[var(--ink)]/95 backdrop-blur-sm border-b border-[var(--hairline)]">
         <div className="container-page h-full flex items-center justify-between gap-4">
           <a href="#top" className="flex items-center gap-3 group">
-            <EvenG2Logo className="w-8 h-[19px]" />
-            <span className="font-pixel text-xs uppercase tracking-[0.18em] text-[var(--bright)] group-hover:text-[var(--lime)]">
-              ONCUE // G2
-            </span>
+            <OnQLogo showWordmark />
           </a>
 
           <nav aria-label="Primary navigation" className="hidden md:flex items-center gap-6 text-sm text-[var(--lightgray)]">
@@ -681,75 +986,46 @@ export function App() {
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.45, ease: MOTION_EASE }}
-                className="lg:col-span-7 space-y-5"
+                className="lg:col-span-6 space-y-5"
               >
                 <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
                   EVEN REALITIES G2 · TRACK 04 · SDK 0.0.16
                 </p>
                 <h1 className="font-dots font-black leading-[0.94] tracking-[-0.02em] text-[2.3rem] sm:text-[3.1rem] lg:text-[3.35rem] xl:text-[3.85rem]">
-                  <span className="block text-[var(--lightgray)]">Own the 90 seconds</span>
-                  <span className="block text-[var(--bright)]">between meetings.</span>
+                  <span className="block text-[var(--lightgray)]">Own the room, before</span>
+                  <span className="block text-[var(--bright)]">during, and after.</span>
                 </h1>
                 <p className="text-sm md:text-base leading-relaxed text-[var(--lightgray)] max-w-xl">
-                  Calendar, Gmail, Drive, and Notion fused onto Even G2 behind a Default-NO gate,
-                  2.0s undo ring, and HTTP 409 conflict hard-lock.
+                  Calendar, Gmail, Drive, and Notion on Even G2, paired with AssemblyAI STT-3.7
+                  &amp; TTS-1 behind Default-NO, 2.0s undo ring, and 409 conflict hard-lock.
                 </p>
 
-                {/* Quiet single-line pixel-SVG ecosystem rail */}
-                <div
-                  className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 pt-1 text-[10.5px] text-[var(--lightgray)]"
-                  aria-label="Supported integrations and models"
-                >
-                  <span className="inline-flex items-center gap-1.5 text-[var(--bright)]">
-                    <GoogleWorkspaceLogo className="w-3.5 h-3.5" /> Workspace
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <GoogleCalendarLogo className="w-3.5 h-3.5" /> Calendar
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <GmailLogo className="w-3.5 h-3.5" /> Gmail
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <GoogleDriveLogo className="w-3.5 h-3.5" /> Drive
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <NotionLogo className="w-3.5 h-3.5" /> Notion
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <IcsCalendarLogo className="w-3.5 h-3.5" /> .ics
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <WhisperLogo className="w-3.5 h-3.5" /> Whisper
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <ClaudeLogo className="w-3.5 h-3.5" /> Claude
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <OpenAILogo className="w-3.5 h-3.5" /> ChatGPT
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <NeonPostgresLogo className="w-3.5 h-3.5" /> Neon
-                  </span>
-                </div>
+                <EcosystemStrip />
               </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, delay: 0.08, ease: MOTION_EASE }}
-                className="lg:col-span-5"
+                className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-12 gap-3 items-stretch"
               >
-                <G2Hardware3D
-                  phase={hudState.phase}
-                  headerLine={`${sessionMode} | ${hudState.phase.toUpperCase()}`}
-                  primaryLine={
-                    hudState.cards[hudState.selectedCardIndex]?.title ?? 'VC Sync - Priya Nair'
-                  }
-                  ringProgress={
-                    hudState.countdownRemainingMs !== undefined
-                      ? Math.max(0.08, 1 - hudState.countdownRemainingMs / 2000)
-                      : 0
-                  }
+                <div className="sm:col-span-8">
+                  <G2Hardware3D
+                    phase={hudState.phase}
+                    headerLine={`${sessionMode} | ${hudState.phase.toUpperCase()}`}
+                    primaryLine={
+                      hudState.cards[hudState.selectedCardIndex]?.title ?? 'VC Sync - Priya Nair'
+                    }
+                    ringProgress={armProgress01}
+                  />
+                </div>
+                <OnQVoiceOrb
+                  state={orbState}
+                  rmsLevel={hudState.rmsLevel ?? 0}
+                  activeWord={activeSpokenWord}
+                  armProgress01={armProgress01}
+                  engineLabel={voiceEngineLabel}
+                  className="sm:col-span-4"
                 />
               </motion.div>
             </div>
@@ -761,7 +1037,7 @@ export function App() {
                 <div className="xl:col-span-7 bg-[var(--ink)] p-5 sm:p-6 space-y-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <EvenG2Logo className="w-6 h-3.5" />
+                      <EvenG2PixelSvg className="w-6 h-3.5" />
                       <span className="font-pixel text-[11px] uppercase tracking-[0.2em] text-[var(--bright)]">
                         EVEN G2 WAVEGUIDE (576x288)
                       </span>
@@ -845,14 +1121,19 @@ export function App() {
                           : 'border-[var(--lime)] text-[var(--lime)] hover:bg-[var(--lime)] hover:text-[var(--ink)]'
                       }`}
                     >
-                      {micActive ? 'Stop & Transcribe (Local Whisper)' : 'Speak Live Mic'}
+                      {micActive ? 'Stop & Transcribe' : 'Speak Live Mic'}
                     </button>
                   </div>
 
-                  {/* Voice Presets, Q&A & Fault Triggers */}
+                  {/* Voice Presets, Meeting Lifecycle, TTS-1 Earbuds Audio Out & Fault Triggers */}
                   <div className="border-t border-dashed border-[var(--hairline)] pt-4 space-y-3">
-                    <div className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lightgray)]">
-                      16KHZ PCM VOICE CLIPS, NOTES Q&amp;A &amp; FAULT TESTS
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lightgray)]">
+                        VOICE PRESETS, MEETING SCRIBE &amp; FAULT TESTS
+                      </span>
+                      <span className="font-pixel text-[9px] uppercase tracking-[0.14em] text-[var(--verified)]">
+                        {voiceEngineLabel}
+                      </span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button
@@ -864,17 +1145,31 @@ export function App() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => void runVoicePreset('Task: send Q4 metrics to Alex by Thursday')}
-                        className="px-3 py-1.5 border border-[var(--hairline)] text-xs hover:border-[var(--bright)] cursor-pointer"
+                        onClick={() => void runLiveMeetingDemo()}
+                        className="px-3 py-1.5 border border-[var(--verified)] text-[var(--verified)] hover:bg-[var(--verified)] hover:text-[var(--ink)] text-xs cursor-pointer"
                       >
-                        Voice: Action Pack (Notion + Hold)
+                        Run Live Meeting Demo
                       </button>
                       <button
                         type="button"
-                        onClick={() => void stageCommand('What did Priya ask?')}
-                        className="px-3 py-1.5 border border-[var(--hairline)] text-xs hover:border-[var(--verified)] cursor-pointer"
+                        onClick={() => void askMeetingClaude('What did Priya ask about Q4?')}
+                        className="px-3 py-1.5 border border-[var(--hairline)] text-xs hover:border-[var(--lime)] cursor-pointer"
                       >
-                        Ask Notes (Read-Only)
+                        Ask &quot;OnQ, Q4?&quot; (TTS-1)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runMeetingWrapUp()}
+                        className="px-3 py-1.5 border border-[var(--hairline)] text-xs hover:border-[var(--bright)] cursor-pointer"
+                      >
+                        Wrap Up &amp; Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runVoicePreset('Task: send Q4 metrics to Alex by Thursday')}
+                        className="px-3 py-1.5 border border-[var(--hairline)] text-xs hover:border-[var(--bright)] cursor-pointer"
+                      >
+                        Action Pack (Notion + Hold)
                       </button>
                       <button
                         type="button"
@@ -888,7 +1183,7 @@ export function App() {
                         onClick={() => void runVoicePreset('', true)}
                         className="px-3 py-1.5 border border-[var(--hairline)] text-xs hover:border-[var(--bright)] cursor-pointer"
                       >
-                        Test Silent WAV (RMS Gate)
+                        Test Silent WAV
                       </button>
                       <button
                         type="button"
@@ -897,6 +1192,40 @@ export function App() {
                       >
                         Toggle STALE Offline
                       </button>
+                    </div>
+
+                    {/* Companion Earbuds TTS-1 Selector + Barge-In (G2 has no speaker) */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 border border-dashed border-[var(--hairline)] bg-[var(--surface)] px-3 py-2 text-[11px]">
+                      <div className="flex items-center gap-2 text-[var(--lightgray)]">
+                        <AssemblyAiPixelSvg className="w-3.5 h-3.5" />
+                        <span>Companion Phone / Bluetooth Earbuds Audio Out (Even G2 has no speaker)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label htmlFor="tts-voice-select" className="sr-only">
+                          TTS-1 Voice
+                        </label>
+                        <select
+                          id="tts-voice-select"
+                          value={ttsVoiceId}
+                          onChange={(e) => setTtsVoiceId(e.target.value)}
+                          className="bg-[var(--ink)] border border-[var(--hairline)] px-2 py-1 text-[11px] text-[var(--bright)]"
+                        >
+                          <option value="aai-kyla">aai-kyla</option>
+                          <option value="aai-titus">aai-titus</option>
+                          <option value="aai-audrey">aai-audrey</option>
+                          <option value="aai-sara">aai-sara</option>
+                          <option value="aai-ewald">aai-ewald</option>
+                        </select>
+                        {speakingNow && (
+                          <button
+                            type="button"
+                            onClick={clearTtsPlayback}
+                            className="px-2 py-1 border border-[var(--danger)] text-[var(--danger)] hover:bg-[var(--danger)] hover:text-[var(--ink)] text-[10px] font-pixel uppercase cursor-pointer"
+                          >
+                            Stop TTS (Barge-In)
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <form
@@ -943,10 +1272,50 @@ export function App() {
                     </div>
                   ) : (
                     <div className="space-y-3 text-xs">
+                      {/* RAM-Only Live Meeting Scribe */}
+                      <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="inline-flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--verified)]">
+                            <AssemblyAiPixelSvg className="w-4 h-4" />
+                            <span>LIVE MEETING SCRIBE (RAM-ONLY)</span>
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {meetingState?.active && (
+                              <button
+                                type="button"
+                                onClick={() => void wipeMeetingScribe()}
+                                className="font-pixel text-[9px] px-2 py-0.5 border border-[var(--hairline)] text-[var(--lightgray)] hover:border-[var(--danger)] hover:text-[var(--danger)] cursor-pointer"
+                              >
+                                Wipe RAM
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        {!meetingState || meetingState.turns.length === 0 ? (
+                          <p className="text-[var(--lightgray)]">
+                            Idle. Click &quot;Run Live Meeting Demo&quot; for speaker diarization,
+                            decisions, and &quot;OnQ, wrap up&quot;.
+                          </p>
+                        ) : (
+                          <div className="space-y-1 border-t border-dashed border-[var(--hairline)] pt-1.5">
+                            {meetingState.turns.slice(-3).map((t, idx) => (
+                              <div key={idx} className="text-[11px] text-[var(--bright)] truncate">
+                                <span className="text-[var(--lime)]">[{t.attendeeName}]</span> {t.text}
+                              </div>
+                            ))}
+                            {meetingState.actions.slice(0, 2).map((act) => (
+                              <div key={act.id} className="text-[11px] text-[var(--verified)] truncate">
+                                + {act.title} ({act.owner})
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Calendar + Add Busy Slot */}
                       <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-2">
                         <div className="flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
-                          <GoogleCalendarLogo className="w-4 h-4" />
+                          <CalendarPixelSvg className="w-4 h-4" />
                           <span>GOOGLE CALENDAR</span>
                         </div>
                         {workspace.calendarEvents.map((ev) => (
@@ -986,7 +1355,7 @@ export function App() {
                       <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
                           <span className="inline-flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
-                            <GmailLogo className="w-4 h-4" />
+                            <GmailPixelSvg className="w-4 h-4" />
                             <span>GMAIL THREADS</span>
                           </span>
                           <button
@@ -1016,7 +1385,7 @@ export function App() {
                       {/* Notion + Add/Toggle */}
                       <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
                         <div className="flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
-                          <NotionLogo className="w-4 h-4" />
+                          <NotionPixelSvg className="w-4 h-4" />
                           <span>NOTION DATABASE (AUTO-SCHEMA)</span>
                         </div>
                         {workspace.notionTasks.slice(0, 4).map((task) => (
@@ -1054,7 +1423,7 @@ export function App() {
                       {/* Receipts + Undo + Telemetry */}
                       <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
                         <div className="flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--bright)]">
-                          <ShieldLockLogo className="w-4 h-4" />
+                          <ShieldPixelSvg className="w-4 h-4" />
                           <span>AUDIT RECEIPT LEDGER ({receipts.length})</span>
                         </div>
                         {receipts.length === 0 ? (
@@ -1121,10 +1490,22 @@ export function App() {
                   Text, native List, and 76x76 4-bit Ring containers packed cleanly into Even Hub SDK 0.0.16.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1" aria-label="Hardware and local runtime stack">
-                  <PixelLogoChip theme="light" icon={<EvenG2Logo theme="light" className="w-6 h-3.5" />} label="Even G2" />
-                  <PixelLogoChip theme="light" icon={<WhisperLogo theme="light" />} label="Local Whisper" />
-                  <PixelLogoChip theme="light" icon={<NeonPostgresLogo theme="light" />} label="Neon Postgres" />
-                  <PixelLogoChip theme="light" icon={<ShieldLockLogo theme="light" />} label="Zero Keys in WebView" />
+                  <span className="inline-flex items-center gap-1.5 border border-[#c4c4c4] bg-[#e8e8e8] px-2.5 py-1 text-[11px] font-medium text-[#0a0a0a]">
+                    <EvenG2PixelSvg theme="light" className="w-5 h-3" />
+                    <span>Even G2</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 border border-[#c4c4c4] bg-[#e8e8e8] px-2.5 py-1 text-[11px] font-medium text-[#0a0a0a]">
+                    <AssemblyAiPixelSvg theme="light" className="w-3.5 h-3.5" />
+                    <span>STT-3.7 + TTS-1</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 border border-[#c4c4c4] bg-[#e8e8e8] px-2.5 py-1 text-[11px] font-medium text-[#0a0a0a]">
+                    <ClaudePixelSvg theme="light" className="w-3.5 h-3.5" />
+                    <span>Claude + Rules</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 border border-[#c4c4c4] bg-[#e8e8e8] px-2.5 py-1 text-[11px] font-medium text-[#0a0a0a]">
+                    <ShieldPixelSvg theme="light" className="w-3.5 h-3.5" />
+                    <span>Zero Keys in WebView</span>
+                  </span>
                 </div>
               </ScrollReveal>
               <ScrollReveal delay={0.08} className="lg:col-span-6">
@@ -1141,14 +1522,14 @@ export function App() {
             <div className="grid grid-cols-1 md:grid-cols-3 border-t border-b border-dashed border-[#c4c4c4] divide-y md:divide-y-0 md:divide-x divide-dashed divide-[#c4c4c4]">
               <div className="py-8 md:pr-6 space-y-2.5">
                 <div className="font-dots text-5xl sm:text-6xl font-black leading-none text-[#0a0a0a]">
-                  <KineticNumber value={163} />
+                  <KineticNumber value={189} />
                 </div>
                 <div className="font-display text-2xl font-bold text-[#0a0a0a]">Passing Tests</div>
                 <span className="inline-block bg-[#0a0a0a] text-[#f2f2f2] px-2 py-0.5 font-pixel text-[10px] uppercase tracking-[0.15em]">
                   CLEAN-ROOM VERIFIED
                 </span>
                 <p className="text-sm text-[#525252] leading-relaxed">
-                  113 pure core + 50 server/live-provider tests plus 11/11 Chromium geometry checks.
+                  125 pure core + 64 server/voice tests plus 11/11 Chromium optical geometry checks.
                 </p>
               </div>
               <div className="py-8 md:px-6 space-y-2.5">
@@ -1184,10 +1565,10 @@ export function App() {
           <div className="container-page space-y-8">
             <ScrollReveal className="space-y-2">
               <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
-                CORRIDOR WORKFLOWS
+                MEETING LIFECYCLE WORKFLOWS
               </p>
               <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem] lg:text-[3.5rem]">
-                <span className="block text-[var(--lightgray)]">Four core loops.</span>
+                <span className="block text-[var(--lightgray)]">Before, during, after.</span>
                 <GlyphDecodeHeading text="Zero dead widgets." className="block text-[var(--bright)]" />
               </h2>
             </ScrollReveal>
@@ -1197,40 +1578,40 @@ export function App() {
               {[
                 {
                   num: '01',
-                  tag: 'READ · GCAL+GMAIL+DRIVE',
+                  tag: 'BEFORE · BRIEF',
                   title: 'Pre-Meeting Brief',
                   bullets: ['Next event & countdown', 'Attendee latest email ask', 'Linked Drive doc snippet'],
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
-                      <GoogleCalendarLogo className="w-3.5 h-3.5" />
-                      <GmailLogo className="w-3.5 h-3.5" />
-                      <GoogleDriveLogo className="w-3.5 h-3.5" />
+                      <CalendarPixelSvg className="w-3.5 h-3.5" />
+                      <GmailPixelSvg className="w-3.5 h-3.5" />
+                      <DrivePixelSvg className="w-3.5 h-3.5" />
                     </span>
                   ),
                   inverted: false,
                 },
                 {
                   num: '02',
-                  tag: 'WRITE · ATOMIC',
-                  title: 'Shift + Reply',
-                  bullets: ['Speak "Push 15m, tell Priya"', 'Checks Calendar Free/Busy', 'Sends threaded Gmail reply'],
+                  tag: 'DURING · VOICE',
+                  title: 'Live Diarization + Ask',
+                  bullets: ['STT-3.7 speaker labels', 'RAM-only transcript buffer', 'Read-only Claude answers'],
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
-                      <GoogleCalendarLogo className="w-3.5 h-3.5" />
-                      <GmailLogo className="w-3.5 h-3.5" />
+                      <AssemblyAiPixelSvg className="w-3.5 h-3.5" />
+                      <ClaudePixelSvg className="w-3.5 h-3.5" />
                     </span>
                   ),
                   inverted: false,
                 },
                 {
                   num: '03',
-                  tag: 'WRITE · NOTION+CAL',
-                  title: 'Hallway Action Pack',
-                  bullets: ['Auto-discovers Notion schema', 'Creates task + due date', 'Books verified free hold'],
+                  tag: 'AFTER · WRAP-UP',
+                  title: 'Recap + Tasks + Hold',
+                  bullets: ['Notion notes & action items', 'Verified follow-up hold', 'Gmail draft + Default-NO'],
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
-                      <NotionLogo className="w-3.5 h-3.5" />
-                      <GoogleCalendarLogo className="w-3.5 h-3.5" />
+                      <NotionPixelSvg className="w-3.5 h-3.5" />
+                      <CalendarPixelSvg className="w-3.5 h-3.5" />
                     </span>
                   ),
                   inverted: false,
@@ -1240,7 +1621,7 @@ export function App() {
                   tag: 'GUARD · HTTP 409',
                   title: 'Conflict Hard-Lock',
                   bullets: ['Blocks overlapping slots', 'Catches stale thread drift', 'Suggests next verified slot'],
-                  icons: <ShieldLockLogo theme="light" className="w-3.5 h-3.5" />,
+                  icons: <ShieldPixelSvg theme="light" className="w-3.5 h-3.5" />,
                   inverted: true,
                 },
               ].map((lane) => (
@@ -1348,7 +1729,7 @@ export function App() {
                   a: 'The state machine locks inputs synchronously at 0.0s before network I/O. Server preview tokens are single-use (409 on replay) with SHA-256 idempotency keys.',
                 },
                 {
-                  q: 'Does OnCue need paid API keys or cloud hosting to run?',
+                  q: 'Does OnQ need paid API keys or cloud hosting to run?',
                   a: 'No. Rules triage, chrono-node, faster-whisper STT, and node:sqlite run locally at £0; Claude/OpenRouter/ChatGPT and Neon Postgres remain optional.',
                 },
               ].map((item) => (
@@ -1370,21 +1751,17 @@ export function App() {
       <footer className="border-t border-[var(--hairline)] py-8">
         <div className="container-page flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs text-[var(--lightgray)]">
           <div className="flex flex-wrap items-center gap-3">
-            <EvenG2Logo className="w-6 h-3.5" />
+            <OnQLogo showWordmark={false} />
             <span className="font-pixel uppercase tracking-[0.18em] text-[var(--bright)]">
-              ONCUE · EVEN REALITIES G2 · TRACK 04
+              ONQ · EVEN REALITIES G2 · TRACK 04
             </span>
             <span className="inline-flex items-center gap-2 pl-2 border-l border-dashed border-[var(--hairline)]" aria-label="Supported ecosystems">
-              <GoogleWorkspaceLogo className="w-3.5 h-3.5" />
-              <GoogleCalendarLogo className="w-3.5 h-3.5" />
-              <GmailLogo className="w-3.5 h-3.5" />
-              <GoogleDriveLogo className="w-3.5 h-3.5" />
-              <NotionLogo className="w-3.5 h-3.5" />
-              <IcsCalendarLogo className="w-3.5 h-3.5" />
-              <WhisperLogo className="w-3.5 h-3.5" />
-              <ClaudeLogo className="w-3.5 h-3.5" />
-              <OpenAILogo className="w-3.5 h-3.5" />
-              <NeonPostgresLogo className="w-3.5 h-3.5" />
+              <NotionPixelSvg className="w-3.5 h-3.5" />
+              <CalendarPixelSvg className="w-3.5 h-3.5" />
+              <GmailPixelSvg className="w-3.5 h-3.5" />
+              <DrivePixelSvg className="w-3.5 h-3.5" />
+              <ClaudePixelSvg className="w-3.5 h-3.5" />
+              <AssemblyAiPixelSvg className="w-3.5 h-3.5" />
             </span>
           </div>
           <div className="flex flex-wrap gap-6">

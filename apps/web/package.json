@@ -1,5 +1,5 @@
 {
-  "name": "@oncue/web",
+  "name": "@onq/web",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview --port 4173 --strictPort"
   },
   "dependencies": {
-    "@oncue/core": "*",
+    "@onq/core": "*",
     "motion": "^14.14.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

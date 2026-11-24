@@ -71,7 +71,7 @@ def make_thumbnail_gif() -> None:
         end_deg = -90 + int(360 * (step + 1) / 12)
         d.ellipse([44, 34, 196, 186], outline=(30, 50, 35), width=14)
         d.arc([44, 34, 196, 186], start=-90, end=end_deg, fill=C_G2, width=14)
-        d.text((64, 198), "ONCUE G2", font=F_TAG, fill=C_LIME)
+        d.text((64, 198), "ONQ G2", font=F_TAG, fill=C_LIME)
         frames.append(im)
     frames[0].save(
         os.path.join(PH_DIR, "thumbnail-240x240.gif"),
@@ -85,7 +85,7 @@ def make_thumbnail_gif() -> None:
 def main() -> None:
     make_card(
         "gallery-01-hero.png",
-        "ONCUE · EVEN REALITIES G2 · TRACK 04",
+        "ONQ · EVEN REALITIES G2 · TRACK 04",
         "Own the 90 seconds between meetings.",
         ("sim-01-dossier.png", "REAL SIMULATOR: CORRIDOR DOSSIER"),
         ("sim-06-receipt-done.png", "REAL SIMULATOR: AFTER-ACTION RECEIPT"),
@@ -133,13 +133,13 @@ def main() -> None:
     )
     make_thumbnail_gif()
 
-    copy_md = """# Product Hunt Launch Kit - OnCue
+    copy_md = """# Product Hunt Launch Kit - OnQ
 
 ## Tagline (58 chars)
 Own the 90 seconds between meetings on Even Realities G2.
 
 ## Short Description
-OnCue puts one private 42-column glance on your Even Realities G2 smart glasses across Google Calendar, Gmail, Drive, and Notion. Speak once into local 16 kHz Whisper, review a Default-NO diff, arm the 2.0s optical Undo Ring, and get a verified receipt protected by an HTTP 409 Conflict Hard-Lock.
+OnQ puts one private 42-column glance on your Even Realities G2 smart glasses across Google Calendar, Gmail, Drive, and Notion. Speak once into local 16 kHz Whisper, review a Default-NO diff, arm the 2.0s optical Undo Ring, and get a verified receipt protected by an HTTP 409 Conflict Hard-Lock.
 
 ## Topics
 Artificial Intelligence, Productivity, Developer Tools, Wearables
@@ -147,9 +147,9 @@ Artificial Intelligence, Productivity, Developer Tools, Wearables
 ## Maker First Comment
 Hey Product Hunt!
 
-I built OnCue for the Heads Up: Even Realities G2 Hackathon (Track 04: AI Assistants & Work) to solve the most annoying daily bottleneck for founders, engineers, and operators: the 90-second corridor between back-to-back meetings.
+I built OnQ for the Heads Up: Even Realities G2 Hackathon (Track 04: AI Assistants & Work) to solve the most annoying daily bottleneck for founders, engineers, and operators: the 90-second corridor between back-to-back meetings.
 
-Instead of shrinking a phone dashboard onto 576x288 monochrome optics, OnCue enforces strict waveguide discipline:
+Instead of shrinking a phone dashboard onto 576x288 monochrome optics, OnQ enforces strict waveguide discipline:
 - One 42-column card answering who you are meeting, what they just asked in Gmail, and the linked Drive or Notion note.
 - Real 16 kHz PCM local Whisper STT behind an RMS silence gate so accidental pocket/temple presses never transcribe room noise.
 - A 4-Layer Deterministic Safety Gate: Default-NO preview, Commit-Locked 2.0s 4-bit PNG Undo Ring, live Calendar Free/Busy + Gmail historyId HTTP 409 Hard-Lock, and a Code-Guard fact verifier that blocks AI-invented emails or prompt injections.

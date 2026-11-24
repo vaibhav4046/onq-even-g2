@@ -21,11 +21,11 @@ export function EvidenceSection() {
 
   const matrix = [
     {
-      project: 'OnCue (Track 04)',
+      project: 'OnQ (Track 04)',
       scope: 'GCal + Gmail + Drive + Notion + .ics',
-      stt: 'Local 16kHz Whisper + RMS Gate',
+      stt: 'AssemblyAI STT-3.7 + TTS-1 / Whisper',
       safety: 'Default-NO + 2.0s Ring + 409 Lock + Code-Guard',
-      tests: '163 tests + 11/11 Geometry Gate',
+      tests: '189 tests + 11/11 Geometry Gate',
       highlight: true,
     },
     {

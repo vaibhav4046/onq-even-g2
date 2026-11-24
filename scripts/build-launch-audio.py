@@ -18,12 +18,12 @@ CHAPTERS = [
     {
         "id": "01_moment",
         "title": "The 90-Second Corridor Tax",
-        "caption": "275 daily interruptions (Microsoft WTI) · OnCue brings Workspace onto Even G2",
+        "caption": "275 daily interruptions (Microsoft WTI) · OnQ brings Workspace onto Even G2",
         "text": (
             "Most focus breaks happen in the ninety seconds between meetings. "
             "Microsoft telemetry counts over two hundred seventy interruptions a day, "
             "and pulling out a phone in a hallway breaks presence. "
-            "OnCue brings Calendar, Gmail, Drive, and Notion onto Even Realities G2, "
+            "OnQ brings Calendar, Gmail, Drive, and Notion onto Even Realities G2, "
             "in forty-two crisp optical columns."
         ),
         "pad_after": 1.6,
@@ -57,7 +57,7 @@ CHAPTERS = [
         "title": "HTTP 409 Lock & Notion Schema",
         "caption": "HTTP 409 Conflict Hard-Lock blocks double-bookings · Notion 2026-03-11 task sync",
         "text": (
-            "Before any network write, OnCue re-queries live Free-Busy and thread state. "
+            "Before any network write, OnQ re-queries live Free-Busy and thread state. "
             "When fourteen forty-five collides with Design Review, it hard-locks with HTTP four-oh-nine "
             "and offers the next free slot. Or speak an action pack to auto-discover Notion's "
             "two thousand twenty-six schema and book a verified hold."
@@ -214,7 +214,7 @@ def read_stereo_wav(path: str) -> np.ndarray:
 
 
 def main() -> None:
-    temp_dir = tempfile.mkdtemp(prefix="oncue_audio_")
+    temp_dir = tempfile.mkdtemp(prefix="onq_audio_")
     edge_ok = True
     cur_t = 1.0  # 1.0s calm breathing opening before first narration
     timeline = []

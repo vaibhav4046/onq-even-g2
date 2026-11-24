@@ -1,6 +1,6 @@
-# OnCue API Feature Requests (Even Hub SDK, Simulator & Workspace Auth)
+# OnQ API Feature Requests (Even Hub SDK, Simulator & Workspace Auth)
 
-Five concrete, engineering-grade API gaps encountered while building and verifying OnCue for Even Realities G2:
+Five concrete, engineering-grade API gaps encountered while building and verifying OnQ for Even Realities G2:
 
 ## 1. Even Hub SDK (`0.0.16`): Normalize Proto3 Zero-Value Enum Defaults in Bridge
 - **Observed Behavior:** Plain temple taps arrive on `sysEvent` with `eventType: undefined` because protobuf3 omits enum value `0` (`CLICK_EVENT`) on the wire. Similarly, selecting row `0` in a `ListContainer` omits `currentSelectItemIndex`.
@@ -9,7 +9,7 @@ Five concrete, engineering-grade API gaps encountered while building and verifyi
 
 ## 2. Even Hub SDK: Permissioned 1-Line Ambient Heads-Up Slot (Background Complication)
 - **Observed Behavior:** G2 runs one foreground WebView app at a time, and iOS suspends WebView polling on `FOREGROUND_EXIT_EVENT`.
-- **Impact:** Time-critical corridor collisions (e.g., `"14:00 VC Sync in 5m - Priya asked to push 15m"`) cannot alert the wearer unless OnCue is already open in the foreground.
+- **Impact:** Time-critical corridor collisions (e.g., `"14:00 VC Sync in 5m - Priya asked to push 15m"`) cannot alert the wearer unless OnQ is already open in the foreground.
 - **Requested API:** A user-permissioned, rate-limited 1-line ambient status push slot (`pushAmbientBanner({ text, ttlSec })`) managed by the companion host.
 
 ## 3. Even Hub SDK: Text Measurement & Overflow Feedback on `textContainerUpgrade`

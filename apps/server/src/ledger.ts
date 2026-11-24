@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import type { ActionPreview, CommitReceipt, SourceMode } from '@oncue/core';
+import type { ActionPreview, CommitReceipt, SourceMode } from '@onq/core';
 
 export interface PairingRecord {
   code: string;
@@ -570,7 +570,7 @@ export async function createConfiguredLedgerStore(
 ): Promise<LedgerStore> {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
-    return new SqliteLedgerStore(path.join(dataDir, 'oncue.sqlite'), nowFn);
+    return new SqliteLedgerStore(path.join(dataDir, 'onq.sqlite'), nowFn);
   }
   try {
     const pgModule = 'pg';
@@ -578,6 +578,6 @@ export async function createConfiguredLedgerStore(
     const pool = new pg.Pool({ connectionString: dbUrl });
     return new PostgresLedgerStore(pool, nowFn);
   } catch {
-    return new SqliteLedgerStore(path.join(dataDir, 'oncue.sqlite'), nowFn);
+    return new SqliteLedgerStore(path.join(dataDir, 'onq.sqlite'), nowFn);
   }
 }
