@@ -17,66 +17,82 @@ SR = 48000
 CHAPTERS = [
     {
         "id": "01_moment",
-        "title": "The 90-Second Corridor Tax",
-        "caption": "275 daily interruptions (Microsoft WTI) · OnQ brings Workspace onto Even G2",
+        "title": "Before: The 90-Second Corridor Brief",
+        "caption": "275 daily interruptions (Microsoft WTI) · OnQ fuses GCal, Gmail, Drive, and Notion on Even G2",
         "text": (
             "Most focus breaks happen in the ninety seconds between meetings. "
-            "Microsoft telemetry counts over two hundred seventy interruptions a day, "
+            "Microsoft telemetry tracks over two hundred seventy interruptions a day, "
             "and pulling out a phone in a hallway breaks presence. "
             "OnQ brings Calendar, Gmail, Drive, and Notion onto Even Realities G2, "
-            "in forty-two crisp optical columns."
+            "before, during, and after every meeting."
         ),
         "pad_after": 1.6,
     },
     {
         "id": "02_read_voice",
-        "title": "Live Dossier & 16 kHz Voice",
-        "caption": "Real 576x288 waveguide brief · 16 kHz local Whisper STT",
+        "title": "Live 576x288 Waveguide & AssemblyAI STT-3.7",
+        "caption": "42-column waveguide brief · 16 kHz PCM streaming + RMS silence gate",
         "text": (
-            "Here is the live application running beside the official Even Hub simulator. "
-            "The corridor brief shows who you are meeting, their latest Gmail question, "
-            "and the linked Drive doc. Holding R1 captures sixteen kilohertz speech "
-            "and parses dates deterministically."
+            "Here is OnQ running live beside the official Even Hub simulator. "
+            "One glance shows who you are meeting, their latest Gmail question, "
+            "and the linked Drive doc. Holding R1 streams sixteen kilohertz audio "
+            "through our RMS silence gate and deterministic date parser."
         ),
         "pad_after": 1.4,
     },
     {
         "id": "03_safety_write",
-        "title": "Default-NO & 2.0s Undo Ring",
+        "title": "Default-NO & 2.0s Optical Undo Ring",
         "caption": "45s Default-NO preview -> 2.0s 4-bit PNG Undo Ring -> live SSE commit",
         "text": (
-            "Voice never writes blind. Speech stages a preview locked strictly to No, Cancel. "
-            "Swiping to Yes starts a two-second countdown ring on the lens. "
-            "Any tap aborts with zero writes; letting it finish shifts Calendar fifteen minutes, "
-            "sends the threaded reply, and logs an auditable receipt."
+            "Voice never writes blind. Commands stage a preview locked to No, Cancel. "
+            "Swiping to Yes arms a two-second countdown ring right on the waveguide. "
+            "Any tap cancels with zero writes; letting it finish shifts Calendar, "
+            "replies in Gmail, and writes an auditable receipt."
         ),
         "pad_after": 1.8,
     },
     {
         "id": "04_conflict_notion",
-        "title": "HTTP 409 Lock & Notion Schema",
-        "caption": "HTTP 409 Conflict Hard-Lock blocks double-bookings · Notion 2026-03-11 task sync",
+        "title": "During & After: Live Diarization, TTS-1 & 409 Lock",
+        "caption": "RAM-only STT-3.7 diarization -> Companion TTS-1 answer -> Notion Wrap-Up & 409 Lock",
         "text": (
-            "Before any network write, OnQ re-queries live Free-Busy and thread state. "
-            "When fourteen forty-five collides with Design Review, it hard-locks with HTTP four-oh-nine "
-            "and offers the next free slot. Or speak an action pack to auto-discover Notion's "
-            "two thousand twenty-six schema and book a verified hold."
+            "Inside the room, AssemblyAI diarizes speakers strictly in memory with zero audio saved. "
+            "Say OnQ to answer quietly on your lens or companion earbuds via TTS-1. "
+            "Saying OnQ wrap up stages Notion tasks, a Calendar hold, and Gmail recap behind a four-oh-nine conflict lock."
         ),
-        "pad_after": 1.6,
+        "pad_after": 1.8,
     },
     {
         "id": "05_proof_close",
-        "title": "Honest Failure Modes & Verification",
-        "caption": "RMS silence gate (0 STT calls) · STALE offline cache · 163 tests · 11/11 geometry · 10/10 security",
+        "title": "Honest Failure Modes & Clean-Room Proof",
+        "caption": "RMS silence gate · STALE offline cache · 189 tests · 11/11 geometry · 10/10 security",
         "text": (
-            "Silent accidental taps drop locally before hitting Whisper. "
-            "Offline outages surface a clear Stale badge with cached context instead of blank glass. "
-            "Verified across one hundred sixty-three tests, an eleven-check geometry gate, "
-            "and a clean ten-domain security audit, ready to try with zero paid keys."
+            "Silent accidental taps drop before transcription. "
+            "Offline drops surface an honest Stale badge with cached state instead of blank glass. "
+            "Verified across one hundred eighty-nine automated tests, eleven geometry checks, "
+            "and a clean ten-domain security audit, ready to run cold with zero paid keys."
         ),
         "pad_after": 2.4,
     },
 ]
+
+
+def try_assemblyai_tts1(text: str, out_wav: str) -> bool:
+    helper = os.path.join(ROOT, "scripts", "tts-vo-helper.mjs")
+    if not os.path.exists(helper):
+        return False
+    try:
+        proc = subprocess.run(
+            ["node", helper, "--text", text, "--voice", "aai-titus", "--out", out_wav],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=35,
+        )
+        return proc.returncode == 0 and os.path.exists(out_wav) and os.path.getsize(out_wav) > 4096
+    except Exception:
+        return False
 
 
 async def try_edge_tts(text: str, out_mp3: str) -> bool:
@@ -216,6 +232,7 @@ def read_stereo_wav(path: str) -> np.ndarray:
 def main() -> None:
     temp_dir = tempfile.mkdtemp(prefix="onq_audio_")
     edge_ok = True
+    tts1_count = 0
     cur_t = 1.0  # 1.0s calm breathing opening before first narration
     timeline = []
     speech_tracks = []
@@ -223,16 +240,22 @@ def main() -> None:
     for i, ch in enumerate(CHAPTERS):
         raw_path = os.path.join(temp_dir, f"{ch['id']}.mp3")
         wav_path = os.path.join(AUDIO_DIR, f"vo_{ch['id']}.wav")
-        used_edge = False
-        if edge_ok:
-            used_edge = asyncio.run(try_edge_tts(ch["text"], raw_path))
+        raw_tts1_wav = os.path.join(temp_dir, f"{ch['id']}_tts1.wav")
+
+        if try_assemblyai_tts1(ch["text"], raw_tts1_wav):
+            raw_path = raw_tts1_wav
+            tts1_count += 1
+        else:
+            used_edge = False
+            if edge_ok:
+                used_edge = asyncio.run(try_edge_tts(ch["text"], raw_path))
+                if not used_edge:
+                    edge_ok = False
+                    print("[audio] AssemblyAI/edge-tts unavailable; using tuned Windows SAPI studio chain cleanly.")
             if not used_edge:
-                edge_ok = False
-                print("[audio] edge-tts unavailable/429; using tuned Windows SAPI studio chain cleanly.")
-        if not used_edge:
-            raw_wav = os.path.join(temp_dir, f"{ch['id']}_sapi.wav")
-            synth_sapi_wav(ch["text"], raw_wav)
-            raw_path = raw_wav
+                raw_wav = os.path.join(temp_dir, f"{ch['id']}_sapi.wav")
+                synth_sapi_wav(ch["text"], raw_wav)
+                raw_path = raw_wav
 
         dur_s = polish_voice(raw_path, wav_path)
         start_s = round(cur_t, 3)
@@ -310,7 +333,8 @@ def main() -> None:
         stderr=subprocess.DEVNULL,
     )
 
-    meta = {"total_duration_s": total_duration, "voice_engine": "edge-tts" if edge_ok else "sapi-david-eq", "chapters": timeline}
+    voice_label = "assemblyai-tts-1" if tts1_count == len(CHAPTERS) else ("edge-tts" if edge_ok else "sapi-david-eq")
+    meta = {"total_duration_s": total_duration, "voice_engine": voice_label, "chapters": timeline}
     with open(os.path.join(AUDIO_DIR, "timeline.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2)
 

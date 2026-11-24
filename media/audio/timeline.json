@@ -1,51 +1,51 @@
 {
-  "total_duration_s": 113.2,
-  "voice_engine": "sapi-david-eq",
+  "total_duration_s": 110.98,
+  "voice_engine": "assemblyai-tts-1",
   "chapters": [
     {
       "id": "01_moment",
-      "title": "The 90-Second Corridor Tax",
-      "caption": "275 daily interruptions (Microsoft WTI) \u00b7 OnQ brings Workspace onto Even G2",
+      "title": "Before: The 90-Second Corridor Brief",
+      "caption": "275 daily interruptions (Microsoft WTI) \u00b7 OnQ fuses GCal, Gmail, Drive, and Notion on Even G2",
       "vo_start": 1.0,
-      "vo_end": 21.866,
+      "vo_end": 21.48,
       "clip_start": 0.0,
-      "clip_end": 23.466
+      "clip_end": 23.08
     },
     {
       "id": "02_read_voice",
-      "title": "Live Dossier & 16 kHz Voice",
-      "caption": "Real 576x288 waveguide brief \u00b7 16 kHz local Whisper STT",
-      "vo_start": 23.866,
-      "vo_end": 40.946,
-      "clip_start": 23.466,
-      "clip_end": 42.346
+      "title": "Live 576x288 Waveguide & AssemblyAI STT-3.7",
+      "caption": "42-column waveguide brief \u00b7 16 kHz PCM streaming + RMS silence gate",
+      "vo_start": 23.48,
+      "vo_end": 40.823,
+      "clip_start": 23.08,
+      "clip_end": 42.223
     },
     {
       "id": "03_safety_write",
-      "title": "Default-NO & 2.0s Undo Ring",
+      "title": "Default-NO & 2.0s Optical Undo Ring",
       "caption": "45s Default-NO preview -> 2.0s 4-bit PNG Undo Ring -> live SSE commit",
-      "vo_start": 42.746,
-      "vo_end": 63.382,
-      "clip_start": 42.346,
-      "clip_end": 65.182
+      "vo_start": 42.623,
+      "vo_end": 61.093,
+      "clip_start": 42.223,
+      "clip_end": 62.893
     },
     {
       "id": "04_conflict_notion",
-      "title": "HTTP 409 Lock & Notion Schema",
-      "caption": "HTTP 409 Conflict Hard-Lock blocks double-bookings \u00b7 Notion 2026-03-11 task sync",
-      "vo_start": 65.582,
-      "vo_end": 85.968,
-      "clip_start": 65.182,
-      "clip_end": 87.568
+      "title": "During & After: Live Diarization, TTS-1 & 409 Lock",
+      "caption": "RAM-only STT-3.7 diarization -> Companion TTS-1 answer -> Notion Wrap-Up & 409 Lock",
+      "vo_start": 63.293,
+      "vo_end": 84.886,
+      "clip_start": 62.893,
+      "clip_end": 86.686
     },
     {
       "id": "05_proof_close",
-      "title": "Honest Failure Modes & Verification",
-      "caption": "RMS silence gate (0 STT calls) \u00b7 STALE offline cache \u00b7 163 tests \u00b7 11/11 geometry \u00b7 10/10 security",
-      "vo_start": 87.968,
-      "vo_end": 108.896,
-      "clip_start": 87.568,
-      "clip_end": 111.296
+      "title": "Honest Failure Modes & Clean-Room Proof",
+      "caption": "RMS silence gate \u00b7 STALE offline cache \u00b7 189 tests \u00b7 11/11 geometry \u00b7 10/10 security",
+      "vo_start": 87.086,
+      "vo_end": 106.675,
+      "clip_start": 86.686,
+      "clip_end": 109.075
     }
   ]
 }

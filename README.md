@@ -3,9 +3,9 @@
 **Own the 90 seconds between meetings on Even Realities G2.**
 OnQ fuses Google Calendar, Gmail, Google Drive, Notion, and RFC 5545 `.ics` feeds into one 42-column monochrome waveguide card, then executes voice-staged workspace updates behind a **Default-NO Confirm Gate**, a **Commit-Locked 2.0s 4-Bit PNG Undo Ring**, an **HTTP 409 Conflict Hard-Lock**, and a deterministic **Code-Guard Fact Verifier**.
 
-- **Track:** Track 04 - AI Assistants & Work (Google Workspace: Calendar, Gmail, Drive | Notion | Claude / OpenRouter / ChatGPT + local 16 kHz `faster-whisper` / `whisper.cpp` STT)
+- **Track:** Track 04 - AI Assistants & Work (Google Workspace: Calendar, Gmail, Drive | Notion | Claude / OpenRouter / ChatGPT + AssemblyAI `STT-3.7` & `TTS-1` / local `faster-whisper`)
 - **Built:** Nov 23-29, 2026 hackathon window (zero pre-Nov 23 proprietary code)
-- **Honest Limits:** Verified end-to-end in `@evenrealities/evenhub-simulator@0.9.5`, our 11-check Chromium Geometry Gate, and our automated unit/HTTP suite. Physical Even G2 + R1 ring hardware testing is pending.
+- **Honest Limits:** Verified end-to-end in `@evenrealities/evenhub-simulator@0.9.5`, our 11-check Chromium Geometry Gate, and our automated unit/HTTP/WebSocket suite. Physical Even G2 + R1 ring hardware testing is pending. Audio responses route exclusively to Companion Phone / Bluetooth Earbuds (`AssemblyAI-TTS-1`) because Even G2 has no speaker.
 
 ---
 
@@ -40,10 +40,10 @@ Open `http://127.0.0.1:5173`. Runs immediately in labeled `DEMO` sandbox mode wi
 
 | Verification Gate | Exact Command | Observed Result |
 | :--- | :--- | :--- |
-| **Core + Server + Live Provider Suite** | `npm test` | **163 tests passing** (113 core + 50 HTTP/live-provider/Postgres/fault tests; offline) |
-| **11-Check 576x288 Geometry Gate + Negative Control** | `npm run verify:geometry` | **11 / 11 passing** across 9 states (`<= 42` cols, `<= 999` UTF-8 bytes, `>= 97%` dark pixels) + Check 11 Negative Control |
+| **Core + Server + Voice + Provider Suite** | `npm test` | **189 tests passing** (125 core + 64 HTTP/WS/AssemblyAI/live-provider/Postgres/fault tests; offline) |
+| **11-Check 576x288 Geometry Gate + Negative Control** | `npm run verify:geometry` | **11 / 11 passing** across 11 checks (`MEETING_LIVE` & `WRAP_UP` included, `<= 42` cols, `<= 999` UTF-8 bytes, `>= 97%` dark pixels) + Check 11 Negative Control |
 | **Official EvenHub Simulator 0.9.5 QA** | `npm run verify:sim` | **7 real 576x288 RGBA captures** (including native `ListContainer`, 76x76 4-bit PNG ring, `409` lock) with 0 uncaught errors |
-| **EvenHub `.ehpk` Packaging** | `npm run pack` | **`dist/onq.ehpk`** (SDK `0.0.16`, `min_app_version 2.2.10`, 0 warnings) |
+| **EvenHub `.ehpk` Packaging** | `npm run pack` | **`dist/onq.ehpk`** (45,096 bytes, SDK `0.0.16`, `min_app_version 2.2.10`, 0 warnings) |
 | **Security Audit & Negative HTTP Tests** | `npm run verify:security` | **10 / 10 domains PASS** (`SECURITY_AUDIT.md`, 0 High/Critical findings, 0 secrets in `.ehpk`) |
 
 ---

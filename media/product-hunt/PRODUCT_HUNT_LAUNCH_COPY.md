@@ -4,7 +4,7 @@
 Own the 90 seconds between meetings on Even Realities G2.
 
 ## Short Description
-OnQ puts one private 42-column glance on your Even Realities G2 smart glasses across Google Calendar, Gmail, Drive, and Notion. Speak once into local 16 kHz Whisper, review a Default-NO diff, arm the 2.0s optical Undo Ring, and get a verified receipt protected by an HTTP 409 Conflict Hard-Lock.
+OnQ puts one private 42-column glance on your Even Realities G2 smart glasses across Google Calendar, Gmail, Drive, and Notion, before, during, and after meetings. Speak `"OnQ, ..."` via AssemblyAI STT-3.7 or local Whisper, review a Default-NO diff, arm the 2.0s optical Undo Ring, hear crisp TTS-1 answers on paired earbuds, and get verified commits protected by an HTTP 409 Conflict Hard-Lock.
 
 ## Topics
 Artificial Intelligence, Productivity, Developer Tools, Wearables

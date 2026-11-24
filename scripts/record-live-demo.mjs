@@ -257,46 +257,50 @@ async function main() {
         await page.waitForTimeout(4200);
       });
 
-      // Clip 3: 409 Conflict Hard-Lock + Hallway Action Pack (Notion + Hold)
+      // Clip 3: During & After Meeting (STT-3.7 Live Diarization + Ask OnQ + Wrap-Up + 409 Lock)
       await recordClip(browser, webSrv.url, 'clip3_conflict_and_notion.webm', async (page) => {
-        await page.getByRole('button', { name: 'Reset', exact: true }).click();
-        await page.waitForTimeout(900);
-        await page.locator('[data-testid="g2-lens"]').scrollIntoViewIfNeeded();
-        await page.evaluate(() => window.scrollBy(0, -140));
-        await page.waitForTimeout(1000);
-
-        await page.getByRole('button', { name: 'Trigger 409 Conflict' }).click();
-        await page.waitForTimeout(3600);
-        await page.getByRole('button', { name: '2x Tap / Back (Esc)' }).click();
-        await page.waitForTimeout(900);
-
-        await page.getByRole('button', { name: 'Voice: Action Pack (Notion + Hold)' }).click();
-        await page.waitForTimeout(2200);
-        await page.getByRole('button', { name: 'Swipe Down (Down)' }).click();
-        await page.waitForTimeout(1100);
-        await page.getByRole('button', { name: 'Tap R1 / Temple (Enter)' }).click();
-        await page.waitForTimeout(3600);
-      });
-
-      // Clip 4: RMS Silence Gate + STALE Offline + Ask Notes + Evidence Table
-      await recordClip(browser, webSrv.url, 'clip4_failures_and_proof.webm', async (page) => {
         await page.getByRole('button', { name: 'Reset', exact: true }).click();
         await page.waitForTimeout(700);
         await page.locator('[data-testid="g2-lens"]').scrollIntoViewIfNeeded();
         await page.evaluate(() => window.scrollBy(0, -140));
         await page.waitForTimeout(800);
 
-        await page.getByRole('button', { name: 'Test Silent WAV (RMS Gate)' }).click();
+        await page.getByRole('button', { name: 'Run Live Meeting Demo' }).click();
+        await page.waitForTimeout(2100);
+        await page.getByRole('button', { name: 'Ask "OnQ, Q4?" (TTS-1)' }).click();
+        await page.waitForTimeout(2400);
+        await page.getByRole('button', { name: 'Wrap Up & Save' }).click();
+        await page.waitForTimeout(2100);
+        await page.getByRole('button', { name: 'Swipe Down (Down)' }).click();
+        await page.waitForTimeout(900);
+        await page.getByRole('button', { name: 'Tap R1 / Temple (Enter)' }).click();
+        await page.waitForTimeout(3200);
+
+        await page.getByRole('button', { name: 'Reset', exact: true }).click();
+        await page.waitForTimeout(700);
+        await page.getByRole('button', { name: 'Trigger 409 Conflict' }).click();
         await page.waitForTimeout(2600);
+      });
+
+      // Clip 4: RMS Silence Gate + STALE Offline + Evidence Table + 189 Tests Hardware Band
+      await recordClip(browser, webSrv.url, 'clip4_failures_and_proof.webm', async (page) => {
+        await page.getByRole('button', { name: 'Reset', exact: true }).click();
+        await page.waitForTimeout(700);
+        await page.locator('[data-testid="g2-lens"]').scrollIntoViewIfNeeded();
+        await page.evaluate(() => window.scrollBy(0, -140));
+        await page.waitForTimeout(700);
+
+        await page.getByRole('button', { name: 'Test Silent WAV' }).click();
+        await page.waitForTimeout(2400);
         await page.getByRole('button', { name: 'Toggle STALE Offline' }).click();
-        await page.waitForTimeout(2500);
+        await page.waitForTimeout(2200);
         await page.getByRole('button', { name: 'Toggle STALE Offline' }).click();
-        await page.waitForTimeout(1000);
-        await page.getByRole('button', { name: 'Ask Notes (Read-Only)' }).click();
-        await page.waitForTimeout(2600);
+        await page.waitForTimeout(900);
+        await page.getByRole('button', { name: 'Action Pack (Notion + Hold)' }).click();
+        await page.waitForTimeout(2200);
 
         await page.locator('#evidence').scrollIntoViewIfNeeded();
-        await page.waitForTimeout(3200);
+        await page.waitForTimeout(3000);
         await page.locator('#hardware').scrollIntoViewIfNeeded();
         await page.waitForTimeout(2600);
       });
