@@ -40,7 +40,7 @@ Open `http://127.0.0.1:5173`. Runs immediately in labeled `DEMO` sandbox mode wi
 
 | Verification Gate | Exact Command | Observed Result |
 | :--- | :--- | :--- |
-| **Core + Server + Live Provider Suite** | `npm test` | **162 tests passing** (113 core + 49 HTTP/live-provider/Postgres/fault tests; offline) |
+| **Core + Server + Live Provider Suite** | `npm test` | **163 tests passing** (113 core + 50 HTTP/live-provider/Postgres/fault tests; offline) |
 | **11-Check 576x288 Geometry Gate + Negative Control** | `npm run verify:geometry` | **11 / 11 passing** across 9 states (`<= 42` cols, `<= 999` UTF-8 bytes, `>= 97%` dark pixels) + Check 11 Negative Control |
 | **Official EvenHub Simulator 0.9.5 QA** | `npm run verify:sim` | **7 real 576x288 RGBA captures** (including native `ListContainer`, 76x76 4-bit PNG ring, `409` lock) with 0 uncaught errors |
 | **EvenHub `.ehpk` Packaging** | `npm run pack` | **`dist/oncue.ehpk`** (SDK `0.0.16`, `min_app_version 2.2.10`, 0 warnings) |
@@ -78,6 +78,6 @@ flowchart LR
 ## Pre-Nov 23 Open-Source Libraries Disclosure
 100% of OnCue's code, UI, tests, and scripts were authored during the Nov 23-29, 2026 hackathon window using standard open-source dependencies:
 - `@evenrealities/even_hub_sdk` (`0.0.16`), `@evenrealities/evenhub-cli` (`0.2.0`), `@evenrealities/evenhub-simulator` (`0.9.5`)
-- `chrono-node` (`^2.7.7`), `react` (`^19.1.0`), `tailwindcss` (`^4.1.0`), `vite` (`^6.2.0` / `^7.x`)
+- `chrono-node` (`^2.7.7`), `react` (`^19.1.0`), `motion` (`^12.x`), `tailwindcss` (`^4.1.0`), `vite` (`^6.2.0` / `^7.x`)
 - `typescript` (`^5.8.2`), `vitest` (`^3.1.1`), `playwright` (`^1.52.0`), `tsx` (`^4.19.4`)
 - Python tools: `faster-whisper`, `numpy`, `pillow`, `imageio-ffmpeg`
