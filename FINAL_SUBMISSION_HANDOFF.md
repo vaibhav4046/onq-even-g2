@@ -1,6 +1,6 @@
 # OnCue - Final Hackathon & Product Hunt Submission Handoff
 
-**Verified Base Commit:** `68c5233` (clean-room fresh clone verified in `docs/VERIFICATION_LOG.txt`)
+**Verified Base Commit:** `17128e5` (clean-room fresh clone verified in `docs/VERIFICATION_LOG.txt`)
 **Project Root:** `C:\Users\lalwa\.gemini\antigravity\scratch\oncue-even-g2`
 **Hard Safety Stop Enforced:** All local building, testing, `.ehpk` packaging, simulator capture, security auditing, and launch media rendering are complete. External DoraHacks / Product Hunt submission and any paid hosting remain unsubmitted for your manual review and final click.
 
