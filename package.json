@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "build": "npm run build -w @oncue/core && npm run build -w @oncue/server && npm run build -w @oncue/glasses && npm run build -w @oncue/web",
+    "pretest": "npm run build -w @oncue/core",
     "test": "vitest run",
     "pack": "node scripts/pack-ehpk.mjs",
     "verify:geometry": "node scripts/verify-geometry.mjs",
