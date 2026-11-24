@@ -1,4 +1,13 @@
 import { useState } from 'react';
+import {
+  EvenG2Logo,
+  GmailLogo,
+  GoogleCalendarLogo,
+  GoogleDriveLogo,
+  GoogleWorkspaceLogo,
+  IcsCalendarLogo,
+  NotionLogo,
+} from './PixelLogos';
 
 interface PairingSectionProps {
   sessionToken: string | null;
@@ -261,8 +270,9 @@ export function PairingSection({
 
           <form onSubmit={handleExchangeCode} className="p-6 border-b border-dashed border-[var(--hairline)] space-y-3">
             <div className="flex items-center justify-between">
-              <label htmlFor="pair-code-input" className="font-pixel text-xs uppercase tracking-[0.18em] text-[var(--bright)]">
-                01. EXCHANGE 6-DIGIT PAIRING CODE
+              <label htmlFor="pair-code-input" className="inline-flex items-center gap-2 font-pixel text-xs uppercase tracking-[0.18em] text-[var(--bright)]">
+                <EvenG2Logo className="w-5 h-3" />
+                <span>01. EXCHANGE 6-DIGIT PAIRING CODE</span>
               </label>
               <span className="font-pixel text-[10px] uppercase tracking-[0.15em] text-[var(--lime)] border border-[var(--lime)] px-2 py-0.5">
                 LOCKOUT AT 10 TRIES
@@ -291,8 +301,13 @@ export function PairingSection({
 
           <form onSubmit={handleSaveCredentials} className="p-6 border-b border-dashed border-[var(--hairline)] space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <span className="font-pixel text-xs uppercase tracking-[0.18em] text-[var(--bright)]">
-                02. CONNECT LIVE NOTION &amp; GOOGLE WORKSPACE
+              <span className="inline-flex items-center gap-2 flex-wrap font-pixel text-xs uppercase tracking-[0.18em] text-[var(--bright)]">
+                <GoogleWorkspaceLogo className="w-4 h-4" />
+                <GoogleCalendarLogo className="w-4 h-4" />
+                <GmailLogo className="w-4 h-4" />
+                <GoogleDriveLogo className="w-4 h-4" />
+                <NotionLogo className="w-4 h-4" />
+                <span>02. CONNECT LIVE NOTION &amp; GOOGLE WORKSPACE</span>
               </span>
               {googleAuthUrl ? (
                 <a
@@ -351,8 +366,9 @@ export function PairingSection({
 
           <form onSubmit={handleImportIcs} className="p-6 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="font-pixel text-xs uppercase tracking-[0.18em] text-[var(--bright)]">
-                03. ZERO-CONFIG .ICS CALENDAR IMPORT
+              <span className="inline-flex items-center gap-2 font-pixel text-xs uppercase tracking-[0.18em] text-[var(--bright)]">
+                <IcsCalendarLogo className="w-4 h-4" />
+                <span>03. ZERO-CONFIG .ICS CALENDAR IMPORT</span>
               </span>
               <span className="font-pixel text-[10px] text-[var(--lightgray)]">RFC 5545</span>
             </div>

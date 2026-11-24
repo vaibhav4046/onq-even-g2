@@ -18,6 +18,21 @@ import { HalftoneArtwork } from './components/HalftoneArtwork';
 import { startBrowserMicCapture } from './components/MicRecorder';
 import type { MicRecordingHandle } from './components/MicRecorder';
 import { PairingSection } from './components/PairingSection';
+import {
+  ClaudeLogo,
+  EvenG2Logo,
+  GmailLogo,
+  GoogleCalendarLogo,
+  GoogleDriveLogo,
+  GoogleWorkspaceLogo,
+  IcsCalendarLogo,
+  NeonPostgresLogo,
+  NotionLogo,
+  OpenAILogo,
+  PixelLogoChip,
+  ShieldLockLogo,
+  WhisperLogo,
+} from './components/PixelLogos';
 
 interface SnapshotState {
   calendarEvents: Array<{
@@ -614,11 +629,7 @@ export function App() {
       <header className="sticky top-0 z-40 h-16 bg-[var(--ink)] border-b border-[var(--hairline)]">
         <div className="container-page h-full flex items-center justify-between gap-4">
           <a href="#top" className="flex items-center gap-3 group">
-            <svg width="28" height="18" viewBox="0 0 28 18" fill="none" aria-hidden="true">
-              <rect x="1" y="2" width="10" height="14" stroke="#daff52" strokeWidth="2" />
-              <rect x="17" y="2" width="10" height="14" stroke="#daff52" strokeWidth="2" />
-              <rect x="11" y="7" width="6" height="2" fill="#f2f2f2" />
-            </svg>
+            <EvenG2Logo className="w-8 h-[19px]" />
             <span className="font-pixel text-xs uppercase tracking-[0.18em] text-[var(--bright)] group-hover:text-[var(--lime)]">
               ONCUE // G2
             </span>
@@ -669,8 +680,17 @@ export function App() {
                   glance on Even Realities G2, then executes voice-staged updates behind a Default-NO gate,
                   2.0s optical Undo Ring, and HTTP 409 conflict hard-lock.
                 </p>
-                <div className="font-pixel text-[11px] uppercase tracking-[0.18em] text-[var(--lime)]">
-                  GOOGLE WORKSPACE + NOTION + .ICS · LOCAL WHISPER · ZERO KEYS IN WEBVIEW
+                <div className="flex flex-wrap gap-2 pt-1" aria-label="Supported integrations and models">
+                  <PixelLogoChip icon={<GoogleWorkspaceLogo />} label="Google Workspace" />
+                  <PixelLogoChip icon={<GoogleCalendarLogo />} label="Calendar" />
+                  <PixelLogoChip icon={<GmailLogo />} label="Gmail" />
+                  <PixelLogoChip icon={<GoogleDriveLogo />} label="Drive" />
+                  <PixelLogoChip icon={<NotionLogo />} label="Notion" />
+                  <PixelLogoChip icon={<IcsCalendarLogo />} label=".ics RFC 5545" />
+                  <PixelLogoChip icon={<WhisperLogo />} label="Local Whisper" />
+                  <PixelLogoChip icon={<ClaudeLogo />} label="Claude" />
+                  <PixelLogoChip icon={<OpenAILogo />} label="ChatGPT / OpenRouter" />
+                  <PixelLogoChip icon={<NeonPostgresLogo />} label="Neon Postgres" />
                 </div>
               </div>
               <div className="lg:col-span-4 flex flex-col items-end">
@@ -691,6 +711,7 @@ export function App() {
                 <div className="xl:col-span-7 bg-[var(--ink)] p-5 sm:p-6 space-y-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
+                      <EvenG2Logo className="w-6 h-3.5" />
                       <span className="font-pixel text-[11px] uppercase tracking-[0.2em] text-[var(--bright)]">
                         EVEN G2 WAVEGUIDE (576x288)
                       </span>
@@ -864,8 +885,9 @@ export function App() {
                     <div className="space-y-3 text-xs">
                       {/* Calendar + Add Busy Slot */}
                       <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-2">
-                        <div className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
-                          GOOGLE CALENDAR
+                        <div className="flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
+                          <GoogleCalendarLogo className="w-4 h-4" />
+                          <span>GOOGLE CALENDAR</span>
                         </div>
                         {workspace.calendarEvents.map((ev) => (
                           <div key={ev.eventId} className="flex justify-between gap-2 border-t border-dashed border-[var(--hairline)] pt-1.5">
@@ -902,9 +924,10 @@ export function App() {
 
                       {/* Gmail + Simulate Incoming Reply */}
                       <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
-                            GMAIL THREADS
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="inline-flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
+                            <GmailLogo className="w-4 h-4" />
+                            <span>GMAIL THREADS</span>
                           </span>
                           <button
                             type="button"
@@ -932,8 +955,9 @@ export function App() {
 
                       {/* Notion + Add/Toggle */}
                       <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
-                        <div className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
-                          NOTION DATABASE (AUTO-SCHEMA)
+                        <div className="flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
+                          <NotionLogo className="w-4 h-4" />
+                          <span>NOTION DATABASE (AUTO-SCHEMA)</span>
                         </div>
                         {workspace.notionTasks.slice(0, 4).map((task) => (
                           <div key={task.pageId} className="flex justify-between gap-2 border-t border-dashed border-[var(--hairline)] pt-1.5">
@@ -969,8 +993,9 @@ export function App() {
 
                       {/* Receipts + Undo + Telemetry */}
                       <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
-                        <div className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--bright)]">
-                          AUDIT RECEIPT LEDGER ({receipts.length})
+                        <div className="flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--bright)]">
+                          <ShieldLockLogo className="w-4 h-4" />
+                          <span>AUDIT RECEIPT LEDGER ({receipts.length})</span>
                         </div>
                         {receipts.length === 0 ? (
                           <p className="text-[var(--lightgray)]">No commits yet. Stage and arm an action to verify.</p>
@@ -1095,6 +1120,12 @@ export function App() {
                   Exercises all three Even Hub SDK 0.0.16 containers (Text, native List, 4-bit Image),
                   proto3 omitted-zero normalization, defensive audio frame slicing, and zero-custody local Whisper.
                 </p>
+                <div className="flex flex-wrap gap-2 pt-1" aria-label="Hardware and local runtime stack">
+                  <PixelLogoChip theme="light" icon={<EvenG2Logo theme="light" className="w-6 h-3.5" />} label="Even G2" />
+                  <PixelLogoChip theme="light" icon={<WhisperLogo theme="light" />} label="Local Whisper" />
+                  <PixelLogoChip theme="light" icon={<NeonPostgresLogo theme="light" />} label="Neon Postgres" />
+                  <PixelLogoChip theme="light" icon={<ShieldLockLogo theme="light" />} label="Zero Keys in WebView" />
+                </div>
               </div>
               <div className="lg:col-span-5 flex flex-col items-end">
                 <div className="border border-dashed border-[#c4c4c4] bg-[#e8e8e8] p-4 w-full max-w-[340px]">
@@ -1162,6 +1193,13 @@ export function App() {
                   tag: 'READ · GCAL+GMAIL+DRIVE',
                   title: 'Pre-Meeting Brief',
                   bullets: ['Next event & countdown', 'Attendee latest email ask', 'Linked Drive doc snippet'],
+                  icons: (
+                    <span className="inline-flex items-center gap-1.5">
+                      <GoogleCalendarLogo className="w-3.5 h-3.5" />
+                      <GmailLogo className="w-3.5 h-3.5" />
+                      <GoogleDriveLogo className="w-3.5 h-3.5" />
+                    </span>
+                  ),
                   inverted: false,
                 },
                 {
@@ -1169,6 +1207,12 @@ export function App() {
                   tag: 'WRITE · ATOMIC',
                   title: 'Shift + Reply',
                   bullets: ['Speak "Push 15m, tell Priya"', 'Checks Calendar Free/Busy', 'Sends threaded Gmail reply'],
+                  icons: (
+                    <span className="inline-flex items-center gap-1.5">
+                      <GoogleCalendarLogo className="w-3.5 h-3.5" />
+                      <GmailLogo className="w-3.5 h-3.5" />
+                    </span>
+                  ),
                   inverted: false,
                 },
                 {
@@ -1176,6 +1220,12 @@ export function App() {
                   tag: 'WRITE · NOTION+CAL',
                   title: 'Hallway Action Pack',
                   bullets: ['Auto-discovers Notion schema', 'Creates task + due date', 'Books verified free hold'],
+                  icons: (
+                    <span className="inline-flex items-center gap-1.5">
+                      <NotionLogo className="w-3.5 h-3.5" />
+                      <GoogleCalendarLogo className="w-3.5 h-3.5" />
+                    </span>
+                  ),
                   inverted: false,
                 },
                 {
@@ -1183,6 +1233,7 @@ export function App() {
                   tag: 'GUARD · HTTP 409',
                   title: 'Conflict Hard-Lock',
                   bullets: ['Blocks overlapping slots', 'Catches stale thread drift', 'Suggests next verified slot'],
+                  icons: <ShieldLockLogo theme="light" className="w-3.5 h-3.5" />,
                   inverted: true,
                 },
               ].map((lane) => (
@@ -1207,11 +1258,12 @@ export function App() {
                     <span
                       className={
                         lane.inverted
-                          ? 'inline-block border border-[#0a0a0a] px-2 py-0.5 font-pixel text-[10px] uppercase tracking-[0.15em]'
-                          : 'inline-block border border-[var(--lime)] text-[var(--lime)] px-2 py-0.5 font-pixel text-[10px] uppercase tracking-[0.15em]'
+                          ? 'inline-flex items-center gap-2 border border-[#0a0a0a] px-2 py-0.5 font-pixel text-[10px] uppercase tracking-[0.15em]'
+                          : 'inline-flex items-center gap-2 border border-[var(--lime)] text-[var(--lime)] px-2 py-0.5 font-pixel text-[10px] uppercase tracking-[0.15em]'
                       }
                     >
-                      {lane.tag}
+                      {lane.icons}
+                      <span>{lane.tag}</span>
                     </span>
                     <h3 className="font-display text-2xl font-bold">{lane.title}</h3>
                   </div>
@@ -1308,9 +1360,24 @@ export function App() {
       </main>
 
       <footer className="border-t border-[var(--hairline)] py-8">
-        <div className="container-page flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-[var(--lightgray)]">
-          <div className="font-pixel uppercase tracking-[0.18em] text-[var(--bright)]">
-            ONCUE · EVEN REALITIES G2 · TRACK 04
+        <div className="container-page flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs text-[var(--lightgray)]">
+          <div className="flex flex-wrap items-center gap-3">
+            <EvenG2Logo className="w-6 h-3.5" />
+            <span className="font-pixel uppercase tracking-[0.18em] text-[var(--bright)]">
+              ONCUE · EVEN REALITIES G2 · TRACK 04
+            </span>
+            <span className="inline-flex items-center gap-2 pl-2 border-l border-dashed border-[var(--hairline)]" aria-label="Supported ecosystems">
+              <GoogleWorkspaceLogo className="w-3.5 h-3.5" />
+              <GoogleCalendarLogo className="w-3.5 h-3.5" />
+              <GmailLogo className="w-3.5 h-3.5" />
+              <GoogleDriveLogo className="w-3.5 h-3.5" />
+              <NotionLogo className="w-3.5 h-3.5" />
+              <IcsCalendarLogo className="w-3.5 h-3.5" />
+              <WhisperLogo className="w-3.5 h-3.5" />
+              <ClaudeLogo className="w-3.5 h-3.5" />
+              <OpenAILogo className="w-3.5 h-3.5" />
+              <NeonPostgresLogo className="w-3.5 h-3.5" />
+            </span>
           </div>
           <div className="flex flex-wrap gap-6">
             <a href="#simulator" className="hover:text-[var(--bright)]">Optical Simulator</a>
