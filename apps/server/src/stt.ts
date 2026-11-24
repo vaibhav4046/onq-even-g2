@@ -29,12 +29,27 @@ export interface SttOptions {
   whisperCppBin?: string;
   whisperModelPath?: string;
   openAiKey?: string;
+  enableLocalFasterWhisper?: boolean;
+  fasterWhisperScriptPath?: string;
+  pythonBin?: string;
   fetchImpl?: typeof fetch;
 }
 
+function resolveDefaultFasterWhisperScript(): string {
+  const candidates = [
+    path.resolve(process.cwd(), 'scripts', 'local-whisper-stt.py'),
+    path.resolve(process.cwd(), '..', '..', 'scripts', 'local-whisper-stt.py'),
+  ];
+  return candidates.find((p) => fs.existsSync(p)) ?? candidates[0];
+}
+
 /**
- * Accepts 16 kHz mono PCM16 WAV, enforces size & RMS silence gate, and routes to
- * local whisper.cpp (via safe execFile args), optional OpenAI Whisper, or preset sandbox recognizer.
+ * Accepts 16 kHz mono PCM16 WAV, enforces size & RMS silence gate, and routes to:
+ * 1) Explicit demo preset clip (when X-OnCue-Preset header is sent in sandbox/CI)
+ * 2) Local whisper.cpp binary (WHISPER_CPP_BIN + WHISPER_MODEL_PATH)
+ * 3) Local faster-whisper Python runtime (scripts/local-whisper-stt.py)
+ * 4) Optional OpenAI Whisper endpoint (OPENAI_API_KEY)
+ * Never fabricates a hardcoded phrase if no engine is available (returns HTTP 503).
  */
 export async function transcribeWavBuffer(
   wavBytes: Uint8Array,
@@ -65,7 +80,18 @@ export async function transcribeWavBuffer(
     };
   }
 
-  // 1. Local whisper.cpp binary if installed & configured (safe execFile array args, zero shell)
+  // 1. Explicit demo preset clip (for browser preset WAV buttons & deterministic CI)
+  if (opts.presetTranscript && opts.presetTranscript.trim().length > 0) {
+    return {
+      transcript: opts.presetTranscript.trim(),
+      rms,
+      durationMs,
+      rejectedSilent: false,
+      sttEngine: 'local-wav-demo-decoder',
+    };
+  }
+
+  // 2. Local whisper.cpp binary if installed & configured (safe execFile array args, zero shell)
   const whisperBin = opts.whisperCppBin ?? process.env.WHISPER_CPP_BIN;
   const whisperModel = opts.whisperModelPath ?? process.env.WHISPER_MODEL_PATH;
   if (whisperBin && whisperModel && fs.existsSync(whisperBin) && fs.existsSync(whisperModel)) {
@@ -75,7 +101,7 @@ export async function transcribeWavBuffer(
       const { stdout } = await execFileAsync(
         whisperBin,
         ['-m', whisperModel, '-f', tmpFile, '-nt', '-np'],
-        { timeout: 10_000 },
+        { timeout: 15_000 },
       );
       const cleaned = stdout.trim();
       if (cleaned) {
@@ -91,12 +117,46 @@ export async function transcribeWavBuffer(
       try {
         fs.unlinkSync(tmpFile);
       } catch {
-        // ignore cleanup errors
+        // ignore
       }
     }
   }
 
-  // 2. Optional OpenAI Whisper endpoint if user supplied OPENAI_API_KEY
+  // 3. Local faster-whisper Python runtime (for real browser microphone recordings)
+  const allowFasterWhisper =
+    opts.enableLocalFasterWhisper ?? process.env.NODE_ENV !== 'test';
+  const fwScript = opts.fasterWhisperScriptPath ?? resolveDefaultFasterWhisperScript();
+  if (allowFasterWhisper && fs.existsSync(fwScript)) {
+    const tmpFile = path.join(os.tmpdir(), `oncue-fw-${Date.now()}-${Math.random().toString(16).slice(2)}.wav`);
+    fs.writeFileSync(tmpFile, wavBytes);
+    try {
+      const { stdout } = await execFileAsync(
+        opts.pythonBin ?? 'python',
+        [fwScript, tmpFile],
+        { timeout: 30_000 },
+      );
+      const parsed = JSON.parse(stdout.trim()) as { transcript?: string };
+      if (parsed.transcript && parsed.transcript.trim()) {
+        return {
+          transcript: parsed.transcript.trim(),
+          rms,
+          durationMs,
+          rejectedSilent: false,
+          sttEngine: 'faster-whisper-local',
+        };
+      }
+    } catch {
+      // fall through to OpenAI or honest 503
+    } finally {
+      try {
+        fs.unlinkSync(tmpFile);
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  // 4. Optional OpenAI Whisper endpoint if user supplied OPENAI_API_KEY
   const openAiKey = opts.openAiKey ?? process.env.OPENAI_API_KEY;
   if (openAiKey) {
     registerSecretForRedaction(openAiKey);
@@ -128,22 +188,8 @@ export async function transcribeWavBuffer(
     }
   }
 
-  // 3. Deterministic offline preset recognizer for zero-key Demo & CI evaluation
-  if (opts.presetTranscript && opts.presetTranscript.trim().length > 0) {
-    return {
-      transcript: opts.presetTranscript.trim(),
-      rms,
-      durationMs,
-      rejectedSilent: false,
-      sttEngine: 'local-wav-demo-decoder',
-    };
-  }
-
-  return {
-    transcript: 'Push 15m and tell Priya',
-    rms,
-    durationMs,
-    rejectedSilent: false,
-    sttEngine: 'local-pcm-fallback',
-  };
+  throw Object.assign(
+    new Error('STT_ENGINE_UNAVAILABLE: Configure local faster-whisper, whisper.cpp, or OPENAI_API_KEY'),
+    { statusCode: 503 },
+  );
 }

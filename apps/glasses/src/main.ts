@@ -3,6 +3,8 @@ import {
   CreateStartUpPageContainer,
   ImageContainerProperty,
   ImageRawDataUpdate,
+  ListContainerProperty,
+  ListItemContainerProperty,
   RebuildPageContainer,
   TextContainerProperty,
   TextContainerUpgrade,
@@ -11,6 +13,7 @@ import {
 import type { EvenAppBridge } from '@evenrealities/even_hub_sdk';
 import {
   BlePaintQueue,
+  clipLine42,
   createInitialHudState,
   encodeCountdownRingPng,
   formatLensFrame,
@@ -33,6 +36,7 @@ const RELAY_BASE =
   'http://127.0.0.1:8787';
 
 const TEXT_CONTAINER_ID = 1;
+const LIST_CONTAINER_ID = 2;
 const RING_CONTAINER_ID = 3;
 
 const lensEl = document.getElementById('lens-text') as HTMLPreElement | null;
@@ -40,7 +44,8 @@ const ringImgEl = document.getElementById('ring-img') as HTMLImageElement | null
 
 let bridge: EvenAppBridge | null = null;
 let sessionToken: string | null = null;
-let containerMode: 'text-only' | 'ring-split' | null = null;
+let containerMode: 'text-only' | 'detail-list' | 'ring-split' | null = null;
+let sseSource: EventSource | null = null;
 const paintQueue = new BlePaintQueue(250);
 const pcmBuffer = new PcmRingBuffer();
 
@@ -64,7 +69,7 @@ async function ensureSession(): Promise<string> {
     try {
       await bridge.setLocalStorage('oncue_session_token', sessionToken);
     } catch {
-      // ignore storage failure in standalone mode
+      // ignore storage failure
     }
   }
   return sessionToken;
@@ -104,6 +109,7 @@ function renderLocalDom(state: HudState): void {
   (window as unknown as Record<string, unknown>).__ONCUE_G2__ = {
     phase: state.phase,
     sourceMode: state.sourceMode,
+    containerMode,
     header: frame.header,
     lines: frame.lines,
     utf8Bytes: frame.utf8Bytes,
@@ -112,19 +118,82 @@ function renderLocalDom(state: HudState): void {
   };
 }
 
+function buildDetailListItems(state: HudState): string[] {
+  const card = state.cards[state.selectedCardIndex];
+  if (!card || card.quickActions.length === 0) {
+    return ['All clear - no actions available'];
+  }
+  return card.quickActions.slice(0, 6).map((a) => clipLine42(a.label, 38));
+}
+
 async function paintToGlasses(state: HudState): Promise<void> {
   renderLocalDom(state);
   if (!bridge) return;
 
   const frame = formatLensFrame(state);
   const wantRing = state.phase === 'armed' && frame.ringProgress01 !== undefined;
-  const desiredMode: 'text-only' | 'ring-split' = wantRing ? 'ring-split' : 'text-only';
+  const wantList = state.phase === 'detail' && (state.cards[state.selectedCardIndex]?.quickActions.length ?? 0) > 0;
+  const desiredMode: 'text-only' | 'detail-list' | 'ring-split' = wantRing
+    ? 'ring-split'
+    : wantList
+      ? 'detail-list'
+      : 'text-only';
 
-  if (containerMode !== desiredMode) {
+  if (containerMode !== desiredMode || desiredMode === 'detail-list') {
     const isInitial = containerMode === null;
     containerMode = desiredMode;
     await paintQueue.enqueueOp(async () => {
       if (!bridge) return;
+
+      if (desiredMode === 'detail-list') {
+        const card = state.cards[state.selectedCardIndex];
+        const items = buildDetailListItems(state);
+        const hdrText = `${frame.header}\n${clipLine42(card?.title ?? 'ACTIONS', 42)}`;
+        const payload = {
+          containerTotalNum: 2,
+          textObject: [
+            new TextContainerProperty({
+              xPosition: 12,
+              yPosition: 8,
+              width: 552,
+              height: 70,
+              containerID: TEXT_CONTAINER_ID,
+              containerName: 'detail-hdr',
+              isEventCapture: 0,
+              borderWidth: 0,
+              paddingLength: 2,
+              content: hdrText,
+              textColor: 4,
+            }),
+          ],
+          listObject: [
+            new ListContainerProperty({
+              xPosition: 12,
+              yPosition: 86,
+              width: 552,
+              height: 190,
+              containerID: LIST_CONTAINER_ID,
+              containerName: 'detail-list',
+              isEventCapture: 1,
+              borderWidth: 0,
+              paddingLength: 4,
+              itemContainer: new ListItemContainerProperty({
+                itemCount: items.length,
+                itemWidth: 536,
+                isItemSelectBorderEn: 1,
+                itemName: items,
+              }),
+            }),
+          ],
+        };
+        if (isInitial) {
+          await bridge.createStartUpPageContainer(new CreateStartUpPageContainer(payload));
+        } else {
+          await bridge.rebuildPageContainer(new RebuildPageContainer(payload));
+        }
+        return;
+      }
+
       const textProp = new TextContainerProperty({
         xPosition: wantRing ? 104 : 12,
         yPosition: 10,
@@ -191,6 +260,38 @@ async function paintToGlasses(state: HudState): Promise<void> {
         }),
       );
     }, frame.ringProgress01 === 0);
+  }
+}
+
+async function persistSnapshot(): Promise<void> {
+  if (!bridge) return;
+  const st = controller.getState();
+  try {
+    await bridge.setLocalStorage(
+      'oncue_cache',
+      JSON.stringify({
+        selectedCardIndex: st.selectedCardIndex,
+        cards: st.cards,
+        syncedAtIso: st.syncedAtIso,
+      }),
+    );
+  } catch {
+    // ignore storage limit errors
+  }
+}
+
+async function hydrateFromCache(): Promise<void> {
+  if (!bridge) return;
+  try {
+    const raw = await bridge.getLocalStorage('oncue_cache');
+    if (raw) {
+      const parsed = JSON.parse(raw) as { cards?: CorridorCard[]; syncedAtIso?: string };
+      if (parsed.cards && parsed.cards.length > 0 && controller.getState().cards.length === 0) {
+        controller.setCorridor(parsed.cards, 'STALE', 'CACHED HYDRATE', parsed.syncedAtIso);
+      }
+    }
+  } catch {
+    // ignore cache parse errors
   }
 }
 
@@ -274,6 +375,10 @@ const controller = new OnCueHudController(createInitialHudState([], 'DEMO'), {
       headers: { Authorization: `Bearer ${tok}` },
       body: new Blob([new Uint8Array(pcmBuffer.toWav())], { type: 'audio/wav' }),
     });
+    if (!res.ok) {
+      controller.showError(`STT ERROR HTTP ${res.status}`);
+      return;
+    }
     const stt = (await res.json()) as { rejectedSilent: boolean; transcript: string };
     if (stt.rejectedSilent || !stt.transcript) {
       controller.showError('SILENT PRESS - NO AUDIO SENT');
@@ -300,14 +405,34 @@ const controller = new OnCueHudController(createInitialHudState([], 'DEMO'), {
     }
   },
   onRequestShutdown: () => {
+    void persistSnapshot();
     if (bridge) {
       void bridge.shutDownPageContainer(1);
     }
   },
 });
 
+function startSseSync(tok: string): void {
+  if (typeof EventSource === 'undefined') return;
+  try {
+    sseSource?.close();
+    sseSource = new EventSource(`${RELAY_BASE}/api/stream?token=${encodeURIComponent(tok)}`);
+    sseSource.addEventListener('corridor', () => {
+      void apiJson<{
+        cards: CorridorCard[];
+        sourceMode: SourceMode;
+        provenanceLabel: string;
+        syncedAtIso: string;
+      }>('/api/corridor').then(({ data }) => {
+        controller.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso);
+      });
+    });
+  } catch {
+    // ignore SSE unavailability
+  }
+}
+
 async function bootstrap(): Promise<void> {
-  // Detect Even App Bridge (with 1.5s timeout fallback for standalone browser preview)
   try {
     const maybeBridge = await Promise.race([
       waitForEvenAppBridge(),
@@ -319,6 +444,7 @@ async function bootstrap(): Promise<void> {
   }
 
   if (bridge) {
+    await hydrateFromCache();
     bridge.onEvenHubEvent((raw) => {
       const ev = normalizeEvenEvent(raw);
       if (ev.kind === 'AUDIO_PCM' && ev.audioPcm) {
@@ -328,11 +454,16 @@ async function bootstrap(): Promise<void> {
         }
         return;
       }
+      if (ev.kind === 'FOREGROUND_EXIT') {
+        void persistSnapshot();
+      }
       void controller.handleEvent(ev);
     });
   }
 
   try {
+    const tok = await ensureSession();
+    startSseSync(tok);
     const { data } = await apiJson<{
       cards: CorridorCard[];
       sourceMode: SourceMode;
@@ -344,7 +475,6 @@ async function bootstrap(): Promise<void> {
     controller.setCorridor([], 'STALE', 'OFFLINE CACHE');
   }
 
-  // Expose keyboard controls when previewed directly in browser
   window.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown') void controller.handleEvent({ kind: 'SCROLL_DOWN' });
     else if (e.key === 'ArrowUp') void controller.handleEvent({ kind: 'SCROLL_UP' });
@@ -352,7 +482,6 @@ async function bootstrap(): Promise<void> {
     else if (e.key === 'Escape') void controller.handleEvent({ kind: 'DOUBLE_CLICK' });
   });
 
-  // Expose deterministic helper for verify-sim.mjs state verification if needed
   (window as unknown as Record<string, unknown>).__ONCUE_G2_ACTION__ = async (
     phaseOrCommand: HudPhase | string,
   ) => {

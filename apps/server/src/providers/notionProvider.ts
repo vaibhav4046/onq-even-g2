@@ -72,9 +72,42 @@ export class NotionWorkspaceClient {
   private headers(): Record<string, string> {
     return {
       Authorization: `Bearer ${this.token}`,
-      'Notion-Version': '2022-06-28',
+      'Notion-Version': process.env.NOTION_API_VERSION ?? '2022-06-28',
       'Content-Type': 'application/json',
     };
+  }
+
+  async getPageLastEdited(pageId: string): Promise<string | undefined> {
+    const res = await this.fetchImpl(`https://api.notion.com/v1/pages/${encodeURIComponent(pageId)}`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) return undefined;
+    const data = (await res.json()) as { last_edited_time?: string };
+    return data.last_edited_time;
+  }
+
+  async archivePage(pageId: string): Promise<void> {
+    const res = await this.fetchImpl(`https://api.notion.com/v1/pages/${encodeURIComponent(pageId)}`, {
+      method: 'PATCH',
+      headers: this.headers(),
+      body: JSON.stringify({ archived: true }),
+    });
+    if (!res.ok) throw new Error(`Notion archive failed: HTTP ${res.status}`);
+  }
+
+  async unmarkTaskComplete(pageId: string): Promise<void> {
+    const schema = await this.inspectSchema();
+    if (!schema.completionProp) return;
+    const props: Record<string, unknown> =
+      schema.completionKind === 'status'
+        ? { [schema.completionProp]: { status: { name: 'To Do' } } }
+        : { [schema.completionProp]: { checkbox: false } };
+    const res = await this.fetchImpl(`https://api.notion.com/v1/pages/${encodeURIComponent(pageId)}`, {
+      method: 'PATCH',
+      headers: this.headers(),
+      body: JSON.stringify({ properties: props }),
+    });
+    if (!res.ok) throw new Error(`Notion unmark failed: HTTP ${res.status}`);
   }
 
   async inspectSchema(): Promise<DiscoveredNotionSchema> {

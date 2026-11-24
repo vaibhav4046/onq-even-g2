@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   checkCalendarConflict,
+  parseIcsEvents,
   parseVoiceCommand,
 } from '@oncue/core';
 import type {
@@ -15,16 +16,25 @@ import type {
 } from '@oncue/core';
 import { generateGroundedDraft } from './llm.js';
 import type { LlmConfig } from './llm.js';
-import { createConfiguredLedgerStore, hashToken, SqliteLedgerStore } from './ledger.js';
+import { createConfiguredLedgerStore, SqliteLedgerStore } from './ledger.js';
 import type { LedgerStore } from './ledger.js';
 import { logError, logInfo, redactSecrets } from './logger.js';
 import { DemoWorkspaceProvider } from './providers/demoProvider.js';
 import type { DemoFaultInjection } from './providers/demoProvider.js';
 import { buildGoogleAuthUrl, GoogleWorkspaceClient } from './providers/googleProvider.js';
+import { LiveWorkspaceProvider } from './providers/liveProvider.js';
 import { NotionWorkspaceClient } from './providers/notionProvider.js';
+import type { WorkspaceProvider } from './providers/types.js';
 import { MAX_WAV_UPLOAD_BYTES, transcribeWavBuffer } from './stt.js';
 import type { SttOptions } from './stt.js';
 import { EncryptedTokenVault } from './tokenVault.js';
+
+export interface AuditTelemetryEvent {
+  id: string;
+  atIso: string;
+  kind: 'RMS_BLOCK' | 'CONFLICT_409' | 'CODE_GUARD' | 'COMMIT' | 'UNDO' | 'PAIR_LIVE' | 'ICS_IMPORT';
+  detail: string;
+}
 
 export interface ServerOptions {
   port?: number;
@@ -32,9 +42,11 @@ export interface ServerOptions {
   dataDir?: string;
   ledger?: LedgerStore;
   demoProvider?: DemoWorkspaceProvider;
+  liveProviderOverride?: WorkspaceProvider;
   allowedOrigins?: string[];
   llmConfig?: LlmConfig;
   sttOptions?: SttOptions;
+  fetchImpl?: typeof fetch;
   nowFn?: () => number;
   allowTestFaultControls?: boolean;
 }
@@ -48,7 +60,7 @@ const DEFAULT_ORIGINS = [
   'http://localhost:5174',
   'http://127.0.0.1:8787',
   'http://localhost:8787',
-  'null', // EvenHub / file WebView origin when testing local bundle
+  'null',
 ];
 
 function jsonResponse(
@@ -103,8 +115,7 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
   close: () => Promise<void>;
 }> {
   const nowFn = opts.nowFn ?? (() => Date.now());
-  const dataDir =
-    opts.dataDir ?? path.join(os.tmpdir(), `oncue-data-${process.pid}`);
+  const dataDir = opts.dataDir ?? path.join(os.tmpdir(), `oncue-data-${process.pid}`);
   const ledger =
     opts.ledger ??
     (opts.dataDir
@@ -114,6 +125,8 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
   const demoProvider = opts.demoProvider ?? new DemoWorkspaceProvider();
   const allowedOrigins = new Set(opts.allowedOrigins ?? DEFAULT_ORIGINS);
   const sseClients = new Set<http.ServerResponse>();
+  const auditLog: AuditTelemetryEvent[] = [];
+  let activeIcsFeed: string | null = null;
 
   let lastCorridorCache: {
     cards: CorridorCard[];
@@ -132,9 +145,41 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
     }
   }
 
+  function recordAudit(kind: AuditTelemetryEvent['kind'], detail: string): void {
+    const entry: AuditTelemetryEvent = {
+      id: `aud-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+      atIso: new Date(nowFn()).toISOString(),
+      kind,
+      detail,
+    };
+    auditLog.unshift(entry);
+    if (auditLog.length > 20) auditLog.length = 20;
+    broadcastSse('audit', entry);
+  }
+
+  function resolveProvider(sessionMode: SourceMode): WorkspaceProvider {
+    if (sessionMode === 'LIVE') {
+      if (opts.liveProviderOverride) return opts.liveProviderOverride;
+      const creds = vault.load();
+      const google = creds.googleRefreshToken
+        ? new GoogleWorkspaceClient(vault, opts.fetchImpl)
+        : undefined;
+      const notion =
+        creds.notionToken && creds.notionDatabaseId
+          ? new NotionWorkspaceClient(creds.notionToken, creds.notionDatabaseId, opts.fetchImpl)
+          : undefined;
+      return new LiveWorkspaceProvider({
+        google,
+        notion,
+        getIcsFeed: () => activeIcsFeed,
+      });
+    }
+    return demoProvider;
+  }
+
   function applyCors(req: http.IncomingMessage, res: http.ServerResponse): boolean {
     const origin = req.headers.origin;
-    if (!origin) return true; // non-browser / same-origin / curl
+    if (!origin) return true;
     if (!allowedOrigins.has(origin) && !/^https?:\/\/(127\.0\.0\.1|localhost):\d+$/.test(origin)) {
       jsonResponse(res, 403, { error: 'CORS origin denied' });
       return false;
@@ -171,11 +216,13 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
       // 1. Health endpoint
       if (req.method === 'GET' && pathname === '/api/health') {
         const creds = vault.load();
-        const hasLive = Boolean(creds.googleRefreshToken || creds.notionToken);
+        const hasLive = Boolean(creds.googleRefreshToken || creds.notionToken || activeIcsFeed);
         jsonResponse(res, 200, {
           ok: true,
           mode: hasLive ? 'LIVE' : 'DEMO',
-          sttEngine: process.env.WHISPER_CPP_BIN ? 'whisper.cpp-local' : 'local-wav-decoder',
+          sttEngine: process.env.WHISPER_CPP_BIN
+            ? 'whisper.cpp-local'
+            : 'faster-whisper-local',
           llmProvider: process.env.ANTHROPIC_API_KEY
             ? 'Claude'
             : process.env.OPENROUTER_API_KEY
@@ -183,7 +230,8 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
               : process.env.OPENAI_API_KEY
                 ? 'ChatGPT'
                 : 'Rules (Deterministic)',
-          version: '1.0.0',
+          storage: process.env.DATABASE_URL ? 'neon-postgres' : 'node:sqlite',
+          version: '1.1.0',
         });
         return;
       }
@@ -218,6 +266,32 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
         return;
       }
 
+      // 3b. Google OAuth2 callback (exchanges authorization code -> AES-256-GCM 0600 vault)
+      if (req.method === 'GET' && pathname === '/api/pair/google-callback') {
+        const oauthCode = parsedUrl.searchParams.get('code');
+        const stateCode = parsedUrl.searchParams.get('state');
+        const clientId = process.env.GOOGLE_CLIENT_ID;
+        const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+        if (!oauthCode || !clientId || !clientSecret) {
+          jsonResponse(res, 400, { error: 'Missing OAuth code or GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET' });
+          return;
+        }
+        const gClient = new GoogleWorkspaceClient(vault, opts.fetchImpl);
+        await gClient.exchangeAuthorizationCode({
+          code: oauthCode,
+          clientId,
+          clientSecret,
+          redirectUri: `http://127.0.0.1:${opts.port ?? 8787}/api/pair/google-callback`,
+        });
+        if (stateCode && /^\d{6}$/.test(stateCode)) {
+          await ledger.createPairingCode(stateCode, 'LIVE', 15 * 60_000);
+        }
+        recordAudit('PAIR_LIVE', 'Google Workspace OAuth paired (AES-256-GCM 0600 vault)');
+        res.writeHead(302, { Location: 'http://127.0.0.1:5173/?google=connected#pair' });
+        res.end();
+        return;
+      }
+
       // 4. Pairing exchange (10-attempt lockout)
       if (req.method === 'POST' && pathname === '/api/pair/exchange') {
         const body = await readJsonBody<{ code?: string }>(req);
@@ -231,7 +305,7 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
         return;
       }
 
-      // 5. Companion credential save (encrypted AES-256-GCM 0600 vault, authenticated)
+      // 5. Companion credential save & Notion schema inspection
       if (req.method === 'POST' && pathname === '/api/pair/credentials') {
         const session = await requireAuth(req, res);
         if (!session) return;
@@ -247,7 +321,51 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
           ...(body.notionDatabaseId ? { notionDatabaseId: body.notionDatabaseId.trim() } : {}),
           ...(body.googleRefreshToken ? { googleRefreshToken: body.googleRefreshToken.trim() } : {}),
         });
-        jsonResponse(res, 200, { ok: true, mode: 'LIVE' });
+        const liveSessionToken = await ledger.mintSession('LIVE');
+        recordAudit('PAIR_LIVE', 'Workspace credentials encrypted in mode-0600 vault');
+        jsonResponse(res, 200, { ok: true, mode: 'LIVE', sessionToken: liveSessionToken });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/pair/inspect-notion') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ notionToken?: string; notionDatabaseId?: string }>(req);
+        if (!body.notionToken || !body.notionDatabaseId) {
+          jsonResponse(res, 400, { error: 'notionToken and notionDatabaseId are required' });
+          return;
+        }
+        const notion = new NotionWorkspaceClient(
+          body.notionToken.trim(),
+          body.notionDatabaseId.trim(),
+          opts.fetchImpl,
+        );
+        const schema = await notion.inspectSchema();
+        jsonResponse(res, 200, { ok: true, schema });
+        return;
+      }
+
+      // 5c. Zero-config .ics Calendar import (fuses real user VEVENTs without OAuth)
+      if (req.method === 'POST' && pathname === '/api/pair/ics') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ icsText?: string }>(req, 256 * 1024);
+        const events = parseIcsEvents(body.icsText ?? '');
+        if (events.length === 0) {
+          jsonResponse(res, 422, { error: 'No valid VEVENT entries found in .ics payload' });
+          return;
+        }
+        activeIcsFeed = body.icsText ?? null;
+        const liveSessionToken = await ledger.mintSession('LIVE');
+        recordAudit('ICS_IMPORT', `Imported ${events.length} VEVENT(s) from .ics feed`);
+        broadcastSse('corridor', { reason: 'ics_imported', count: events.length });
+        jsonResponse(res, 200, {
+          ok: true,
+          count: events.length,
+          mode: 'LIVE',
+          sessionToken: liveSessionToken,
+          events: events.slice(0, 5),
+        });
         return;
       }
 
@@ -255,8 +373,9 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
       if (req.method === 'GET' && pathname === '/api/corridor') {
         const session = await requireAuth(req, res);
         if (!session) return;
+        const provider = resolveProvider(session.mode);
         try {
-          const data = await demoProvider.fetchCorridor(new Date(nowFn()).toISOString());
+          const data = await provider.fetchCorridor(new Date(nowFn()).toISOString());
           lastCorridorCache = {
             cards: data.cards,
             provenanceLabel: data.provenanceLabel,
@@ -278,7 +397,6 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
             });
             return;
           }
-          // Return honest STALE cache on upstream offline error
           jsonResponse(res, 200, {
             cards: (lastCorridorCache?.cards ?? []).map((c) => ({ ...c, sourceMode: 'STALE' as const })),
             sourceMode: 'STALE' as const,
@@ -319,6 +437,9 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
           ...opts.sttOptions,
           presetTranscript,
         });
+        if (stt.rejectedSilent) {
+          recordAudit('RMS_BLOCK', `Rejected silent press (RMS=${stt.rms.toFixed(4)}, ${Math.round(stt.durationMs)}ms)`);
+        }
         jsonResponse(res, 200, stt);
         return;
       }
@@ -332,23 +453,23 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
           cardId?: string;
           slotStartIso?: string;
           slotEndIso?: string;
-          to?: string; // explicitly rejected if client tries to spoof recipient
+          to?: string;
           draftOnly?: boolean;
         }>(req);
 
-        // Reject client-supplied spoofed recipient `to` addresses
         if (body.to && body.to.trim() !== '') {
+          recordAudit('CODE_GUARD', `Blocked client-spoofed recipient "${body.to}"`);
           jsonResponse(res, 400, {
             error: 'Security boundary: recipient address is bound server-side from workspace thread metadata',
           });
           return;
         }
 
-        const corridor = await demoProvider.fetchCorridor(new Date(nowFn()).toISOString());
+        const provider = resolveProvider(session.mode);
+        const corridor = await provider.fetchCorridor(new Date(nowFn()).toISOString());
         const cards = corridor.cards;
         const activeCard = cards.find((c) => c.id === body.cardId) ?? cards[0];
 
-        // Direct slot re-stage from a 409 suggestion
         if (body.slotStartIso && body.slotEndIso && activeCard) {
           const ops: ActionOperation[] = [
             {
@@ -376,11 +497,12 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
               activeCard.attendeeName ? `MAIL: Notify ${activeCard.attendeeName}` : 'GCAL: Verified free slot',
             ],
             nowFn,
-            demoProvider,
+            provider,
             ledger,
             sessionHash: session.tokenHash,
           });
           if ('conflict' in preview) {
+            recordAudit('CONFLICT_409', String((preview.conflict as { message?: string }).message ?? 'Conflict'));
             jsonResponse(res, 409, preview.conflict);
             return;
           }
@@ -413,7 +535,7 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
             readOnlyAnswer: true,
             lines: [
               targetCard ? `${targetCard.attendeeName ?? 'Note'}: ${targetCard.contextLine1}` : 'No matching note found',
-              targetCard?.driveSnippet ? targetCard.driveSnippet.slice(0, 42) : 'Source: Corridor Dossier',
+              targetCard?.driveSnippet ? `SRC: ${targetCard.driveSnippet.slice(0, 36)}` : 'SRC: Corridor Dossier',
             ],
           });
           return;
@@ -451,6 +573,9 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
               },
               opts.llmConfig,
             );
+            if (grounded.factGuardViolations.length > 0) {
+              recordAudit('CODE_GUARD', grounded.factGuardViolations.join('; '));
+            }
             operations.push({
               provider: 'GMAIL',
               op: body.draftOnly ? 'SAVE_DRAFT' : 'SEND_REPLY',
@@ -514,11 +639,12 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
           operations,
           summaryLines,
           nowFn,
-          demoProvider,
+          provider,
           ledger,
           sessionHash: session.tokenHash,
         });
         if ('conflict' in built) {
+          recordAudit('CONFLICT_409', String((built.conflict as { message?: string }).message ?? 'Conflict'));
           jsonResponse(res, 409, built.conflict);
           return;
         }
@@ -526,14 +652,13 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
         return;
       }
 
-      // 10. Commit ActionPreview (Single-use 45s TTL + Rate Caps + Idempotency + Live Conflict Re-Check)
+      // 10. Commit ActionPreview
       if (req.method === 'POST' && pathname === '/api/actions/commit') {
         const session = await requireAuth(req, res);
         if (!session) return;
         const body = await readJsonBody<{ previewToken?: string; idempotencyKey?: string }>(req);
         const previewToken = String(body.previewToken ?? '');
 
-        // Check idempotency ledger first for duplicate retry safety
         if (body.idempotencyKey) {
           const existing = await ledger.getByIdempotency(body.idempotencyKey);
           if (existing) {
@@ -563,19 +688,22 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
           return;
         }
 
-        // Synchronous live conflict re-verification right before write execution
-        const liveConflict = await demoProvider.checkLiveConflicts(consumed.preview);
+        const provider = resolveProvider(session.mode);
+        const liveConflict = await provider.checkLiveConflicts(consumed.preview);
         if (liveConflict) {
+          recordAudit('CONFLICT_409', liveConflict.message);
           jsonResponse(res, 409, liveConflict);
           return;
         }
 
-        const receipt = await demoProvider.executePreview({
+        const receipt = await provider.executePreview({
           preview: consumed.preview,
           operations: consumed.preview.operations,
         });
         await ledger.saveReceipt(receipt);
+        recordAudit('COMMIT', `${receipt.receiptId}: ${receipt.summaryLines.join(' | ')}`);
         broadcastSse('receipt', receipt);
+        broadcastSse('corridor', { reason: 'committed' });
 
         if (receipt.status === 'SEND_UNKNOWN') {
           jsonResponse(res, 504, receipt);
@@ -585,7 +713,7 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
         return;
       }
 
-      // 11. Surgical Undo (reversible Calendar/Notion/Draft ops; refuses sent email recall)
+      // 11. Surgical Undo
       if (req.method === 'POST' && pathname === '/api/actions/undo') {
         const session = await requireAuth(req, res);
         if (!session) return;
@@ -599,31 +727,89 @@ export async function createOnCueServer(opts: ServerOptions = {}): Promise<{
           jsonResponse(res, 409, { error: 'Receipt is not reversible (SENT - CANNOT RECALL)' });
           return;
         }
-        const undone = await demoProvider.undoReceipt(receipt);
+        const provider = resolveProvider(receipt.sourceMode);
+        const undone = await provider.undoReceipt(receipt);
         await ledger.saveReceipt(undone);
+        recordAudit('UNDO', `${undone.receiptId}: reversed reversible operations`);
         broadcastSse('receipt', undone);
+        broadcastSse('corridor', { reason: 'undone' });
         jsonResponse(res, 200, undone);
         return;
       }
 
-      // 12. Workspace live inspector snapshot (for Companion Console)
+      // 12. Workspace live inspector snapshot
       if (req.method === 'GET' && pathname === '/api/workspace/state') {
         const session = await requireAuth(req, res);
         if (!session) return;
+        const provider = resolveProvider(session.mode);
         const receipts = await ledger.listReceipts(20);
         jsonResponse(res, 200, {
-          snapshot: demoProvider.getSnapshot(),
+          snapshot: provider.getSnapshot(),
           receipts,
+          auditLog,
         });
         return;
       }
 
-      // 13. Sandbox fault & reset controls (DEMO mode / test harness only)
+      // 12b. Interactive Companion Control Center mutations
+      if (req.method === 'POST' && pathname === '/api/workspace/calendar/add') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ title?: string; startIso?: string; endIso?: string }>(req);
+        if (!body.title || !body.startIso || !body.endIso) {
+          jsonResponse(res, 400, { error: 'title, startIso, and endIso required' });
+          return;
+        }
+        demoProvider.addBusySlot(body.title.trim(), body.startIso, body.endIso);
+        broadcastSse('corridor', { reason: 'calendar_added' });
+        jsonResponse(res, 200, { ok: true });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/workspace/gmail/incoming') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ snippet?: string }>(req);
+        demoProvider.injectIncomingReply(
+          body.snippet?.trim() || 'Actually let us do 15:00 instead - Priya',
+        );
+        broadcastSse('corridor', { reason: 'gmail_incoming' });
+        jsonResponse(res, 200, { ok: true });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/workspace/notion/add') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ title?: string }>(req);
+        if (!body.title?.trim()) {
+          jsonResponse(res, 400, { error: 'title required' });
+          return;
+        }
+        demoProvider.addNotionTask(body.title.trim());
+        broadcastSse('corridor', { reason: 'notion_added' });
+        jsonResponse(res, 200, { ok: true });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/workspace/notion/toggle') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ pageId?: string }>(req);
+        if (body.pageId) demoProvider.toggleNotionTask(body.pageId);
+        broadcastSse('corridor', { reason: 'notion_toggled' });
+        jsonResponse(res, 200, { ok: true });
+        return;
+      }
+
+      // 13. Sandbox fault & reset controls
       if (req.method === 'POST' && pathname === '/api/workspace/reset') {
         const session = await requireAuth(req, res);
         if (!session) return;
         demoProvider.resetSandbox();
+        activeIcsFeed = null;
         broadcastSse('reset', { ok: true });
+        broadcastSse('corridor', { reason: 'reset' });
         jsonResponse(res, 200, { ok: true });
         return;
       }
@@ -688,7 +874,7 @@ async function buildAndValidatePreview(params: {
   operations: ActionOperation[];
   summaryLines: string[];
   nowFn: () => number;
-  demoProvider: DemoWorkspaceProvider;
+  provider: WorkspaceProvider;
   ledger: LedgerStore;
   sessionHash: string;
 }): Promise<{ preview: ActionPreview } | { conflict: unknown }> {
@@ -716,7 +902,7 @@ async function buildAndValidatePreview(params: {
     },
   };
 
-  const conflict = await params.demoProvider.checkLiveConflicts(preview);
+  const conflict = await params.provider.checkLiveConflicts(preview);
   if (conflict) {
     return { conflict };
   }
@@ -725,4 +911,4 @@ async function buildAndValidatePreview(params: {
   return { preview };
 }
 
-export { GoogleWorkspaceClient, NotionWorkspaceClient, checkCalendarConflict };
+export { GoogleWorkspaceClient, LiveWorkspaceProvider, NotionWorkspaceClient, checkCalendarConflict };

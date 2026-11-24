@@ -300,9 +300,269 @@ export class SqliteLedgerStore implements LedgerStore {
   }
 }
 
+export interface PgPoolLike {
+  query(text: string, params?: unknown[]): Promise<{ rows: Array<Record<string, unknown>>; rowCount?: number | null }>;
+  end?(): Promise<void>;
+}
+
 /**
- * Optional Neon PostgreSQL adapter used only when DATABASE_URL is configured.
- * Dynamically imports `pg` at runtime so local zero-config runs need zero Postgres deps.
+ * Full Neon PostgreSQL LedgerStore implementation using parameterized SQL ($1, $2).
+ */
+export class PostgresLedgerStore implements LedgerStore {
+  private initialized = false;
+
+  constructor(
+    private readonly pool: PgPoolLike,
+    private readonly nowFn: () => number = () => Date.now(),
+  ) {}
+
+  private async ensureSchema(): Promise<void> {
+    if (this.initialized) return;
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS pairing_codes (
+        code TEXT PRIMARY KEY,
+        mode TEXT NOT NULL,
+        expires_at BIGINT NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        locked INTEGER NOT NULL DEFAULT 0,
+        consumed INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS sessions (
+        token_hash TEXT PRIMARY KEY,
+        mode TEXT NOT NULL,
+        created_at BIGINT NOT NULL,
+        expires_at BIGINT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS previews (
+        preview_token TEXT PRIMARY KEY,
+        session_hash TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        expires_at BIGINT NOT NULL,
+        consumed INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS receipts (
+        receipt_id TEXT PRIMARY KEY,
+        idempotency_key TEXT UNIQUE NOT NULL,
+        status TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        created_at BIGINT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS rate_counters (
+        bucket_key TEXT PRIMARY KEY,
+        count INTEGER NOT NULL DEFAULT 0
+      );
+    `);
+    this.initialized = true;
+  }
+
+  async createPairingCode(code: string, mode: SourceMode, ttlMs = 15 * 60_000): Promise<void> {
+    await this.ensureSchema();
+    const expiresAt = this.nowFn() + ttlMs;
+    await this.pool.query(
+      `INSERT INTO pairing_codes (code, mode, expires_at, attempts, locked, consumed)
+       VALUES ($1, $2, $3, 0, 0, 0)
+       ON CONFLICT (code) DO UPDATE SET mode = $2, expires_at = $3, attempts = 0, locked = 0, consumed = 0`,
+      [code, mode, expiresAt],
+    );
+  }
+
+  async exchangePairingCode(
+    code: string,
+  ): Promise<{ ok: true; sessionToken: string; mode: SourceMode } | { ok: false; status: 401 | 410 | 429; reason: string }> {
+    await this.ensureSchema();
+    const failRes = await this.pool.query(`SELECT count FROM rate_counters WHERE bucket_key = 'pair_failures'`);
+    const failCount = Number(failRes.rows[0]?.count ?? 0);
+    if (failCount >= 10) {
+      return { ok: false, status: 429, reason: 'LOCKED: Too many failed pairing attempts' };
+    }
+
+    const res = await this.pool.query(
+      `SELECT code, mode, expires_at, attempts, locked, consumed FROM pairing_codes WHERE code = $1`,
+      [code],
+    );
+    const row = res.rows[0] as
+      | { code: string; mode: SourceMode; expires_at: number | string; attempts: number; locked: number; consumed: number }
+      | undefined;
+
+    if (!row) {
+      const up = await this.pool.query(
+        `INSERT INTO rate_counters (bucket_key, count) VALUES ('pair_failures', 1)
+         ON CONFLICT (bucket_key) DO UPDATE SET count = rate_counters.count + 1 RETURNING count`,
+      );
+      if (Number(up.rows[0]?.count ?? 0) >= 10) {
+        return { ok: false, status: 429, reason: 'LOCKED: Too many failed pairing attempts' };
+      }
+      return { ok: false, status: 401, reason: 'Invalid pairing code' };
+    }
+
+    if (Number(row.locked) === 1 || Number(row.attempts) >= 10) {
+      return { ok: false, status: 429, reason: 'LOCKED: Pairing code locked' };
+    }
+    if (Number(row.consumed) === 1) {
+      return { ok: false, status: 401, reason: 'Pairing code already consumed' };
+    }
+    if (this.nowFn() > Number(row.expires_at)) {
+      return { ok: false, status: 410, reason: 'Pairing code expired' };
+    }
+
+    await this.pool.query(`UPDATE pairing_codes SET consumed = 1 WHERE code = $1`, [code]);
+    await this.pool.query(`DELETE FROM rate_counters WHERE bucket_key = 'pair_failures'`);
+    const sessionToken = await this.mintSession(row.mode);
+    return { ok: true, sessionToken, mode: row.mode };
+  }
+
+  async mintSession(mode: SourceMode): Promise<string> {
+    await this.ensureSchema();
+    const token = `oc_${crypto.randomBytes(24).toString('hex')}`;
+    const tokenHash = hashToken(token);
+    const now = this.nowFn();
+    await this.pool.query(
+      `INSERT INTO sessions (token_hash, mode, created_at, expires_at) VALUES ($1, $2, $3, $4)`,
+      [tokenHash, mode, now, now + 7 * 24 * 3600_000],
+    );
+    return token;
+  }
+
+  async validateSession(bearerToken: string | undefined): Promise<SessionRecord | null> {
+    if (!bearerToken) return null;
+    await this.ensureSchema();
+    const candidateHash = hashToken(bearerToken);
+    const res = await this.pool.query(
+      `SELECT token_hash, mode, created_at, expires_at FROM sessions WHERE token_hash = $1`,
+      [candidateHash],
+    );
+    const row = res.rows[0] as
+      | { token_hash: string; mode: SourceMode; created_at: number | string; expires_at: number | string }
+      | undefined;
+    if (!row || !constantTimeHexEqual(row.token_hash, candidateHash)) return null;
+    if (this.nowFn() > Number(row.expires_at)) return null;
+    return {
+      tokenHash: row.token_hash,
+      mode: row.mode,
+      createdAtMs: Number(row.created_at),
+      expiresAtMs: Number(row.expires_at),
+    };
+  }
+
+  async revokeSession(bearerToken: string): Promise<void> {
+    await this.ensureSchema();
+    await this.pool.query(`DELETE FROM sessions WHERE token_hash = $1`, [hashToken(bearerToken)]);
+  }
+
+  async savePreview(preview: ActionPreview, sessionHash: string): Promise<void> {
+    await this.ensureSchema();
+    const exp = Date.parse(preview.expiresAtIso);
+    await this.pool.query(
+      `INSERT INTO previews (preview_token, session_hash, payload_json, expires_at, consumed)
+       VALUES ($1, $2, $3, $4, 0)
+       ON CONFLICT (preview_token) DO UPDATE SET session_hash = $2, payload_json = $3, expires_at = $4, consumed = 0`,
+      [preview.previewToken, sessionHash, JSON.stringify(preview), exp],
+    );
+  }
+
+  async consumePreview(
+    previewToken: string,
+    sessionHash: string,
+  ): Promise<{ ok: true; preview: ActionPreview } | { ok: false; status: 404 | 409 | 410; reason: string }> {
+    await this.ensureSchema();
+    const res = await this.pool.query(
+      `SELECT session_hash, payload_json, expires_at, consumed FROM previews WHERE preview_token = $1`,
+      [previewToken],
+    );
+    const row = res.rows[0] as
+      | { session_hash: string; payload_json: string; expires_at: number | string; consumed: number }
+      | undefined;
+
+    if (!row || !constantTimeHexEqual(row.session_hash, sessionHash)) {
+      return { ok: false, status: 404, reason: 'Preview token not found' };
+    }
+    if (Number(row.consumed) === 1) {
+      return { ok: false, status: 409, reason: 'Preview token already consumed (replay blocked)' };
+    }
+    if (this.nowFn() > Number(row.expires_at)) {
+      return { ok: false, status: 410, reason: 'Preview token expired (45s TTL)' };
+    }
+    const upd = await this.pool.query(
+      `UPDATE previews SET consumed = 1 WHERE preview_token = $1 AND consumed = 0`,
+      [previewToken],
+    );
+    if ((upd.rowCount ?? 0) === 0) {
+      return { ok: false, status: 409, reason: 'Preview token already consumed' };
+    }
+    return { ok: true, preview: JSON.parse(row.payload_json) as ActionPreview };
+  }
+
+  async getByIdempotency(idempotencyKey: string): Promise<CommitReceipt | null> {
+    await this.ensureSchema();
+    const res = await this.pool.query(
+      `SELECT payload_json FROM receipts WHERE idempotency_key = $1`,
+      [idempotencyKey],
+    );
+    const row = res.rows[0] as { payload_json: string } | undefined;
+    return row ? (JSON.parse(row.payload_json) as CommitReceipt) : null;
+  }
+
+  async saveReceipt(receipt: CommitReceipt): Promise<void> {
+    await this.ensureSchema();
+    await this.pool.query(
+      `INSERT INTO receipts (receipt_id, idempotency_key, status, payload_json, created_at)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (receipt_id) DO UPDATE SET status = $3, payload_json = $4`,
+      [
+        receipt.receiptId,
+        receipt.idempotencyKey,
+        receipt.status,
+        JSON.stringify(receipt),
+        Date.parse(receipt.committedAtIso) || this.nowFn(),
+      ],
+    );
+  }
+
+  async listReceipts(limit = 20): Promise<CommitReceipt[]> {
+    await this.ensureSchema();
+    const res = await this.pool.query(
+      `SELECT payload_json FROM receipts ORDER BY created_at DESC LIMIT $1`,
+      [limit],
+    );
+    return res.rows.map((r) => JSON.parse(String(r.payload_json)) as CommitReceipt);
+  }
+
+  async checkAndConsumeRateLimit(
+    dayKey: string,
+    minuteKey: string,
+    maxPerDay = 20,
+    maxPerMin = 10,
+  ): Promise<{ allowed: boolean; reason?: string }> {
+    await this.ensureSchema();
+    const dRes = await this.pool.query(`SELECT count FROM rate_counters WHERE bucket_key = $1`, [dayKey]);
+    if (Number(dRes.rows[0]?.count ?? 0) >= maxPerDay) {
+      return { allowed: false, reason: `Daily write cap (${maxPerDay}/day) reached` };
+    }
+    const mRes = await this.pool.query(`SELECT count FROM rate_counters WHERE bucket_key = $1`, [minuteKey]);
+    if (Number(mRes.rows[0]?.count ?? 0) >= maxPerMin) {
+      return { allowed: false, reason: `Per-minute write cap (${maxPerMin}/min) reached` };
+    }
+    await this.pool.query(
+      `INSERT INTO rate_counters (bucket_key, count) VALUES ($1, 1)
+       ON CONFLICT (bucket_key) DO UPDATE SET count = rate_counters.count + 1`,
+      [dayKey],
+    );
+    await this.pool.query(
+      `INSERT INTO rate_counters (bucket_key, count) VALUES ($1, 1)
+       ON CONFLICT (bucket_key) DO UPDATE SET count = rate_counters.count + 1`,
+      [minuteKey],
+    );
+    return { allowed: true };
+  }
+
+  async close(): Promise<void> {
+    await this.pool.end?.();
+  }
+}
+
+/**
+ * Neon PostgreSQL adapter used automatically when DATABASE_URL is configured and `pg` is installed;
+ * falls back cleanly to zero-config node:sqlite locally.
  */
 export async function createConfiguredLedgerStore(
   dataDir: string,
@@ -313,11 +573,10 @@ export async function createConfiguredLedgerStore(
     return new SqliteLedgerStore(path.join(dataDir, 'oncue.sqlite'), nowFn);
   }
   try {
-    // Optional cloud driver: load pg dynamically if user installed it for Neon Postgres
     const pgModule = 'pg';
-    await import(pgModule);
-    // Fallback to SQLite if Postgres schema isn't provisioned yet while keeping interface compatible
-    return new SqliteLedgerStore(path.join(dataDir, 'oncue.sqlite'), nowFn);
+    const pg = (await import(pgModule)) as { Pool: new (opts: { connectionString: string }) => PgPoolLike };
+    const pool = new pg.Pool({ connectionString: dbUrl });
+    return new PostgresLedgerStore(pool, nowFn);
   } catch {
     return new SqliteLedgerStore(path.join(dataDir, 'oncue.sqlite'), nowFn);
   }

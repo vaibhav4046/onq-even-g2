@@ -12,8 +12,11 @@ import type {
   HudState,
   SourceMode,
 } from '@oncue/core';
+import { EvidenceSection } from './components/EvidenceSection';
 import { G2LensCanvas } from './components/G2LensCanvas';
 import { HalftoneArtwork } from './components/HalftoneArtwork';
+import { startBrowserMicCapture } from './components/MicRecorder';
+import type { MicRecordingHandle } from './components/MicRecorder';
 import { PairingSection } from './components/PairingSection';
 
 interface SnapshotState {
@@ -37,6 +40,13 @@ interface SnapshotState {
     completed: boolean;
     schemaType: string;
   }>;
+}
+
+interface AuditEventItem {
+  id: string;
+  atIso: string;
+  kind: string;
+  detail: string;
 }
 
 const GEOMETRY_SAMPLE_CARD: CorridorCard = {
@@ -162,13 +172,21 @@ export function App() {
   );
   const [workspace, setWorkspace] = useState<SnapshotState | null>(null);
   const [receipts, setReceipts] = useState<CommitReceipt[]>([]);
+  const [auditLog, setAuditLog] = useState<AuditEventItem[]>([]);
   const [commandInput, setCommandInput] = useState('Push 15m and tell Priya');
-  const [voiceFeedback, setVoiceFeedback] = useState<string>('Ready. Hold Space or click a preset voice clip.');
+  const [voiceFeedback, setVoiceFeedback] = useState<string>('Ready. Speak with Live Mic or click a preset WAV clip.');
   const [simLoading, setSimLoading] = useState(false);
+  const [micActive, setMicActive] = useState(false);
+
+  // Live workspace mutation inputs
+  const [newBusyTitle, setNewBusyTitle] = useState('');
+  const [newBusyTime, setNewBusyTime] = useState('14:15');
+  const [newTaskTitle, setNewTaskTitle] = useState('');
 
   const tokenRef = useRef<string | null>(null);
   tokenRef.current = sessionToken;
   const ctrlRef = useRef<OnCueHudController | null>(null);
+  const micHandleRef = useRef<MicRecordingHandle | null>(null);
 
   const refreshWorkspaceInspector = useCallback(async (tok: string) => {
     try {
@@ -176,9 +194,14 @@ export function App() {
         headers: { Authorization: `Bearer ${tok}` },
       });
       if (!res.ok) return;
-      const json = (await res.json()) as { snapshot: SnapshotState; receipts: CommitReceipt[] };
+      const json = (await res.json()) as {
+        snapshot: SnapshotState;
+        receipts: CommitReceipt[];
+        auditLog?: AuditEventItem[];
+      };
       setWorkspace(json.snapshot);
       setReceipts(json.receipts);
+      if (json.auditLog) setAuditLog(json.auditLog);
     } catch {
       // keep existing inspector state
     }
@@ -241,8 +264,8 @@ export function App() {
           body: JSON.stringify({ previewToken: preview.previewToken, idempotencyKey: preview.idempotencyKey }),
         });
         const data = (await res.json()) as CommitReceipt | ConflictLockDetail;
-        if (res.status === 409) return data as ConflictLockDetail;
         await refreshCorridor(tok);
+        if (res.status === 409) return data as ConflictLockDetail;
         return data as CommitReceipt;
       },
       onUndoReceipt: async (receipt) => {
@@ -329,6 +352,19 @@ export function App() {
     };
   }, [geometryMode, refreshCorridor]);
 
+  // Live SSE sync subscription
+  useEffect(() => {
+    if (geometryMode || !sessionToken || typeof EventSource === 'undefined') return;
+    const es = new EventSource(`/api/stream?token=${encodeURIComponent(sessionToken)}`);
+    es.addEventListener('corridor', () => {
+      if (tokenRef.current) void refreshCorridor(tokenRef.current);
+    });
+    es.addEventListener('audit', () => {
+      if (tokenRef.current) void refreshWorkspaceInspector(tokenRef.current);
+    });
+    return () => es.close();
+  }, [geometryMode, sessionToken, refreshCorridor, refreshWorkspaceInspector]);
+
   // Keyboard bindings for R1 Ring simulation (ignoring form inputs)
   useEffect(() => {
     if (geometryMode) return;
@@ -366,6 +402,7 @@ export function App() {
       body: JSON.stringify({ commandText: cmd, cardId: card?.id }),
     });
     const data = await res.json();
+    await refreshWorkspaceInspector(tok);
     if (res.status === 409) {
       ctrlRef.current?.showConflict(data as ConflictLockDetail);
       setVoiceFeedback(`409 CONFLICT LOCKED: ${(data as ConflictLockDetail).message}`);
@@ -373,15 +410,68 @@ export function App() {
     }
     if (!res.ok) {
       ctrlRef.current?.showError((data as { error?: string }).error ?? `HTTP ${res.status}`);
+      setVoiceFeedback((data as { error?: string }).error ?? `HTTP ${res.status}`);
       return;
     }
     if (data.readOnlyAnswer && data.lines) {
       ctrlRef.current?.showAnswer(data.lines as string[]);
-      setVoiceFeedback('Read-only answer rendered on lens.');
+      setVoiceFeedback(`Read-only answer: ${(data.lines as string[]).join(' | ')}`);
       return;
     }
     ctrlRef.current?.stagePreview(data as ActionPreview);
     setVoiceFeedback('Staged Default-NO preview. Swipe to YES and tap to arm 2.0s Undo Ring.');
+  };
+
+  const toggleLiveMic = async () => {
+    const tok = tokenRef.current;
+    if (!tok) return;
+    if (!micActive) {
+      try {
+        ctrlRef.current?.setListening(0.05, '');
+        setVoiceFeedback('Listening via browser mic (16 kHz PCM)... click Stop & Transcribe when done.');
+        micHandleRef.current = await startBrowserMicCapture((rms) => {
+          ctrlRef.current?.setListening(rms, '');
+        });
+        setMicActive(true);
+      } catch (err) {
+        setMicActive(false);
+        ctrlRef.current?.showError('MIC PERMISSION DENIED');
+        setVoiceFeedback(err instanceof Error ? err.message : 'Microphone unavailable');
+      }
+      return;
+    }
+
+    setMicActive(false);
+    const handle = micHandleRef.current;
+    micHandleRef.current = null;
+    if (!handle) return;
+    const { wavBlob } = await handle.stop();
+    setVoiceFeedback('Running RMS silence gate + local Whisper STT...');
+    const res = await fetch('/api/stt', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tok}` },
+      body: wavBlob,
+    });
+    const stt = (await res.json()) as {
+      rejectedSilent?: boolean;
+      transcript?: string;
+      rms?: number;
+      sttEngine?: string;
+      error?: string;
+    };
+    await refreshWorkspaceInspector(tok);
+    if (!res.ok) {
+      ctrlRef.current?.showError(stt.error ?? `STT HTTP ${res.status}`);
+      setVoiceFeedback(stt.error ?? `STT HTTP ${res.status}`);
+      return;
+    }
+    if (stt.rejectedSilent || !stt.transcript) {
+      ctrlRef.current?.showError('SILENT PRESS - NO AUDIO SENT');
+      setVoiceFeedback(`RMS Gate blocked silent audio (RMS=${(stt.rms ?? 0).toFixed(4)} < 0.012).`);
+      return;
+    }
+    setVoiceFeedback(`Transcribed via ${stt.sttEngine}: "${stt.transcript}"`);
+    await stageCommand(stt.transcript);
   };
 
   const runVoicePreset = async (presetText: string, silent = false) => {
@@ -403,6 +493,7 @@ export function App() {
       rms: number;
       sttEngine: string;
     };
+    await refreshWorkspaceInspector(tok);
     if (stt.rejectedSilent) {
       ctrlRef.current?.showError('SILENT PRESS - NO AUDIO SENT');
       setVoiceFeedback(`RMS Gate blocked silent WAV (RMS=${stt.rms.toFixed(4)} < 0.012). 0 STT calls.`);
@@ -439,7 +530,72 @@ export function App() {
     setVoiceFeedback('Sandbox workspace reset to initial 14:00 VC Sync state.');
   };
 
-  // Dedicated isolated geometry harness view for scripts/verify-geometry.mjs
+  const handleAddBusySlot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const tok = tokenRef.current;
+    if (!tok || !newBusyTitle.trim()) return;
+    const startIso = `2026-11-24T${newBusyTime}:00.000Z`;
+    const endIso = new Date(Date.parse(startIso) + 30 * 60_000).toISOString();
+    await fetch('/api/workspace/calendar/add', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newBusyTitle.trim(), startIso, endIso }),
+    });
+    setNewBusyTitle('');
+    await refreshWorkspaceInspector(tok);
+    setVoiceFeedback(`Added Calendar block "${newBusyTitle.trim()}" at ${newBusyTime}. Try moving VC Sync there to test 409 Lock!`);
+  };
+
+  const handleSimulateIncomingReply = async () => {
+    const tok = tokenRef.current;
+    if (!tok) return;
+    await fetch('/api/workspace/gmail/incoming', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snippet: 'Actually let us do 15:00 instead - Priya' }),
+    });
+    await refreshWorkspaceInspector(tok);
+    setVoiceFeedback('Simulated incoming Priya reply (historyId bumped). Committing old card now triggers 409 CONFLICT_THREAD_UPDATED!');
+  };
+
+  const handleAddTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const tok = tokenRef.current;
+    if (!tok || !newTaskTitle.trim()) return;
+    await fetch('/api/workspace/notion/add', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newTaskTitle.trim() }),
+    });
+    setNewTaskTitle('');
+    await refreshWorkspaceInspector(tok);
+  };
+
+  const handleToggleTask = async (pageId: string) => {
+    const tok = tokenRef.current;
+    if (!tok) return;
+    await fetch('/api/workspace/notion/toggle', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pageId }),
+    });
+    await refreshWorkspaceInspector(tok);
+  };
+
+  const handleUndoFromLedger = async (idempotencyKey: string) => {
+    const tok = tokenRef.current;
+    if (!tok) return;
+    const res = await fetch('/api/actions/undo', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idempotencyKey }),
+    });
+    if (res.ok) {
+      await refreshCorridor(tok);
+      setVoiceFeedback('Surgical undo executed from Audit Receipt Ledger.');
+    }
+  };
+
   if (geometryMode) {
     return (
       <main className="min-h-screen bg-black p-6 flex items-start justify-start">
@@ -470,9 +626,9 @@ export function App() {
 
           <nav aria-label="Primary navigation" className="hidden md:flex items-center gap-6 text-sm text-[var(--lightgray)]">
             <a href="#simulator" className="hover:text-[var(--bright)] transition-colors">Simulator</a>
+            <a href="#evidence" className="hover:text-[var(--bright)] transition-colors">Evidence</a>
             <a href="#safety" className="hover:text-[var(--bright)] transition-colors">Safety</a>
             <a href="#hardware" className="hover:text-[var(--bright)] transition-colors">Hardware</a>
-            <a href="#modes" className="hover:text-[var(--bright)] transition-colors">Modes</a>
             <a href="#pair" className="hover:text-[var(--bright)] transition-colors">Pair G2</a>
             <a href="#faq" className="hover:text-[var(--bright)] transition-colors">FAQ</a>
           </nav>
@@ -499,7 +655,6 @@ export function App() {
       <main id="top">
         <section id="simulator" className="py-12 sm:py-16 relative overflow-hidden">
           <div className="container-page relative">
-            {/* Top Editorial Headline flanked by Halftone Canvas */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center mb-10 animate-rise">
               <div className="lg:col-span-8 space-y-5">
                 <p className="font-pixel text-xs uppercase tracking-[0.25em] text-[var(--lightgray)]">
@@ -510,12 +665,12 @@ export function App() {
                   <span className="block text-[var(--bright)]">between meetings.</span>
                 </h1>
                 <p className="text-sm md:text-base leading-relaxed text-[var(--lightgray)] max-w-2xl">
-                  OnCue fuses Google Calendar, Gmail, Drive, and Notion into one 42-column glance on
-                  Even Realities G2, then executes voice-staged updates behind a Default-NO gate,
+                  OnCue fuses Google Calendar, Gmail, Drive, Notion, and .ics feeds into one 42-column
+                  glance on Even Realities G2, then executes voice-staged updates behind a Default-NO gate,
                   2.0s optical Undo Ring, and HTTP 409 conflict hard-lock.
                 </p>
                 <div className="font-pixel text-[11px] uppercase tracking-[0.18em] text-[var(--lime)]">
-                  GOOGLE WORKSPACE + NOTION · LOCAL 16KHZ WHISPER · ZERO KEYS IN WEBVIEW
+                  GOOGLE WORKSPACE + NOTION + .ICS · LOCAL WHISPER · ZERO KEYS IN WEBVIEW
                 </div>
               </div>
               <div className="lg:col-span-4 flex flex-col items-end">
@@ -529,7 +684,7 @@ export function App() {
               </div>
             </div>
 
-            {/* Interactive 576x288 Simulator + Split Workspace Inspector */}
+            {/* Interactive 576x288 Simulator + Live Companion Control Center */}
             <div className="border border-dashed border-[var(--hairline)] bg-[var(--surface)]">
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-px bg-[var(--hairline)]">
                 {/* Left: 576x288 Optical Lens & R1 Hardware Controls */}
@@ -561,7 +716,6 @@ export function App() {
                     </div>
                   </div>
 
-                  {/* Exact 576x288 Lens Frame */}
                   <div className="g2-lens-scaler overflow-x-auto">
                     {simLoading ? (
                       <div className="g2-lens-canvas flex items-center justify-center text-xs">
@@ -572,7 +726,6 @@ export function App() {
                     )}
                   </div>
 
-                  {/* R1 Ring & Temple Touch Controls */}
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -602,12 +755,23 @@ export function App() {
                     >
                       2x Tap / Back (Esc)
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => void toggleLiveMic()}
+                      className={`px-3 py-2 border text-xs font-semibold cursor-pointer ${
+                        micActive
+                          ? 'border-[var(--danger)] bg-[var(--danger)] text-[var(--ink)]'
+                          : 'border-[var(--lime)] text-[var(--lime)] hover:bg-[var(--lime)] hover:text-[var(--ink)]'
+                      }`}
+                    >
+                      {micActive ? 'Stop & Transcribe (Local Whisper)' : 'Speak Live Mic'}
+                    </button>
                   </div>
 
-                  {/* Voice Presets, RMS Gate & Command Input */}
+                  {/* Voice Presets, Q&A & Fault Triggers */}
                   <div className="border-t border-dashed border-[var(--hairline)] pt-4 space-y-3">
                     <div className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lightgray)]">
-                      16KHZ PCM VOICE CLIPS &amp; FAULT TESTS
+                      16KHZ PCM VOICE CLIPS, NOTES Q&amp;A &amp; FAULT TESTS
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button
@@ -623,6 +787,13 @@ export function App() {
                         className="px-3 py-1.5 border border-[var(--hairline)] text-xs hover:border-[var(--bright)] cursor-pointer"
                       >
                         Voice: Action Pack (Notion + Hold)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void stageCommand('What did Priya ask?')}
+                        className="px-3 py-1.5 border border-[var(--hairline)] text-xs hover:border-[var(--verified)] cursor-pointer"
+                      >
+                        Ask Notes (Read-Only)
                       </button>
                       <button
                         type="button"
@@ -674,14 +845,14 @@ export function App() {
                   </div>
                 </div>
 
-                {/* Right: Live Split Workspace Inspector (Calendar + Gmail + Notion + Audit Receipts) */}
-                <div className="xl:col-span-5 bg-[var(--surface)] p-5 sm:p-6 space-y-5">
+                {/* Right: Live Split Workspace Control Center */}
+                <div className="xl:col-span-5 bg-[var(--surface)] p-5 sm:p-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="font-pixel text-[11px] uppercase tracking-[0.2em] text-[var(--bright)]">
-                      LIVE WORKSPACE STATE
+                      LIVE WORKSPACE CONTROL CENTER
                     </span>
                     <span className="font-pixel text-[10px] uppercase tracking-[0.15em] text-[var(--verified)]">
-                      {sessionMode} SYNC
+                      {sessionMode} SSE SYNC
                     </span>
                   </div>
 
@@ -690,8 +861,9 @@ export function App() {
                       Connecting to workspace relay...
                     </div>
                   ) : (
-                    <div className="space-y-4 text-xs">
-                      <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
+                    <div className="space-y-3 text-xs">
+                      {/* Calendar + Add Busy Slot */}
+                      <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-2">
                         <div className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
                           GOOGLE CALENDAR
                         </div>
@@ -703,11 +875,44 @@ export function App() {
                             </span>
                           </div>
                         ))}
+                        <form onSubmit={handleAddBusySlot} className="flex gap-1.5 pt-1">
+                          <input
+                            type="text"
+                            aria-label="New busy calendar event title"
+                            placeholder="Add busy block..."
+                            value={newBusyTitle}
+                            onChange={(e) => setNewBusyTitle(e.target.value)}
+                            className="flex-1 bg-[var(--surface)] border border-[var(--hairline)] px-2 py-1 text-[11px] text-[var(--bright)]"
+                          />
+                          <input
+                            type="text"
+                            aria-label="Busy block UTC start HH:MM"
+                            value={newBusyTime}
+                            onChange={(e) => setNewBusyTime(e.target.value)}
+                            className="w-14 bg-[var(--surface)] border border-[var(--hairline)] px-2 py-1 text-[11px] text-[var(--bright)]"
+                          />
+                          <button
+                            type="submit"
+                            className="px-2 py-1 border border-[var(--hairline)] text-[11px] hover:border-[var(--lime)] hover:text-[var(--lime)] cursor-pointer"
+                          >
+                            +Busy
+                          </button>
+                        </form>
                       </div>
 
+                      {/* Gmail + Simulate Incoming Reply */}
                       <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
-                        <div className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
-                          GMAIL THREADS &amp; SENT REPLIES
+                        <div className="flex items-center justify-between">
+                          <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
+                            GMAIL THREADS
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void handleSimulateIncomingReply()}
+                            className="font-pixel text-[9px] px-2 py-0.5 border border-[var(--warning)] text-[var(--warning)] hover:bg-[var(--warning)] hover:text-[var(--ink)] cursor-pointer"
+                          >
+                            Simulate Incoming Reply
+                          </button>
                         </div>
                         {workspace.gmailThreads.map((t) => (
                           <div key={t.threadId} className="border-t border-dashed border-[var(--hairline)] pt-1.5 space-y-1">
@@ -725,20 +930,44 @@ export function App() {
                         ))}
                       </div>
 
+                      {/* Notion + Add/Toggle */}
                       <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
                         <div className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
                           NOTION DATABASE (AUTO-SCHEMA)
                         </div>
                         {workspace.notionTasks.slice(0, 4).map((task) => (
                           <div key={task.pageId} className="flex justify-between gap-2 border-t border-dashed border-[var(--hairline)] pt-1.5">
-                            <span className={task.completed ? 'line-through text-[var(--lightgray)]' : 'text-[var(--bright)]'}>
+                            <button
+                              type="button"
+                              onClick={() => void handleToggleTask(task.pageId)}
+                              className={`text-left truncate cursor-pointer ${
+                                task.completed ? 'line-through text-[var(--lightgray)]' : 'text-[var(--bright)] hover:text-[var(--lime)]'
+                              }`}
+                            >
                               {task.completed ? '[x] ' : '[ ] '}{task.title}
-                            </span>
+                            </button>
                             <span className="text-[var(--lightgray)] shrink-0">{task.schemaType}</span>
                           </div>
                         ))}
+                        <form onSubmit={handleAddTask} className="flex gap-1.5 pt-1">
+                          <input
+                            type="text"
+                            aria-label="New Notion task title"
+                            placeholder="Add Notion task..."
+                            value={newTaskTitle}
+                            onChange={(e) => setNewTaskTitle(e.target.value)}
+                            className="flex-1 bg-[var(--surface)] border border-[var(--hairline)] px-2 py-1 text-[11px] text-[var(--bright)]"
+                          />
+                          <button
+                            type="submit"
+                            className="px-2 py-1 border border-[var(--hairline)] text-[11px] hover:border-[var(--lime)] hover:text-[var(--lime)] cursor-pointer"
+                          >
+                            +Task
+                          </button>
+                        </form>
                       </div>
 
+                      {/* Receipts + Undo + Telemetry */}
                       <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
                         <div className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--bright)]">
                           AUDIT RECEIPT LEDGER ({receipts.length})
@@ -746,15 +975,32 @@ export function App() {
                         {receipts.length === 0 ? (
                           <p className="text-[var(--lightgray)]">No commits yet. Stage and arm an action to verify.</p>
                         ) : (
-                          receipts.slice(0, 3).map((rec) => (
-                            <div key={rec.receiptId} className="border-t border-dashed border-[var(--hairline)] pt-1.5">
-                              <div className="flex justify-between">
+                          receipts.slice(0, 2).map((rec) => (
+                            <div key={rec.receiptId} className="border-t border-dashed border-[var(--hairline)] pt-1.5 space-y-1">
+                              <div className="flex justify-between items-center gap-2">
                                 <span className="text-[var(--verified)]">{rec.receiptId} · {rec.status}</span>
-                                <span className="text-[var(--lightgray)]">{rec.committedAtIso.slice(11, 19)}</span>
+                                {rec.canUndo && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleUndoFromLedger(rec.idempotencyKey)}
+                                    className="font-pixel text-[9px] px-2 py-0.5 border border-[var(--lime)] text-[var(--lime)] hover:bg-[var(--lime)] hover:text-[var(--ink)] cursor-pointer"
+                                  >
+                                    UNDO (30s)
+                                  </button>
+                                )}
                               </div>
                               <div className="text-[var(--lightgray)]">{rec.summaryLines.join(' | ')}</div>
                             </div>
                           ))
+                        )}
+                        {auditLog.length > 0 && (
+                          <div className="border-t border-dashed border-[var(--hairline)] pt-1.5 space-y-0.5 text-[11px] text-[var(--lightgray)]">
+                            {auditLog.slice(0, 3).map((ev) => (
+                              <div key={ev.id} className="truncate">
+                                <span className="text-[var(--lime)]">[{ev.kind}]</span> {ev.detail}
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -765,7 +1011,10 @@ export function App() {
           </div>
         </section>
 
-        {/* 4-Layer Safety Matrix (#safety) - Mirrors KaneCLI #judging Lime Bar + 4-Col Matrix */}
+        {/* Research Citations, Problem Framework & 54-Entry Gallery Benchmark */}
+        <EvidenceSection />
+
+        {/* 4-Layer Safety Matrix (#safety) */}
         <section id="safety" className="section-rule py-20 sm:py-28">
           <div className="container-page space-y-8">
             <div className="space-y-3">
@@ -808,7 +1057,7 @@ export function App() {
                   {
                     num: '03',
                     title: 'HTTP 409 Hard-Lock',
-                    desc: 'Re-queries Calendar Free/Busy and Gmail historyId at commit time. Blocks double-bookings and stale replies.',
+                    desc: 'Re-queries Calendar Free/Busy, Gmail historyId, and Notion last_edited_time at commit time.',
                   },
                   {
                     num: '04',
@@ -827,7 +1076,7 @@ export function App() {
           </div>
         </section>
 
-        {/* Full-Bleed Light-Inversion Section (#hardware) - Mirrors KaneCLI #prizes */}
+        {/* Full-Bleed Light-Inversion Section (#hardware) */}
         <section
           id="hardware"
           className="section-rule py-20 sm:py-28 bg-[#f2f2f2] text-[#0a0a0a] [--bright:#0a0a0a] [--hairline:#c4c4c4] [--ink:#f2f2f2] [--lightgray:#525252] [--surface:#e8e8e8]"
@@ -843,8 +1092,8 @@ export function App() {
                   <span className="block text-[#0a0a0a]">Zero phone clutter.</span>
                 </h2>
                 <p className="text-sm md:text-base leading-relaxed text-[#525252] max-w-xl">
-                  Designed around Even G2 waveguide constraints: LVGL-safe ASCII glyphs, proto3 omitted-zero
-                  click normalization, defensive audio frame slicing, and zero-custody local Whisper.
+                  Exercises all three Even Hub SDK 0.0.16 containers (Text, native List, 4-bit Image),
+                  proto3 omitted-zero normalization, defensive audio frame slicing, and zero-custody local Whisper.
                 </p>
               </div>
               <div className="lg:col-span-5 flex flex-col items-end">
@@ -869,7 +1118,7 @@ export function App() {
                   rank: '0ms',
                   metric: 'Local Rules + Whisper',
                   tag: 'ZERO PAID KEYS NEEDED',
-                  desc: 'Deterministic triage rules, chrono-node dates, and local 16 kHz PCM STT run at £0 API cost on a standard laptop.',
+                  desc: 'Deterministic triage rules, chrono-node dates, and local faster-whisper 16 kHz PCM STT run at £0 API cost.',
                 },
                 {
                   rank: '$7/mo',
@@ -893,7 +1142,7 @@ export function App() {
           </div>
         </section>
 
-        {/* 4-Column Corridor Modes (#modes) - Mirrors KaneCLI #lanes with Card 04 Inverted Lime */}
+        {/* 4-Column Corridor Modes (#modes) */}
         <section id="modes" className="section-rule py-20 sm:py-28">
           <div className="container-page space-y-8">
             <div className="space-y-3">
@@ -984,11 +1233,12 @@ export function App() {
           </div>
         </section>
 
-        {/* Phone Pairing & Workspace Credentials */}
+        {/* Phone Pairing & Live Workspace Credentials */}
         <PairingSection
           sessionToken={sessionToken}
           mode={sessionMode}
           onSessionUpdated={(tok, m) => {
+            tokenRef.current = tok;
             setSessionToken(tok);
             setSessionMode(m);
             void refreshCorridor(tok);
@@ -1005,7 +1255,7 @@ export function App() {
           }}
         />
 
-        {/* Technical FAQ (#faq) - Mirrors KaneCLI #rules 5fr / 7fr split */}
+        {/* Technical FAQ (#faq) */}
         <section id="faq" className="section-rule py-20 sm:py-28">
           <div className="container-page grid grid-cols-1 lg:grid-cols-12 gap-12">
             <div className="lg:col-span-5 space-y-4">
@@ -1038,8 +1288,8 @@ export function App() {
                   a: 'At 0.0s, the state machine synchronously transitions from armed to committing before awaiting network I/O, locking all taps and scrolls. On the server, preview tokens are single-use (409 on replay) and backed by a SHA-256 idempotency key.',
                 },
                 {
-                  q: 'Does OnCue require an LLM API key to work?',
-                  a: 'No. Triage ranking, chrono-node date resolution, conflict hard-locking, and deterministic reply templates run offline with zero API keys. Optional Claude, OpenRouter, or ChatGPT keys only compress phrasing behind an 8s timeout and Code-Guard.',
+                  q: 'Does OnCue require an LLM API key or cloud database to work?',
+                  a: 'No. Triage ranking, chrono-node date resolution, conflict hard-locking, faster-whisper STT, and node:sqlite storage all run locally with zero paid keys. Optional Claude/OpenRouter/ChatGPT keys and Neon DATABASE_URL plug in cleanly when provided.',
                 },
               ].map((item) => (
                 <details key={item.q} className="group py-5">
@@ -1057,7 +1307,6 @@ export function App() {
         </section>
       </main>
 
-      {/* Minimal Footer */}
       <footer className="border-t border-[var(--hairline)] py-8">
         <div className="container-page flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-[var(--lightgray)]">
           <div className="font-pixel uppercase tracking-[0.18em] text-[var(--bright)]">
@@ -1065,9 +1314,9 @@ export function App() {
           </div>
           <div className="flex flex-wrap gap-6">
             <a href="#simulator" className="hover:text-[var(--bright)]">Optical Simulator</a>
+            <a href="#evidence" className="hover:text-[var(--bright)]">Research &amp; Benchmark</a>
             <a href="#safety" className="hover:text-[var(--bright)]">4-Layer Safety</a>
             <a href="#pair" className="hover:text-[var(--bright)]">OAuth Pairing</a>
-            <a href="#faq" className="hover:text-[var(--bright)]">Honest Limits</a>
           </div>
         </div>
       </footer>

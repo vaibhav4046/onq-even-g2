@@ -114,6 +114,43 @@ export class DemoWorkspaceProvider implements WorkspaceProvider {
     return this.nowIso;
   }
 
+  addBusySlot(title: string, startIso: string, endIso: string): void {
+    this.events.push({
+      eventId: `evt-user-${crypto.randomBytes(3).toString('hex')}`,
+      title,
+      startIso,
+      endIso,
+      etag: `etag-${Date.now()}`,
+    });
+  }
+
+  injectIncomingReply(snippet: string): void {
+    const thr = this.threads[0];
+    if (thr) {
+      thr.snippet = snippet;
+      thr.historyId = `hist-${Date.now()}`;
+    }
+  }
+
+  addNotionTask(title: string, dueIso?: string): void {
+    this.tasks.unshift({
+      pageId: `notion-user-${crypto.randomBytes(3).toString('hex')}`,
+      title,
+      dueIso,
+      completed: false,
+      lastEdited: new Date().toISOString(),
+      schemaType: 'checkbox',
+    });
+  }
+
+  toggleNotionTask(pageId: string): void {
+    const t = this.tasks.find((x) => x.pageId === pageId);
+    if (t) {
+      t.completed = !t.completed;
+      t.lastEdited = new Date().toISOString();
+    }
+  }
+
   resetSandbox(): void {
     const fresh = new DemoWorkspaceProvider(this.nowIso);
     this.events = fresh.events;

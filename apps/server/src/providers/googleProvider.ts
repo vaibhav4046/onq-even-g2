@@ -185,6 +185,77 @@ export class GoogleWorkspaceClient {
     return json.etag ?? '';
   }
 
+  async createEvent(summary: string, startIso: string, endIso: string): Promise<{ id: string; etag: string }> {
+    const token = await this.getAccessToken();
+    const res = await this.fetchWithTimeout(
+      'https://www.googleapis.com/calendar/v3/calendars/primary/events',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          summary,
+          start: { dateTime: startIso },
+          end: { dateTime: endIso },
+        }),
+      },
+    );
+    if (!res.ok) throw new Error(`Google Calendar create failed: HTTP ${res.status}`);
+    const json = (await res.json()) as { id: string; etag?: string };
+    return { id: json.id, etag: json.etag ?? '' };
+  }
+
+  async deleteEvent(eventId: string): Promise<void> {
+    const token = await this.getAccessToken();
+    const res = await this.fetchWithTimeout(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(eventId)}`,
+      {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+    if (!res.ok && res.status !== 404) {
+      throw new Error(`Google Calendar delete failed: HTTP ${res.status}`);
+    }
+  }
+
+  async listRecentThreads(query = 'newer_than:2d', maxResults = 5): Promise<GoogleThreadMeta[]> {
+    const token = await this.getAccessToken();
+    const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/threads');
+    url.searchParams.set('q', query);
+    url.searchParams.set('maxResults', String(maxResults));
+    const res = await this.fetchWithTimeout(url.toString(), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error(`Gmail threads list failed: HTTP ${res.status}`);
+    const json = (await res.json()) as { threads?: Array<{ id: string }> };
+    const metas: GoogleThreadMeta[] = [];
+    for (const item of (json.threads ?? []).slice(0, maxResults)) {
+      try {
+        metas.push(await this.getThreadMetadata(item.id));
+      } catch {
+        // skip unreadable thread
+      }
+    }
+    return metas;
+  }
+
+  async deleteDraft(draftId: string): Promise<void> {
+    const token = await this.getAccessToken();
+    const res = await this.fetchWithTimeout(
+      `https://gmail.googleapis.com/gmail/v1/users/me/drafts/${encodeURIComponent(draftId)}`,
+      {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+    if (!res.ok && res.status !== 404) {
+      throw new Error(`Gmail draft delete failed: HTTP ${res.status}`);
+    }
+  }
+
   async getThreadMetadata(threadId: string): Promise<GoogleThreadMeta> {
     const token = await this.getAccessToken();
     const res = await this.fetchWithTimeout(
