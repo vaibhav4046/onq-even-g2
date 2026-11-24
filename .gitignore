@@ -10,6 +10,7 @@ data/
 *.ehpk
 !dist/oncue.ehpk
 media/audio/*.wav
+media/raw/
 media/out/frame-check-*.png
 docs/screenshots/*.tmp.png
 .DS_Store

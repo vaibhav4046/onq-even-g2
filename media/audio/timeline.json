@@ -1,0 +1,51 @@
+{
+  "total_duration_s": 113.2,
+  "voice_engine": "sapi-david-eq",
+  "chapters": [
+    {
+      "id": "01_moment",
+      "title": "The 90-Second Corridor Tax",
+      "caption": "275 daily interruptions (Microsoft WTI) \u00b7 OnCue brings Workspace onto Even G2",
+      "vo_start": 1.0,
+      "vo_end": 21.866,
+      "clip_start": 0.0,
+      "clip_end": 23.466
+    },
+    {
+      "id": "02_read_voice",
+      "title": "Live Dossier & 16 kHz Voice",
+      "caption": "Real 576x288 waveguide brief \u00b7 16 kHz local Whisper STT",
+      "vo_start": 23.866,
+      "vo_end": 40.946,
+      "clip_start": 23.466,
+      "clip_end": 42.346
+    },
+    {
+      "id": "03_safety_write",
+      "title": "Default-NO & 2.0s Undo Ring",
+      "caption": "45s Default-NO preview -> 2.0s 4-bit PNG Undo Ring -> live SSE commit",
+      "vo_start": 42.746,
+      "vo_end": 63.382,
+      "clip_start": 42.346,
+      "clip_end": 65.182
+    },
+    {
+      "id": "04_conflict_notion",
+      "title": "HTTP 409 Lock & Notion Schema",
+      "caption": "HTTP 409 Conflict Hard-Lock blocks double-bookings \u00b7 Notion 2026-03-11 task sync",
+      "vo_start": 65.582,
+      "vo_end": 85.968,
+      "clip_start": 65.182,
+      "clip_end": 87.568
+    },
+    {
+      "id": "05_proof_close",
+      "title": "Honest Failure Modes & Verification",
+      "caption": "RMS silence gate (0 STT calls) \u00b7 STALE offline cache \u00b7 163 tests \u00b7 11/11 geometry \u00b7 10/10 security",
+      "vo_start": 87.968,
+      "vo_end": 108.896,
+      "clip_start": 87.568,
+      "clip_end": 111.296
+    }
+  ]
+}
