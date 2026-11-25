@@ -1635,25 +1635,18 @@ export class UnifiedOsHarness {
     this.expireStaleApprovals();
     const pending = this.state.approvals.filter((a) => a.status === 'PENDING');
     const latestPending = pending[0];
-    const mus = this.deps.musicCurator.getLastSession();
-    const activeRoutines = this.state.routines.filter((r) => !r.paused).length;
     const paused = this.state.killSwitch.paused;
 
+    // Glance rule: one thing and a few plain words. No counts of agents, levels or routines on the lens.
     const title = paused
-      ? 'OS · PAUSED (KILL SWITCH)'
+      ? 'Paused'
       : latestPending
-        ? clipLine42(`OS · ${pending.length} L2 APPROVAL READY`, 42)
-        : clipLine42('OS · 10 AGENTS & ROUTINES LIVE', 42);
+        ? clipLine42(pending.length === 1 ? '1 thing needs your yes' : `${pending.length} things need your yes`, 42)
+        : 'All quiet';
 
-    const contextLine1 = latestPending
-      ? clipLine42(`L2: ${latestPending.title}`, 42)
-      : mus?.tracks[0]
-        ? clipLine42(`Music: ${mus.tracks[0].title} (${mus.durationMin}m)`, 42)
-        : clipLine42(`${activeRoutines}/${this.state.routines.length} routines | /help /music`, 42);
+    const contextLine1 = latestPending ? clipLine42(latestPending.title, 42) : 'Nothing needs you right now';
 
-    const contextLine2 = paused
-      ? 'All L3/L4 paused | Tap to Resume OS'
-      : clipLine42(`AI: ${this.deps.getSummary().activeLlmProvider} | KillSwitch: ARMED`, 42);
+    const contextLine2 = paused ? 'Tap to resume' : latestPending ? 'Tap to approve or skip' : 'Tap for morning crew';
 
     return {
       id: 'card-unified-os',
@@ -1674,7 +1667,7 @@ export class UnifiedOsHarness {
           ? [
               {
                 id: 'qa-os-approve',
-                label: 'Approve Pending OS Action',
+                label: 'Approve',
                 intent: 'CREATE_ACTION_PACK' as const,
                 commandText: '__OS_APPROVE_LATEST__',
               },
@@ -1682,25 +1675,19 @@ export class UnifiedOsHarness {
           : []),
         {
           id: 'qa-os-pipeline',
-          label: 'Run L4 Specialist Crew',
+          label: 'Run crew',
           intent: 'PLAN_PROJECT',
           commandText: '__OS_RUN_PIPELINE__',
         },
         {
-          id: 'qa-os-music',
-          label: 'Curate Focus Music (iTunes)',
-          intent: 'CREATE_ACTION_PACK',
-          commandText: '__OS_MUSIC_FOCUS__',
-        },
-        {
           id: 'qa-os-routine',
-          label: 'Run Morning OS Routine',
+          label: 'Morning brief',
           intent: 'CREATE_ACTION_PACK',
           commandText: '__OS_RUN_ROUTINE__',
         },
         {
           id: 'qa-os-killswitch',
-          label: paused ? 'Resume Unified OS' : 'Pause OS (Kill Switch)',
+          label: paused ? 'Resume' : 'Pause everything',
           intent: 'DELEGATE_COMPUTER_TASK',
           commandText: '__OS_TOGGLE_KILLSWITCH__',
         },
