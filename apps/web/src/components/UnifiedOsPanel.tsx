@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { LiveUiSurface } from '@onq/core';
+import { BrowserAgentCard } from './BrowserAgentCard';
 
 export interface UnifiedOsStateDto {
   killSwitch: { paused: boolean; reason?: string; updatedAtIso: string };
@@ -550,6 +551,8 @@ export function UnifiedOsPanel({
           )}
         </div>
       </div>
+
+      <BrowserAgentCard sessionToken={sessionToken} onStatusMsg={onStatusMsg} onDecideApproval={decideApproval} />
 
       {/* Row 3: 10 Specialist Roster & L4 Parallel Pipelines */}
       <div className="border border-white/10 bg-black/55 p-3 space-y-2.5">
