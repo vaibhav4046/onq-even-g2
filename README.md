@@ -1,23 +1,42 @@
-# OnQ - Even Realities G2 Corridor & Telegram Copilot (Track 04 + Telegram)
+# OnQ: the 90-second copilot for Even Realities G2
 
-**An agent that does real work on your own laptop, steered from Even Realities G2 with one glance and one tap. It never acts on the world without your yes.**
+**Own the 90 seconds between meetings on Even Realities G2. Glance, tap once, done, with undo.**
 
-What makes it different, in three lines:
-1. **Glasses-first:** the brief, the change and the yes/no live on a 7-line, 42-column lens. Voice in, earbuds out.
-2. **Agentic on your own PC:** it reads Gmail, Calendar, Notion and Telegram, and drives its own Chrome window on your laptop (your network, your logins), planned by OpenRouter, Claude or ChatGPT, or your own Claude Code / Codex subscription.
-3. **Approval-first safety in code:** every send, booking, purchase or form submit becomes a single-use approval on the glasses, web or Telegram; a 2-second undo ring; a double-booking lock; never types passwords or card numbers; one kill switch.
+**For:** people who live in Calendar, Gmail, Notion and Telegram and walk between back-to-back meetings.
+**Track:** 04 AI Assistants & Work (Google Workspace, Notion, Claude / ChatGPT / OpenRouter) + Best Telegram Integration.
 
-Two-minute demo: [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md). Everyday use: [docs/DAILY_USE.md](docs/DAILY_USE.md).
+### Read and write in seconds (what this app is for)
+1. **Glance:** the lens shows one thing: your next meeting and the one message that needs you (Gmail or a Telegram chat you picked).
+2. **Act:** say one short phrase ("push 15 and tell Priya") or tap the R1 ring. The reply or change is already drafted by AI or a smart default.
+3. **Confirm:** the lens defaults to NO. Tap yes, a 2-second undo ring runs, then Calendar, Gmail, Notion or Telegram update, with a receipt and a 30-second undo.
+4. **Safe by default:** if the slot is taken, a double-booking lock blocks the write and offers the next free time. Nothing is ever sent without your yes.
 
-OnQ's Track 04 core is **Google Workspace (Calendar, Gmail, Drive)**, **Notion** (`2026-03-11` `data_sources`), **Telegram Bot API** (`/api/telegram/digest` and `/api/telegram/stage-reply`), **Claude / ChatGPT / OpenRouter** model routing with a deterministic `Rules` fallback (`POST /api/connectors/orchestrator`), and **AssemblyAI voice** (`STT-3.7` + `TTS-1`). Together they feed one 42-column monochrome waveguide card with a **76×76 4-bit Gray4 Pixel Avatar**, a **Default-NO Confirm Gate**, a **Commit-Locked 2.0s Undo Ring**, an **HTTP 409 Conflict Hard-Lock**, and a deterministic **Code-Guard Fact Verifier**. The **Self-Harnessing Proactive Agent** (`POST /api/proactive/synthesize`) runs on top and only stages writes behind Default-NO.
+### Telegram, built for the glasses
+- See new messages only from the chats you pick (`/api/telegram/watch`); everything else is ignored.
+- One tap gets an AI-drafted reply, staged as NO until you confirm on the glasses, web or Telegram.
+- Approve or reject from Telegram's inline buttons; the card updates in place. Only your paired chat can control OnQ (`/myid` pairs it in one paste).
 
-**Optional local skills (not Track 04 claims):** music curator (iTunes), market signals (CoinGecko), PC tools (`claude`, `codex`, `gemini`, `ollama`, `gh`, `git`) and YouTube scouting. The web app no longer has a screen for them; the music curator and market research run only as optional crews inside Personal OS. Grok and OmniRoute exist only as optional model routes.
+Two-minute demo script: [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md). Everyday use: [docs/DAILY_USE.md](docs/DAILY_USE.md).
 
-- **Tracks:** Track 04 - AI Assistants & Work (Google Workspace + Notion + Universal AI Orchestrator) + Track 01 / Best Telegram Integration (`TelegramWorkspaceClient`)
-- **Live Docs & Privacy Policy:** https://vaibhav4046.github.io/onq-even-g2/ · [Privacy Policy](https://vaibhav4046.github.io/onq-even-g2/privacy.html) · [GitHub Repo](https://github.com/vaibhav4046/onq-even-g2)
-- **Hackathon Audit & Pitch:** See [HACKATHON_RUBRIC_AUDIT.md](docs/HACKATHON_RUBRIC_AUDIT.md) · [TVM_PITCH_DECK.md](docs/TVM_PITCH_DECK.md)
-- **Built:** Nov 23-29, 2026 hackathon window (zero pre-Nov 23 proprietary code)
-- **Honest Limits:** Verified in `@evenrealities/evenhub-simulator@0.9.5`, our 11-check Chromium Geometry Gate, and our automated unit/HTTP/WebSocket/OAuth/harness suite. Physical Even G2 + R1 ring hardware testing is NOT done. Audio responses route exclusively to Companion Phone / Bluetooth Earbuds (`AssemblyAI-TTS-1`) because Even G2 has no speaker.
+### Submission facts
+- **What existed before Nov 23:** nothing. The repository's first commit is 2026-11-24; everything was built in the hackathon window on open-source libraries (listed below).
+- **Status:** verified in the official Even Hub simulator 0.9.5 and an 11-check display gate. **Not yet tested on physical G2 glasses.** Live accounts need your own keys; without them OnQ runs in a clearly labelled demo sandbox and uses fixed rules instead of a model.
+- **Business:** Pro at $7 a month for individuals, Team at $19 a seat. Most steps run on fixed rules, so model cost per brief stays low (estimate, not yet measured). Tokens stay encrypted on your own computer; nothing is sent without approval.
+- **Using real G2 glasses:** the glasses app talks to the relay on your computer. Today `apps/glasses/app.json` only allows `localhost`. For a physical pair, expose the relay over HTTPS (for example a tunnel), build the glasses app with `VITE_ONQ_RELAY=https://your-tunnel`, add that URL to `network.whitelist` in `apps/glasses/app.json`, then `npm run pack`. This path is documented, not yet tested.
+
+<details>
+<summary>Engineering: what else is inside (not part of the judged flow)</summary>
+
+- **Browser agent on your own PC:** `/browse <goal>` works in a separate Chrome window on your laptop, planned by OpenRouter, Claude or ChatGPT or your own Claude Code / Codex subscription. Risky steps (buy, send, submit, typing into forms) become approvals; never types passwords or card numbers. See "Browser agent on your own PC" below.
+- **Personal OS:** specialist crews (morning brief, career pack), routines, an approvals queue and a global kill switch.
+- **Optional local skills (not Track 04 claims):** music curator (iTunes), market research (CoinGecko), PC tools and YouTube scouting run only as optional crews. Grok and OmniRoute are optional model routes.
+- **Under the hood:** Google OAuth PKCE, Notion `2026-03-11` data sources, AssemblyAI `STT-3.7` + `TTS-1`, model routing with a deterministic Rules fallback, a 76x76 4-bit pixel avatar, a fact guard, and encrypted token storage.
+
+</details>
+
+- **Live docs and privacy:** https://vaibhav4046.github.io/onq-even-g2/ · [Privacy Policy](https://vaibhav4046.github.io/onq-even-g2/privacy.html)
+- **Audit and pitch:** [HACKATHON_RUBRIC_AUDIT.md](docs/HACKATHON_RUBRIC_AUDIT.md) · [TVM_PITCH_DECK.md](docs/TVM_PITCH_DECK.md)
+- **Audio:** the G2 has no speaker, so spoken answers go to your phone or earbuds.
 
 ---
 

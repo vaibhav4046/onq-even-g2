@@ -1,24 +1,28 @@
-# OnQ 2-minute demo script
+# OnQ 2-minute demo script (simulator)
 
-**The one idea to land:** OnQ is an agent that does real work on your own computer, and you steer it from your glasses with one glance and one tap. It never acts on the world without your yes.
+**The one idea to land:** between meetings, OnQ shows one thing on your glasses and lets you act on it in seconds, safely. Judges score read-and-write first, so it opens the video.
 
-Setup before you start: `npm run dev` running, web app open at http://127.0.0.1:5173, Even Hub simulator running (`node node_modules/@evenrealities/evenhub-simulator/bin/index.js http://localhost:5174 --automation-port 9898 --no-glow`), Telegram bot paired (`/myid`), and one AI route working (OpenRouter key, or the Claude Code CLI signed in). Do one dry run first so the first-load sync is warm.
+Setup: `npm run dev`, then the Even Hub simulator (`node node_modules/@evenrealities/evenhub-simulator/bin/index.js http://localhost:5174 --automation-port 9898 --no-glow`). Web app at http://127.0.0.1:5173 with "SDK Live" showing the simulator. Telegram bot paired (`/myid`) and one chat added to the watch list. One AI route working if you want "AI draft" rather than the smart default. Do one dry run first so the first load is warm.
 
-| Time | Show | Say (plain, short) |
+| Time | Show (simulator first) | Say (short) |
 | :--- | :--- | :--- |
-| 0:00 to 0:15 | Hero: 3D glasses, then the lens | "Between meetings you have 90 seconds. OnQ puts what matters on your glasses and does the work on your own laptop." |
-| 0:15 to 0:40 | Tour step 1: Confirm and undo. Lens shows the change, defaults to No, 2-second ring, receipt | "I say: push my 2 pm by 15 minutes and tell Priya. Nothing happens until I say yes. Two-second ring, then Calendar and Gmail update, with a receipt and undo." |
-| 0:40 to 0:55 | Tour step 2: Double-booking lock (409) | "If the slot is taken, OnQ blocks it and offers the next free time. Zero writes." |
-| 0:55 to 1:30 | Telegram on phone: `/browse find the cheapest return flight London to Dubai next Friday`. Cut to the OnQ Chrome window working, then the approval card | "Now the agent part. OnQ drives its own Chrome window on my laptop, with my network and my logins. It reads and searches by itself. The moment it wants to book, it stops and asks me, here in Telegram, on the web, or on the glasses." Tap Reject. "I said no, so nothing was booked." |
-| 1:30 to 1:45 | Personal OS: Run Morning crew, then Kill switch | "A crew of agents checks my calendar, mail and repo every morning. One switch stops everything." |
-| 1:45 to 2:00 | Proof strip, then the anime film's last frame | "Built on Even Hub SDK, checked in the official simulator: 265 tests, 32 of 32 eval intents, 10 of 10 security checks. Physical glasses testing is next." |
+| 0:00 to 0:08 | Lens: next meeting card | "Ninety seconds between meetings. One glance." |
+| 0:08 to 0:30 | Say "push 15 and tell Priya". Lens shows the change, cursor on NO. Tap ring: YES. 2-second ring. Receipt. Put a small on-screen timer in the edit | "One phrase. The reply is already drafted. It waits on NO. One tap, two-second undo ring, done: calendar moved, Priya told, receipt saved." |
+| 0:30 to 0:42 | Try the busy 14:45 slot: double-booking lock, next free time | "If the slot is taken it refuses, and suggests the next free time. Nothing written." |
+| 0:42 to 1:10 | A message lands in a watched Telegram chat. Lens card 2 shows it. Tap: AI-drafted reply, NO by default. YES. Phone shows the reply in the chat | "Telegram, only from chats I picked. One tap for an AI-drafted reply. Approve on the glasses. Sent." |
+| 1:10 to 1:30 | Meeting Scribe: speaker notes, "OnQ, wrap up": Notion tasks, calendar hold, email draft, all waiting for yes | "In the meeting it keeps notes in memory only. Wrap up stages tasks and drafts; I approve what goes out." |
+| 1:30 to 1:45 | Lens card 4: "1 thing needs your yes", approve from Telegram inline button | "Anything waiting shows up once, on the glasses, the web or Telegram." |
+| 1:45 to 2:00 | Proof strip | "Built on the Even Hub SDK, checked in the official simulator, with every number re-run before submitting. Not yet tested on physical glasses." |
+
+## Keep out of the video
+- Browser agent, crews, kill switch, music, market research: real, but not in the rubric. Mention only if asked in Q&A.
 
 ## Lines to avoid
-- Do not say "tested on glasses". Say "verified in the simulator".
-- Do not say "powered by frontier models" unless the badge shows Claude, ChatGPT or OpenRouter. If it shows Rules, say "fixed rules first, models when available".
-- Do not approve a real purchase on stage. Use Reject, or a test site.
+- "Tested on glasses." Say "verified in the simulator".
+- "Powered by AI" while the badge says Rules. Either connect a model before recording, or say "smart defaults first, AI drafts when a model is connected".
+- Do not approve a real purchase or message a real person you did not warn.
 
 ## If something breaks live
-- First-load sync is slow on a cold machine: open the page once before the demo.
-- No model reachable: the browser agent stops and says so. Switch to the Claude Code CLI route or skip to the crew.
-- Telegram silent: check `/myid` matches the owner chat in Connect, and that no webhook is set on the bot.
+- Slow first load: open the page once before you start.
+- Telegram silent: check `/myid` matches the owner chat in Connect, the chat is on the watch list, and no webhook is set on the bot.
+- No model reachable: the smart default reply is used and labelled; carry on.
