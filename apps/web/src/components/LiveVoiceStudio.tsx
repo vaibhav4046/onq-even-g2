@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { formatLiveUiForG2, evaluateSafeFormula, formatFormulaValue, buildSurfaceEnv, parseDisplayMarkup, stepPacedReveal } from '@onq/core';
 import type { ActionPreview, AliveMood, LiveUiInteraction, LiveUiSurface, NormalizedEvenEvent, VoiceOrbState } from '@onq/core';
 import { OnQVoiceOrb } from './OnQVoiceOrb';
-import { Memory3DGalaxy } from './Memory3DGalaxy';
+const Memory3DGalaxy = lazy(() => import('./Memory3DGalaxy').then((m) => ({ default: m.Memory3DGalaxy })));
 import { ExplainerStudio } from './ExplainerStudio';
 import { UnifiedOsPanel } from './UnifiedOsPanel';
 
@@ -105,6 +105,32 @@ export interface MeetingStateDto {
   actions: Array<{ id: string; title: string; owner: string }>;
 }
 
+type StudioTab = 'call' | 'os' | 'apps' | 'fleet' | 'market' | 'explainer' | 'notes' | 'computer';
+
+// Four workspaces, one harness. The old 8 tabs live on: 'call' = Glasses Live, 'os' = Personal OS,
+// 'notes' = Meeting Scribe, everything else sits under the optional Local Skills workspace.
+const WORKSPACES = [
+  { id: 'call', label: 'Glasses Live' },
+  { id: 'os', label: 'Personal OS' },
+  { id: 'notes', label: 'Meeting Scribe' },
+  { id: 'skills', label: 'Local Skills' },
+] as const;
+
+const SKILL_TABS = [
+  { id: 'apps', label: 'Glass apps' },
+  { id: 'fleet', label: 'Agent fleet' },
+  { id: 'market', label: 'Market watch' },
+  { id: 'explainer', label: 'Video explainer' },
+  { id: 'computer', label: 'PC tools' },
+] as const;
+
+// Track 04 only credits Google Workspace, Notion, Telegram, Claude/ChatGPT/OpenRouter and voice. Chips for the optional
+// local skills (YouTube scout, market bot, Pomodoro, router matrix, video) live under the Local Skills workspace instead.
+const OFF_TRACK_CHIP = /youtube|market|btc|tao|pomodoro|router|python|video/i;
+
+const isSkillTab = (tab: StudioTab) => SKILL_TABS.some((s) => s.id === tab);
+const workspaceOf = (tab: StudioTab): (typeof WORKSPACES)[number]['id'] => (isSkillTab(tab) ? 'skills' : (tab as 'call' | 'os' | 'notes'));
+
 interface LiveVoiceStudioProps {
   sessionToken: string | null;
   orbState: VoiceOrbState;
@@ -164,7 +190,7 @@ export function LiveVoiceStudio({
   onLiveUiUpdate,
 }: LiveVoiceStudioProps) {
   const reduced = useReducedMotion();
-  const [studioTab, setStudioTab] = useState<'call' | 'os' | 'apps' | 'fleet' | 'market' | 'explainer' | 'notes' | 'computer'>('call');
+  const [studioTab, setStudioTab] = useState<StudioTab>('call');
   const [tools, setTools] = useState<LocalToolInfoDto[]>([]);
   const [tasks, setTasks] = useState<AgentTaskDto[]>([]);
   const [localMemories, setLocalMemories] = useState<UnifiedMemoryDto[]>([]);
@@ -860,46 +886,17 @@ export function LiveVoiceStudio({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--g2-phosphor)]">
-                  ONQ PERSONAL PARTNER · MASTER AGENT
+                  ONQ PARTNER
                 </span>
                 <span className="font-plex text-[10px] font-semibold px-2 py-0.5 rounded-full border border-[#34F57E]/40 bg-[#34F57E]/10 text-[#86FFAF]">
                   {partnerDomain}
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-1.5 font-plex text-[10px]">
-                <span className="px-2 py-0.5 rounded-full border border-white/15 text-[var(--lightgray)]">
-                  PC Tools: {tools.filter((t) => t.installed).length}/{tools.length || 8}
-                </span>
                 <span className="px-2 py-0.5 rounded-full border border-[#86FFAF]/35 text-[#86FFAF] bg-[#86FFAF]/5">
-                  Token Savings: {tokenSavedPct > 0 ? `${tokenSavedPct}% (${tokenTotalSaved} tok)` : 'Ready'}
+                  {tokenSavedPct > 0 ? `Context trimmed ${tokenSavedPct}% (${tokenTotalSaved} tokens)` : 'Context trim ready'}
                 </span>
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-1.5 text-[10.5px]">
-              {[
-                { label: 'Personal OS', note: '10 Agents · L0-L5', tab: 'os' as const },
-                { label: 'Schedule & Mail', note: 'Live Sync', tab: 'call' as const },
-                { label: 'Cited Knowledge', note: `${memories.length} notes`, tab: 'call' as const },
-                { label: 'Live Glass Apps', note: liveUi?.title ?? 'Pomodoro', tab: 'apps' as const },
-                { label: 'Agent Fleet', note: `${kanbanCards.length} jobs`, tab: 'fleet' as const },
-                { label: 'Market Bot', note: `${marketSignals.length || 4} assets`, tab: 'market' as const },
-                { label: 'Video Studio', note: '525nm 3D', tab: 'explainer' as const },
-              ].map((sys) => (
-                <button
-                  key={sys.label}
-                  type="button"
-                  onClick={() => setStudioTab(sys.tab)}
-                  className={`text-left border px-2 py-1.5 transition-colors cursor-pointer ${
-                    studioTab === sys.tab
-                      ? 'border-[#34F57E]/70 bg-[#072613] text-[var(--bright)]'
-                      : 'border-white/10 bg-black/50 text-[var(--lightgray)] hover:border-[#34F57E]/40'
-                  }`}
-                >
-                  <div className="font-semibold text-[var(--bright)] truncate">{sys.label}</div>
-                  <div className="text-[9.5px] text-[#86FFAF] truncate">{sys.note}</div>
-                </button>
-              ))}
             </div>
 
             <div className="border border-dashed border-[#34F57E]/30 bg-[#041209] px-3 py-2 text-[12px] leading-relaxed text-[var(--bright)]" role="status">
@@ -918,7 +915,7 @@ export function LiveVoiceStudio({
               <input
                 type="text"
                 aria-label="Ask or tell your OnQ Partner anything"
-                placeholder="Ask or tell your OnQ partner anything (schedule, markets, docs, apps, PC, video)..."
+                placeholder="Ask OnQ anything: calendar, email, Notion, Telegram..."
                 value={partnerInput}
                 onChange={(e) => setPartnerInput(e.target.value)}
                 className="flex-1 bg-[var(--ink)] border border-[var(--hairline)] focus:border-[#34F57E] px-3 py-2 text-[var(--bright)] text-xs"
@@ -949,8 +946,8 @@ export function LiveVoiceStudio({
               <div className="flex flex-wrap gap-1.5">
                 {[
                   'What is our safety rule for G2 glasses?',
-                  'Check BTC and TAO prices',
-                  'Explain OnQ in 3D video',
+                  'What is on my calendar today?',
+                  'Summarize my unread email',
                   'Push my next meeting 15m and tell Priya',
                 ].map((sample) => (
                   <button
@@ -990,37 +987,52 @@ export function LiveVoiceStudio({
 
       {/* Mode Switcher Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="font-plex text-xs font-medium text-[var(--lightgray)]">
-          Choose a workspace view below or let your OnQ Partner route automatically:
-        </span>
-
-        <div className="flex flex-wrap gap-1 rounded-[10px] border border-white/10 bg-black/70 p-1 text-[10px] font-pixel uppercase">
-          {(
-            [
-              ['call', 'Voice & Tasks'],
-              ['os', 'Personal OS'],
-              ['apps', 'Live Apps'],
-              ['fleet', 'Agent Fleet'],
-              ['market', 'Market Bot'],
-              ['explainer', 'Explainer'],
-              ['notes', 'Meeting Notes'],
-              ['computer', 'PC Tools'],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setStudioTab(id)}
-              className={`px-2.5 py-1 rounded-[7px] cursor-pointer transition-colors ${
-                studioTab === id
-                  ? 'bg-[var(--lime)] text-[#041209] font-bold'
-                  : 'text-[var(--lightgray)] hover:text-[var(--bright)]'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+        <div
+          role="tablist"
+          aria-label="OnQ workspaces"
+          className="flex flex-wrap gap-1 rounded-[10px] border border-white/10 bg-black/70 p-1 text-xs font-semibold"
+        >
+          {WORKSPACES.map(({ id, label }) => {
+            const selected = workspaceOf(studioTab) === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setStudioTab(id === 'skills' ? (isSkillTab(studioTab) ? studioTab : 'apps') : id)}
+                className={`px-3.5 py-1.5 rounded-[7px] cursor-pointer transition-colors border-b-2 ${
+                  selected
+                    ? 'bg-[var(--lime)] text-[#041209] border-[#041209]'
+                    : 'text-[var(--lightgray)] hover:text-[var(--bright)] border-transparent'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
+
+        {workspaceOf(studioTab) === 'skills' && (
+          <div role="tablist" aria-label="Optional local skills" className="flex flex-wrap gap-1 text-[11px]">
+            {SKILL_TABS.map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={studioTab === id}
+                onClick={() => setStudioTab(id)}
+                className={`px-2.5 py-1 rounded-full border cursor-pointer transition-colors ${
+                  studioTab === id
+                    ? 'border-[var(--lime)] text-[var(--lime)] underline underline-offset-4'
+                    : 'border-white/15 text-[var(--lightgray)] hover:text-[var(--bright)]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {studioTab === 'os' && (
@@ -1047,7 +1059,7 @@ export function LiveVoiceStudio({
                 Trigger glasses workflows without speaking aloud:
               </p>
               <div className="flex flex-wrap gap-1.5">
-                {silentChips.slice(0, 6).map((chip) => (
+                {silentChips.filter((chip) => !OFF_TRACK_CHIP.test(chip.label)).slice(0, 6).map((chip) => (
                   <button
                     key={chip.id}
                     type="button"
@@ -1062,7 +1074,7 @@ export function LiveVoiceStudio({
 
             <div className="border border-white/10 bg-black/50 p-3 space-y-2">
               <div className="font-pixel text-[9px] uppercase tracking-wider text-[#86FFAF]">
-                COMPANION EXPRESSION &amp; QUICK ACTIONS
+                AVATAR MOOD
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {(['neutral', 'amused', 'focused', 'curious'] as const).map((m) => (
@@ -1081,7 +1093,7 @@ export function LiveVoiceStudio({
                 ))}
               </div>
               <p className="text-[11px] text-[var(--lightgray)]">
-                Your Shonen AI Partner tracks speech RMS, syllable mouth shapes, blinks, and coordinates every tool above.
+                Your partner avatar lip-syncs while OnQ speaks.
               </p>
             </div>
           </div>
@@ -1098,8 +1110,6 @@ export function LiveVoiceStudio({
             <div className="flex flex-wrap gap-1.5">
               {(
                 [
-                  ['YOUTUBE_SCOUT', 'Find AI YouTube videos', 'Find top AI engineering videos to watch on YouTube'],
-                  ['WRITE_CODE_BOT', 'Build 24/7 Python bot', 'Write a 24/7 Python bot to scout top AI YouTube videos'],
                   ['OUTREACH_SCHEDULER', 'Outreach follow-ups', 'Prepare lead outreach follow-ups and free schedule slots'],
                 ] as const
               ).map(([kind, label, prompt]) => (
@@ -1254,7 +1264,9 @@ export function LiveVoiceStudio({
             </div>
 
             {memView === '3d' ? (
-              <Memory3DGalaxy memories={memories as Array<{ id: string; kind: 'task' | 'meeting' | 'email' | 'telegram' | 'note'; title: string; summary: string; source: string; createdAtIso: string }>} />
+              <Suspense fallback={<div role="status" className="p-6 text-center text-xs text-[var(--lightgray)]">Loading 3D map...</div>}>
+                <Memory3DGalaxy memories={memories as Array<{ id: string; kind: 'task' | 'meeting' | 'email' | 'telegram' | 'note'; title: string; summary: string; source: string; createdAtIso: string }>} />
+              </Suspense>
             ) : (
               <>
                 <div className="flex items-center justify-between gap-1.5 border border-white/10 bg-black/50 px-2 py-1 text-[10px]">

@@ -86,7 +86,8 @@ interface GlyphDecodeHeadingProps {
   className?: string;
 }
 
-const SCRAMBLE_GLYPHS = '.:-=+*#%01';
+// No "." or "+": a lingering scramble glyph must never read as a stray plus or period.
+const SCRAMBLE_GLYPHS = ':-=*#%01';
 
 export function GlyphDecodeHeading({ text, className = '' }: GlyphDecodeHeadingProps) {
   const ref = useRef<HTMLSpanElement | null>(null);

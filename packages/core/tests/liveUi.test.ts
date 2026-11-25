@@ -62,4 +62,28 @@ describe('OnQ LiveUI Engine, Safe Formula Parser & Read-Speed Pacer', () => {
     const ticked = reduceLiveUiAction(custom, { type: 'tap', index: 2 });
     expect(ticked.components[0]?.rows?.[2]?.checked).toBe(!before);
   });
+
+  it('keeps every line of a multi-line text block (L4 crew surface renders 4 lines, not 1)', () => {
+    const g2 = formatLiveUiForG2({
+      id: 'pip_test',
+      title: 'L4 Crew: software_delivery',
+      frame: 'stack',
+      repairedCodes: [],
+      vars: {},
+      updatedAtIso: '2026-11-25T00:00:00.000Z',
+      components: [
+        {
+          id: 'pip_test_body',
+          kind: 'text',
+          region: 'main',
+          text: 'Chief: scoped the delivery plan\nDeveloper: repo clean, 0 PRs open\nAUDITOR: VERIFIED SAFE',
+        },
+      ],
+    });
+    assertLensBudget(g2.lines);
+    expect(g2.lines.length).toBeLessThanOrEqual(7);
+    expect(g2.bodyText).toContain('Chief: scoped the delivery plan');
+    expect(g2.bodyText).toContain('Developer: repo clean, 0 PRs open');
+    expect(g2.bodyText).toContain('AUDITOR: VERIFIED SAFE');
+  });
 });

@@ -57,7 +57,7 @@ def make_opening_slate(path: str) -> None:
     d.text((130, 350), "between meetings.", fill=(242, 242, 242), font=f_h1)
     d.text(
         (130, 480),
-        "Calendar, Gmail, Drive, Notion, Telegram & Computer Agents on Even G2.",
+        "Calendar, Gmail, Drive, Notion and Telegram on Even G2.",
         fill=(200, 200, 205),
         font=f_sub,
     )
@@ -97,7 +97,7 @@ def make_closing_slate(path: str) -> None:
     d.text((130, 195), "Ready to run cold with zero paid keys.", fill=(242, 242, 242), font=f_h1)
 
     cards = [
-        ("228 / 228", "Automated Tests", "20 suites: 4-bit Pixel Avatar, Proactive Harness, Orchestrator & concurrency"),
+        ("251 / 251", "Automated Tests", "28 files: safety locks, Telegram approvals, OS harness, failover & concurrency"),
         ("11 / 11", "Geometry Gate", "11 lens checks <= 999B plus Negative Control gate"),
         ("10 / 10", "Security Audit", "Zero secrets in source, web bundle, or onq.ehpk"),
         ("32 / 32", "Harness Eval", "100% intent match, 5/5 injection block, 100% 409 lock"),
@@ -118,7 +118,7 @@ def make_closing_slate(path: str) -> None:
 
     d.text(
         (130, 648),
-        "Self-Harnessing Proactive AI · OpenRouter / ChatGPT / Claude · Even G2",
+        "Google Workspace · Notion · Telegram · Claude / ChatGPT / OpenRouter · Even G2",
         fill=(52, 245, 126),
         font=f_body,
     )
@@ -362,11 +362,11 @@ def main() -> None:
     make_stage_frame(
         ov_5a_1,
         "05",
-        "Self-Harnessing 24/7 Proactive Agent",
-        "Synthesizes 42-col briefs via OpenRouter / ChatGPT / Claude behind Default-NO",
-        os.path.join(SIM_DIR, "sim-live-proactive.png"),
-        "EVENHUB SIMULATOR 0.9.5 · PROACTIVE",
-        "State: PROACTIVE HARNESS | Code-Guard verified 42-col plan pushed via SSE while idle.",
+        "Personal OS: Morning Crew, Kill Switch, Approvals",
+        "One harness behind the web app, the glasses and Telegram. Anything that sends waits for approval.",
+        os.path.join(ROOT, "docs", "screenshots", "sim-13-os-pipeline-live.png"),
+        "EVENHUB SIMULATOR 0.9.5 · CREW RUN",
+        "State: L4 CREW | Crew title plus Chief, Developer and Auditor lines on one 7x42 lens.",
     )
     s_5a_1 = os.path.join(temp_dir, "seg_5a_1.mp4")
     render_video_segment(os.path.join(RAW_DIR, "clip4_failures_and_proof.webm"), s_5a_1, t5a_1, ov_5a_1, True, 0.0, 0.52)
@@ -377,7 +377,7 @@ def main() -> None:
         ov_5a_2,
         "05",
         chapters[4]["title"],
-        "Self-Harnessing Proactive AI · OpenRouter / ChatGPT / Claude · Even G2",
+        "Google Workspace · Notion · Telegram · Claude / ChatGPT / OpenRouter · Even G2",
     )
     s_5a_2 = os.path.join(temp_dir, "seg_5a_2.mp4")
     render_video_segment(os.path.join(RAW_DIR, "clip4_failures_and_proof.webm"), s_5a_2, t5a_2, ov_5a_2, False, 0.52, 1.0)

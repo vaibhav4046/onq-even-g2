@@ -499,13 +499,18 @@ export async function executeDelegatedTask(params: {
       };
     }
 
+    // Windows npm shims (claude.cmd, codex.cmd) cannot be spawned without a shell (Node: spawn EINVAL), and a shell
+    // would let prompt text inject commands. So shims are skipped and the built-in planner runs instead.
+    const spawnable = (t: LocalToolInfo | undefined) =>
+      t && t.binaryPath && !(process.platform === 'win32' && /\.(cmd|bat)$/i.test(t.binaryPath)) ? t : undefined;
     const cliChoice =
       target === 'claude_cli' || target === 'codex_cli' || target === 'gemini_cli' || target === 'ollama'
-        ? findInstalled(target)
+        ? spawnable(findInstalled(target))
         : target === 'auto'
-          ? findInstalled('claude_cli') ?? findInstalled('codex_cli') ?? findInstalled('gemini_cli')
+          ? spawnable(findInstalled('claude_cli')) ?? spawnable(findInstalled('codex_cli')) ?? spawnable(findInstalled('gemini_cli'))
           : undefined;
 
+    let cliFallbackNote: string | null = null;
     if (cliChoice && cliChoice.binaryPath) {
       const args =
         cliChoice.id === 'claude_cli'
@@ -516,24 +521,29 @@ export async function executeDelegatedTask(params: {
               ? ['-p', params.prompt]
               : ['run', 'llama3.2', params.prompt];
 
-      const { stdout } = await execAllowlisted(cliChoice.binaryPath, args, cwd, 25_000);
-      const lines = stdout
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter(Boolean)
-        .slice(0, 8);
-      return {
-        toolUsed: `${cliChoice.name} (${cliChoice.accountMode})`,
-        status: 'DONE',
-        summary: lines[0] ?? 'Completed via local account CLI',
-        steps: ['Invoked local account-authenticated CLI', 'Captured structured output'],
-        outputLines: lines.length > 0 ? lines : ['Task completed cleanly.'],
-        lensLines: [
-          clipLine42(`${cliChoice.name.toUpperCase()}: DONE`),
-          clipLine42(lines[0] ?? params.title),
-        ],
-        latencyMs: Math.max(1, Date.now() - t0),
-      };
+      try {
+        const { stdout } = await execAllowlisted(cliChoice.binaryPath, args, cwd, 25_000);
+        const lines = stdout
+          .split(/\r?\n/)
+          .map((l) => l.trim())
+          .filter(Boolean)
+          .slice(0, 8);
+        return {
+          toolUsed: `${cliChoice.name} (${cliChoice.accountMode})`,
+          status: 'DONE',
+          summary: lines[0] ?? 'Completed via local account CLI',
+          steps: ['Invoked local account-authenticated CLI', 'Captured structured output'],
+          outputLines: lines.length > 0 ? lines : ['Task completed cleanly.'],
+          lensLines: [
+            clipLine42(`${cliChoice.name.toUpperCase()}: DONE`),
+            clipLine42(lines[0] ?? params.title),
+          ],
+          latencyMs: Math.max(1, Date.now() - t0),
+        };
+      } catch (err) {
+        // A broken local CLI must not fail the task: say so, then fall through to the built-in planner.
+        cliFallbackNote = `${cliChoice.name} CLI failed (${err instanceof Error ? err.message.slice(0, 60) : 'error'}). Used built-in planner.`;
+      }
     }
 
     // Route through live OpenRouter / multi-model harness or structured fallback planner
@@ -559,6 +569,7 @@ export async function executeDelegatedTask(params: {
       modelRes.draft,
       `Step 1: Define acceptance tests & 42-col lens spec for ${params.title.slice(0, 32)}`,
       'Step 2: Execute via Default-NO safety gate + verify locally',
+      ...(cliFallbackNote ? [cliFallbackNote] : []),
     ];
     return {
       toolUsed: modelRes.providerLabel,

@@ -1,4 +1,8 @@
-﻿CLEAN_ROOM_HEAD=0b73a2b
+﻿LATEST FULL RUN SUMMARY (2026-11-25, every command exit 0) - see the end of this file.
+The raw clean-room transcript below is from an EARLIER run at commit 0b73a2b (213 tests, 15 files,
+45109-byte package, 84 scanned files). Its numbers are superseded by the summary at the end of this file.
+------------------------------------------------------------------------------------------------
+CLEAN_ROOM_HEAD=0b73a2b
 
 added 203 packages, and audited 214 packages in 13s
 
@@ -344,3 +348,51 @@ None. All automated static and negative HTTP security gates passed.
 
 === ALL CLEAN ROOM GATES PASSED ===
 
+
+================================================================================
+LATEST FULL RUN SUMMARY (2026-11-25, every command exit 0)
+This section supersedes the earlier raw transcript above (commit 0b73a2b).
+================================================================================
+npm test                  28 files, 251 tests passed
+npm run eval:harness      32/32 intents, 5/5 injections blocked, 3/3 409 locks,
+                          5/5 RMS silence rejections, 4 failover scenarios
+npm run pack              dist/onq.ehpk 51,344 bytes, SDK 0.0.16
+npm run verify:geometry   11/11 PASS plus Check 11 negative control
+                          (97.2% to 97.9% dark pixels, <= 260 UTF-8 bytes)
+npm run verify:sim        13 real EvenHub Simulator 0.9.5 captures, sim-01..sim-13
+                          sim-12 = Unified OS card, sim-13 = L4 crew pipeline
+                          (sim-13 rendered 1 of 4 lines before this pass; the crew block is now
+                          one multi-line text block and shows the crew title plus 3 lines:
+                          Chief, Developer, Auditor)
+npm run verify:security   10/10 PASS, 0 vulns (npm audit --omit=dev), 112 files at last run
+Web bundle                entry JS chunk 292 kB raw / 76 kB gzip (was 1,756 kB / 498 kB);
+                          Three.js and the 3D glasses load lazily in their own chunk
+modern-web-guidance       legacy-scan on apps/web/src: 0 findings across 25 files
+                          guide "tabs" applied (role=tablist/tab, aria-selected, selected tab
+                          shown with an underline, not color alone); guide
+                          "visually-stable-mixed-fonts" reviewed, not needed (only the period
+                          glyph is swapped)
+
+Live connectors (exact)
+  This run, probed with the demo session:
+    AssemblyAI STT-3.7 + TTS-1: LIVE (660 ms, 45 audio chunks, 6 words)
+    Google Workspace, Notion, Telegram: SANDBOX
+    Claude, OpenRouter, ChatGPT: fell back to Rules (Deterministic)
+  Earlier session at commit 230dd35, with the owner's connected accounts (NOT re-run this session):
+    Google OAuth LIVE 116 ms, Notion LIVE 623 ms, Telegram LIVE 27 ms
+
+Not tested: physical Even G2 glasses and R1 ring. Only the simulator 0.9.5, the Chromium
+geometry gate and the automated suites were run.
+
+Fixed in this pass
+  1. Pixel font drew "." as a plus-shaped cluster ("$0.001" read as "+"); periods now come
+     from a clean bold system sans, and the heading scramble no longer uses "+".
+  2. Studio cut from 8 tabs to 4 workspaces; 60-second guided tour added to the hero.
+  3. Music curator: a bare mood such as "coding" was the literal search term; it now uses
+     tuned queries ("lofi beats" for coding, "ambient study" for deep_focus).
+  4. Telegram getUpdates HTTP 409 (active webhook) now reports a clear message and backs off 5 minutes.
+  5. Local computer bridge on Windows: npm .cmd shims (spawn EINVAL) are skipped and a failing CLI
+     falls back to the built-in planner with a note.
+  6. sim-13 multi-line crew block (see above). 5 new tests added.
+
+Code commit: <CODE_COMMIT>

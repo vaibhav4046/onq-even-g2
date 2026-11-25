@@ -361,8 +361,6 @@ export function EcosystemStrip() {
     { label: 'Notion', tint: '#f2f2f2', icon: <NotionPixelSvg className="w-4 h-4" /> },
     { label: 'Claude', tint: '#D97757', icon: <ClaudePixelSvg className="w-4 h-4" /> },
     { label: 'ChatGPT', tint: '#10A37F', icon: <ChatGptPixelSvg className="w-4 h-4" /> },
-    { label: 'Grok', tint: '#34F57E', icon: <GrokPixelSvg className="w-4 h-4" /> },
-    { label: 'OmniRoute', tint: '#86FFAF', icon: <OmniRoutePixelSvg className="w-4 h-4" /> },
     { label: 'OpenRouter', tint: '#86FFAF', icon: <OpenRouterPixelSvg className="w-4 h-4" /> },
     { label: 'AssemblyAI', tint: '#34F57E', icon: <AssemblyAiPixelSvg className="w-4 h-4" /> },
   ];

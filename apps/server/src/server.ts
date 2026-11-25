@@ -4237,12 +4237,15 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           repairedCodes: [],
           vars: { status: run.status },
           updatedAtIso: run.finishedAtIso,
-          components: run.g2Lines.slice(0, 4).map((line, idx) => ({
-            id: `${run.runId}_${idx}`,
-            kind: 'text',
-            region: 'main',
-            text: line,
-          })),
+          // One multi-line text block. Line 0 ("L4 CREW | ...") repeats the surface title, so skip it.
+          components: [
+            {
+              id: `${run.runId}_body`,
+              kind: 'text',
+              region: 'main',
+              text: run.g2Lines.slice(1, 4).join('\n'),
+            },
+          ],
         };
         activeLiveUi = pipeSurface;
         broadcastSse('liveui', { surface: pipeSurface, g2: formatLiveUiForG2(pipeSurface) });

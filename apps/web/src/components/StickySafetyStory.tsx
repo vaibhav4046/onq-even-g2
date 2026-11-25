@@ -7,14 +7,14 @@ const SAFETY_BEATS = [
   {
     id: '01',
     title: 'Ignores pocket noise',
-    summary: 'Accidental bumps or short rustles are dropped on-device before any speech call runs.',
-    header: 'VOICE | NOISE FILTERED',
+    summary: 'Bumps and rustles never wake it.',
+    header: 'NOISE IGNORED',
     lines: [
-      '0.21s clip - too quiet to wake',
-      'Dropped locally before voice queue',
-      '0 wasted calls - 0 accidental replies',
+      '0.21s clip, too quiet to wake',
+      'Dropped on the glasses',
+      'No accidental replies',
     ],
-    footer: 'TAP: RETRY VOICE | 2xTAP: BACK',
+    footer: 'TAP: TRY AGAIN',
     statusTag: 'NOISE GUARD',
     accent: 'text-[var(--verified)] border-[var(--verified)]',
     ringProgress: 0,
@@ -22,12 +22,12 @@ const SAFETY_BEATS = [
   {
     id: '02',
     title: 'Always asks first',
-    summary: 'Voice drafts the plan, never sends blindly. You pick YES on the preview before anything leaves.',
-    header: 'ASK FIRST | CONFIRM SEND',
+    summary: 'Nothing leaves until you pick YES.',
+    header: 'CONFIRM BEFORE SENDING',
     lines: [
-      '1) CALENDAR: VC Sync 14:00 -> 14:15',
-      '2) GMAIL: Reply Priya Nair (Thread)',
-      '> [NO - CANCEL]   [YES - ARM 2.0s]',
+      '1) Calendar: move VC Sync to 14:15',
+      '2) Gmail: reply to Priya Nair',
+      '> [NO]   [YES]',
     ],
     footer: 'SWIPE: SWITCH | TAP: CONFIRM',
     statusTag: 'DEFAULTS TO NO',
@@ -36,30 +36,30 @@ const SAFETY_BEATS = [
   },
   {
     id: '03',
-    title: '2-second cancel ring',
-    summary: 'Confirming sweeps a 2-second ring in your lens. Tap once anywhere to stop with zero messages sent.',
+    title: '2-second undo ring',
+    summary: 'A 2-second ring runs. Tap once to stop it.',
     header: 'SENDING IN 1.0s | TAP TO CANCEL',
     lines: [
-      '2-second ring counting down on lens',
-      'ID #efcb36 - any tap aborts cleanly',
-      'Zero edits sent until 0.0s',
+      '2-second ring on your lens',
+      'Any tap cancels cleanly',
+      'Nothing sent until 0.0s',
     ],
-    footer: 'SAFE CANCEL WINDOW ACTIVE',
+    footer: 'UNDO WINDOW OPEN',
     statusTag: 'TAP TO CANCEL',
     accent: 'text-[var(--lime)] border-[var(--lime)]',
     ringProgress: 0.62,
   },
   {
     id: '04',
-    title: 'Blocks double-bookings',
-    summary: 'Right before saving, OnQ checks if that slot was just taken. If busy, it stops and offers the next open time.',
+    title: 'Double-booking lock',
+    summary: 'It re-checks before saving. If the slot is taken, nothing changes.',
     header: 'BLOCKED | 14:45 SLOT BUSY',
     lines: [
-      '14:45 busy (Design Review)',
-      '0 calendar edits - 0 emails sent',
-      'NEXT OPEN SLOT: 15:45 (30m)',
+      '14:45 is busy (Design Review)',
+      'No calendar or email changes',
+      'Next free slot: 15:45',
     ],
-    footer: 'TAP: BOOK 15:45 | 2xTAP: DISMISS',
+    footer: 'TAP: BOOK 15:45',
     statusTag: 'NO OVERWRITES',
     accent: 'text-[var(--warning)] border-[var(--warning)]',
     ringProgress: 0,
@@ -91,7 +91,7 @@ export function StickySafetyStory() {
               <div className="flex items-center justify-between gap-2">
                 <span className="inline-flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.18em] text-[var(--bright)]">
                   <ShieldPixelSvg className="w-4 h-4" />
-                  <span>LOCK 0{activeIdx + 1} / 04</span>
+                  <span>STEP 0{activeIdx + 1} / 04</span>
                 </span>
                 <span className={`border px-2 py-0.5 font-pixel text-[9px] uppercase tracking-[0.12em] ${beat.accent}`}>
                   {beat.statusTag}
@@ -198,6 +198,18 @@ export function StickySafetyStory() {
             })}
           </div>
         </div>
+
+        <details className="border border-dashed border-[var(--hairline)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--lightgray)] max-w-2xl">
+          <summary className="cursor-pointer font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--bright)]">
+            Engineering &amp; audit
+          </summary>
+          <ul className="mt-3 space-y-1.5 leading-relaxed list-disc pl-4">
+            <li>Noise gate: clips below an RMS level of 0.012 are rejected before any speech call.</li>
+            <li>Confirm step: default-NO, with a single-use preview token that expires after 45 seconds.</li>
+            <li>Undo ring: 2.0 seconds, drawn at 76x76 on the 576x288 lens.</li>
+            <li>Double-booking lock: free/busy is re-fetched at the 0.0s boundary and a clash returns HTTP 409 with no writes.</li>
+          </ul>
+        </details>
       </div>
     </section>
   );

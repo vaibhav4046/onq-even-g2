@@ -208,14 +208,14 @@ export function ConnectorsHub({
     const signed = sp.get('signedIn');
     const oauthError = sp.get('oauthError');
     if (oauthError) {
-      setFeedback(`Google OAuth cancelled (${oauthError}). Use Zero-Warning Sign-In or Load Live .ics Calendar below.`);
+      setFeedback(`Google sign-in was cancelled (${oauthError}). Try again, or load a calendar file below.`);
       window.history.replaceState({}, '', `${window.location.pathname}#connectors`);
     } else if (conn === 'openrouter') {
-      setFeedback('OpenRouter OAuth PKCE key verified and stored in AES-256-GCM 0600 vault.');
+      setFeedback('OpenRouter is connected. Your key is stored encrypted.');
       void loadStatus();
       window.history.replaceState({}, '', `${window.location.pathname}#connectors`);
     } else if (signed === '1') {
-      setFeedback('Google OAuth 2.0 + PKCE session verified and stored in AES-256-GCM vault.');
+      setFeedback('Google is connected. Your session is stored encrypted.');
       void loadStatus();
       window.history.replaceState({}, '', `${window.location.pathname}#connectors`);
     }
@@ -237,9 +237,9 @@ export function ConnectorsHub({
         if (src.client_id) setOauthClientId(src.client_id);
         if (src.client_secret) setOauthClientSecret(src.client_secret);
         setOauthJsonText(txt);
-        setFeedback(`Loaded Google OAuth JSON (${file.name}). Click Save & Sign in with Google.`);
+        setFeedback(`Loaded ${file.name}. Now sign in with Google.`);
       } catch {
-        setFeedback('Could not parse JSON file. Expected Google Cloud OAuth client_secret_*.json.');
+        setFeedback('That file could not be read. Use the client_secret.json from Google Cloud.');
       }
     };
     reader.readAsText(file);
@@ -251,7 +251,7 @@ export function ConnectorsHub({
 
   const postConnect = async (payload: Record<string, unknown>, okMessage: string) => {
     setBusy(true);
-    setFeedback('Saving credentials to encrypted vault...');
+    setFeedback('Saving...');
     try {
       const res = await fetch('/api/connectors/connect', {
         method: 'POST',
@@ -274,7 +274,7 @@ export function ConnectorsHub({
       if (json.sessionToken) onSessionUpdated(json.sessionToken, json.mode ?? 'LIVE');
       setFeedback(
         json.schema
-          ? `${okMessage} Discovered Notion schema: "${json.schema.titleProp}".`
+          ? `${okMessage} Found the Notion title field "${json.schema.titleProp}".`
           : okMessage,
       );
       setOpenDrawer(null);
@@ -287,7 +287,7 @@ export function ConnectorsHub({
 
   const runTestConnection = async (providerId: ConnectorProviderId) => {
     setTestingId(providerId);
-    setFeedback(`Verifying ${providerId}...`);
+    setFeedback(`Testing ${providerId}...`);
     try {
       const res = await fetch(`/api/connectors/${providerId}/test`, {
         method: 'POST',
@@ -309,7 +309,7 @@ export function ConnectorsHub({
     nextModel = openRouterModel,
   ) => {
     setBusy(true);
-    setFeedback(`Switching AI orchestrator to ${nextPreferred.toUpperCase()}...`);
+    setFeedback(`Switching AI model to ${nextPreferred.toUpperCase()}...`);
     try {
       const res = await fetch('/api/connectors/orchestrator', {
         method: 'POST',
@@ -334,7 +334,7 @@ export function ConnectorsHub({
         if (nextStatus.openRouterModel) setOpenRouterModel(nextStatus.openRouterModel);
       }
       setFeedback(
-        `Active AI orchestrator set to ${nextStatus.activeLlmProvider ?? nextPreferred.toUpperCase()} (${nextModel}).`,
+        `Now using ${nextStatus.activeLlmProvider ?? nextPreferred.toUpperCase()} (${nextModel}).`,
       );
       await loadStatus();
       if (sessionToken) {
@@ -365,7 +365,7 @@ export function ConnectorsHub({
       setOpenDrawer('googleWorkspace');
       setFeedback(
         data.error ??
-          'Add Google OAuth Client ID & Secret below, or click Load Sample Live .ics for instant calendar sync.',
+          'Add your Google client ID and secret below, or load a calendar file.',
       );
     } catch {
       setOpenDrawer('googleWorkspace');
@@ -382,7 +382,7 @@ export function ConnectorsHub({
       });
       setTestResults({});
       await loadStatus();
-      setFeedback('Signed out and wiped encrypted credentials.');
+      setFeedback('Signed out. Saved keys removed.');
       onRevokeSession();
     } finally {
       setBusy(false);
@@ -427,7 +427,7 @@ export function ConnectorsHub({
     {
       id: 'googleWorkspace' as const,
       name: 'Google Workspace',
-      sub: 'Calendar · Gmail · Drive · .ics',
+      sub: 'Calendar, Gmail and Drive',
       icon: (
         <ApplePixelTile size="lg" tint="#4285F4">
           <GooglePixelSvg className="w-6 h-6" />
@@ -445,7 +445,7 @@ export function ConnectorsHub({
     {
       id: 'notion' as const,
       name: 'Notion',
-      sub: 'Tasks & Meeting Action Packs',
+      sub: 'Tasks and meeting notes',
       icon: (
         <ApplePixelTile size="lg" tint="#f2f2f2">
           <NotionPixelSvg className="w-6 h-6" />
@@ -457,7 +457,7 @@ export function ConnectorsHub({
     {
       id: 'claude' as const,
       name: 'Claude',
-      sub: 'Grounded Meeting & Reply Drafting',
+      sub: 'Drafts replies and recaps',
       icon: (
         <ApplePixelTile size="lg" tint="#D97757">
           <ClaudePixelSvg className="w-6 h-6" />
@@ -469,7 +469,7 @@ export function ConnectorsHub({
     {
       id: 'openrouter' as const,
       name: 'OpenRouter',
-      sub: 'Multi-Model Free & Pro Failover',
+      sub: 'Many models, one sign-in',
       icon: (
         <ApplePixelTile size="lg" tint="#86FFAF">
           <OpenRouterPixelSvg className="w-6 h-6" />
@@ -481,7 +481,7 @@ export function ConnectorsHub({
     {
       id: 'grok' as const,
       name: 'Grok (xAI)',
-      sub: 'xAI Grok-3-mini Rapid Synthesis',
+      sub: 'Optional extra model',
       icon: (
         <ApplePixelTile size="lg" tint="#34F57E">
           <GrokPixelSvg className="w-6 h-6" />
@@ -493,7 +493,7 @@ export function ConnectorsHub({
     {
       id: 'omniroute' as const,
       name: 'OmniRoute Gateway',
-      sub: '1,400+ Models · Universal Local Proxy',
+      sub: 'Optional local model gateway',
       icon: (
         <ApplePixelTile size="lg" tint="#86FFAF">
           <OmniRoutePixelSvg className="w-6 h-6" />
@@ -505,7 +505,7 @@ export function ConnectorsHub({
     {
       id: 'chatgpt' as const,
       name: 'ChatGPT',
-      sub: 'OpenAI GPT-4o-mini Backup Route',
+      sub: 'Backup model',
       icon: (
         <ApplePixelTile size="lg" tint="#10A37F">
           <ChatGptPixelSvg className="w-6 h-6" />
@@ -517,7 +517,7 @@ export function ConnectorsHub({
     {
       id: 'assemblyai' as const,
       name: 'AssemblyAI Voice',
-      sub: 'Speaker Scribe & Earbuds Audio Out',
+      sub: 'Voice in and voice out',
       icon: (
         <ApplePixelTile size="lg" tint="#34F57E">
           <AssemblyAiPixelSvg className="w-6 h-6" />
@@ -529,7 +529,7 @@ export function ConnectorsHub({
     {
       id: 'telegram' as const,
       name: 'Telegram',
-      sub: 'Track 01 + Best Telegram Digest & Voice Reply',
+      sub: 'Chat digest and voice reply',
       icon: (
         <ApplePixelTile size="lg" tint="#26A5E4">
           <TelegramPixelSvg className="w-6 h-6" />
@@ -546,7 +546,7 @@ export function ConnectorsHub({
         <ScrollReveal className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div className="space-y-2 max-w-2xl">
             <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
-              CONNECT ONCE · USE IN BROWSER &amp; GLASSES
+              CONNECT ONCE
             </p>
             <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem] lg:text-[3.4rem]">
               <span className="block text-[var(--lightgray)]">Sign in once.</span>
@@ -562,10 +562,10 @@ export function ConnectorsHub({
               <div className="text-[var(--bright)] font-medium">
                 {status?.accountName
                   ? `${status.accountName}${status.accountEmail ? ` (${status.accountEmail})` : ''}`
-                  : 'AES-256-GCM Local Vault'}
+                  : 'Encrypted local vault'}
               </div>
               <div className="font-pixel text-[9px] uppercase tracking-[0.14em] text-[var(--g2-phosphor)]">
-                {mode === 'DEMO' ? 'SANDBOX' : mode} · {cards.filter((x) => x.state?.connected).length}/{cards.length} LIVE · {status?.activeLlmProvider ?? 'Rules Engine'}
+                {mode === 'DEMO' ? 'DEMO' : mode} · {cards.filter((x) => x.state?.connected).length}/{cards.length} connected · {status?.activeLlmProvider ?? 'Built-in rules'}
               </div>
             </div>
             <button
@@ -573,7 +573,7 @@ export function ConnectorsHub({
               onClick={() => setOpenDrawer(openDrawer === 'bulk' ? null : 'bulk')}
               className="retro-btn-primary px-3.5 py-1.5 cursor-pointer"
             >
-              Configure All (Vault)
+              Set up all
             </button>
             <button
               type="button"
@@ -589,14 +589,14 @@ export function ConnectorsHub({
               className="retro-btn-glass px-3 py-1.5 text-[var(--g2-phosphor)] font-semibold cursor-pointer inline-flex items-center gap-1.5"
             >
               <OpenRouterPixelSvg className="w-3.5 h-3.5" />
-              <span>1-Click OpenRouter</span>
+              <span>Quick OpenRouter</span>
             </button>
             <button
               type="button"
               onClick={() => setOpenDrawer(openDrawer === 'account' ? null : 'account')}
               className="retro-btn-glass px-2.5 py-1.5 text-[11px] hover:text-[var(--lime)] cursor-pointer"
             >
-              Router
+              AI model
             </button>
             <button
               type="button"
@@ -614,27 +614,27 @@ export function ConnectorsHub({
           <div className="space-y-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--g2-phosphor)]">
-                ACTIVE AI ORCHESTRATOR
+                ACTIVE AI MODEL
               </span>
               <span className="font-pixel text-[9px] uppercase px-2 py-0.5 rounded-full border border-[var(--lime)]/50 bg-[var(--lime)]/10 text-[var(--lime)]">
-                {status?.activeLlmProvider ?? 'Rules (Deterministic)'}
+                {status?.activeLlmProvider ?? 'Built-in rules'}
               </span>
             </div>
             <p className="text-[11px] text-[var(--lightgray)]">
-              1-click failover across OpenRouter, Grok (xAI), OmniRoute (1,400+ models), ChatGPT, Claude, or Rules with auto cooldowns.
+              Pick a model, or let Auto switch if one fails.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 min-w-0">
             {(
               [
-                ['auto', 'Auto (Smart Failover)'],
-                ['openrouter', 'OpenRouter'],
-                ['grok', 'Grok (xAI)'],
-                ['omniroute', 'OmniRoute'],
-                ['chatgpt', 'ChatGPT'],
+                ['auto', 'Auto'],
                 ['claude', 'Claude'],
-                ['rules', 'Rules'],
+                ['chatgpt', 'ChatGPT'],
+                ['openrouter', 'OpenRouter'],
+                ['grok', 'Grok (optional)'],
+                ['omniroute', 'OmniRoute (optional)'],
+                ['rules', 'Built-in rules'],
               ] as const
             ).map(([id, label]) => {
               const isActive = (status?.preferredLlm ?? 'auto') === id;
@@ -665,7 +665,7 @@ export function ConnectorsHub({
               }}
               className="bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[11px] text-[var(--bright)] max-w-full"
             >
-              <option value="openrouter/free">openrouter/free (Auto)</option>
+              <option value="openrouter/free">openrouter/free (auto)</option>
               <option value="google/gemma-3-27b-it:free">google/gemma-3-27b-it:free</option>
               <option value="meta-llama/llama-3.3-70b-instruct:free">meta-llama/llama-3.3-70b-instruct:free</option>
               <option value="anthropic/claude-3.5-haiku">anthropic/claude-3.5-haiku</option>
@@ -680,10 +680,10 @@ export function ConnectorsHub({
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-dashed border-[var(--hairline)] pb-3">
               <div>
                 <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                  ONE-GO ENCRYPTED VAULT SETUP (ALL WORKSPACES &amp; AI)
+                  SET UP EVERYTHING AT ONCE
                 </span>
                 <p className="text-[11px] text-[var(--lightgray)] mt-0.5">
-                  Configure Google OAuth JSON / .ics, Notion Sandbox DB, Claude, OpenRouter, OpenAI, and AssemblyAI in one encrypted 0600 save.
+                  Fill in what you have. Everything is saved encrypted in one step.
                 </p>
               </div>
               <button type="button" onClick={() => setOpenDrawer(null)} className="text-[var(--lightgray)] hover:text-[var(--bright)] cursor-pointer">
@@ -694,9 +694,9 @@ export function ConnectorsHub({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="bg-[var(--ink)] border border-[var(--hairline)] p-3.5 space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-pixel text-[9px] uppercase text-[var(--lime)]">1. GOOGLE WORKSPACE OAUTH OR .ICS</span>
+                  <span className="font-pixel text-[9px] uppercase text-[var(--lime)]">1. GOOGLE</span>
                   <label className="text-[11px] text-[var(--g2-phosphor)] underline decoration-dashed cursor-pointer">
-                    Drop/Upload client_secret.json
+                    Upload client_secret.json
                     <input
                       type="file"
                       accept=".json,application/json"
@@ -708,14 +708,14 @@ export function ConnectorsHub({
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     type="text"
-                    placeholder="OAuth Client ID"
+                    placeholder="Client ID"
                     value={oauthClientId}
                     onChange={(e) => setOauthClientId(e.target.value)}
                     className="bg-[var(--surface)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
                   />
                   <input
                     type="password"
-                    placeholder="OAuth Client Secret"
+                    placeholder="Client secret"
                     value={oauthClientSecret}
                     onChange={(e) => setOauthClientSecret(e.target.value)}
                     className="bg-[var(--surface)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
@@ -725,10 +725,10 @@ export function ConnectorsHub({
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() => void postConnect({ provider: 'ics', icsText: QUICK_SAMPLE_ICS }, 'Live .ics schedule active on G2.')}
+                    onClick={() => void postConnect({ provider: 'ics', icsText: QUICK_SAMPLE_ICS }, 'Sample calendar loaded.')}
                     className="px-2.5 py-1 border border-[var(--g2-phosphor)] text-[var(--g2-phosphor)] text-[11px] cursor-pointer"
                   >
-                    1-Click Live .ics
+                    Load sample calendar
                   </button>
                   <button
                     type="button"
@@ -742,29 +742,29 @@ export function ConnectorsHub({
 
               <div className="bg-[var(--ink)] border border-[var(--hairline)] p-3.5 space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-pixel text-[9px] uppercase text-[var(--lime)]">2. NOTION SANDBOX LEDGER</span>
+                  <span className="font-pixel text-[9px] uppercase text-[var(--lime)]">2. NOTION</span>
                   <button
                     type="button"
                     onClick={() => {
                       setNotionDbId(SANDBOX_NOTION_DB_ID);
-                      setFeedback(`Filled verified OnQ Notion Sandbox DB ID (${SANDBOX_NOTION_DB_ID}).`);
+                      setFeedback('Filled in the sandbox database ID.');
                     }}
                     className="text-[11px] text-[var(--g2-phosphor)] underline decoration-dashed cursor-pointer"
                   >
-                    Fill OnQ Sandbox DB ID
+                    Use sandbox database
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     type="password"
-                    placeholder="Notion token (ntn_...)"
+                    placeholder="Notion token"
                     value={notionToken}
                     onChange={(e) => setNotionToken(e.target.value)}
                     className="bg-[var(--surface)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
                   />
                   <input
                     type="text"
-                    placeholder={`DB ID (${SANDBOX_NOTION_DB_ID.slice(0, 8)}...)`}
+                    placeholder="Database ID"
                     value={notionDbId}
                     onChange={(e) => setNotionDbId(e.target.value)}
                     className="bg-[var(--surface)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
@@ -775,17 +775,17 @@ export function ConnectorsHub({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               <div className="space-y-1">
-                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">3. OPENROUTER (OR 1-CLICK OAUTH)</span>
+                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">3. OPENROUTER</span>
                 <input
                   type="password"
-                  placeholder="sk-or-v1-... (or use OAuth)"
+                  placeholder="sk-or-v1-..."
                   value={openRouterKey}
                   onChange={(e) => setOpenRouterKey(e.target.value)}
                   className="w-full bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
                 />
               </div>
               <div className="space-y-1">
-                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">4. CLAUDE (ANTHROPIC)</span>
+                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">4. CLAUDE</span>
                 <input
                   type="password"
                   placeholder="sk-ant-..."
@@ -795,7 +795,7 @@ export function ConnectorsHub({
                 />
               </div>
               <div className="space-y-1">
-                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">5. CHATGPT (OPENAI)</span>
+                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">5. CHATGPT</span>
                 <input
                   type="password"
                   placeholder="sk-..."
@@ -805,7 +805,7 @@ export function ConnectorsHub({
                 />
               </div>
               <div className="space-y-1">
-                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">6. GROK (XAI)</span>
+                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">6. GROK (OPTIONAL)</span>
                 <input
                   type="password"
                   placeholder="xai-..."
@@ -815,7 +815,7 @@ export function ConnectorsHub({
                 />
               </div>
               <div className="space-y-1">
-                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">7. OMNIROUTE GATEWAY (1,400+)</span>
+                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">7. OMNIROUTE (OPTIONAL)</span>
                 <input
                   type="text"
                   placeholder="http://127.0.0.1:20128/v1"
@@ -825,10 +825,10 @@ export function ConnectorsHub({
                 />
               </div>
               <div className="space-y-1">
-                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">8. ASSEMBLYAI VOICE</span>
+                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">8. ASSEMBLYAI</span>
                 <input
                   type="password"
-                  placeholder="Optional AAI key"
+                  placeholder="API key (optional)"
                   value={aaiKey}
                   onChange={(e) => setAaiKey(e.target.value)}
                   className="w-full bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
@@ -842,7 +842,7 @@ export function ConnectorsHub({
                 onClick={startOpenRouterOAuth}
                 className="px-3.5 py-2 border border-[var(--g2-phosphor)] text-[var(--g2-phosphor)] hover:bg-[var(--g2-phosphor)] hover:text-[#0a0a0a] font-semibold cursor-pointer"
               >
-                Authorize OpenRouter in 1 Click (No Key Copy Needed)
+                Sign in with OpenRouter instead
               </button>
               <button
                 type="button"
@@ -871,12 +871,12 @@ export function ConnectorsHub({
                       telegramChatId: telegramChatId || undefined,
                       icsText: icsText || undefined,
                     },
-                    'All entered credentials saved cleanly to encrypted AES-256-GCM 0600 vault.',
+                    'Saved. Your keys are stored encrypted.',
                   )
                 }
                 className="px-5 py-2 bg-[var(--lime)] text-[#0a0a0a] font-semibold cursor-pointer"
               >
-                Save All to Encrypted Vault
+                Save all
               </button>
             </div>
           </div>
@@ -886,7 +886,7 @@ export function ConnectorsHub({
           <div className="retro-glass-panel p-5 space-y-4 text-xs">
             <div className="flex items-center justify-between">
               <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                AI MODEL FAILOVER ROUTER &amp; WORKSPACE PROFILE
+                AI MODEL AND PROFILE
               </span>
               <button type="button" onClick={() => setOpenDrawer(null)} className="text-[var(--lightgray)] hover:text-[var(--bright)] cursor-pointer">
                 Close
@@ -899,29 +899,29 @@ export function ConnectorsHub({
                 onChange={(e) =>
                   void postConnect(
                     { provider: 'account', preferredLlm: e.target.value },
-                    `Primary AI router set to ${e.target.value.toUpperCase()}.`,
+                    `AI model set to ${e.target.value.toUpperCase()}.`,
                   )
                 }
                 className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
               >
-                <option value="auto">Auto Failover (Claude -&gt; Grok -&gt; OpenRouter -&gt; OmniRoute -&gt; GPT)</option>
-                <option value="claude">Primary: Claude</option>
-                <option value="grok">Primary: Grok (xAI)</option>
-                <option value="omniroute">Primary: OmniRoute (1,400+ models)</option>
-                <option value="openrouter">Primary: OpenRouter</option>
-                <option value="chatgpt">Primary: ChatGPT</option>
-                <option value="rules">Rules Engine Only ($0 / Zero External API)</option>
+                <option value="auto">Auto: switch if one fails</option>
+                <option value="claude">Claude first</option>
+                <option value="grok">Grok first (optional)</option>
+                <option value="omniroute">OmniRoute first (optional)</option>
+                <option value="openrouter">OpenRouter first</option>
+                <option value="chatgpt">ChatGPT first</option>
+                <option value="rules">Built-in rules only (no AI service)</option>
               </select>
               <input
                 type="text"
-                placeholder="Display name (e.g. Alex)"
+                placeholder="Your name"
                 value={accountName}
                 onChange={(e) => setAccountName(e.target.value)}
                 className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
               />
               <input
                 type="email"
-                placeholder="Workspace email (speaker attribution)"
+                placeholder="Your email"
                 value={accountEmail}
                 onChange={(e) => setAccountEmail(e.target.value)}
                 className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
@@ -942,7 +942,7 @@ export function ConnectorsHub({
                 onClick={() => void runTestConnection('claude')}
                 className="px-3 py-2 border border-[var(--hairline)] hover:border-[var(--verified)] cursor-pointer"
               >
-                Probe Failover Chain
+                Test AI model
               </button>
             </div>
           </div>
@@ -977,7 +977,7 @@ export function ConnectorsHub({
                     </span>
                   </div>
                   <p className="text-xs text-[var(--lightgray)]">{c.sub}</p>
-                  <p className="text-[11px] text-[var(--bright)]/80">{c.state?.detail ?? 'Encrypted local relay ready.'}</p>
+                  {c.state?.detail && <p className="text-[11px] text-[var(--bright)]/80">{c.state.detail}</p>}
                   {latestProbe && (
                     <div
                       className={`text-[10px] font-pixel uppercase tracking-[0.1em] px-2.5 py-1 rounded-md border ${
@@ -1040,7 +1040,7 @@ export function ConnectorsHub({
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                    CONNECT GOOGLE WORKSPACE (OAUTH 2.0 + PKCE OR INSTANT .ICS)
+                    CONNECT GOOGLE
                   </span>
                   <a
                     href="https://console.cloud.google.com/apis/credentials"
@@ -1048,7 +1048,7 @@ export function ConnectorsHub({
                     rel="noopener noreferrer"
                     className="text-[11px] text-[var(--lime)] underline decoration-dashed underline-offset-2"
                   >
-                    Open Google Cloud Credentials -&gt;
+                    Google Cloud credentials -&gt;
                   </a>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--lightgray)]">
@@ -1070,40 +1070,40 @@ export function ConnectorsHub({
                     onClick={() => void startGoogleSignIn('identity')}
                     className="px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] font-semibold cursor-pointer"
                   >
-                    Sign in with Google (No Warning)
+                    Sign in only
                   </button>
                   <button
                     type="button"
                     disabled={busy}
                     onClick={() =>
-                      void postConnect({ provider: 'ics', icsText: QUICK_SAMPLE_ICS }, 'Live .ics schedule active on G2.')
+                      void postConnect({ provider: 'ics', icsText: QUICK_SAMPLE_ICS }, 'Sample calendar loaded.')
                     }
                     className="px-4 py-2 border border-[var(--g2-phosphor)] text-[var(--g2-phosphor)] font-semibold cursor-pointer hover:bg-[var(--g2-phosphor)] hover:text-[#0a0a0a]"
                   >
-                    Load Live .ics Calendar (0 Keys)
+                    Load sample calendar
                   </button>
                   <button
                     type="button"
                     onClick={() => void startGoogleSignIn('workspace')}
                     className="px-3 py-2 border border-[var(--hairline)] text-[var(--lightgray)] hover:text-[var(--bright)] font-semibold cursor-pointer"
                   >
-                    Full Gmail/Cal/Drive Scopes
+                    Allow Gmail, Calendar and Drive
                   </button>
                 </div>
                 <p className="text-[11px] text-[var(--lightgray)]">
-                  Standard <strong className="text-[var(--bright)]">Sign in with Google (No Warning)</strong> authenticates immediately with zero Google unverified-app prompt. Optional Full Gmail/Cal/Drive scopes require clicking <em>Advanced -&gt; Go to OnQ (unsafe)</em> until post-hackathon Google CASA verification completes.
+                  Sign in only confirms who you are, with no Google warning. Allowing Gmail, Calendar and Drive shows an unverified-app warning until Google finishes its review.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                   <input
                     type="text"
-                    placeholder="Google OAuth Client ID"
+                    placeholder="Client ID"
                     value={oauthClientId}
                     onChange={(e) => setOauthClientId(e.target.value)}
                     className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
                   />
                   <input
                     type="password"
-                    placeholder="Google OAuth Client Secret"
+                    placeholder="Client secret"
                     value={oauthClientSecret}
                     onChange={(e) => setOauthClientSecret(e.target.value)}
                     className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
@@ -1111,7 +1111,7 @@ export function ConnectorsHub({
                 </div>
                 <textarea
                   rows={2}
-                  placeholder="Or paste your own .ics calendar export URL text (instant live schedule sync)..."
+                  placeholder="Or paste your own .ics calendar text"
                   value={icsText}
                   onChange={(e) => setIcsText(e.target.value)}
                   className="w-full bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
@@ -1129,12 +1129,12 @@ export function ConnectorsHub({
                                 googleClientId: oauthClientId,
                                 googleClientSecret: oauthClientSecret,
                               },
-                              'Google OAuth credentials saved. Click Sign in with Google OAuth above.',
+                              'Saved. Now sign in with Google.',
                             )
                           }
                           className="px-4 py-2 bg-[var(--bright)] text-[#0a0a0a] font-semibold cursor-pointer"
                         >
-                          Save OAuth App
+                          Save Google app
                         </button>
                       )}
                       <label className="px-3 py-2 border border-[var(--hairline)] hover:border-[var(--g2-phosphor)] text-[var(--g2-phosphor)] font-semibold cursor-pointer">
@@ -1150,10 +1150,10 @@ export function ConnectorsHub({
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={() => void postConnect({ provider: 'ics', icsText }, 'Live .ics schedule connected.')}
+                          onClick={() => void postConnect({ provider: 'ics', icsText }, 'Calendar connected.')}
                           className="px-4 py-2 border border-[var(--lime)] text-[var(--lime)] font-semibold cursor-pointer"
                         >
-                          Connect Custom .ics
+                          Connect my calendar
                         </button>
                       )}
                     </div>
@@ -1164,7 +1164,7 @@ export function ConnectorsHub({
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                    CONNECT NOTION (2026-03-11 AUTO-SCHEMA DISCOVERY)
+                    CONNECT NOTION
                   </span>
                   <a
                     href="https://www.notion.so/profile/integrations"
@@ -1181,7 +1181,7 @@ export function ConnectorsHub({
                       href="/api/auth/notion/start"
                       className="inline-block px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] font-semibold mb-2"
                     >
-                      Authorize Notion OAuth
+                      Sign in with Notion
                     </a>
                   </div>
                 )}
@@ -1195,7 +1195,7 @@ export function ConnectorsHub({
                   />
                   <input
                     type="text"
-                    placeholder="Database ID (optional — auto-discovered if blank)"
+                    placeholder="Database ID (optional)"
                     value={notionDbId}
                     onChange={(e) => setNotionDbId(e.target.value)}
                     className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
@@ -1212,7 +1212,7 @@ export function ConnectorsHub({
                   }
                   className="px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] font-semibold cursor-pointer"
                 >
-                  Discover Schema &amp; Connect
+                  Save and connect
                 </button>
               </>
             )}
@@ -1221,7 +1221,7 @@ export function ConnectorsHub({
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                    CONNECT CLAUDE (ACCOUNT CLI OR OPTIONAL API KEY)
+                    CONNECT CLAUDE
                   </span>
                   <a
                     href="https://console.anthropic.com/settings/keys"
@@ -1229,11 +1229,11 @@ export function ConnectorsHub({
                     rel="noopener noreferrer"
                     className="text-[11px] text-[var(--lime)] underline decoration-dashed underline-offset-2"
                   >
-                    Anthropic Keys -&gt;
+                    Get a key -&gt;
                   </a>
                 </div>
                 <p className="text-[11px] text-[var(--lightgray)]">
-                  No API billing needed: use 1-Click OpenRouter OAuth or Claude Code CLI (<code className="text-[var(--bright)]">claude login</code>) with your Claude Pro/Max account below.
+                  No API key? Sign in with OpenRouter, or run <code className="text-[var(--bright)]">claude login</code> with your Claude account.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
@@ -1259,7 +1259,7 @@ export function ConnectorsHub({
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                    CONNECT OPENROUTER (1-CLICK OAUTH PKCE OR API KEY)
+                    CONNECT OPENROUTER
                   </span>
                   <a
                     href="https://openrouter.ai/keys"
@@ -1267,7 +1267,7 @@ export function ConnectorsHub({
                     rel="noopener noreferrer"
                     className="text-[11px] text-[var(--lime)] underline decoration-dashed underline-offset-2"
                   >
-                    OpenRouter Keys -&gt;
+                    Get a key -&gt;
                   </a>
                 </div>
                 <div>
@@ -1276,7 +1276,7 @@ export function ConnectorsHub({
                     onClick={startOpenRouterOAuth}
                     className="px-4 py-2 bg-[var(--g2-phosphor)] text-[#0a0a0a] font-semibold cursor-pointer"
                   >
-                    1-Click Sign in with OpenRouter (Zero Manual Key)
+                    Sign in with OpenRouter
                   </button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1293,7 +1293,7 @@ export function ConnectorsHub({
                     aria-label="OpenRouter model"
                     className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
                   >
-                    <option value="openrouter/free">openrouter/free (Auto Best Free)</option>
+                    <option value="openrouter/free">openrouter/free (auto)</option>
                     <option value="google/gemma-4-26b-a4b-it:free">google/gemma-4-26b-a4b-it:free</option>
                     <option value="anthropic/claude-3.5-haiku">anthropic/claude-3.5-haiku</option>
                   </select>
@@ -1318,7 +1318,7 @@ export function ConnectorsHub({
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                    CONNECT CHATGPT (ACCOUNT CLI OR OPTIONAL API KEY)
+                    CONNECT CHATGPT
                   </span>
                   <a
                     href="https://platform.openai.com/api-keys"
@@ -1326,11 +1326,11 @@ export function ConnectorsHub({
                     rel="noopener noreferrer"
                     className="text-[11px] text-[var(--lime)] underline decoration-dashed underline-offset-2"
                   >
-                    OpenAI Keys -&gt;
+                    Get a key -&gt;
                   </a>
                 </div>
                 <p className="text-[11px] text-[var(--lightgray)]">
-                  No API credits needed: OpenRouter 1-Click OAuth or OpenAI Codex CLI (<code className="text-[var(--bright)]">codex login</code>) uses your existing ChatGPT account.
+                  No API key? Sign in with OpenRouter, or run <code className="text-[var(--bright)]">codex login</code> with your ChatGPT account.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
@@ -1356,7 +1356,7 @@ export function ConnectorsHub({
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--g2-phosphor)]">
-                    CONNECT GROK (XAI GROK-3-MINI)
+                    CONNECT GROK (OPTIONAL)
                   </span>
                   <a
                     href="https://console.x.ai"
@@ -1391,9 +1391,9 @@ export function ConnectorsHub({
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[#86FFAF]">
-                    CONNECT OMNIROUTE (1,400+ MODELS UNIVERSAL GATEWAY)
+                    CONNECT OMNIROUTE (OPTIONAL)
                   </span>
-                  <span className="text-[11px] text-[var(--lightgray)]">Default local proxy: 127.0.0.1:20128/v1</span>
+                  <span className="text-[11px] text-[var(--lightgray)]">Default: 127.0.0.1:20128/v1</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <input
@@ -1412,7 +1412,7 @@ export function ConnectorsHub({
                   />
                   <input
                     type="password"
-                    placeholder="Optional OmniRoute Bearer token"
+                    placeholder="Token (optional)"
                     value={omniRouteKey}
                     onChange={(e) => setOmniRouteKey(e.target.value)}
                     className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
@@ -1438,7 +1438,7 @@ export function ConnectorsHub({
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[#26A5E4]">
-                    CONNECT TELEGRAM BOT (TRACK 01 + BEST TELEGRAM PRIZE)
+                    CONNECT TELEGRAM
                   </span>
                   <div className="flex flex-wrap items-center gap-3">
                     <a
@@ -1447,7 +1447,7 @@ export function ConnectorsHub({
                       rel="noopener noreferrer"
                       className="text-[11px] text-[var(--lime)] underline decoration-dashed underline-offset-2"
                     >
-                      1-Click Open @onq_g2_copilot_bot -&gt;
+                      Open the OnQ bot -&gt;
                     </a>
                     <a
                       href="https://t.me/BotFather"
@@ -1462,14 +1462,14 @@ export function ConnectorsHub({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <input
                     type="password"
-                    placeholder="Telegram Bot Token (123456:ABC...)"
+                    placeholder="Bot token"
                     value={telegramBotToken}
                     onChange={(e) => setTelegramBotToken(e.target.value)}
                     className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
                   />
                   <input
                     type="text"
-                    placeholder="Chat ID (optional — auto-detected from bot)"
+                    placeholder="Chat ID (optional)"
                     value={telegramChatId}
                     onChange={(e) => setTelegramChatId(e.target.value)}
                     className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
@@ -1481,12 +1481,12 @@ export function ConnectorsHub({
                   onClick={() =>
                     void postConnect(
                       { provider: 'telegram', telegramBotToken, telegramChatId },
-                      'Telegram Bot connected cleanly in AES-256-GCM 0600 vault.',
+                      'Telegram is connected. Your token is stored encrypted.',
                     )
                   }
                   className="retro-btn-primary px-4 py-2 cursor-pointer"
                 >
-                  Save &amp; Connect Telegram
+                  Save and connect
                 </button>
               </>
             )}
@@ -1495,7 +1495,7 @@ export function ConnectorsHub({
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                    ASSEMBLYAI VOICE &amp; EARBUDS OUTPUT
+                    ASSEMBLYAI VOICE
                   </span>
                   <a
                     href="https://www.assemblyai.com/app/account"
@@ -1509,7 +1509,7 @@ export function ConnectorsHub({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <input
                     type="password"
-                    placeholder="Optional AssemblyAI key (local Whisper works at $0)"
+                    placeholder="API key (optional)"
                     value={aaiKey}
                     onChange={(e) => setAaiKey(e.target.value)}
                     className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
@@ -1533,7 +1533,7 @@ export function ConnectorsHub({
                   onClick={() => void postConnect({ provider: 'assemblyai', apiKey: aaiKey }, 'AssemblyAI voice updated.')}
                   className="px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] font-semibold cursor-pointer"
                 >
-                  Save Voice Connector
+                  Save voice
                 </button>
               </>
             )}
@@ -1551,10 +1551,10 @@ export function ConnectorsHub({
           <div className="retro-glass-panel p-4 sm:p-5 space-y-3 text-xs">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--g2-phosphor)]">
-                COMPUTER &amp; ACCOUNT-AUTH AI TOOLS (ZERO API KEYS REQUIRED)
+                LOCAL AI TOOLS, NO KEYS NEEDED
               </span>
               <span className="font-pixel text-[9px] text-[var(--lightgray)]">
-                {computerTools.filter((t) => t.installed).length}/{computerTools.length} DETECTED ON PATH
+                {computerTools.filter((t) => t.installed).length}/{computerTools.length} FOUND
               </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
@@ -1574,7 +1574,7 @@ export function ConnectorsHub({
                           : 'bg-white/5 text-[var(--lightgray)]'
                       }`}
                     >
-                      {tool.installed ? 'DETECTED' : 'ACCOUNT CLI'}
+                      {tool.installed ? 'FOUND' : 'NOT FOUND'}
                     </span>
                   </div>
                   <div className="text-[10.5px] text-[var(--lightgray)] truncate">{tool.accountMode}</div>
@@ -1606,25 +1606,35 @@ export function ConnectorsHub({
             className="inline-flex items-center gap-2 hover:text-[var(--bright)] underline decoration-dashed underline-offset-4 cursor-pointer"
           >
             <EvenG2PixelSvg className="w-5 h-3" />
-            <span>Link Even G2 Glasses (WebView companion handshake)</span>
+            <span>Link Even G2 Glasses</span>
           </button>
           {showPhysicalPair && (
             <div className="mt-3 p-4 border border-dashed border-[var(--hairline)] bg-[var(--surface)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-1">
                 <div>
-                  Enter 15m handshake code inside Even Hub G2 app:{' '}
+                  Enter this code in the Even Hub app:{' '}
                   <strong className="font-pixel text-[var(--lime)]">{g2Code ?? '...'}</strong>
                 </div>
                 <div className="text-[11px] text-[var(--lightgray)]">
-                  Required because Even Realities blocks Google OAuth login inside the G2 WebView. Pair here once; glasses inherit your encrypted session.
+                  Google sign-in does not work inside the glasses app, so you pair here once.
                 </div>
               </div>
-              <span className="shrink-0">
-                Bundle: <code className="text-[var(--bright)]">dist/onq.ehpk</code>
-              </span>
             </div>
           )}
         </div>
+
+        <details className="border border-dashed border-[var(--hairline)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--lightgray)]">
+          <summary className="cursor-pointer font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--bright)]">
+            Engineering &amp; audit
+          </summary>
+          <ul className="mt-3 space-y-1.5 leading-relaxed list-disc pl-4">
+            <li>Keys and tokens are encrypted with AES-256-GCM in a local vault (file mode 0600).</li>
+            <li>Google sign-in uses OAuth 2.0 with PKCE. OpenRouter sign-in uses OAuth with PKCE.</li>
+            <li>Notion schema discovery uses API version 2026-03-11.</li>
+            <li>Voice runs on AssemblyAI STT-3.7 and TTS-1.</li>
+            <li>The glasses pairing code expires after 15 minutes. The glasses bundle is dist/onq.ehpk.</li>
+          </ul>
+        </details>
       </div>
     </section>
   );

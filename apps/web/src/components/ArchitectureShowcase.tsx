@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { GlyphDecodeHeading, KineticNumber, MOTION_EASE, ScrollReveal } from './MotionPrimitives';
+import { VERIFIED_TEST_COUNT } from '../verifiedCounts';
 
 type FlowTabId = 'reschedule' | 'telegram' | 'scribe' | 'wrapup' | 'shield';
 
@@ -19,121 +20,121 @@ const FLOW_TABS: FlowGraphSpec[] = [
   {
     id: 'reschedule',
     title: 'Move a meeting',
-    sub: 'Checks free calendar slots + prepares Gmail reply',
+    sub: 'Reschedule and reply',
     ask: '"OnQ, push VC Sync 15m and tell Priya"',
     steps: [
-      { num: '01', label: 'Parse + Free/Busy', detail: 'Chrono + deterministic parser resolves +15m and queries Free/Busy etag.' },
-      { num: '02', label: 'Stage Default-NO', detail: 'Single-use 45s previewToken locks cursor on [NO - CANCEL]; Code-Guard checks facts.' },
-      { num: '03', label: '2.0s Ring -> Commit', detail: '76x76 waveguide ring sweeps to 0.0s, updates Calendar + Gmail, writes 30s undo receipt.' },
+      { num: '01', label: 'Understand', detail: 'Works out "15 minutes later" and checks your calendar.' },
+      { num: '02', label: 'Ask first', detail: 'Shows the plan with NO selected. Facts are checked first.' },
+      { num: '03', label: 'Undo ring, then send', detail: 'A 2-second ring runs, then Calendar and Gmail update. Undo stays open for 30 seconds.' },
     ],
     nodes: [
-      { id: 'mic', title: 'R1 + Mic 16kHz', role: 'RMS Gate >= 0.012', x: 75, y: 54, tint: '#34F57E' },
-      { id: 'orch', title: 'OnQ Orchestrator', role: 'Code-Guard · 45s TTL', x: 280, y: 54, tint: '#86FFAF' },
-      { id: 'gcal', title: 'Google Calendar', role: 'PATCH +15m Etag OK', x: 500, y: 36, tint: '#4285F4' },
-      { id: 'gmail', title: 'Gmail Draft/Send', role: 'Server-bound to:', x: 500, y: 122, tint: '#EA4335' },
+      { id: 'mic', title: 'Ring and mic', role: 'Ignores noise', x: 75, y: 54, tint: '#34F57E' },
+      { id: 'orch', title: 'OnQ relay', role: 'Checks facts', x: 280, y: 54, tint: '#86FFAF' },
+      { id: 'gcal', title: 'Google Calendar', role: 'Moves by 15 min', x: 500, y: 36, tint: '#4285F4' },
+      { id: 'gmail', title: 'Gmail', role: 'Reply to Priya', x: 500, y: 122, tint: '#EA4335' },
     ],
     edges: [
-      { from: 'mic', to: 'orch', label: 'STT_3.7_PASS' },
-      { from: 'orch', to: 'gcal', label: 'FREE_BUSY_OK' },
-      { from: 'orch', to: 'gmail', label: 'THREAD_FRESH' },
+      { from: 'mic', to: 'orch', label: 'HEARD' },
+      { from: 'orch', to: 'gcal', label: 'SLOT FREE' },
+      { from: 'orch', to: 'gmail', label: 'THREAD OK' },
     ],
-    answer: '14:00->14:15 GMT · Reply mailed to Priya · IDEMP #9f2a11 (30s Undo armed)',
+    answer: 'Moved to 14:15. Reply sent to Priya. Undo open for 30 seconds.',
   },
   {
     id: 'telegram',
     title: 'Telegram reply',
-    sub: 'Reads pinned group/DM updates and asks before sending',
+    sub: 'Reply in a chat',
     ask: '"OnQ, reply in Even G2 Builders that .ehpk is live"',
     steps: [
-      { num: '01', label: 'Select Chat Digest', detail: 'Pulls pinned group/DM updates through encrypted relay; zero unpicked noise.' },
-      { num: '02', label: 'Draft & Bind ChatID', detail: 'Server binds chat_id inside 0600 vault; untrusted message text stays sandboxed.' },
-      { num: '03', label: 'Tap Ring -> Send', detail: 'Requires explicit Default-NO toggle + 2.0s countdown before Telegram sendMessage.' },
+      { num: '01', label: 'Pick a chat', detail: 'Pulls recent updates through your encrypted relay.' },
+      { num: '02', label: 'Draft the reply', detail: 'It goes only to the chat you picked. Message text is never treated as a command.' },
+      { num: '03', label: 'Ring, then send', detail: 'You confirm, a 2-second ring runs, then it sends.' },
     ],
     nodes: [
       { id: 'tg_in', title: 'Telegram Digest', role: 'Even G2 Builders', x: 75, y: 54, tint: '#26A5E4' },
-      { id: 'draft', title: 'Grounded Router', role: 'Claude / OpenRouter', x: 280, y: 54, tint: '#86FFAF' },
-      { id: 'ring', title: '2.0s Undo Ring', role: 'Default-NO Lock', x: 280, y: 128, tint: '#34F57E' },
-      { id: 'tg_out', title: 'Bot API sendMessage', role: '200 OK · Chat Bound', x: 500, y: 88, tint: '#26A5E4' },
+      { id: 'draft', title: 'Draft reply', role: 'Claude or OpenRouter', x: 280, y: 54, tint: '#86FFAF' },
+      { id: 'ring', title: 'Undo ring', role: 'Asks first', x: 280, y: 128, tint: '#34F57E' },
+      { id: 'tg_out', title: 'Telegram', role: 'Sent to that chat', x: 500, y: 88, tint: '#26A5E4' },
     ],
     edges: [
-      { from: 'tg_in', to: 'draft', label: 'FILTERED_CHAT' },
-      { from: 'draft', to: 'ring', label: 'CODE_GUARD' },
-      { from: 'ring', to: 'tg_out', label: 'CONFIRMED_SEND' },
+      { from: 'tg_in', to: 'draft', label: 'PICKED CHAT' },
+      { from: 'draft', to: 'ring', label: 'FACT CHECK' },
+      { from: 'ring', to: 'tg_out', label: 'YOU CONFIRMED' },
     ],
-    answer: 'Sent to Even G2 Builders (chat bound) · Zero leaked bot token in G2 bundle',
+    answer: 'Sent to Even G2 Builders. No bot token on the glasses.',
   },
   {
     id: 'scribe',
     title: 'Meeting notes',
-    sub: 'Live speaker notes in RAM with nothing saved to disk',
+    sub: 'Live notes, never saved',
     ask: '"OnQ, what did Priya ask about Q4?"',
     steps: [
-      { num: '01', label: 'In-RAM Diarize', detail: 'Live 16kHz PCM chunks stream over WSS to AssemblyAI STT-3.7 in memory only.' },
-      { num: '02', label: 'Wearer Attribution', detail: 'Blocks background speakers from triggering confirm_write via strict CODE_GUARD.' },
-      { num: '03', label: 'Lens + TTS-1 Earbuds', detail: 'Streams concise 42-col lens card + quiet Bluetooth earbuds audio (G2 has no speaker).' },
+      { num: '01', label: 'Listen', detail: 'Speech is transcribed live. Nothing is written to disk.' },
+      { num: '02', label: 'Know who is speaking', detail: 'Background voices cannot trigger a write.' },
+      { num: '03', label: 'Show and speak', detail: 'A short card on the lens, plus audio in your earbuds. The glasses have no speaker.' },
     ],
     nodes: [
-      { id: 'pcm', title: 'G2 Mic PCM Stream', role: 'Zero Disk Write', x: 75, y: 54, tint: '#34F57E' },
-      { id: 'ram', title: 'RAM RingBuffer (48)', role: 'Auto-Wipe on Close', x: 280, y: 54, tint: '#86FFAF' },
-      { id: 'lens', title: '576x288 HUD', role: '<= 999B ASCII Card', x: 500, y: 36, tint: '#34F57E' },
-      { id: 'tts', title: 'AssemblyAI TTS-1', role: 'Earbuds Audio Out', x: 500, y: 122, tint: '#2dd4bf' },
+      { id: 'pcm', title: 'Glasses mic', role: 'Nothing saved', x: 75, y: 54, tint: '#34F57E' },
+      { id: 'ram', title: 'Notes in memory', role: 'Wiped on close', x: 280, y: 54, tint: '#86FFAF' },
+      { id: 'lens', title: 'Lens card', role: 'Short and readable', x: 500, y: 36, tint: '#34F57E' },
+      { id: 'tts', title: 'AssemblyAI voice', role: 'Audio in earbuds', x: 500, y: 122, tint: '#2dd4bf' },
     ],
     edges: [
-      { from: 'pcm', to: 'ram', label: 'DIARIZE_SPK' },
-      { from: 'ram', to: 'lens', label: 'GLANCE_BRIEF' },
-      { from: 'ram', to: 'tts', label: 'BARGE_IN_OK' },
+      { from: 'pcm', to: 'ram', label: 'WHO SPOKE' },
+      { from: 'ram', to: 'lens', label: 'SHORT BRIEF' },
+      { from: 'ram', to: 'tts', label: 'YOU CAN CUT IN' },
     ],
-    answer: 'Priya: "Send Q4 deck to Alex by Thursday 15:00." (RAM wiped on exit)',
+    answer: 'Priya: "Send the Q4 deck to Alex by Thursday 15:00." Notes wiped on exit.',
   },
   {
     id: 'wrapup',
     title: 'After-meeting tasks',
-    sub: 'Creates Notion tasks, follow-up hold, and email draft in one tap',
+    sub: 'Tasks, hold and recap',
     ask: '"OnQ, wrap up and log action items"',
     steps: [
-      { num: '01', label: 'Extract Decisions', detail: 'Pulls concrete decisions + owners directly from volatile meeting transcript buffer.' },
-      { num: '02', label: 'Inspect Notion Schema', detail: 'Auto-discovers title, date, checkbox/status via 2026-03-11 data_sources API.' },
-      { num: '03', label: 'Atomic Multi-Write', detail: 'Creates Notion task, holds 30m follow-up, saves Gmail draft inside 1 transaction.' },
+      { num: '01', label: 'Find the decisions', detail: 'Pulls decisions and owners from the meeting notes.' },
+      { num: '02', label: 'Read your Notion setup', detail: 'Finds your title, date and status fields on its own.' },
+      { num: '03', label: 'Do it all at once', detail: 'Creates the Notion task, holds 30 minutes and saves a Gmail draft as one step.' },
     ],
     nodes: [
-      { id: 'buf', title: 'Decisions + Owners', role: 'Meeting Session RAM', x: 75, y: 78, tint: '#86FFAF' },
-      { id: 'notion', title: 'Notion 2026-03-11', role: 'Auto-Schema DS', x: 320, y: 26, tint: '#f2f2f2' },
-      { id: 'cal', title: 'Calendar Hold', role: 'Free Slot 17:00', x: 320, y: 84, tint: '#4285F4' },
-      { id: 'mail', title: 'Gmail Recap Draft', role: 'Safe Draft Only', x: 320, y: 140, tint: '#EA4335' },
+      { id: 'buf', title: 'Decisions and owners', role: 'From meeting notes', x: 75, y: 78, tint: '#86FFAF' },
+      { id: 'notion', title: 'Notion task', role: 'Fields found for you', x: 320, y: 26, tint: '#f2f2f2' },
+      { id: 'cal', title: 'Calendar hold', role: 'Free slot 17:00', x: 320, y: 84, tint: '#4285F4' },
+      { id: 'mail', title: 'Gmail recap', role: 'Saved as a draft', x: 320, y: 140, tint: '#EA4335' },
     ],
     edges: [
-      { from: 'buf', to: 'notion', label: 'DATA_SOURCE_PUT' },
-      { from: 'buf', to: 'cal', label: 'SLOT_VERIFIED' },
-      { from: 'buf', to: 'mail', label: 'DRAFT_SAVED' },
+      { from: 'buf', to: 'notion', label: 'TASK ADDED' },
+      { from: 'buf', to: 'cal', label: 'SLOT FREE' },
+      { from: 'buf', to: 'mail', label: 'DRAFT SAVED' },
     ],
-    answer: 'Notion task created · Follow-up held 17:00 · Recap draft ready in Gmail',
+    answer: 'Notion task created. Follow-up held at 17:00. Recap draft in Gmail.',
   },
   {
     id: 'shield',
     title: 'Double-booking guard',
-    sub: 'Stops conflicting slots and surfaces the next free time',
+    sub: 'Stops clashes',
     ask: '"OnQ, move VC Sync to 14:45"',
     steps: [
-      { num: '01', label: 'Pre-Commit Re-Check', detail: 'Re-fetches Free/Busy + Gmail historyId + Notion last_edited_time at 0.0s boundary.' },
-      { num: '02', label: 'Detect 14:45 Collision', detail: 'Finds "Design Review (14:45-15:15)" -> aborts pipeline atomically with HTTP 409.' },
-      { num: '03', label: 'Surface Next Free Slot', detail: 'Presents 15:45 verified opening on lens so 1 tap re-stages cleanly without typing.' },
+      { num: '01', label: 'Check again', detail: 'Right before saving, it re-checks Calendar, Gmail and Notion.' },
+      { num: '02', label: 'Catch the clash', detail: 'Design Review already holds 14:45 to 15:15, so nothing is saved.' },
+      { num: '03', label: 'Offer a new time', detail: '15:45 is free. One tap books it, no typing.' },
     ],
     nodes: [
-      { id: 'cmd', title: 'Staged Move 14:45', role: 'At 0.0s Boundary', x: 75, y: 78, tint: '#86FFAF' },
-      { id: 'guard', title: 'Conflict Engine', role: 'HTTP 409 Hard-Lock', x: 280, y: 78, tint: '#ffb020' },
-      { id: 'zero', title: '0 Edits Executed', role: 'Mail + Cal Unchanged', x: 500, y: 36, tint: '#ff5a4f' },
-      { id: 'next', title: 'Next Free: 15:45', role: '1-Tap Re-Stage', x: 500, y: 122, tint: '#34F57E' },
+      { id: 'cmd', title: 'Move to 14:45', role: 'About to save', x: 75, y: 78, tint: '#86FFAF' },
+      { id: 'guard', title: 'Conflict check', role: 'Double-booking lock', x: 280, y: 78, tint: '#ffb020' },
+      { id: 'zero', title: 'Nothing changed', role: 'Mail and calendar safe', x: 500, y: 36, tint: '#ff5a4f' },
+      { id: 'next', title: 'Next free: 15:45', role: 'One tap to book', x: 500, y: 122, tint: '#34F57E' },
     ],
     edges: [
-      { from: 'cmd', to: 'guard', label: 'RECHECK_LIVE' },
-      { from: 'guard', to: 'zero', label: '409_BLOCKED' },
-      { from: 'guard', to: 'next', label: 'NEXT_SLOT_15:45' },
+      { from: 'cmd', to: 'guard', label: 'RE-CHECKED' },
+      { from: 'guard', to: 'zero', label: 'BLOCKED' },
+      { from: 'guard', to: 'next', label: 'NEXT SLOT' },
     ],
-    answer: 'HTTP 409 LOCKED (14:45 busy: Design Review) -> Zero mutations -> Next Free 15:45',
+    answer: '14:45 is busy (Design Review). Nothing changed. Next free slot: 15:45.',
   },
 ];
 
-export function ArchitectureShowcase({ testCount = 220 }: { testCount?: number }) {
+export function ArchitectureShowcase({ testCount = VERIFIED_TEST_COUNT }: { testCount?: number }) {
   const [activeTabId, setActiveTabId] = useState<FlowTabId>('reschedule');
   const [compareMode, setCompareMode] = useState<'readonly' | 'phone'>('readonly');
   const reduced = useReducedMotion();
@@ -148,7 +149,7 @@ export function ArchitectureShowcase({ testCount = 220 }: { testCount?: number }
   return (
     <section id="architecture" className="section-rule py-20 sm:py-24">
       <div className="container-page space-y-12">
-        {/* 1. Split Editorial Header + 01-04 Plain-English Highlights */}
+        {/* 1. Split editorial header and four plain-English highlights */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
           <ScrollReveal className="lg:col-span-6 space-y-4">
             <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lime)]">
@@ -158,7 +159,7 @@ export function ArchitectureShowcase({ testCount = 220 }: { testCount?: number }
               Speak naturally. Get real actions done.
             </h2>
             <p className="text-sm sm:text-base leading-relaxed text-[var(--lightgray)] max-w-xl">
-              Most smart-glasses apps only show passive text. OnQ reads your Calendar, Gmail, Drive, Telegram, and Notion, runs PC automations, and lets you confirm real replies with one ring tap.
+              Say what you need. OnQ reads Calendar, Gmail, Drive, Notion and Telegram, then asks before it acts.
             </p>
           </ScrollReveal>
 
@@ -166,19 +167,19 @@ export function ArchitectureShowcase({ testCount = 220 }: { testCount?: number }
             {[
               {
                 num: '01',
-                title: 'Clean green display built to read in under 3 seconds',
+                title: 'Readable at a glance',
               },
               {
                 num: '02',
-                title: 'Fast sub-second voice with private in-memory meeting notes',
+                title: 'Meeting notes stay in memory',
               },
               {
                 num: '03',
-                title: 'Uses your own Claude, OpenRouter, ChatGPT, or PC tools',
+                title: 'Works with Claude, ChatGPT or OpenRouter',
               },
               {
                 num: '04',
-                title: 'Zero keys stored in glasses — everything asks before sending',
+                title: 'No keys on the glasses, and it asks before sending',
               },
             ].map((row) => (
               <div key={row.num} className="py-4 flex items-baseline gap-4">
@@ -191,24 +192,18 @@ export function ArchitectureShowcase({ testCount = 220 }: { testCount?: number }
           </ScrollReveal>
         </div>
 
-        {/* 2. Two-Stage Animated Architecture Blueprint (HydraDB Complete Architecture style) */}
+        {/* 2. Simple architecture blueprint */}
         <ScrollReveal delay={0.06} className="retro-glass-panel p-5 sm:p-7 space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="font-pixel text-[11px] uppercase tracking-[0.18em] text-[var(--lime)]">
-              COMPLETE ARCHITECTURE
-            </span>
-            <span className="font-pixel text-[10px] uppercase tracking-[0.14em] text-[var(--g2-phosphor)]">
-              EVEN HUB SDK 0.0.16 · ZERO SECRETS IN EHPK
-            </span>
-          </div>
+          <span className="font-pixel text-[11px] uppercase tracking-[0.18em] text-[var(--lime)]">
+            THE BIG PICTURE
+          </span>
 
           <div className="hydra-dot-canvas rounded-[12px] border border-white/10 p-4 sm:p-6 space-y-6 overflow-x-auto">
-            {/* Tier 1: Glasses -> Safety Gates -> Orchestrator -> Connectors */}
+            {/* Tier 1: Glasses, safety steps, relay, your apps */}
             <div className="min-w-[780px] relative grid grid-cols-12 gap-3 items-center">
               <div className="col-span-2 retro-glass-well p-3 text-center space-y-1">
-                <div className="font-pixel text-[9px] text-[var(--g2-phosphor)]">EVEN G2 + R1</div>
-                <div className="text-xs font-semibold text-[var(--bright)]">Voice + Ring</div>
-                <div className="text-[10px] text-[var(--lightgray)]">576x288 · WebView</div>
+                <div className="font-pixel text-[9px] text-[var(--g2-phosphor)]">GLASSES</div>
+                <div className="text-xs font-semibold text-[var(--bright)]">Voice and ring</div>
               </div>
 
               <div className="col-span-1 flex justify-center">
@@ -219,13 +214,13 @@ export function ArchitectureShowcase({ testCount = 220 }: { testCount?: number }
               </div>
 
               <div className="col-span-3 retro-glass-well p-3 space-y-1.5 border border-[var(--lime)]/35">
-                <div className="font-pixel text-[9px] text-[var(--lime)]">4 SAFETY GATES</div>
-                <div className="text-xs font-semibold text-[var(--bright)]">Zero-Regret Staging</div>
+                <div className="font-pixel text-[9px] text-[var(--lime)]">FOUR SAFETY STEPS</div>
+                <div className="text-xs font-semibold text-[var(--bright)]">Confirm before anything sends</div>
                 <div className="flex flex-wrap gap-1 text-[9px] font-pixel text-[var(--lightgray)]">
-                  <span className="px-1.5 py-0.5 bg-white/5 rounded">RMS &gt;=0.012</span>
-                  <span className="px-1.5 py-0.5 bg-white/5 rounded">DEFAULT-NO</span>
-                  <span className="px-1.5 py-0.5 bg-white/5 rounded">2s RING</span>
-                  <span className="px-1.5 py-0.5 bg-white/5 rounded">409 LOCK</span>
+                  <span className="px-1.5 py-0.5 bg-white/5 rounded">IGNORES NOISE</span>
+                  <span className="px-1.5 py-0.5 bg-white/5 rounded">ASKS FIRST</span>
+                  <span className="px-1.5 py-0.5 bg-white/5 rounded">UNDO RING</span>
+                  <span className="px-1.5 py-0.5 bg-white/5 rounded">DOUBLE-BOOKING LOCK</span>
                 </div>
               </div>
 
@@ -238,8 +233,8 @@ export function ArchitectureShowcase({ testCount = 220 }: { testCount?: number }
 
               <div className="col-span-2 retro-glass-well p-3 text-center space-y-1 border border-[var(--g2-phosphor)]/40">
                 <div className="font-pixel text-[9px] text-[var(--g2-phosphor)]">ONQ RELAY</div>
-                <div className="text-xs font-semibold text-[var(--bright)]">Orchestrator</div>
-                <div className="text-[10px] text-[var(--lightgray)]">Code-Guard + Intent</div>
+                <div className="text-xs font-semibold text-[var(--bright)]">Plans the action</div>
+                <div className="text-[10px] text-[var(--lightgray)]">Checks facts first</div>
               </div>
 
               <div className="col-span-1 flex justify-center">
@@ -252,70 +247,21 @@ export function ArchitectureShowcase({ testCount = 220 }: { testCount?: number }
 
               <div className="col-span-2 space-y-1.5 text-[10px]">
                 <div className="retro-glass-well px-2.5 py-1.5 flex items-center justify-between gap-2 whitespace-nowrap">
-                  <span className="text-[var(--bright)] font-medium">Workspace</span>
-                  <span className="text-[var(--g2-phosphor)] font-pixel">PKCE</span>
+                  <span className="text-[var(--bright)] font-medium">Google Workspace</span>
                 </div>
                 <div className="retro-glass-well px-2.5 py-1.5 flex items-center justify-between gap-2 whitespace-nowrap">
-                  <span className="text-[var(--bright)] font-medium">Telegram Bot</span>
-                  <span className="text-[#26A5E4] font-pixel">TRK01</span>
+                  <span className="text-[var(--bright)] font-medium">Telegram</span>
                 </div>
                 <div className="retro-glass-well px-2.5 py-1.5 flex items-center justify-between gap-2 whitespace-nowrap">
-                  <span className="text-[var(--bright)] font-medium">Notion · AI</span>
-                  <span className="text-[var(--lime)] font-pixel">4-TIER</span>
+                  <span className="text-[var(--bright)] font-medium">Notion</span>
                 </div>
               </div>
             </div>
 
-            {/* Downward Animated Flow Pipes */}
-            <div className="min-w-[780px] grid grid-cols-3 gap-4 px-12">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="flex justify-center">
-                  <svg viewBox="0 0 24 32" className="w-6 h-8" aria-hidden="true">
-                    <path d="M12 2 L12 28" stroke="#34F57E" strokeWidth="2" className="animate-svg-flow" />
-                    <polygon points="8,24 12,31 16,24" fill="#34F57E" />
-                  </svg>
-                </div>
-              ))}
-            </div>
-
-            {/* Tier 2: Core Harness & Unified Storage */}
-            <div className="min-w-[780px] border border-dashed border-[var(--g2-phosphor)]/40 rounded-[12px] p-4 space-y-3 bg-black/50">
-              <div className="flex items-center justify-between text-[10px] font-pixel">
-                <span className="text-[var(--bright)] uppercase tracking-[0.16em]">THE CORE RELAY &amp; VAULT</span>
-                <span className="text-[var(--lightgray)]">AES-256-GCM MODE 0600 · SINGLE-TENANT LOCAL/CLOUD</span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3 text-xs">
-                <div className="retro-glass-well p-3">
-                  <div className="font-pixel text-[9px] text-[var(--g2-phosphor)]">24/7 HARNESS</div>
-                  <div className="font-semibold text-[var(--bright)] mt-0.5">Proactive Watcher</div>
-                  <div className="text-[11px] text-[var(--lightgray)]">20s pulses · Default-NO briefs</div>
-                </div>
-                <div className="retro-glass-well p-3">
-                  <div className="font-pixel text-[9px] text-[var(--lime)]">RAM SCRIBE</div>
-                  <div className="font-semibold text-[var(--bright)] mt-0.5">Zero Audio Disk Buffer</div>
-                  <div className="text-[11px] text-[var(--lightgray)]">48 turns max · Auto-wiped</div>
-                </div>
-                <div className="retro-glass-well p-3">
-                  <div className="font-pixel text-[9px] text-[var(--verified)]">LEDGER</div>
-                  <div className="font-semibold text-[var(--bright)] mt-0.5">Idempotent Commits</div>
-                  <div className="text-[11px] text-[var(--lightgray)]">node:sqlite / Neon Postgres</div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-dashed border-white/10 text-[10px] font-pixel">
-                <span className="text-[var(--g2-phosphor)]">TIERED MEMORY:</span>
-                <span className="text-[var(--bright)]">HOT: RAM Scribe (&lt;12ms)</span>
-                <span className="text-[var(--lightgray)]">-&gt;</span>
-                <span className="text-[var(--bright)]">WARM: SQLite Ledger (1ms)</span>
-                <span className="text-[var(--lightgray)]">-&gt;</span>
-                <span className="text-[var(--bright)]">COLD: AES-256-GCM 0600 Vault</span>
-              </div>
-            </div>
           </div>
         </ScrollReveal>
 
-        {/* 3. Interactive 5-Tab Execution Graph Explorer (HydraDB Use-Case Graph Explorer style) */}
+        {/* 3. Interactive five-tab flow explorer */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
           <div className="lg:col-span-4 space-y-2" role="tablist" aria-label="OnQ execution workflows">
             {FLOW_TABS.map((tab) => {
@@ -394,12 +340,9 @@ export function ArchitectureShowcase({ testCount = 220 }: { testCount?: number }
             <div className="retro-glass-well p-4 space-y-3 text-xs">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <span className="font-pixel text-[9px] text-[var(--lightgray)] uppercase mr-2">VOICE ASK</span>
+                  <span className="font-pixel text-[9px] text-[var(--lightgray)] uppercase mr-2">YOU SAY</span>
                   <span className="text-[var(--bright)] font-medium">{activeFlow.ask}</span>
                 </div>
-                <span className="font-pixel text-[9px] text-[var(--g2-phosphor)]">
-                  EXECUTED IN ONE VERIFIED FLOW
-                </span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 border-t border-dashed border-white/10 pt-3">
                 {activeFlow.steps.map((s) => (
@@ -412,133 +355,153 @@ export function ArchitectureShowcase({ testCount = 220 }: { testCount?: number }
                 ))}
               </div>
               <div className="border-t border-dashed border-white/10 pt-2 text-[var(--g2-phosphor)] font-plex text-[11px]">
-                <span className="text-[var(--lightgray)] mr-2">OUTCOME:</span>
+                <span className="text-[var(--lightgray)] mr-2">RESULT:</span>
                 {activeFlow.answer}
               </div>
             </div>
           </div>
         </div>
 
-        {/* 4. 5-Column SOTA Strip + Comparison Curve Chart */}
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 sm:grid-cols-5 border border-white/10 rounded-[14px] overflow-hidden divide-y sm:divide-y-0 sm:divide-x divide-white/10 bg-black/70">
-            {[
-              { val: '100%', label: 'INTENT ACCURACY', sub: '32 / 32 commands' },
-              { val: '0%', label: 'INJECTION OBEYED', sub: '5 / 5 adversarial blocked' },
-              { val: '97.6%', label: 'WAVEGUIDE CONTRAST', sub: '11 / 11 geometry pass' },
-              { val: String(testCount), label: 'AUTOMATED TESTS', sub: 'Zero external secret leaks' },
-              { val: '~$0.001', label: 'BRIEF UNIT COST', sub: 'Rules + local Whisper $0' },
-            ].map((m) => (
-              <div key={m.label} className="p-5 space-y-1">
-                <div className="font-dots text-3xl font-black text-[var(--bright)]">
-                  {m.val.includes('%') ? m.val : m.val.startsWith('~') ? m.val : <KineticNumber value={testCount} />}
-                </div>
-                <div className="font-pixel text-[9px] text-[var(--lime)] tracking-[0.14em]">{m.label}</div>
-                <div className="text-[11px] text-[var(--lightgray)]">{m.sub}</div>
+        {/* 4. Proof strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 border border-white/10 rounded-[14px] overflow-hidden divide-y sm:divide-y-0 sm:divide-x divide-white/10 bg-black/70">
+          {[
+            { val: '100%', label: 'COMMANDS UNDERSTOOD', sub: '32 of 32' },
+            { val: '0%', label: 'INJECTIONS OBEYED', sub: '5 of 5 blocked' },
+            { val: '97.6%', label: 'DISPLAY CONTRAST', sub: '11 of 11 checks' },
+            { val: String(testCount), label: 'PASSING TESTS', sub: 'No secret leaks' },
+            { val: '~$0.001', label: 'COST PER BRIEF', sub: 'Local rules cost $0' },
+          ].map((m) => (
+            <div key={m.label} className="p-5 space-y-1">
+              <div className="font-dots text-3xl font-black text-[var(--bright)]">
+                {m.val.includes('%') ? m.val : m.val.startsWith('~') ? m.val : <KineticNumber value={testCount} />}
               </div>
-            ))}
-          </div>
-
-          <div className="retro-glass-panel p-6 space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                  HEADS UP TRACK 04 + TRACK 01 COMPARISON
-                </div>
-                <h3 className="font-display text-xl sm:text-2xl font-bold text-[var(--bright)] mt-0.5">
-                  {compareMode === 'readonly'
-                    ? 'Task completion reliability across real workspace actions'
-                    : 'Corridor task time: Phone app switching vs Even G2 glance'}
-                </h3>
-              </div>
-
-              <div className="inline-flex rounded-[10px] border border-white/15 bg-black/70 p-1 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setCompareMode('readonly')}
-                  className={`px-3 py-1.5 rounded-[7px] font-medium cursor-pointer transition-colors ${
-                    compareMode === 'readonly' ? 'bg-[var(--lime)] text-[#0a0a0a]' : 'text-[var(--lightgray)] hover:text-[var(--bright)]'
-                  }`}
-                >
-                  vs Read-Only G2 Apps
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCompareMode('phone')}
-                  className={`px-3 py-1.5 rounded-[7px] font-medium cursor-pointer transition-colors ${
-                    compareMode === 'phone' ? 'bg-[var(--lime)] text-[#0a0a0a]' : 'text-[var(--lightgray)] hover:text-[var(--bright)]'
-                  }`}
-                >
-                  vs Phone Workflow
-                </button>
-              </div>
+              <div className="font-pixel text-[9px] text-[var(--lime)] tracking-[0.14em]">{m.label}</div>
+              <div className="text-[11px] text-[var(--lightgray)]">{m.sub}</div>
             </div>
-
-            <div className="hydra-dot-canvas rounded-[12px] border border-white/10 p-4">
-              <svg viewBox="0 0 680 185" className="w-full h-auto" role="img" aria-label="OnQ reliability comparison chart">
-                <defs>
-                  <linearGradient id="onqCurveGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#34F57E" stopOpacity="0.32" />
-                    <stop offset="100%" stopColor="#34F57E" stopOpacity="0.01" />
-                  </linearGradient>
-                </defs>
-                {[35, 75, 115, 155].map((y) => (
-                  <line key={y} x1="44" y1={y} x2="650" y2={y} stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
-                ))}
-                <text x="8" y="39" fill="#8a8a8a" fontSize="9" fontFamily="monospace">100%</text>
-                <text x="14" y="99" fill="#8a8a8a" fontSize="9" fontFamily="monospace">50%</text>
-                <text x="18" y="159" fill="#8a8a8a" fontSize="9" fontFamily="monospace">0%</text>
-
-                <text x="52" y="175" fill="#8a8a8a" fontSize="9" fontFamily="monospace">READ BRIEF</text>
-                <text x="230" y="175" fill="#8a8a8a" fontSize="9" fontFamily="monospace">VOICE RESCHEDULE</text>
-                <text x="415" y="175" fill="#8a8a8a" fontSize="9" fontFamily="monospace">MULTI-APP WRITE</text>
-                <text x="575" y="175" fill="#8a8a8a" fontSize="9" fontFamily="monospace">409 CONFLICT</text>
-
-                {/* OnQ Area + Curve */}
-                <path
-                  d="M 52 38 C 190 36, 330 40, 470 42 C 550 43, 610 42, 635 42 L 635 155 L 52 155 Z"
-                  fill="url(#onqCurveGrad)"
-                />
-                <motion.path
-                  d="M 52 38 C 190 36, 330 40, 470 42 C 550 43, 610 42, 635 42"
-                  fill="none"
-                  stroke="#34F57E"
-                  strokeWidth="2.8"
-                  initial={{ pathLength: 0 }}
-                  whileInView={{ pathLength: 1 }}
-                  viewport={{ once: true, amount: 0.3 }}
-                  transition={{ duration: 0.85, ease: MOTION_EASE }}
-                />
-
-                {/* Comparison curve */}
-                <motion.path
-                  d={
-                    compareMode === 'readonly'
-                      ? 'M 52 55 C 180 78, 310 128, 470 144 C 550 150, 610 152, 635 152'
-                      : 'M 52 64 C 190 92, 340 105, 470 118 C 560 126, 610 132, 635 134'
-                  }
-                  fill="none"
-                  stroke={compareMode === 'readonly' ? '#ffb020' : '#f2f2f2'}
-                  strokeWidth="2.2"
-                  strokeDasharray={compareMode === 'readonly' ? undefined : '5 4'}
-                  initial={{ pathLength: 0 }}
-                  whileInView={{ pathLength: 1 }}
-                  viewport={{ once: true, amount: 0.3 }}
-                  transition={{ duration: 0.85, delay: 0.12, ease: MOTION_EASE }}
-                />
-
-                <rect x="64" y="16" width="9" height="9" fill="#34F57E" />
-                <text x="78" y="24" fill="#86FFAF" fontSize="9.5" fontFamily="monospace" fontWeight="700">
-                  OnQ Even G2 (Read + Write + 409 Lock · 97-100%)
-                </text>
-                <rect x="395" y="16" width="9" height="9" fill={compareMode === 'readonly' ? '#ffb020' : '#f2f2f2'} />
-                <text x="409" y="24" fill="#d4d4d4" fontSize="9.5" fontFamily="monospace">
-                  {compareMode === 'readonly' ? 'Read-Only Glasses Apps (No Writebacks)' : 'Phone Unlock + 4 Apps (~90s Context Switch)'}
-                </text>
-              </svg>
-            </div>
-          </div>
+          ))}
         </div>
+
+        <details className="border border-dashed border-[var(--hairline)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--lightgray)]">
+          <summary className="cursor-pointer font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--bright)]">
+            Engineering &amp; audit
+          </summary>
+
+          <div className="mt-4 space-y-6">
+            <ul className="space-y-1.5 leading-relaxed list-disc pl-4">
+              <li>Platform: Even Hub SDK 0.0.16 on a 576x288 WebView lens. No secrets ship in the .ehpk.</li>
+              <li>Safety gates: RMS level 0.012, default-NO, 2.0s ring, HTTP 409 lock.</li>
+              <li>Confirm step: single-use preview token with a 45-second TTL, plus the Code-Guard fact check.</li>
+              <li>Undo ring: 76x76 on the lens, with a 30-second undo receipt.</li>
+              <li>Move a meeting: Chrono and a deterministic parser resolve the time, then Free/Busy is queried by ETag.</li>
+              <li>Telegram: the chat_id is bound inside the 0600 vault and the reply goes out through Bot API sendMessage.</li>
+              <li>Meeting notes: 16 kHz PCM over WSS to AssemblyAI STT-3.7, a RAM ring buffer of 48 turns, a lens card of 42 columns and 999 bytes at most, TTS-1 to earbuds.</li>
+              <li>After-meeting tasks: Notion 2026-03-11 data_sources API, written in one transaction.</li>
+              <li>Double-booking lock: Free/Busy, Gmail historyId and Notion last_edited_time are re-checked at the 0.0s boundary, and a clash returns HTTP 409 with no writes.</li>
+              <li>Relay: AES-256-GCM vault at mode 0600, single-tenant local or cloud. The watcher pulses every 20s and briefs default to NO. The ledger is idempotent, on node:sqlite or Neon Postgres.</li>
+              <li>Memory tiers: hot RAM scribe (under 12ms), warm SQLite ledger (1ms), cold encrypted vault.</li>
+            </ul>
+
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="font-pixel text-[9px] uppercase tracking-[0.16em] text-[var(--lime)]">
+                    ILLUSTRATIVE COMPARISON, NOT A BENCHMARK
+                  </div>
+                  <h3 className="font-display text-base sm:text-lg font-bold text-[var(--bright)] mt-0.5">
+                    {compareMode === 'readonly'
+                      ? 'Task completion across real workspace actions'
+                      : 'Corridor task time: phone app switching vs Even G2 glance'}
+                  </h3>
+                </div>
+
+                <div className="inline-flex rounded-[10px] border border-white/15 bg-black/70 p-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setCompareMode('readonly')}
+                    className={`px-3 py-1.5 rounded-[7px] font-medium cursor-pointer transition-colors ${
+                      compareMode === 'readonly' ? 'bg-[var(--lime)] text-[#0a0a0a]' : 'text-[var(--lightgray)] hover:text-[var(--bright)]'
+                    }`}
+                  >
+                    vs Read-Only G2 Apps
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCompareMode('phone')}
+                    className={`px-3 py-1.5 rounded-[7px] font-medium cursor-pointer transition-colors ${
+                      compareMode === 'phone' ? 'bg-[var(--lime)] text-[#0a0a0a]' : 'text-[var(--lightgray)] hover:text-[var(--bright)]'
+                    }`}
+                  >
+                    vs Phone Workflow
+                  </button>
+                </div>
+              </div>
+
+              <div className="hydra-dot-canvas rounded-[12px] border border-white/10 p-4">
+                <svg viewBox="0 0 680 185" className="w-full h-auto" role="img" aria-label="OnQ reliability comparison chart">
+                  <defs>
+                    <linearGradient id="onqCurveGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#34F57E" stopOpacity="0.32" />
+                      <stop offset="100%" stopColor="#34F57E" stopOpacity="0.01" />
+                    </linearGradient>
+                  </defs>
+                  {[35, 75, 115, 155].map((y) => (
+                    <line key={y} x1="44" y1={y} x2="650" y2={y} stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
+                  ))}
+                  <text x="8" y="39" fill="#8a8a8a" fontSize="9" fontFamily="monospace">100%</text>
+                  <text x="14" y="99" fill="#8a8a8a" fontSize="9" fontFamily="monospace">50%</text>
+                  <text x="18" y="159" fill="#8a8a8a" fontSize="9" fontFamily="monospace">0%</text>
+
+                  <text x="52" y="175" fill="#8a8a8a" fontSize="9" fontFamily="monospace">READ BRIEF</text>
+                  <text x="230" y="175" fill="#8a8a8a" fontSize="9" fontFamily="monospace">RESCHEDULE</text>
+                  <text x="415" y="175" fill="#8a8a8a" fontSize="9" fontFamily="monospace">WRITE TO APPS</text>
+                  <text x="575" y="175" fill="#8a8a8a" fontSize="9" fontFamily="monospace">CONFLICT</text>
+
+                  {/* OnQ area and curve */}
+                  <path
+                    d="M 52 38 C 190 36, 330 40, 470 42 C 550 43, 610 42, 635 42 L 635 155 L 52 155 Z"
+                    fill="url(#onqCurveGrad)"
+                  />
+                  <motion.path
+                    d="M 52 38 C 190 36, 330 40, 470 42 C 550 43, 610 42, 635 42"
+                    fill="none"
+                    stroke="#34F57E"
+                    strokeWidth="2.8"
+                    initial={{ pathLength: 0 }}
+                    whileInView={{ pathLength: 1 }}
+                    viewport={{ once: true, amount: 0.3 }}
+                    transition={{ duration: 0.85, ease: MOTION_EASE }}
+                  />
+
+                  {/* Comparison curve */}
+                  <motion.path
+                    d={
+                      compareMode === 'readonly'
+                        ? 'M 52 55 C 180 78, 310 128, 470 144 C 550 150, 610 152, 635 152'
+                        : 'M 52 64 C 190 92, 340 105, 470 118 C 560 126, 610 132, 635 134'
+                    }
+                    fill="none"
+                    stroke={compareMode === 'readonly' ? '#ffb020' : '#f2f2f2'}
+                    strokeWidth="2.2"
+                    strokeDasharray={compareMode === 'readonly' ? undefined : '5 4'}
+                    initial={{ pathLength: 0 }}
+                    whileInView={{ pathLength: 1 }}
+                    viewport={{ once: true, amount: 0.3 }}
+                    transition={{ duration: 0.85, delay: 0.12, ease: MOTION_EASE }}
+                  />
+
+                  <rect x="64" y="16" width="9" height="9" fill="#34F57E" />
+                  <text x="78" y="24" fill="#86FFAF" fontSize="9.5" fontFamily="monospace" fontWeight="700">
+                    OnQ on Even G2 (reads, writes, lock)
+                  </text>
+                  <rect x="395" y="16" width="9" height="9" fill={compareMode === 'readonly' ? '#ffb020' : '#f2f2f2'} />
+                  <text x="409" y="24" fill="#d4d4d4" fontSize="9.5" fontFamily="monospace">
+                    {compareMode === 'readonly' ? 'Read-only glasses apps' : 'Phone, 4 apps (~90s switch)'}
+                  </text>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </details>
       </div>
     </section>
   );

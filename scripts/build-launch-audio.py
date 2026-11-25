@@ -65,13 +65,16 @@ CHAPTERS = [
     },
     {
         "id": "05_proof_close",
-        "title": "Connectors Hub, Multi-Model Harness & Clean-Room Proof",
-        "caption": "213 tests · 32/32 intent eval · 5/5 injection block · 11/11 geometry · 10/10 security",
+        "title": "One Personal OS, Kill Switch & Verified Proof",
+        "caption": "251 tests · 32/32 intent eval · 5/5 injection block · 11/11 geometry · 10/10 security",
         "text": (
-            "Connect Google OAuth, Notion, Claude, OpenRouter, or ChatGPT in one click inside an AES-256-GCM encrypted vault, "
-            "backed by automatic multi-model failover. "
-            "Verified across two hundred thirteen automated tests, thirty-two evaluation intents with five out of five injection blocks, "
-            "eleven optical geometry gates, and a clean ten-domain security audit."
+            "One personal OS sits behind the glasses, the web app, and Telegram. "
+            "A morning crew of specialist agents runs under a global kill switch, "
+            "and anything that sends waits for your approval. "
+            "Accounts connect in one click and keys stay in an encrypted vault on your own machine. "
+            "Verified in the simulator, not yet on physical glasses: "
+            "two hundred fifty-one automated tests, thirty-two evaluation intents with five out of five injection blocks, "
+            "eleven display geometry gates, and a clean ten-domain security audit."
         ),
         "pad_after": 2.4,
     },

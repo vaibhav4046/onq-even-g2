@@ -1,6 +1,8 @@
-import { TelegramWorkspaceClient } from '../providers/telegramProvider.js';
+import { TelegramConflictError, TelegramWorkspaceClient } from '../providers/telegramProvider.js';
 import type { TelegramUpdateEnvelope } from '../providers/telegramProvider.js';
 import type { OsApprovalItem, UnifiedOsHarness } from './unifiedOsHarness.js';
+
+const CONFLICT_BACKOFF_MS = 5 * 60_000;
 
 export interface TelegramCommandCentreDeps {
   osHarness: UnifiedOsHarness;
@@ -21,6 +23,8 @@ export class TelegramCommandCentre {
   private active = false;
   private lastError: string | null = null;
   private processedCount = 0;
+  /** After a 409 (webhook conflict) we stop hammering Telegram until this timestamp. */
+  private conflictBackoffUntilMs = 0;
 
   constructor(private readonly deps: TelegramCommandCentreDeps) {}
 
@@ -132,6 +136,7 @@ export class TelegramCommandCentre {
 
   async pollOnce(): Promise<number> {
     if (this.pollingInFlight) return 0;
+    if (Date.now() < this.conflictBackoffUntilMs) return 0;
     const client = this.getClient();
     if (!client) return 0;
     this.pollingInFlight = true;
@@ -142,12 +147,16 @@ export class TelegramCommandCentre {
         await this.processUpdate(upd);
       }
       this.lastError = null;
+      this.conflictBackoffUntilMs = 0;
       if (updates.length > 0) {
         this.deps.onLog?.(`Processed ${updates.length} live Telegram update(s)`);
       }
       return updates.length;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Telegram poll failed';
+      if (err instanceof TelegramConflictError) {
+        this.conflictBackoffUntilMs = Date.now() + CONFLICT_BACKOFF_MS;
+      }
       this.lastError = msg;
       this.deps.onError?.(msg);
       return 0;

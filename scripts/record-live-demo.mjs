@@ -216,7 +216,8 @@ async function captureRealSimulatorSequence() {
 
 async function scrollToLens(page) {
   await page.waitForTimeout(400);
-  await page.locator('[data-testid="g2-lens"]').last().waitFor({ state: 'visible', timeout: 10000 });
+  // First workspace sync can take 25s+ on a loaded machine (antivirus scans, software WebGL), so wait generously.
+  await page.locator('[data-testid="g2-lens"]').last().waitFor({ state: 'visible', timeout: 60000 });
   await page.evaluate(() => {
     const els = document.querySelectorAll('[data-testid="g2-lens"]');
     const el = els[els.length - 1];
@@ -224,7 +225,11 @@ async function scrollToLens(page) {
   });
 }
 
+// ONQ_REC_GALLERY_ONLY=1 re-captures just the Product Hunt gallery and keeps the existing clips.
+const GALLERY_ONLY = process.env.ONQ_REC_GALLERY_ONLY === '1';
+
 async function recordClip(browser, url, outName, runnerFn) {
+  if (GALLERY_ONLY) return;
   const context = await browser.newContext({
     viewport: { width: 1920, height: 1080 },
     deviceScaleFactor: 1,
@@ -242,7 +247,7 @@ async function recordClip(browser, url, outName, runnerFn) {
         return Boolean(el && !el.textContent?.includes('SYNCING WORKSPACE'));
       },
       null,
-      { timeout: 8000 },
+      { timeout: 45000 },
     );
   } catch {
     // non-fatal fallback if sandbox takes longer
@@ -264,11 +269,12 @@ async function main() {
 
   try {
     // Clean stale webm clips
-    for (const f of fs.readdirSync(RAW_DIR)) {
-      if (f.endsWith('.webm')) fs.unlinkSync(path.join(RAW_DIR, f));
+    if (!GALLERY_ONLY) {
+      for (const f of fs.readdirSync(RAW_DIR)) {
+        if (f.endsWith('.webm')) fs.unlinkSync(path.join(RAW_DIR, f));
+      }
+      await captureRealSimulatorSequence();
     }
-
-    await captureRealSimulatorSequence();
 
     // Reset relay sandbox before web video captures
     await relay.close();
@@ -327,7 +333,7 @@ async function main() {
         await scrollToLens(page);
         await page.waitForTimeout(1800);
 
-        await page.getByRole('button', { name: 'Meeting Notes', exact: true }).first().click();
+        await page.getByRole('tab', { name: 'Meeting Scribe', exact: true }).first().click();
         await page.waitForTimeout(600);
         await page.getByRole('button', { name: /Wrap Up/ }).first().click();
         await scrollToLens(page);
@@ -344,6 +350,17 @@ async function main() {
 
       // Clip 4: Architecture Showcase, Research Graphs, Harness Eval & 1-Click Connectors Hub
       await recordClip(browser, webSrv.url, 'clip4_failures_and_proof.webm', async (page) => {
+        // Personal OS: run the morning crew, then show the kill switch pausing and resuming everything.
+        await scrollToLens(page);
+        await page.getByRole('tab', { name: 'Personal OS', exact: true }).first().click();
+        await page.waitForTimeout(1800);
+        await page.getByRole('button', { name: 'Run Morning crew', exact: true }).click();
+        await page.waitForTimeout(2600);
+        await page.getByRole('button', { name: /Kill switch: pause all/ }).click();
+        await page.waitForTimeout(1600);
+        await page.getByRole('button', { name: 'Resume', exact: true }).click();
+        await page.waitForTimeout(1400);
+
         await page.locator('#architecture').scrollIntoViewIfNeeded();
         await page.waitForTimeout(2400);
         await page.locator('#research').scrollIntoViewIfNeeded();
@@ -358,8 +375,8 @@ async function main() {
       const phCtx = await browser.newContext({ viewport: { width: 1270, height: 760 }, deviceScaleFactor: 1 });
       const phPage = await phCtx.newPage();
       await phPage.goto(webSrv.url, { waitUntil: 'load' });
-      await phPage.locator('#experience').waitFor({ state: 'visible', timeout: 15000 });
-      await phPage.locator('[data-testid="g2-lens"]').last().getByText(/VC Sync/i).first().waitFor({ state: 'visible', timeout: 15000 });
+      await phPage.locator('#experience').waitFor({ state: 'visible', timeout: 60000 });
+      await phPage.locator('[data-testid="g2-lens"]').last().getByText(/VC Sync/i).first().waitFor({ state: 'visible', timeout: 60000 });
       await phPage.waitForTimeout(900);
       await phPage.screenshot({ path: path.join(PH_DIR, 'gallery-01-hero.png') });
 

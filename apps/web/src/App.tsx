@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   createInitialHudState,
@@ -32,7 +32,9 @@ import {
   TelegramPixelSvg,
 } from './components/EcosystemIcons';
 import { ConnectorsHub } from './components/ConnectorsHub';
-import { G2Hardware3D } from './components/G2Hardware3D';
+import { VERIFIED_TEST_COUNT } from './verifiedCounts';
+// Three.js + R3F load in their own chunk so the first paint never waits on WebGL code.
+const G2Hardware3D = lazy(() => import('./components/G2Hardware3D').then((m) => ({ default: m.G2Hardware3D })));
 import { G2LensCanvas } from './components/G2LensCanvas';
 import { startBrowserMicCapture } from './components/MicRecorder';
 import type { MicRecordingHandle } from './components/MicRecorder';
@@ -54,10 +56,8 @@ import { StickySafetyStory } from './components/StickySafetyStory';
 import {
   ConflictShieldVisual,
   CorridorBriefVisual,
-  EarbudsRecallVisual,
   InRoomScribeVisual,
   ShiftScheduleVisual,
-  WrapUpFanoutVisual,
 } from './components/WorkflowVisuals';
 
 interface ProactiveInsight {
@@ -292,7 +292,7 @@ function makeSynthesizedWav(silent: boolean): Blob {
   return new Blob([new Uint8Array(encodePcm16ToWav(pcm, 16000))], { type: 'audio/wav' });
 }
 
-const HERO_WORDS = ['reply.', 'schedule.', 'build.', 'remember.', 'ship.'] as const;
+const HERO_WORDS = ['reply.', 'schedule.', 'plan.', 'remember.', 'confirm.'] as const;
 
 export function App() {
   const reducedMotion = useReducedMotion();
@@ -889,42 +889,6 @@ export function App() {
     }
   };
 
-  const runAutonomousWorkflowTask = async (
-    kind: AgentTaskDto['kind'],
-    prompt: string,
-  ) => {
-    const tok = tokenRef.current;
-    if (!tok) return;
-    setThinkingNow(true);
-    setBackchannelText('On it...');
-    const t0 = performance.now();
-    try {
-      const stRes = await fetch('/api/agent/tasks/stage', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind, title: prompt.slice(0, 48), prompt, targetTool: 'auto' }),
-      });
-      const sj = (await stRes.json()) as { task?: AgentTaskDto };
-      if (!sj.task) return;
-      const cmRes = await fetch('/api/agent/tasks/commit', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId: sj.task.id, previewToken: sj.task.previewToken }),
-      });
-      const cj = (await cmRes.json()) as { task?: AgentTaskDto };
-      setVoiceLatencyMs(Math.round(performance.now() - t0));
-      setBackchannelText(null);
-      if (cj.task) {
-        ctrlRef.current?.showAnswer(cj.task.lensLines);
-        setVoiceFeedback(`${cj.task.toolUsed}: ${cj.task.outputLines[0] ?? 'Done'}`);
-        setExternalTaskSeq((s) => s + 1);
-        await refreshWorkspaceInspector(tok);
-      }
-    } finally {
-      setThinkingNow(false);
-    }
-  };
-
   const stageTelegramBrief = async () => {
     const tok = tokenRef.current;
     if (!tok) return;
@@ -983,6 +947,26 @@ export function App() {
     ctrlRef.current?.setMeetingSession(null);
     await refreshCorridor(tok);
     setVoiceFeedback('In-RAM meeting transcript wiped clean (0 audio persisted).');
+  };
+
+  // Tour step 3: the morning crew runs on the one OS harness; the result also streams to the glasses via SSE.
+  const runMorningCrewTour = async () => {
+    const tok = tokenRef.current;
+    if (!tok) return;
+    const res = await fetch('/api/os/pipeline/run', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preset: 'morning_os' }),
+    });
+    if (!res.ok) {
+      setVoiceFeedback(`Morning crew could not run (HTTP ${res.status})`);
+      return;
+    }
+    const j = (await res.json()) as { run?: { status: string; auditorVerdict: string; g2Lines: string[] } };
+    if (j.run) {
+      ctrlRef.current?.showAnswer(j.run.g2Lines);
+      setVoiceFeedback(`Morning crew ${j.run.status.toLowerCase().replace(/_/g, ' ')}: ${j.run.auditorVerdict}`);
+    }
   };
 
   const stageCommand = async (cmd: string) => {
@@ -1489,7 +1473,7 @@ export function App() {
                   </span>
                 </h1>
                 <p className="text-sm md:text-base leading-relaxed text-[var(--lightgray)]">
-                  Talk hands-free. OnQ reads your inbox and Telegram, runs tasks on your PC, and asks before it sends.
+                  Read, decide and reply from your glasses. OnQ always asks before anything sends.
                 </p>
 
                 <EcosystemStrip />
@@ -1510,6 +1494,28 @@ export function App() {
                     POV
                   </button>
                 </div>
+
+                <nav aria-label="60-second tour" className="space-y-1.5 pt-2">
+                  <p className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lightgray)]">60-SECOND TOUR</p>
+                  <ol className="flex flex-wrap gap-2 text-xs">
+                    {[
+                      { n: 1, label: 'Confirm and undo', run: () => void runVoicePreset('Push 15m and tell Priya') },
+                      { n: 2, label: 'Double-booking lock', run: () => void stageCommand('Move VC sync to 14:45') },
+                      { n: 3, label: 'Morning crew', run: () => void runMorningCrewTour() },
+                    ].map((step) => (
+                      <li key={step.n}>
+                        <button
+                          type="button"
+                          onClick={step.run}
+                          className="retro-btn-glass inline-flex items-center gap-2 px-3 py-1.5 text-[var(--bright)] hover:text-[var(--lime)] cursor-pointer"
+                        >
+                          <span className="font-pixel text-[var(--lime)]">{step.n}</span>
+                          {step.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                </nav>
               </motion.div>
 
               <motion.div
@@ -1518,6 +1524,16 @@ export function App() {
                 transition={{ duration: 0.55, delay: 0.08, ease: MOTION_EASE }}
                 className="lg:col-span-7"
               >
+                <Suspense
+                  fallback={
+                    <div
+                      role="status"
+                      className="retro-glass-panel flex min-h-[26rem] items-center justify-center text-xs text-[var(--lightgray)]"
+                    >
+                      Loading 3D glasses...
+                    </div>
+                  }
+                >
                 <G2Hardware3D
                   hudState={hudState}
                   orbState={orbState}
@@ -1537,6 +1553,7 @@ export function App() {
                   }}
                   onCancelAction={() => void ctrlRef.current?.handleEvent({ kind: 'CLICK' })}
                 />
+                </Suspense>
               </motion.div>
             </div>
 
@@ -2261,12 +2278,12 @@ export function App() {
               </h2>
             </ScrollReveal>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               {[
                 {
                   tag: 'GLASSES',
                   title: 'One-glance meeting brief',
-                  desc: 'See your next meeting, latest email question, and shared doc cleanly in 42 columns.',
+                  desc: 'Your next meeting, the email that needs you, and the shared doc. All on one lens.',
                   visual: <CorridorBriefVisual />,
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
@@ -2287,7 +2304,7 @@ export function App() {
                 {
                   tag: 'VOICE',
                   title: 'Move meeting & reply',
-                  desc: 'Say "Push 15m and tell Priya." Checks open calendar slots and waits for your ring tap.',
+                  desc: 'Say "Push 15m and tell Priya." It checks free slots, then waits for your tap.',
                   visual: <ShiftScheduleVisual />,
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
@@ -2305,7 +2322,7 @@ export function App() {
                 {
                   tag: 'TELEGRAM',
                   title: 'Instant Telegram copilot',
-                  desc: 'Reads pinned chats and pushes daily briefings or voice replies right through your bot.',
+                  desc: 'Reads your pinned chats, sends briefings, and replies through your own bot.',
                   visual: <ConflictShieldVisual />,
                   icons: (
                     <ApplePixelTile size="sm" tint="#26A5E4">
@@ -2316,26 +2333,9 @@ export function App() {
                   action: () => void stageTelegramBrief(),
                 },
                 {
-                  tag: 'SCOUT',
-                  title: '24/7 AI YouTube scout',
-                  desc: 'Pulls top AI engineering videos into your glasses lens and saves them to Unified Memory.',
-                  visual: <EarbudsRecallVisual />,
-                  icons: (
-                    <ApplePixelTile size="sm" tint="#34F57E">
-                      <AssemblyAiPixelSvg className="w-3.5 h-3.5" />
-                    </ApplePixelTile>
-                  ),
-                  cta: 'Find AI Videos Live',
-                  action: () =>
-                    void runAutonomousWorkflowTask(
-                      'YOUTUBE_SCOUT',
-                      'Find top AI engineering videos to watch on YouTube',
-                    ),
-                },
-                {
                   tag: 'NOTES',
-                  title: 'Private in-room scribe',
-                  desc: 'Separates speakers in volatile RAM with zero audio saved to disk, ready for Q&A and wrap-up.',
+                  title: 'Private meeting scribe',
+                  desc: 'Tells speakers apart and keeps nothing on disk. Ask it questions, then wrap up.',
                   visual: <InRoomScribeVisual />,
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
@@ -2349,23 +2349,6 @@ export function App() {
                   ),
                   cta: 'Start Live Meeting Scribe',
                   action: () => void runLiveMeetingDemo(),
-                },
-                {
-                  tag: 'PC AGENT',
-                  title: 'Build 24/7 automation bots',
-                  desc: 'Tell your glasses what script to build. OnQ writes runnable Python automation and saves it locally.',
-                  visual: <WrapUpFanoutVisual />,
-                  icons: (
-                    <ApplePixelTile size="sm" tint="#86FFAF">
-                      <ShieldPixelSvg className="w-3.5 h-3.5" />
-                    </ApplePixelTile>
-                  ),
-                  cta: 'Build 24/7 Bot Live',
-                  action: () =>
-                    void runAutonomousWorkflowTask(
-                      'WRITE_CODE_BOT',
-                      'Write a 24/7 Python bot to scout top AI YouTube videos',
-                    ),
                 },
               ].map((uc) => (
                 <SpotlightBentoCard key={uc.title} className="retro-glass-card p-6 flex flex-col justify-between">
@@ -2397,10 +2380,10 @@ export function App() {
         </section>
 
         {/* Interactive System Architecture & Telemetry (#architecture) */}
-        <ArchitectureShowcase testCount={246} />
+        <ArchitectureShowcase testCount={VERIFIED_TEST_COUNT} />
 
         {/* Visual Survey Graphs, Curves & Field Benchmark (#research) */}
-        <ResearchGraphsSection testCount={246} />
+        <ResearchGraphsSection testCount={VERIFIED_TEST_COUNT} />
 
         {/* Sticky Scroll Safety Story (#safety) */}
         <StickySafetyStory />
@@ -2445,34 +2428,29 @@ export function App() {
                 <GlyphDecodeHeading text="Everything visible." className="block text-[var(--bright)]" />
               </h2>
               <ul className="space-y-2 text-sm text-[var(--lightgray)] pt-2">
-                <li>-&gt; Even G2 has no camera or speaker — companion audio routes cleanly to your earbuds.</li>
-                <li>-&gt; Tested live in Even Hub Simulator 0.9.5 and Chromium glasses layout checks.</li>
-                <li>-&gt; Unified Personal Agent orchestrates Calendar, Mail, Notion, Telegram, Markets, and PC tools.</li>
+                <li>The G2 has no camera or speaker, so audio goes to your earbuds.</li>
+                <li>Checked in the Even Hub Simulator 0.9.5. Not yet tried on physical glasses.</li>
               </ul>
             </ScrollReveal>
 
             <ScrollReveal delay={0.06} className="lg:col-span-7 retro-glass-panel px-6 divide-y divide-dashed divide-white/10">
               {[
                 {
-                  q: 'How do my accounts stay private without keys leaking to the browser or glasses?',
-                  a: 'All tokens live only on your local relay server inside an AES-256-GCM encrypted vault file. Nothing sensitive is packed into the glasses app build or exposed in browser JSON responses.',
+                  q: 'Where do my account keys live?',
+                  a: 'On your own computer, in an encrypted vault. They never go to the browser or the glasses.',
                 },
                 {
-                  q: 'How does OnQ block malicious emails or prompt injections?',
-                  a: 'Incoming email and message text stays fenced inside untrusted data tags. Email recipients lock strictly on the server, and our fact-checking guard verifies names and times before showing a preview.',
+                  q: 'What stops a bad email from steering OnQ?',
+                  a: 'Email text is treated as data, never as instructions. A fact check runs before any preview, and recipients are fixed on the server.',
                 },
                 {
-                  q: 'What happens if my pocket triggers the mic, the slot gets booked, or Wi-Fi drops?',
-                  a: 'Quiet ambient noise drops locally before speech transcription runs. Every action defaults to NO until you confirm a 2-second ring countdown, double-bookings are blocked right before save, and offline mode keeps your cached brief visible.',
+                  q: 'What if the mic fires by accident or the slot is taken?',
+                  a: 'Silence is dropped before transcription. Nothing sends until you confirm and the 2-second undo ring runs. Double-bookings are blocked right before saving.',
                 },
               ].map((item) => (
                 <details key={item.q} open className="group py-5">
                   <summary className="flex items-center justify-between gap-4 cursor-pointer list-none font-display text-lg font-medium text-[var(--bright)]">
                     <span>{item.q}</span>
-                    <span className="font-plex text-xl text-[var(--lime)] shrink-0" aria-hidden="true">
-                      <span className="group-open:hidden">+</span>
-                      <span className="hidden group-open:inline">-</span>
-                    </span>
                   </summary>
                   <p className="mt-3 text-sm leading-relaxed text-[var(--lightgray)]">{item.a}</p>
                 </details>

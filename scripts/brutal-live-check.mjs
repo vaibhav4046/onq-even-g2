@@ -102,7 +102,7 @@ async function main() {
     // Live Meeting Scribe -> Meeting Notes tab -> Wrap Up
     await page.getByRole('button', { name: /Start Live Meeting Scribe/ }).click();
     await page.waitForTimeout(400);
-    await page.getByRole('button', { name: 'Meeting Notes', exact: true }).first().click();
+    await page.getByRole('tab', { name: 'Meeting Scribe', exact: true }).first().click();
     await page.waitForTimeout(400);
     await page.getByRole('button', { name: /Wrap Up/ }).first().click();
     await page.getByRole('button', { name: 'Confirm & Arm 2.0s Ring' }).waitFor({ state: 'visible', timeout: 10000 });

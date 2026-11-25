@@ -1084,7 +1084,8 @@ export class UnifiedOsHarness {
 
     const g2Lines = [
       clipLine42(`L4 CREW | ${preset.toUpperCase()}`),
-      ...steps.slice(0, 2).map((s) => clipLine42(`${s.specialistName.slice(0, 10)}: ${s.evidenceSummary}`)),
+      // First word only ("Chief", "Developer"), so the label is never cut mid-word.
+      ...steps.slice(0, 2).map((s) => clipLine42(`${(s.specialistName.split(' ')[0] ?? '').slice(0, 10)}: ${s.evidenceSummary}`)),
       clipLine42('AUDITOR: VERIFIED SAFE'),
     ];
 
@@ -1332,9 +1333,11 @@ export class UnifiedOsHarness {
       const durationMin = cmd === '/focus' && minMatch ? Number(minMatch[1]) : minMatch && !cmd ? Number(minMatch[1]) : 45;
       const mood: MusicMood = parseMusicMood(arg || raw);
       const customQuery = arg.replace(/\b\d{1,3}\s*(?:m|min|mins|minutes)?\b/gi, '').trim();
+      // A bare mood word ("coding", "deep_focus") must use the tuned MOOD_QUERY_MAP, not become the literal search term.
+      const residual = customQuery.replace(/\b(deep_focus|deep focus|wind_down|wind down|focus|coding|code|gym|workout|commute|sleep|relax|calm)\b/gi, '').trim();
       const session = await this.deps.musicCurator.curateSession({
         mood,
-        query: customQuery || undefined,
+        query: residual ? customQuery : undefined,
         durationMin,
         fetchImpl: this.deps.fetchImpl,
       });

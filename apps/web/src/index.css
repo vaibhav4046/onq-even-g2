@@ -15,10 +15,30 @@
   --warning: #ffb020;
   --danger: #ff5a4f;
 
-  --font-dots: "Doto", "Silkscreen", monospace;
+  --font-dots: "Dots Stop", "Doto", "Silkscreen", monospace;
   --font-display: "Inter Tight", system-ui, sans-serif;
   --font-plex: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-pixel: "Silkscreen", ui-monospace, monospace;
+}
+
+/*
+ * Doto's "." glyph is a plus-shaped dot cluster, so sentence ends and decimals read as "+".
+ * Route ONLY the period (U+002E) to a bold system sans; every other glyph stays Doto.
+ */
+@font-face {
+  font-family: "Dots Stop";
+  font-weight: 100 900;
+  unicode-range: U+002E;
+  src:
+    local("Arial Bold"),
+    local("Arial-BoldMT"),
+    local("Segoe UI Bold"),
+    local("SegoeUI-Bold"),
+    local("Helvetica Bold"),
+    local("Helvetica-Bold"),
+    local("Roboto Bold"),
+    local("Liberation Sans Bold"),
+    local("DejaVu Sans Bold");
 }
 
 html {

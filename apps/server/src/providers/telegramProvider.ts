@@ -29,6 +29,14 @@ export interface TelegramUpdateEnvelope {
   callbackQuery?: TelegramCallbackQuery;
 }
 
+/** getUpdates answered HTTP 409: an active webhook (or a second poller) owns this bot token. */
+export class TelegramConflictError extends Error {
+  constructor() {
+    super('Webhook active on Telegram bot. Clear the webhook (deleteWebhook) or use the webhook endpoint instead of polling. HTTP 409');
+    this.name = 'TelegramConflictError';
+  }
+}
+
 export interface TelegramProbeResult {
   ok: boolean;
   botUsername?: string;
@@ -117,6 +125,10 @@ export class TelegramWorkspaceClient {
     const res = await this.fetchImpl(
       `${this.endpoint('getUpdates')}?limit=${clamped}${offsetParam}&allowed_updates=${allowed}`,
     );
+    if (res.status === 409) {
+      // Telegram returns 409 when a webhook is set on the bot or another getUpdates consumer is running.
+      throw new TelegramConflictError();
+    }
     if (!res.ok) {
       throw new Error(`Telegram getUpdates failed: HTTP ${res.status}`);
     }

@@ -950,7 +950,10 @@ export function formatLiveUiForG2(surface: LiveUiSurface): { header: string; lin
       lines.push(clipLine42(`${cur} ${chk}${label}${right}`));
     }
   } else if (driver?.text) {
-    lines.push(...wrapLine42(driver.text, G2_MAX_COLS).slice(0, 3));
+    // Keep explicit line breaks (one clipped row per line); only reflow single-line prose.
+    const rows = driver.text.split('\n');
+    const body = rows.length > 1 ? rows.map((r) => clipLine42(r, G2_MAX_COLS)) : wrapLine42(driver.text, G2_MAX_COLS);
+    lines.push(...body.slice(0, 3));
   }
 
   const follower = surface.components[1];

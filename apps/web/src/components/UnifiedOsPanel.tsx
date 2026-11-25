@@ -94,6 +94,17 @@ export interface UnifiedOsStateDto {
   telegramPoller?: { active: boolean; processedCount: number; lastError: string | null };
 }
 
+// Crews on Track 04 apps (Calendar, Gmail, Notion) first; crews that use local tools or public feeds stay optional.
+const CORE_CREWS = [
+  ['morning_os', 'Morning crew'],
+  ['career_pack', 'Career pack'],
+] as const;
+const OPTIONAL_CREWS = [
+  ['software_delivery', 'Software delivery'],
+  ['market_research', 'Market research'],
+  ['music_focus_flow', 'Focus + music'],
+] as const;
+
 interface UnifiedOsPanelProps {
   sessionToken: string | null;
   onStatusMsg: (msg: string) => void;
@@ -329,7 +340,7 @@ export function UnifiedOsPanel({
   if (!osState) {
     return (
       <div className="border border-white/10 bg-black/50 p-4 text-xs text-[var(--lightgray)]">
-        Initializing Unified Personal OS Supervisor...
+        Loading Personal OS...
       </div>
     );
   }
@@ -344,23 +355,23 @@ export function UnifiedOsPanel({
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-pixel text-[10px] uppercase tracking-[0.14em] text-[var(--g2-phosphor)]">
-              UNIFIED PERSONAL OS · SINGLE SUPERVISOR HARNESS
+              PERSONAL OS
             </span>
             <span
               className={`px-2 py-0.5 font-pixel text-[9px] rounded ${
                 paused ? 'bg-[var(--danger)]/20 text-[var(--danger)] border border-[var(--danger)]/50' : 'bg-[#34F57E]/15 text-[#86FFAF] border border-[#34F57E]/40'
               }`}
             >
-              {paused ? 'KILL SWITCH PAUSED' : 'OS ACTIVE (L0-L5)'}
+              {paused ? 'PAUSED' : 'ACTIVE'}
             </span>
             {osState.telegramPoller?.active && (
               <span className="px-2 py-0.5 font-pixel text-[9px] rounded bg-[#34F57E]/10 text-[#86FFAF] border border-[#34F57E]/30">
-                TG LIVE POLLING
+                TELEGRAM LIVE
               </span>
             )}
           </div>
           <p className="text-[11px] text-[var(--lightgray)]">
-            Shared brain across Web Companion, Even G2 Glasses (Card 4), and live Telegram Bot — free AI cascade + single-use L2 approval inbox.
+            One brain for this app, your glasses and Telegram. Anything that sends waits for your approval.
           </p>
         </div>
 
@@ -375,7 +386,7 @@ export function UnifiedOsPanel({
                 : 'bg-[var(--danger)]/15 text-[var(--danger)] border-[var(--danger)]/60 hover:bg-[var(--danger)] hover:text-[#041209]'
             }`}
           >
-            {paused ? 'Resume All OS Loops' : 'Global Kill Switch (Pause All)'}
+            {paused ? 'Resume' : 'Kill switch: pause all'}
           </button>
           <button
             type="button"
@@ -392,7 +403,7 @@ export function UnifiedOsPanel({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         <div className="lg:col-span-6 border border-white/10 bg-black/50 p-3 space-y-2">
           <div className="font-pixel text-[9px] uppercase tracking-wider text-[var(--g2-phosphor)]">
-            AUTONOMY SCALE (L0 - L5 HARD GATES)
+            WHAT ONQ MAY DO ALONE
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             {osState.autonomyScale.map((lvl) => (
@@ -406,7 +417,7 @@ export function UnifiedOsPanel({
 
         <div className="lg:col-span-6 border border-white/10 bg-black/50 p-3 space-y-2">
           <div className="font-pixel text-[9px] uppercase tracking-wider text-[#86FFAF]">
-            REAL INTEGRATION STATUS (HONEST LIVE VS CONNECT TO ENABLE)
+            CONNECTIONS
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             {osState.integrations.map((intg) => (
@@ -437,14 +448,14 @@ export function UnifiedOsPanel({
         <div className="lg:col-span-6 border border-[#34F57E]/30 bg-black/55 p-3 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="font-pixel text-[9px] uppercase tracking-wider text-[var(--g2-phosphor)]">
-              UNIFIED L2 APPROVAL INBOX ({pendingApprovals.length} PENDING)
+              APPROVALS ({pendingApprovals.length} WAITING)
             </span>
             <span className="text-[10px] text-[var(--lightgray)]">Web · G2 · Telegram synced</span>
           </div>
 
           {osState.approvals.length === 0 ? (
             <div className="border border-dashed border-white/15 p-3 text-[11px] text-[var(--lightgray)]">
-              Zero queued L2 approvals. Try <code className="text-[#86FFAF]">/task Send brief</code> or run Inbox Triage.
+              Nothing waiting. Try <code className="text-[#86FFAF]">/task Send brief</code>.
             </div>
           ) : (
             <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
@@ -489,7 +500,7 @@ export function UnifiedOsPanel({
 
         <div className="lg:col-span-6 border border-white/10 bg-black/55 p-3 space-y-2.5">
           <div className="font-pixel text-[9px] uppercase tracking-wider text-[var(--g2-phosphor)]">
-            TELEGRAM &amp; OS SLASH COMMAND CONSOLE
+            COMMANDS (SAME ON TELEGRAM)
           </div>
           <form
             onSubmit={(e) => {
@@ -544,18 +555,10 @@ export function UnifiedOsPanel({
       <div className="border border-white/10 bg-black/55 p-3 space-y-2.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="font-pixel text-[9px] uppercase tracking-wider text-[var(--g2-phosphor)]">
-            10 SPECIALIST AGENTS &amp; L4 PARALLEL CREWS
+            SPECIALIST CREWS
           </span>
-          <div className="flex flex-wrap gap-1.5">
-            {(
-              [
-                ['morning_os', 'Morning OS Crew'],
-                ['software_delivery', 'Software Delivery Crew'],
-                ['market_research', 'Market Research Crew'],
-                ['career_pack', 'Career Pack Crew'],
-                ['music_focus_flow', 'Focus + Music Crew'],
-              ] as const
-            ).map(([preset, label]) => (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {CORE_CREWS.map(([preset, label]) => (
               <button
                 key={preset}
                 type="button"
@@ -566,6 +569,22 @@ export function UnifiedOsPanel({
                 Run {label}
               </button>
             ))}
+            <details className="text-[10px] text-[var(--lightgray)]">
+              <summary className="cursor-pointer px-2.5 py-1 border border-white/15 list-none">Optional local skills</summary>
+              <div className="flex flex-wrap gap-1.5 pt-1.5">
+                {OPTIONAL_CREWS.map(([preset, label]) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void runPipeline(preset)}
+                    className="px-2.5 py-1 border border-white/15 text-[10px] text-[var(--bright)] hover:border-[#34F57E] cursor-pointer"
+                  >
+                    Run {label}
+                  </button>
+                ))}
+              </div>
+            </details>
           </div>
         </div>
 
