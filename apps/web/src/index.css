@@ -23,6 +23,7 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 88px;
   background: var(--ink);
   color: var(--bright);
   font-family: var(--font-plex);

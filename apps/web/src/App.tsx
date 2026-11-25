@@ -1593,7 +1593,7 @@ export function App() {
                       <button
                         type="button"
                         onClick={() => void resetSandbox()}
-                        className="retro-btn-glass px-3 py-1.5 text-xs text-[var(--lightgray)] hover:text-[var(--lime)] cursor-pointer"
+                        className="retro-btn-glass scroll-mt-24 px-3 py-1.5 text-xs text-[var(--lightgray)] hover:text-[var(--lime)] cursor-pointer"
                       >
                         Reset
                       </button>
