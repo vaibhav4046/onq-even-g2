@@ -3,7 +3,7 @@
 **Own the 90 seconds between meetings on Even Realities G2: a Telegram ping, a calendar clash, a reply to send.**
 OnQ's Track 04 core is **Google Workspace (Calendar, Gmail, Drive)**, **Notion** (`2026-03-11` `data_sources`), **Telegram Bot API** (`/api/telegram/digest` and `/api/telegram/stage-reply`), **Claude / ChatGPT / OpenRouter** model routing with a deterministic `Rules` fallback (`POST /api/connectors/orchestrator`), and **AssemblyAI voice** (`STT-3.7` + `TTS-1`). Together they feed one 42-column monochrome waveguide card with a **76×76 4-bit Gray4 Pixel Avatar**, a **Default-NO Confirm Gate**, a **Commit-Locked 2.0s Undo Ring**, an **HTTP 409 Conflict Hard-Lock**, and a deterministic **Code-Guard Fact Verifier**. The **Self-Harnessing Proactive Agent** (`POST /api/proactive/synthesize`) runs on top and only stages writes behind Default-NO.
 
-**Optional local skills (not Track 04 claims):** music curator (iTunes), market signals (CoinGecko), PC tools (`claude`, `codex`, `gemini`, `ollama`, `gh`, `git`) and YouTube scouting. They live in one workspace tab called Local Skills and are off the main path. Grok and OmniRoute exist only as optional model routes.
+**Optional local skills (not Track 04 claims):** music curator (iTunes), market signals (CoinGecko), PC tools (`claude`, `codex`, `gemini`, `ollama`, `gh`, `git`) and YouTube scouting. The web app no longer has a screen for them; the music curator and market research run only as optional crews inside Personal OS. Grok and OmniRoute exist only as optional model routes.
 
 - **Tracks:** Track 04 - AI Assistants & Work (Google Workspace + Notion + Universal AI Orchestrator) + Track 01 / Best Telegram Integration (`TelegramWorkspaceClient`)
 - **Live Docs & Privacy Policy:** https://vaibhav4046.github.io/onq-even-g2/ · [Privacy Policy](https://vaibhav4046.github.io/onq-even-g2/privacy.html) · [GitHub Repo](https://github.com/vaibhav4046/onq-even-g2)
@@ -61,7 +61,7 @@ Open `http://127.0.0.1:5173`. Boots immediately in labeled `DEMO` sandbox mode w
 
 ### What changed in the final pass
 
-- **Studio:** 8 tabs became 4 workspaces (Glasses Live, Personal OS, Meeting Scribe, Local Skills). Local Skills holds Glass apps, Agent fleet, Market watch, Video explainer and PC tools, and is labelled optional.
+- **Studio:** 8 tabs became 3 workspaces (Glasses Live, Personal OS, Meeting Scribe). The off-track panels (glass apps, agent fleet, market watch, video explainer, PC tools) were removed from the web app; the music curator and market research stay as optional crews inside Personal OS.
 - **60-second guided tour** in the hero: Confirm and undo, Double-booking lock, Morning crew.
 - **Copy:** hero and page text cut sharply. Jargon moved into one closed "Engineering & audit" block per section.
 - **Font fix:** the pixel font drew "." as a plus-shaped cluster, so "$0.001" read as "+". Periods now come from a clean bold system sans, and the heading scramble no longer uses "+".

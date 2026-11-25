@@ -38,10 +38,10 @@ The brief asked for every controllable bucket to reach 9.0. These stay below it 
 | sim-13 showed 1 of 4 crew lines | P0 | One multi-line text block, formatter keeps line breaks | `docs/screenshots/sim-13-os-pipeline-live.png`, new liveUi test |
 | Pixel font drew "." as a plus-shaped mark | P0 | Period routed to a bold system sans; scramble animation no longer uses "+" | Screenshot of hero and big numbers |
 | Music mood `coding` returned off-mood pop | P1 | Bare mood word now uses the tuned query | Live call returned lofi tracks; 2 new tests |
-| Default workspace led with off-track actions (YouTube scout, BTC bot, Python bot) | P1 | Filtered out of Glasses Live; they live under optional Local Skills | Studio screenshot |
+| Default workspace led with off-track actions (YouTube scout, BTC bot, Python bot) | P1 | Filtered out of Glasses Live, and the five off-track studio panels were removed | Studio screenshot |
 | `npm test` failed on Windows (`spawn EINVAL`) | P1 | Skip `.cmd` shims, fall back to the built-in planner with a note | Test passes |
 | Telegram 409 gave a bare HTTP error | P2 | Clear webhook message and 5-minute backoff | 2 new tests |
-| 8-tab studio | P1 | 4 workspaces with real tab roles | Live check: 0 console errors, 0 overflow |
+| 8-tab studio | P1 | 3 workspaces with real tab roles | Live check: 0 console errors, 0 overflow |
 | 1.7 MB entry bundle | P2 | Lazy 3D chunk, vendor chunks | Build output |
 | Test counts disagreed across pages (189, 213, 220, 246) | P2 | One constant, `apps/web/src/verifiedCounts.ts` | Page shows 251 |
 
@@ -52,4 +52,4 @@ The brief asked for every controllable bucket to reach 9.0. These stay below it 
 3. The AI chain fell back to Rules in today's probe. Do not say "powered by frontier models" in a demo unless the badge shows Claude, ChatGPT or OpenRouter. Saying "deterministic rules first, models second" is accurate.
 4. Measure the per-brief cost before quoting a number in the pitch.
 5. The Personal OS panel still shows dense autonomy-level text. Keep it out of the 3-minute demo.
-6. The launch video must be refreshed before submission (see `FINAL_SUBMISSION_HANDOFF.md`).
+6. The pixel-anime film (`media/out/onq-anime-film.mp4`, 2:36) uses only real simulator captures and one real screen recording, and says the glasses are not yet tested. Do not describe it as footage from physical glasses.

@@ -1,22 +1,9 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { formatLiveUiForG2, evaluateSafeFormula, formatFormulaValue, buildSurfaceEnv, parseDisplayMarkup, stepPacedReveal } from '@onq/core';
-import type { ActionPreview, AliveMood, LiveUiInteraction, LiveUiSurface, NormalizedEvenEvent, VoiceOrbState } from '@onq/core';
+import type { ActionPreview, AliveMood, LiveUiSurface, NormalizedEvenEvent, VoiceOrbState } from '@onq/core';
 import { OnQVoiceOrb } from './OnQVoiceOrb';
 const Memory3DGalaxy = lazy(() => import('./Memory3DGalaxy').then((m) => ({ default: m.Memory3DGalaxy })));
-import { ExplainerStudio } from './ExplainerStudio';
 import { UnifiedOsPanel } from './UnifiedOsPanel';
-
-export interface LocalToolInfoDto {
-  id: string;
-  name: string;
-  binary: string;
-  accountMode: string;
-  installed: boolean;
-  binaryPath: string | null;
-  installHint: string;
-  capabilities: string[];
-}
 
 export interface AgentTaskDto {
   id: string;
@@ -53,46 +40,11 @@ export interface UnifiedMemoryDto {
   createdAtIso: string;
 }
 
-export interface KanbanCardDto {
-  id: string;
-  lane: 'needs_you' | 'running' | 'scheduled' | 'done';
-  title: string;
-  agentName: string;
-  model: string;
-  summary: string;
-  cronSpec?: string;
-  updatedAtIso: string;
-  canApprove?: boolean;
-  actionCommand?: string;
-}
-
-export interface WatchScreenDto {
-  active: boolean;
-  appName: string;
-  holder: 'agent' | 'human';
-  leaseEpoch: number;
-  resolution: { w: number; h: number };
-  cursor: { x: number; y: number; targetLabel: string };
-  lines: string[];
-  actionPending?: string;
-  lastControl?: string;
-  updatedAtIso: string;
-}
-
 export interface SilentQuickChipDto {
   id: string;
   label: string;
   kind: 'command' | 'liveui' | 'telegram' | 'scout';
   payload: string;
-}
-
-export interface SafeInspectDto {
-  kind: 'git_status' | 'git_log' | 'gh_prs' | 'workspace_summary';
-  ok: boolean;
-  summary: string;
-  lines: string[];
-  lensLines: string[];
-  latencyMs: number;
 }
 
 export interface MeetingStateDto {
@@ -105,31 +57,19 @@ export interface MeetingStateDto {
   actions: Array<{ id: string; title: string; owner: string }>;
 }
 
-type StudioTab = 'call' | 'os' | 'apps' | 'fleet' | 'market' | 'explainer' | 'notes' | 'computer';
-
-// Four workspaces, one harness. The old 8 tabs live on: 'call' = Glasses Live, 'os' = Personal OS,
-// 'notes' = Meeting Scribe, everything else sits under the optional Local Skills workspace.
+// Three workspaces, one harness: the wearer's glance, the personal OS, and the meeting scribe.
 const WORKSPACES = [
   { id: 'call', label: 'Glasses Live' },
   { id: 'os', label: 'Personal OS' },
   { id: 'notes', label: 'Meeting Scribe' },
-  { id: 'skills', label: 'Local Skills' },
 ] as const;
+type StudioTab = (typeof WORKSPACES)[number]['id'];
 
-const SKILL_TABS = [
-  { id: 'apps', label: 'Glass apps' },
-  { id: 'fleet', label: 'Agent fleet' },
-  { id: 'market', label: 'Market watch' },
-  { id: 'explainer', label: 'Video explainer' },
-  { id: 'computer', label: 'PC tools' },
-] as const;
-
-// Track 04 only credits Google Workspace, Notion, Telegram, Claude/ChatGPT/OpenRouter and voice. Chips for the optional
-// local skills (YouTube scout, market bot, Pomodoro, router matrix, video) live under the Local Skills workspace instead.
-const OFF_TRACK_CHIP = /youtube|market|btc|tao|pomodoro|router|python|video/i;
-
-const isSkillTab = (tab: StudioTab) => SKILL_TABS.some((s) => s.id === tab);
-const workspaceOf = (tab: StudioTab): (typeof WORKSPACES)[number]['id'] => (isSkillTab(tab) ? 'skills' : (tab as 'call' | 'os' | 'notes'));
+// Track 04 credits Google Workspace, Notion, Telegram, Claude/ChatGPT/OpenRouter and voice, so quick actions for
+// anything else (YouTube scout, market bot, Pomodoro, router matrix, video) are not shown.
+const OFF_TRACK_CHIP = /youtube|market|btc|tao|pomodoro|router|python|video|reflex|arena|game/i;
+const toStudioTab = (tab: string | undefined): StudioTab | null =>
+  tab === 'os' || tab === 'notes' || tab === 'call' ? tab : null;
 
 interface LiveVoiceStudioProps {
   sessionToken: string | null;
@@ -191,16 +131,13 @@ export function LiveVoiceStudio({
 }: LiveVoiceStudioProps) {
   const reduced = useReducedMotion();
   const [studioTab, setStudioTab] = useState<StudioTab>('call');
-  const [tools, setTools] = useState<LocalToolInfoDto[]>([]);
   const [tasks, setTasks] = useState<AgentTaskDto[]>([]);
   const [localMemories, setLocalMemories] = useState<UnifiedMemoryDto[]>([]);
   const [memFilter, setMemFilter] = useState('');
   const [memView, setMemView] = useState<'list' | '3d'>('list');
   const [expandedCodeId, setExpandedCodeId] = useState<string | null>(null);
   const [collapsingId, setCollapsingId] = useState<string | null>(null);
-  const [inspectRes, setInspectRes] = useState<SafeInspectDto | null>(null);
-  const [taskPrompt, setTaskPrompt] = useState('Plan a 3-step launch sprint for Even G2 + Telegram');
-  const [targetTool, setTargetTool] = useState<
+  const [targetTool] = useState<
     'auto' | 'claude_cli' | 'codex_cli' | 'gemini_cli' | 'ollama' | 'openrouter' | 'workspace_test'
   >('auto');
   const [meetingAsk, setMeetingAsk] = useState('');
@@ -210,7 +147,7 @@ export function LiveVoiceStudio({
   // Unified Personal AI Partner & Master Orchestrator State
   const [partnerInput, setPartnerInput] = useState('');
   const [partnerReply, setPartnerReply] = useState(
-    'I am OnQ — your personal AI partner. Ask me to coordinate your calendar, Telegram, docs, market bots, apps, explainer videos, or PC tasks.',
+    'I am OnQ. Ask me about your calendar, email, Notion or Telegram, or tell me to move a meeting. Anything that sends waits for your approval.',
   );
   const [partnerDomain, setPartnerDomain] = useState<string>('ALL SYSTEMS READY');
   const [partnerWord, setPartnerWord] = useState('');
@@ -219,18 +156,10 @@ export function LiveVoiceStudio({
 
   // LiveUI Micro-App + Read-Speed Pacer State
   const [liveUi, setLiveUi] = useState<LiveUiSurface | null>(null);
-  const [pinnedApps, setPinnedApps] = useState<LiveUiSurface[]>([]);
-  const [liveUiPrompt, setLiveUiPrompt] = useState('');
-  const [readWpm, setReadWpm] = useState(220);
   const [aliveMood, setAliveMood] = useState<AliveMood>('neutral');
-  const [pacedPreview, setPacedPreview] = useState<string>('');
 
-  // Kanban Fleet + Watch Agent Screen + Silent Input + Specialist Role
-  const [kanbanCards, setKanbanCards] = useState<KanbanCardDto[]>([]);
-  const [watchScreen, setWatchScreen] = useState<WatchScreenDto | null>(null);
+  // Silent quick-action chips
   const [silentChips, setSilentChips] = useState<SilentQuickChipDto[]>([]);
-  const [newKanbanTitle, setNewKanbanTitle] = useState('');
-  const [kanbanRole, setKanbanRole] = useState<'architect' | 'market_analyst' | 'bot_engineer' | 'security_auditor'>('architect');
 
   // Cited Knowledge RAG + Defuddle + Hermes Taste Profile + Token Savings
   const [ragQuery, setRagQuery] = useState('');
@@ -239,21 +168,6 @@ export function LiveVoiceStudio({
   const [tasteVerbosity, setTasteVerbosity] = useState<'caveman' | 'concise' | 'detailed'>('caveman');
   const [tokenSavedPct, setTokenSavedPct] = useState<number>(0);
   const [tokenTotalSaved, setTokenTotalSaved] = useState<number>(0);
-
-  // Market Research & Paper-Trading Bot State (research/paper only, Ask-First Telegram alert)
-  const [marketSignals, setMarketSignals] = useState<Array<{
-    symbol: string;
-    name: string;
-    priceUsd: number;
-    change24hPct: number;
-    rsiProxy: number;
-    regime: string;
-    suggestedAction: string;
-    g2Line: string;
-    source: string;
-  }>>([]);
-  const [marketBotCode, setMarketBotCode] = useState<string>('');
-  const [selectedSymbol, setSelectedSymbol] = useState<'BTC' | 'ETH' | 'SOL' | 'TAO' | 'FET'>('BTC');
 
   useEffect(() => {
     return () => {
@@ -274,24 +188,18 @@ export function LiveVoiceStudio({
     if (!sessionToken) return;
     try {
       const headers = { Authorization: `Bearer ${sessionToken}` };
-      const [compRes, memRes, liveRes, kbRes, tokRes, mktRes, prefRes] = await Promise.all([
+      const [compRes, memRes, liveRes, tokRes, prefRes] = await Promise.all([
         fetch('/api/computer/tools', { headers, credentials: 'include' }),
         fetch('/api/memory', { headers, credentials: 'include' }),
         fetch('/api/liveui', { headers, credentials: 'include' }),
-        fetch('/api/kanban', { headers, credentials: 'include' }),
         fetch('/api/harness/tokens', { headers, credentials: 'include' }),
-        fetch('/api/market/signals', { headers, credentials: 'include' }),
         fetch('/api/preferences', { headers, credentials: 'include' }),
       ]);
       if (compRes.ok) {
         const j = (await compRes.json()) as {
-          tools: LocalToolInfoDto[];
           tasks: AgentTaskDto[];
-          lastInspect?: SafeInspectDto | null;
         };
-        setTools(j.tools ?? []);
         setTasks(j.tasks ?? []);
-        if (j.lastInspect) setInspectRes(j.lastInspect);
       }
       if (memRes.ok) {
         const mj = (await memRes.json()) as { memories?: UnifiedMemoryDto[] };
@@ -300,22 +208,10 @@ export function LiveVoiceStudio({
       if (liveRes.ok) {
         const lj = (await liveRes.json()) as {
           surface?: LiveUiSurface;
-          pinned?: LiveUiSurface[];
           silentChips?: SilentQuickChipDto[];
         };
         if (lj.surface) setLiveUi(lj.surface);
-        if (lj.pinned) setPinnedApps(lj.pinned);
         if (lj.silentChips) setSilentChips(lj.silentChips);
-      }
-      if (kbRes.ok) {
-        const kj = (await kbRes.json()) as {
-          cards?: KanbanCardDto[];
-          screen?: WatchScreenDto;
-          silentChips?: SilentQuickChipDto[];
-        };
-        if (kj.cards) setKanbanCards(kj.cards);
-        if (kj.screen) setWatchScreen(kj.screen);
-        if (kj.silentChips) setSilentChips(kj.silentChips);
       }
       if (tokRes.ok) {
         const tj = (await tokRes.json()) as {
@@ -323,10 +219,6 @@ export function LiveVoiceStudio({
         };
         setTokenTotalSaved(tj.summary?.estimatedSavedTokens ?? 0);
         setTokenSavedPct(tj.summary?.reductionPct ?? 0);
-      }
-      if (mktRes.ok) {
-        const mkj = (await mktRes.json()) as { signals?: typeof marketSignals };
-        if (mkj.signals) setMarketSignals(mkj.signals);
       }
       if (prefRes.ok) {
         const pj = (await prefRes.json()) as { taste?: { verbosity?: 'caveman' | 'concise' | 'detailed' } };
@@ -365,29 +257,6 @@ export function LiveVoiceStudio({
     }, 1000);
     return () => clearInterval(id);
   }, [hasRunningTimer, sessionToken, onLiveUiUpdate]);
-
-  const runInspect = async (kind: 'git_status' | 'git_log' | 'gh_prs' | 'workspace_summary') => {
-    if (!sessionToken) return;
-    setBusy(true);
-    setStudioMsg(null);
-    try {
-      const res = await fetch('/api/computer/inspect', {
-        method: 'POST',
-        headers: authHeaders(),
-        credentials: 'include',
-        body: JSON.stringify({ kind }),
-      });
-      const j = (await res.json()) as { inspect?: SafeInspectDto; error?: string };
-      if (j.inspect) {
-        setInspectRes(j.inspect);
-        setStudioMsg(j.inspect.summary);
-      } else if (j.error) {
-        setStudioMsg(j.error);
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const triggerAutonomousTask = async (kind: AgentTaskDto['kind'], prompt: string) => {
     if (!sessionToken || !prompt.trim()) return;
@@ -491,10 +360,9 @@ export function LiveVoiceStudio({
         credentials: 'include',
         body: JSON.stringify({ ...input, pin: true }),
       });
-      const j = (await res.json()) as { surface?: LiveUiSurface; pinned?: LiveUiSurface[]; error?: string };
+      const j = (await res.json()) as { surface?: LiveUiSurface; error?: string };
       if (j.surface) {
         setLiveUi(j.surface);
-        if (j.pinned) setPinnedApps(j.pinned);
         onLiveUiUpdate?.(j.surface);
         setStudioMsg(`LiveUI "${j.surface.title}" pushed straight to your G2 glasses.`);
       } else if (j.error) {
@@ -503,96 +371,6 @@ export function LiveVoiceStudio({
     } finally {
       setBusy(false);
     }
-  };
-
-  const interactLiveUi = async (action: LiveUiInteraction) => {
-    if (!sessionToken) return;
-    const res = await fetch('/api/liveui/interact', {
-      method: 'POST',
-      headers: authHeaders(),
-      credentials: 'include',
-      body: JSON.stringify(action),
-    });
-    const j = (await res.json()) as { surface?: LiveUiSurface };
-    if (j.surface) {
-      setLiveUi(j.surface);
-      onLiveUiUpdate?.(j.surface);
-    }
-  };
-
-  const pinCurrentLiveUi = async () => {
-    if (!sessionToken) return;
-    const res = await fetch('/api/liveui/pin', {
-      method: 'POST',
-      headers: authHeaders(),
-      credentials: 'include',
-      body: '{}',
-    });
-    const j = (await res.json()) as { pinned?: LiveUiSurface[] };
-    if (j.pinned) setPinnedApps(j.pinned);
-    onRefreshMemories?.();
-    setStudioMsg('App pinned to G2 quick-launch & archived to Unified Memory.');
-  };
-
-  const runPacedDemo = () => {
-    const sample =
-      '<mood:confident/>Checking corridor now.<beat/><skim>Calendar and Telegram are clear.</skim><mood:curious/> <dwell>Ready to stage your next move whenever you tap.</dwell>';
-    const parsed = parseDisplayMarkup(sample, readWpm);
-    let elapsed = 0;
-    const stepMs = 85;
-    setPacedPreview('');
-    const iv = setInterval(() => {
-      elapsed += stepMs;
-      const frame = stepPacedReveal(parsed, elapsed, readWpm);
-      setPacedPreview(frame.visibleText);
-      setAliveMood(frame.mood);
-      if (frame.done) clearInterval(iv);
-    }, stepMs);
-  };
-
-  const actOnKanban = async (id: string, action: 'approve' | 'retry' | 'schedule' | 'complete' | 'archive') => {
-    if (!sessionToken) return;
-    const res = await fetch('/api/kanban/action', {
-      method: 'POST',
-      headers: authHeaders(),
-      credentials: 'include',
-      body: JSON.stringify({ id, action }),
-    });
-    const j = (await res.json()) as { cards?: KanbanCardDto[] };
-    if (j.cards) setKanbanCards(j.cards);
-    if (action === 'complete') onRefreshMemories?.();
-    void loadStudioState();
-  };
-
-  const addKanbanCard = async () => {
-    if (!sessionToken || !newKanbanTitle.trim()) return;
-    const res = await fetch('/api/kanban/create', {
-      method: 'POST',
-      headers: authHeaders(),
-      credentials: 'include',
-      body: JSON.stringify({
-        title: newKanbanTitle.trim(),
-        lane: 'needs_you',
-        roleTemplate: kanbanRole,
-      }),
-    });
-    const j = (await res.json()) as { cards?: KanbanCardDto[] };
-    if (j.cards) setKanbanCards(j.cards);
-    setNewKanbanTitle('');
-  };
-
-  const controlAgentScreen = async (
-    action: 'takeover' | 'release' | 'click' | 'scroll_up' | 'scroll_down' | 'enter' | 'tab',
-  ) => {
-    if (!sessionToken) return;
-    const res = await fetch('/api/screen/control', {
-      method: 'POST',
-      headers: authHeaders(),
-      credentials: 'include',
-      body: JSON.stringify({ action }),
-    });
-    const j = (await res.json()) as { screen?: WatchScreenDto };
-    if (j.screen) setWatchScreen(j.screen);
   };
 
   const makeG2TextSurface = (id: string, title: string, lines: string[]): LiveUiSurface => ({
@@ -674,7 +452,7 @@ export function LiveVoiceStudio({
       }
       setRagUrl('');
       onRefreshMemories?.();
-      setStudioMsg(`Defuddle ingested "${j.doc?.title ?? 'document'}" cleanly into RAG index.`);
+      setStudioMsg(`Added "${j.doc?.title ?? 'document'}" to memory.`);
       void loadStudioState();
     } finally {
       setBusy(false);
@@ -693,72 +471,10 @@ export function LiveVoiceStudio({
     setStudioMsg(`Hermes Taste Profile updated: ${verbosity.toUpperCase()}.`);
   };
 
-  const runMarketPaperTrade = async (symbol: 'BTC' | 'ETH' | 'SOL' | 'TAO' | 'FET') => {
-    if (!sessionToken) return;
-    setBusy(true);
-    try {
-      const res = await fetch('/api/market/paper-trade', {
-        method: 'POST',
-        headers: authHeaders(),
-        credentials: 'include',
-        body: JSON.stringify({ symbol, notionalUsd: 500 }),
-      });
-      const j = (await res.json()) as { ok?: boolean; result?: { summary?: string; g2Line?: string } };
-      if (j.result?.summary) setStudioMsg(j.result.summary);
-      if (j.result?.g2Line && onLiveUiUpdate) {
-        onLiveUiUpdate(makeG2TextSurface('mkt_paper', `${symbol} Paper Watch`, [j.result.g2Line]));
-      }
-      onRefreshMemories?.();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const generateMarketBot = async (symbol: 'BTC' | 'ETH' | 'SOL' | 'TAO' | 'FET') => {
-    if (!sessionToken) return;
-    setBusy(true);
-    try {
-      const res = await fetch('/api/market/bot-script', {
-        method: 'POST',
-        headers: authHeaders(),
-        credentials: 'include',
-        body: JSON.stringify({ symbol }),
-      });
-      const j = (await res.json()) as { scriptPath?: string; code?: string; cards?: KanbanCardDto[] };
-      if (j.code) setMarketBotCode(j.code);
-      if (j.cards) setKanbanCards(j.cards);
-      setStudioMsg(`Generated Python Signal Watcher -> ${j.scriptPath ?? `data/bots/market_${symbol.toLowerCase()}_bot.py`}`);
-      void loadStudioState();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const stageMarketTelegramAlert = async (symbol: 'BTC' | 'ETH' | 'SOL' | 'TAO' | 'FET') => {
-    if (!sessionToken) return;
-    setBusy(true);
-    try {
-      const sig = marketSignals.find((s) => s.symbol === symbol);
-      const res = await fetch('/api/telegram/automate', {
-        method: 'POST',
-        headers: authHeaders(),
-        credentials: 'include',
-        body: JSON.stringify({
-          action: 'market_alert',
-          text: sig ? `${sig.symbol} $${sig.priceUsd} · RSI ${sig.rsiProxy} · ${sig.suggestedAction}` : `${symbol} Signal Watch`,
-        }),
-      });
-      const j = (await res.json()) as { generatedText?: string };
-      setStudioMsg(`Default-NO Telegram market alert staged (Hold YES to send): ${j.generatedText ?? symbol}`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const triggerSilentChip = async (chip: SilentQuickChipDto) => {
     setAliveMood('amused');
     if (chip.kind === 'liveui') {
-      setStudioTab('apps');
+      setStudioTab('call');
       await generateLiveUiApp({ prompt: chip.payload });
       return;
     }
@@ -805,8 +521,6 @@ export function LiveVoiceStudio({
         spokenText?: string;
         preview?: ActionPreview;
         surface?: LiveUiSurface;
-        signals?: typeof marketSignals;
-        marketBotCode?: string;
         g2Lines?: string[];
         tokenSummary?: { estimatedSavedTokens?: number; reductionPct?: number };
         error?: string;
@@ -825,8 +539,6 @@ export function LiveVoiceStudio({
         onPreviewStaged(j.preview);
       }
       if (j.surface) setLiveUi(j.surface);
-      if (j.signals) setMarketSignals(j.signals);
-      if (j.marketBotCode) setMarketBotCode(j.marketBotCode);
       if (j.tokenSummary) {
         setTokenTotalSaved(j.tokenSummary.estimatedSavedTokens ?? 0);
         setTokenSavedPct(j.tokenSummary.reductionPct ?? 0);
@@ -834,7 +546,9 @@ export function LiveVoiceStudio({
       if (j.g2Lines?.length && onLiveUiUpdate && !j.preview) {
         onLiveUiUpdate(makeG2TextSurface('partner_g2', 'OnQ Partner', j.g2Lines));
       }
-      if (j.recommendedTab) setStudioTab(j.recommendedTab);
+      // Other recommended tabs (market, apps, fleet...) no longer exist; keep the current workspace for those.
+      const nextTab = toStudioTab(j.recommendedTab);
+      if (nextTab) setStudioTab(nextTab);
       if (!customText) setPartnerInput('');
 
       const words = (j.spokenText ?? j.reply ?? '').split(/\s+/).filter(Boolean).slice(0, 18);
@@ -859,8 +573,6 @@ export function LiveVoiceStudio({
     }
   };
 
-  const liveUiEnv = liveUi ? buildSurfaceEnv(liveUi) : {};
-  const g2Preview = liveUi ? formatLiveUiForG2(liveUi) : null;
   const companionOrbState: VoiceOrbState = partnerSpeaking ? 'speaking' : busy ? 'thinking' : orbState;
 
   return (
@@ -993,14 +705,14 @@ export function LiveVoiceStudio({
           className="flex flex-wrap gap-1 rounded-[10px] border border-white/10 bg-black/70 p-1 text-xs font-semibold"
         >
           {WORKSPACES.map(({ id, label }) => {
-            const selected = workspaceOf(studioTab) === id;
+            const selected = studioTab === id;
             return (
               <button
                 key={id}
                 type="button"
                 role="tab"
                 aria-selected={selected}
-                onClick={() => setStudioTab(id === 'skills' ? (isSkillTab(studioTab) ? studioTab : 'apps') : id)}
+                onClick={() => setStudioTab(id)}
                 className={`px-3.5 py-1.5 rounded-[7px] cursor-pointer transition-colors border-b-2 ${
                   selected
                     ? 'bg-[var(--lime)] text-[#041209] border-[#041209]'
@@ -1013,26 +725,6 @@ export function LiveVoiceStudio({
           })}
         </div>
 
-        {workspaceOf(studioTab) === 'skills' && (
-          <div role="tablist" aria-label="Optional local skills" className="flex flex-wrap gap-1 text-[11px]">
-            {SKILL_TABS.map(({ id, label }) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={studioTab === id}
-                onClick={() => setStudioTab(id)}
-                className={`px-2.5 py-1 rounded-full border cursor-pointer transition-colors ${
-                  studioTab === id
-                    ? 'border-[var(--lime)] text-[var(--lime)] underline underline-offset-4'
-                    : 'border-white/15 text-[var(--lightgray)] hover:text-[var(--bright)]'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {studioTab === 'os' && (
@@ -1270,7 +962,7 @@ export function LiveVoiceStudio({
             ) : (
               <>
                 <div className="flex items-center justify-between gap-1.5 border border-white/10 bg-black/50 px-2 py-1 text-[10px]">
-                  <span className="font-pixel text-[8px] uppercase text-[var(--lightgray)]">TASTE:</span>
+                  <span className="font-pixel text-[8px] uppercase text-[var(--lightgray)]">ANSWER STYLE:</span>
                   <div className="flex gap-1">
                     {(['caveman', 'concise', 'detailed'] as const).map((modeOption) => (
                       <button
@@ -1283,7 +975,7 @@ export function LiveVoiceStudio({
                             : 'text-[var(--lightgray)] hover:text-[var(--bright)]'
                         }`}
                       >
-                        {modeOption}
+                        {modeOption === 'caveman' ? 'short' : modeOption}
                       </button>
                     ))}
                   </div>
@@ -1298,8 +990,8 @@ export function LiveVoiceStudio({
                 >
                   <input
                     type="text"
-                    aria-label="Ask Cited RAG"
-                    placeholder="Cited QA (RAGFlow/GBrain)..."
+                    aria-label="Ask your notes"
+                    placeholder="Ask your notes (answers cite sources)..."
                     value={ragQuery}
                     onChange={(e) => setRagQuery(e.target.value)}
                     className="flex-1 bg-[var(--ink)] border border-[var(--hairline)] px-2 py-1 text-[11px] text-[var(--bright)] focus:border-[#34F57E]"
@@ -1322,8 +1014,8 @@ export function LiveVoiceStudio({
                 >
                   <input
                     type="url"
-                    aria-label="Ingest docs URL with Defuddle"
-                    placeholder="Defuddle URL -> RAG index..."
+                    aria-label="Add a web page to memory"
+                    placeholder="Paste a URL to add it to memory..."
                     value={ragUrl}
                     onChange={(e) => setRagUrl(e.target.value)}
                     className="flex-1 bg-[var(--ink)] border border-[var(--hairline)] px-2 py-1 text-[11px] text-[var(--bright)] focus:border-[#86FFAF]"
@@ -1333,7 +1025,7 @@ export function LiveVoiceStudio({
                     disabled={busy}
                     className="px-2 py-1 border border-[#86FFAF]/40 text-[#86FFAF] font-pixel text-[8.5px] cursor-pointer"
                   >
-                    Defuddle
+                    Add
                   </button>
                 </form>
 
@@ -1391,524 +1083,6 @@ export function LiveVoiceStudio({
             )}
           </div>
         </div>
-      )}
-
-      {studioTab === 'apps' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start text-xs">
-          {/* Left: Ask-to-Build LiveUI Micro-App + Presets + Read-Speed Pacer */}
-          <div className="lg:col-span-6 space-y-3">
-            <div className="flex flex-wrap gap-1.5">
-              {[
-                ['pomodoro', 'Pomodoro 25m'],
-                ['split_bill', 'Split Bill 4x'],
-                ['compare_models', 'Model Matrix'],
-                ['reaction_game', 'G2 Reflex Game'],
-                ['launch_checklist', 'Ship Checklist'],
-              ].map(([presetKey, label]) => (
-                <button
-                  key={presetKey}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void generateLiveUiApp({ presetKey })}
-                  className={`px-2.5 py-1 border text-[10.5px] cursor-pointer ${
-                    liveUi?.presetKey === presetKey
-                      ? 'border-[#34F57E] bg-[#34F57E] text-[#041209] font-semibold'
-                      : 'border-white/15 bg-black/60 text-[var(--bright)] hover:border-[#34F57E]/60'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!liveUiPrompt.trim()) return;
-                void generateLiveUiApp({ prompt: liveUiPrompt.trim() });
-                setLiveUiPrompt('');
-              }}
-              className="flex gap-2"
-            >
-              <input
-                type="text"
-                placeholder="Ask for any G2 app, timer, split calculator, checklist or game..."
-                value={liveUiPrompt}
-                onChange={(e) => setLiveUiPrompt(e.target.value)}
-                className="flex-1 bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
-              />
-              <button
-                type="submit"
-                disabled={busy}
-                className="px-3.5 py-2 bg-[var(--lime)] text-[#041209] font-semibold cursor-pointer"
-              >
-                Build on G2
-              </button>
-            </form>
-
-            {liveUi && (
-              <div className="border border-[#34f57e]/35 bg-black/70 p-3.5 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <div className="font-pixel text-[9px] text-[#34F57E]">
-                      LIVEUI FRAME: {liveUi.frame.toUpperCase()}
-                    </div>
-                    <div className="text-sm font-semibold text-[var(--bright)]">{liveUi.title}</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void pinCurrentLiveUi()}
-                    className="px-2.5 py-1 border border-[#34f57e]/45 text-[10px] text-[#86FFAF] hover:bg-[#34F57E] hover:text-[#041209] cursor-pointer"
-                  >
-                    Pin ({pinnedApps.length})
-                  </button>
-                </div>
-
-                {/* Interactive Components */}
-                {liveUi.components.map((comp) => (
-                  <div key={comp.id} className="space-y-1.5 border-t border-dashed border-white/10 pt-2">
-                    {comp.kind === 'stepper' && (
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-[var(--bright)]">{comp.label ?? comp.id}</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void interactLiveUi({ type: 'step', delta: -(comp.stepBy ?? 1) })}
-                            className="px-2.5 py-1 border border-white/20 bg-black text-[var(--bright)] cursor-pointer"
-                          >
-                            -
-                          </button>
-                          <span className="font-pixel text-sm text-[#34F57E]">{comp.value ?? 0}</span>
-                          <button
-                            type="button"
-                            onClick={() => void interactLiveUi({ type: 'step', delta: comp.stepBy ?? 1 })}
-                            className="px-2.5 py-1 border border-white/20 bg-black text-[var(--bright)] cursor-pointer"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {(comp.kind === 'checklist' || comp.kind === 'list' || comp.kind === 'table') && comp.rows && (
-                      <div className="space-y-1">
-                        {comp.kind === 'table' && comp.cols && (
-                          <div className="flex items-center gap-2 pb-1">
-                            {comp.cols.slice(0, 3).map((col) => (
-                              <button
-                                key={col}
-                                type="button"
-                                onClick={() => void interactLiveUi({ type: 'sort_toggle', col })}
-                                className="font-pixel text-[8.5px] uppercase px-2 py-0.5 border border-white/15 text-[#86FFAF] cursor-pointer"
-                              >
-                                Sort: {col}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        {comp.rows.map((row, idx) => (
-                          <button
-                            key={row.id}
-                            type="button"
-                            onClick={() => void interactLiveUi({ type: 'tap', index: idx })}
-                            className={`w-full flex items-center justify-between px-2.5 py-1.5 border text-left cursor-pointer ${
-                              idx === (comp.selectedIndex ?? 0)
-                                ? 'border-[#34F57E] bg-[#041d0e] text-[#86FFAF]'
-                                : 'border-white/10 bg-black/40 text-[var(--bright)]'
-                            }`}
-                          >
-                            <span className="truncate">
-                              {comp.kind === 'checklist' ? (row.checked ? '[x] ' : '[ ] ') : ''}
-                              {row.raw[0]}
-                            </span>
-                            {row.raw[1] && <span className="font-mono text-[10px] text-[#34F57E] ml-2">{row.raw[1]}</span>}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {comp.kind === 'timer' && comp.timer && (
-                      <div className="flex items-center justify-between gap-2 bg-[#041209] border border-[#34F57E]/30 px-3 py-2">
-                        <div>
-                          <div className="font-pixel text-[9px] text-[var(--lightgray)]">{comp.label}</div>
-                          <div className="font-dots text-xl text-[#34F57E]">
-                            {formatFormulaValue(comp.timer.remainingSec, 'dur')}
-                          </div>
-                        </div>
-                        <div className="flex gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => void interactLiveUi({ type: 'timer_toggle' })}
-                            className="px-2.5 py-1 bg-[#34F57E] text-[#041209] font-semibold cursor-pointer"
-                          >
-                            {comp.timer.status === 'running' ? 'Pause' : 'Start'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void interactLiveUi({ type: 'timer_reset' })}
-                            className="px-2.5 py-1 border border-white/20 text-[var(--bright)] cursor-pointer"
-                          >
-                            Reset
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {comp.kind === 'facts' && comp.facts && (
-                      <div className="grid grid-cols-2 gap-2">
-                        {comp.facts.map((f) => (
-                          <div key={f.label} className="border border-white/10 bg-black/50 p-2">
-                            <div className="text-[10px] text-[var(--lightgray)]">{f.label}</div>
-                            <div className="font-mono text-xs text-[#34F57E] font-semibold">
-                              {formatFormulaValue(evaluateSafeFormula(f.valueExpr, liveUiEnv), f.fmt)}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Right: Live 576x288 G2 Lens Projection + Read-Speed Pacing Engine */}
-          <div className="lg:col-span-6 space-y-3">
-            {g2Preview && (
-              <div className="border border-[#34f57e]/45 bg-[#020804] p-3.5 space-y-2">
-                <div className="flex items-center justify-between text-[9px] font-pixel text-[#34F57E]">
-                  <span>PUSHED TO G2 WAVEGUIDE (576x288)</span>
-                  <span>{g2Preview.lines.length}/7 LINES</span>
-                </div>
-                <pre className="font-mono text-[11px] leading-relaxed text-[#34F57E] overflow-x-auto">
-                  {g2Preview.bodyText}
-                </pre>
-                <div className="flex gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => void interactLiveUi({ type: 'prev_row' })}
-                    className="px-2.5 py-1 border border-white/15 text-[10px] text-[var(--bright)] cursor-pointer"
-                  >
-                    R1 Swipe Up
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void interactLiveUi({ type: 'tap' })}
-                    className="px-2.5 py-1 bg-[#34F57E] text-[#041209] font-semibold text-[10px] cursor-pointer"
-                  >
-                    R1 Tap Select
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void interactLiveUi({ type: 'next_row' })}
-                    className="px-2.5 py-1 border border-white/15 text-[10px] text-[var(--bright)] cursor-pointer"
-                  >
-                    R1 Swipe Down
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="border border-white/10 bg-black/55 p-3.5 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-pixel text-[9px] text-[#86FFAF]">
-                  NATURAL READ-SPEED PACING ({readWpm} WPM · &lt;dwell&gt; / &lt;beat/&gt;)
-                </span>
-                <button
-                  type="button"
-                  onClick={runPacedDemo}
-                  className="px-2.5 py-1 border border-[#34f57e]/40 text-[#34F57E] text-[10px] cursor-pointer"
-                >
-                  Test Paced Stream
-                </button>
-              </div>
-              <input
-                type="range"
-                min={140}
-                max={360}
-                step={20}
-                value={readWpm}
-                aria-label="Glasses reading speed WPM"
-                onChange={(e) => setReadWpm(Number(e.target.value))}
-                className="w-full accent-[#34F57E]"
-              />
-              <div className="min-h-[38px] font-mono text-[11px] text-[#86FFAF] bg-[#030b06] border border-white/10 p-2">
-                {pacedPreview || 'Replies pace word-by-word at your glasses reading speed with <beat/> pauses and JJK mood shifts.'}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {studioTab === 'fleet' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start text-xs">
-          {/* Left: 4-Lane Multi-Agent Kanban Board */}
-          <div className="lg:col-span-7 space-y-2.5">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                void addKanbanCard();
-              }}
-              className="flex flex-wrap gap-2"
-            >
-              <select
-                aria-label="Specialist agent role"
-                value={kanbanRole}
-                onChange={(e) => setKanbanRole(e.target.value as typeof kanbanRole)}
-                className="bg-[var(--ink)] border border-[var(--hairline)] px-2 py-1.5 text-[11px] text-[var(--bright)]"
-              >
-                <option value="architect">Architect</option>
-                <option value="market_analyst">Market Quant</option>
-                <option value="bot_engineer">Bot Engineer</option>
-                <option value="security_auditor">Security Guard</option>
-              </select>
-              <input
-                type="text"
-                placeholder="Assign new Kanban job to agent team..."
-                value={newKanbanTitle}
-                onChange={(e) => setNewKanbanTitle(e.target.value)}
-                className="flex-1 min-w-[160px] bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
-              />
-              <button
-                type="submit"
-                className="px-3 py-1.5 bg-[var(--lime)] text-[#041209] font-semibold cursor-pointer"
-              >
-                Add Agent Job
-              </button>
-            </form>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {(['needs_you', 'running', 'scheduled', 'done'] as const).map((lane) => {
-                const laneCards = kanbanCards.filter((c) => c.lane === lane);
-                return (
-                  <div key={lane} className="border border-white/10 bg-black/50 p-2.5 space-y-1.5">
-                    <div className="flex items-center justify-between font-pixel text-[8.5px] uppercase text-[#34F57E]">
-                      <span>{lane.replace('_', ' ')}</span>
-                      <span>{laneCards.length}</span>
-                    </div>
-                    {laneCards.slice(0, 3).map((card) => (
-                      <div key={card.id} className="border border-white/10 bg-[#040d07] p-2 space-y-1">
-                        <div className="font-medium text-[11px] text-[var(--bright)] truncate">{card.title}</div>
-                        <div className="text-[9.5px] text-[var(--lightgray)] truncate">
-                          {card.agentName} · {card.cronSpec ?? card.model}
-                        </div>
-                        <div className="flex flex-wrap gap-1 pt-0.5">
-                          {card.lane === 'needs_you' && (
-                            <button
-                              type="button"
-                              onClick={() => void actOnKanban(card.id, 'approve')}
-                              className="px-2 py-0.5 bg-[#34F57E] text-[#041209] font-pixel text-[8px] cursor-pointer"
-                            >
-                              Approve
-                            </button>
-                          )}
-                          {card.lane !== 'scheduled' && (
-                            <button
-                              type="button"
-                              onClick={() => void actOnKanban(card.id, 'schedule')}
-                              className="px-2 py-0.5 border border-white/20 text-[9px] text-[var(--bright)] cursor-pointer"
-                            >
-                              24/7 Cron
-                            </button>
-                          )}
-                          {card.lane !== 'done' && (
-                            <button
-                              type="button"
-                              onClick={() => void actOnKanban(card.id, 'complete')}
-                              className="px-2 py-0.5 border border-[#34f57e]/35 text-[9px] text-[#86FFAF] cursor-pointer"
-                            >
-                              Done
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Right: Watch Agent Screen + Glasses Pointer Human Takeover */}
-          <div className="lg:col-span-5 border border-[#34f57e]/35 bg-[#020804] p-3.5 space-y-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <div className="font-pixel text-[9px] text-[#34F57E]">WATCH AGENT WORK · LIVE SCREEN</div>
-                <div className="text-[11px] text-[var(--bright)]">{watchScreen?.appName ?? 'Local Agent Sandbox'}</div>
-              </div>
-              <span
-                className={`font-pixel text-[8px] px-2 py-0.5 rounded ${
-                  watchScreen?.holder === 'human'
-                    ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40'
-                    : 'bg-[#34f57e]/15 text-[#34F57E] border border-[#34f57e]/40'
-                }`}
-              >
-                {watchScreen?.holder === 'human' ? `HUMAN LEASE #${watchScreen.leaseEpoch}` : 'AGENT DRIVING'}
-              </span>
-            </div>
-
-            <div className="relative rounded border border-white/10 bg-black p-2.5 font-mono text-[10px] text-[#86FFAF] space-y-0.5">
-              {(watchScreen?.lines ?? []).map((line, i) => (
-                <div key={i} className="truncate">
-                  {line}
-                </div>
-              ))}
-              {watchScreen && (
-                <div className="mt-1.5 border border-[#34F57E]/60 bg-[#051a0d] px-2 py-1 text-[9.5px] text-[#34F57E]">
-                  CURSOR ({watchScreen.cursor.x}, {watchScreen.cursor.y}): [{watchScreen.cursor.targetLabel}]
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-wrap gap-1.5">
-              {watchScreen?.holder !== 'human' ? (
-                <button
-                  type="button"
-                  onClick={() => void controlAgentScreen('takeover')}
-                  className="px-2.5 py-1 bg-[#34F57E] text-[#041209] font-semibold text-[10.5px] cursor-pointer"
-                >
-                  Take Over w/ Glasses
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => void controlAgentScreen('release')}
-                  className="px-2.5 py-1 border border-white/25 text-[var(--bright)] text-[10.5px] cursor-pointer"
-                >
-                  Release Back to Agent
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => void controlAgentScreen('scroll_down')}
-                className="px-2 py-1 border border-white/15 text-[10px] text-[var(--bright)] cursor-pointer"
-              >
-                Next Target
-              </button>
-              <button
-                type="button"
-                onClick={() => void controlAgentScreen('click')}
-                className="px-2 py-1 border border-[#34f57e]/45 text-[10px] text-[#86FFAF] cursor-pointer"
-              >
-                Click Target
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {studioTab === 'market' && (
-        <div className="space-y-3.5 text-xs">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--g2-phosphor)]">
-                AI MARKET RESEARCH &amp; PAPER BOT WATCHER
-              </span>
-              <p className="text-[11px] text-[var(--lightgray)]">
-                Research &amp; paper simulation only (zero auto-execution). Telegram alerts require explicit Hold-YES approval.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {(['BTC', 'ETH', 'SOL', 'TAO', 'FET'] as const).map((sym) => (
-                <button
-                  key={sym}
-                  type="button"
-                  onClick={() => setSelectedSymbol(sym)}
-                  className={`px-2.5 py-1 font-pixel text-[9px] cursor-pointer ${
-                    selectedSymbol === sym
-                      ? 'bg-[var(--g2-phosphor)] text-[#041209] font-bold'
-                      : 'retro-btn-glass text-[var(--bright)]'
-                  }`}
-                >
-                  {sym}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-            {marketSignals.map((sig) => (
-              <button
-                key={sig.symbol}
-                type="button"
-                onClick={() => setSelectedSymbol(sig.symbol as typeof selectedSymbol)}
-                className={`text-left border p-2.5 bg-black/55 space-y-1 cursor-pointer transition-colors ${
-                  selectedSymbol === sig.symbol ? 'border-[var(--g2-phosphor)]' : 'border-white/10 hover:border-white/30'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-pixel text-[10px] text-[var(--bright)]">{sig.symbol}</span>
-                  <span className={`font-pixel text-[8.5px] ${sig.change24hPct >= 0 ? 'text-[#34F57E]' : 'text-amber-300'}`}>
-                    {sig.change24hPct >= 0 ? '+' : ''}{sig.change24hPct}%
-                  </span>
-                </div>
-                <div className="font-mono text-sm text-[var(--lime)]">${sig.priceUsd.toLocaleString()}</div>
-                <div className="font-pixel text-[8px] text-[var(--lightgray)]">
-                  RSI {sig.rsiProxy} · {sig.suggestedAction}
-                </div>
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void runMarketPaperTrade(selectedSymbol)}
-              className="retro-btn-primary px-3.5 py-1.5 font-semibold cursor-pointer"
-            >
-              Simulate Paper Watch ($500 {selectedSymbol})
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void generateMarketBot(selectedSymbol)}
-              className="retro-btn-glass px-3.5 py-1.5 text-[var(--g2-phosphor)] font-semibold cursor-pointer"
-            >
-              Generate Python Bot ({selectedSymbol})
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void stageMarketTelegramAlert(selectedSymbol)}
-              className="retro-btn-glass px-3.5 py-1.5 text-[#86FFAF] font-semibold cursor-pointer"
-            >
-              Stage Telegram Alert (Default-NO)
-            </button>
-            {onLiveUiUpdate && (
-              <button
-                type="button"
-                onClick={() => {
-                  const sig = marketSignals.find((s) => s.symbol === selectedSymbol);
-                  onLiveUiUpdate(
-                    makeG2TextSurface('mkt_g2', `${selectedSymbol} Watch`, [
-                      sig?.g2Line ?? `${selectedSymbol} SIGNAL READY | PAPER ONLY`,
-                    ]),
-                  );
-                }}
-                className="retro-btn-glass px-3.5 py-1.5 text-[var(--bright)] cursor-pointer"
-              >
-                Push Ticker to G2 Lens
-              </button>
-            )}
-          </div>
-
-          {marketBotCode && (
-            <pre className="border border-dashed border-[var(--g2-phosphor)]/40 bg-black p-3 font-mono text-[10px] text-[#86FFAF] overflow-x-auto max-h-44">
-              {marketBotCode}
-            </pre>
-          )}
-        </div>
-      )}
-
-      {studioTab === 'explainer' && (
-        <ExplainerStudio
-          sessionToken={sessionToken}
-          activeLlmProvider={activeLlmProvider || 'Auto'}
-          onSyncToG2={(lines) =>
-            onLiveUiUpdate?.(makeG2TextSurface('explainer_g2', 'Explainer Beat', lines))
-          }
-        />
       )}
 
       {studioTab === 'notes' && (
@@ -1992,102 +1166,6 @@ export function LiveVoiceStudio({
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {studioTab === 'computer' && (
-        <div className="space-y-3 text-xs">
-          <div className="flex flex-wrap items-center gap-2">
-            {(
-              [
-                ['git_status', 'Check Git Status'],
-                ['git_log', 'Recent Commits'],
-                ['gh_prs', 'Open GitHub PRs'],
-                ['workspace_summary', 'Project Files'],
-              ] as const
-            ).map(([k, label]) => (
-              <button
-                key={k}
-                type="button"
-                disabled={busy}
-                onClick={() => void runInspect(k)}
-                className="retro-btn-glass px-3 py-1.5 text-[11px] text-[var(--bright)] hover:text-[var(--lime)] cursor-pointer"
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {tools.map((t) => (
-              <div
-                key={t.id}
-                className={`border px-2.5 py-2 bg-black/50 space-y-0.5 ${
-                  t.installed ? 'border-[var(--g2-phosphor)]/45' : 'border-white/10'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-1">
-                  <span className="font-semibold text-[var(--bright)] truncate">{t.name}</span>
-                  <span
-                    className={`font-pixel text-[8px] px-1.5 py-0.5 rounded ${
-                      t.installed
-                        ? 'bg-[var(--g2-phosphor)]/15 text-[var(--g2-phosphor)]'
-                        : 'bg-white/5 text-[var(--lightgray)]'
-                    }`}
-                  >
-                    {t.installed ? 'READY' : 'OFFLINE'}
-                  </span>
-                </div>
-                <div className="text-[10px] text-[var(--lightgray)] truncate">{t.accountMode}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="text"
-              aria-label="Project plan or computer task prompt"
-              value={taskPrompt}
-              onChange={(e) => setTaskPrompt(e.target.value)}
-              className="flex-1 bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
-            />
-            <select
-              aria-label="Target local AI or tool"
-              value={targetTool}
-              onChange={(e) => setTargetTool(e.target.value as typeof targetTool)}
-              className="bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-2 text-[var(--bright)]"
-            >
-              <option value="auto">Auto (Local Account CLI / OpenRouter)</option>
-              <option value="openrouter">OpenRouter</option>
-              <option value="workspace_test">Git Check</option>
-              <option value="claude_cli">Claude Code CLI</option>
-              <option value="codex_cli">Codex CLI (ChatGPT)</option>
-              <option value="gemini_cli">Gemini CLI</option>
-              <option value="ollama">Ollama Local</option>
-            </select>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void triggerAutonomousTask('PLAN_PROJECT', taskPrompt)}
-              className="px-4 py-2 bg-[var(--lime)] text-[#041209] font-semibold cursor-pointer whitespace-nowrap"
-            >
-              Stage Task
-            </button>
-          </div>
-
-          {inspectRes && (
-            <div className="border border-dashed border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1">
-              <div className="font-pixel text-[9px] text-[var(--g2-phosphor)]">
-                {inspectRes.kind.toUpperCase()} · {inspectRes.latencyMs}ms
-              </div>
-              <div className="text-[var(--bright)]">{inspectRes.summary}</div>
-              {inspectRes.lines.slice(0, 4).map((l, i) => (
-                <div key={i} className="font-plex text-[10.5px] text-[var(--lightgray)] truncate">
-                  {l}
-                </div>
-              ))}
             </div>
           )}
         </div>

@@ -3,7 +3,7 @@
 **Project Root:** `C:\Users\lalwa\.gemini\antigravity\scratch\oncue-even-g2`
 **Public Repository:** https://github.com/vaibhav4046/onq-even-g2
 **Live Docs & Privacy Policy:** https://vaibhav4046.github.io/onq-even-g2/ · https://vaibhav4046.github.io/onq-even-g2/privacy.html
-**Hard Safety Stop Enforced:** Full local run on 2026-11-25, every command exit 0: `npm test` (`251` tests across `28` files), `npm run eval:harness` (`32/32` intents, `5/5` injections blocked, `3/3` 409 locks, `5/5` RMS silence rejections, `4` failover scenarios), `npm run pack` (`dist/onq.ehpk`, `51,344` bytes, SDK `0.0.16`), `npm run verify:geometry` (`11/11` plus the Check 11 negative control), `npm run verify:sim` (`13` real EvenHub Simulator `0.9.5` captures, `sim-01..sim-13`), and `npm run verify:security` (`10/10` PASS, `0` vulnerabilities, `112` files at last run). The web entry chunk is `292 kB` raw / `76 kB` gzip, and the `modern-web-guidance` legacy scan found `0` issues across `25` files. **Not done:** physical Even G2 glasses and R1 ring testing (simulator, Chromium geometry gate and automated suites only), and a fresh live-connector run for Google, Notion and Telegram this session (see the connector status below). The launch video is being re-rendered; its row stays "refresh in progress" until the final length is known. External DoraHacks / Product Hunt submission and any paid hosting remain unsubmitted for your manual review and final click.
+**Hard Safety Stop Enforced:** Full local run on 2026-11-25, every command exit 0: `npm test` (`251` tests across `28` files), `npm run eval:harness` (`32/32` intents, `5/5` injections blocked, `3/3` 409 locks, `5/5` RMS silence rejections, `4` failover scenarios), `npm run pack` (`dist/onq.ehpk`, `51,344` bytes, SDK `0.0.16`), `npm run verify:geometry` (`11/11` plus the Check 11 negative control), `npm run verify:sim` (`13` real EvenHub Simulator `0.9.5` captures, `sim-01..sim-13`), and `npm run verify:security` (`10/10` PASS, `0` vulnerabilities, `112` files at last run). The web entry chunk is `292 kB` raw / `76 kB` gzip, and the `modern-web-guidance` legacy scan found `0` issues across `25` files. **Not done:** physical Even G2 glasses and R1 ring testing (simulator, Chromium geometry gate and automated suites only), and a fresh live-connector run for Google, Notion and Telegram this session (see the connector status below). The pixel-anime film (`2:36`) and the technical walkthrough (`2:05`) are rendered. External DoraHacks / Product Hunt submission and any paid hosting remain unsubmitted for your manual review and final click.
 
 ---
 
@@ -47,7 +47,8 @@ OnQ boots cold in labeled `DEMO` sandbox mode with zero env vars. To plug in rea
 | **Live GitHub Pages & Privacy** | `docs/index.html`, `docs/privacy.html`, `docs/terms.html` | Hosted at `https://vaibhav4046.github.io/onq-even-g2/` and `https://vaibhav4046.github.io/onq-even-g2/privacy.html` |
 | **TVM Ventures Pitch Deck** | `docs/TVM_PITCH_DECK.md` | 10-slide Demo Day pitch deck mapped to judging weights + Dual-Track Track 04 / Telegram live script |
 | **Clean-Room Verification Log** | `docs/VERIFICATION_LOG.txt` | Fresh-clone verification transcript with zero env vars |
-| **Product Launch Film** | `media/out/onq-launch-demo.mp4` | Refresh in progress; update this line with the final length when rendered. The existing file predates the final pass. |
+| **Pixel-Anime Launch Film** | `media/out/onq-anime-film.mp4` | `1920x1080`, `30 fps`, `2:36` (<= 2:45), AssemblyAI TTS-1 narration. Pixel-art "A day with OnQ" (07:30 to 22:00). Every glasses HUD in it is a real EvenHub Simulator 0.9.5 capture and one scene is a real screen recording of the web app (demo sandbox). Rebuild: `python scripts/make-anime-film.py`. |
+| **Technical Walkthrough** | `media/out/onq-launch-demo.mp4` | `1920x1080`, `60 fps`, `2:05`, TTS-1 narration over screen recordings. A few seconds show the first-load "syncing" screen; prefer the anime film for submission. |
 | **Product Hunt Launch Kit** | `media/product-hunt/` | `gallery-01-hero.png` .. `gallery-04-architecture.png` (`1270x760`), `thumbnail-240x240.gif`, `PRODUCT_HUNT_LAUNCH_COPY.md` |
 | **API Feedback Deliverable** | `API_FEEDBACK.md` | 5 concrete Even Hub SDK `0.0.16`, Simulator `0.9.5`, and WebView OAuth PKCE feature requests |
 | **Competitive Audit Matrix** | `docs/COMPETITIVE_ANALYSIS.md` | Track 04 Read-and-Write rubric & head-to-head comparison against field entries |
@@ -56,7 +57,7 @@ OnQ boots cold in labeled `DEMO` sandbox mode with zero env vars. To plug in rea
 
 ## 1b. What Changed in the Final Pass
 
-1. **Studio:** 8 tabs became 4 workspaces (Glasses Live, Personal OS, Meeting Scribe, Local Skills). Local Skills holds Glass apps, Agent fleet, Market watch, Video explainer and PC tools, and is labelled optional.
+1. **Studio:** 8 tabs became 3 workspaces (Glasses Live, Personal OS, Meeting Scribe). The off-track panels (glass apps, agent fleet, market watch, video explainer, PC tools) were removed from the web app; the music curator and market research stay as optional crews inside Personal OS.
 2. **60-second guided tour** in the hero: Confirm and undo, Double-booking lock, Morning crew.
 3. **Copy cut:** hero and page text cut sharply; jargon moved into one closed "Engineering & audit" block per section.
 4. **Period glyph fix:** the pixel font Doto drew "." as a plus-shaped cluster, so "$0.001" read as "+". Periods now come from a clean bold system sans (unicode-range font-face), and the heading scramble no longer uses "+".
@@ -97,7 +98,7 @@ cd onq-even-g2
 npm ci && npm test && npm run eval:harness && npm run build && npm run pack
 npm run dev
 
-Open http://127.0.0.1:5173 for a 60-second guided tour (Confirm and undo, Double-booking lock, Morning crew), the interactive 3D Even G2 stage, the 576x288 Browser Optical Simulator, and the Connectors Hub with the AI Orchestrator (`Claude / ChatGPT / OpenRouter`, Rules fallback). The studio has 4 workspaces: Glasses Live, Personal OS, Meeting Scribe and Local Skills (optional). Or sideload dist/onq.ehpk in Even Hub.
+Open http://127.0.0.1:5173 for a 60-second guided tour (Confirm and undo, Double-booking lock, Morning crew), the interactive 3D Even G2 stage, the 576x288 Browser Optical Simulator, and the Connectors Hub with the AI Orchestrator (`Claude / ChatGPT / OpenRouter`, Rules fallback). The studio has 3 workspaces: Glasses Live, Personal OS and Meeting Scribe. Or sideload dist/onq.ehpk in Even Hub.
 
 ## Verified, Not Claimed
 - npm test: 251 tests passing across 28 files (core, PKCE OAuth, 4-bit Pixel Avatar, Proactive Agent, AI Orchestrator, Local Computer Bridge, Telegram Bot API including the 409 webhook case, music mood queries, multi-line live UI, 4-tier failover, 25x concurrency races, WS/AssemblyAI, Postgres, fault-injection tests, 0 keys required)
@@ -121,6 +122,6 @@ Target $7/month Work-Pro tier (~$0.001/brief unit cost because deterministic rul
 
 ## 3. Manual Pre-Publish Checklist
 1. Push `onq-even-g2` to `https://github.com/vaibhav4046/onq-even-g2` (`git push -u origin master`) and confirm GitHub Pages (`https://vaibhav4046.github.io/onq-even-g2/`) & Privacy Policy (`https://vaibhav4046.github.io/onq-even-g2/privacy.html`) are live.
-2. Upload `media/out/onq-launch-demo.mp4` (refresh in progress; update this line with the final length when rendered) to YouTube/DoraHacks and attach `dist/onq.ehpk` (`51,344` bytes). Code commit: `<CODE_COMMIT>`.
+2. Upload `media/out/onq-anime-film.mp4` (`2:36`, the main film; `media/out/onq-launch-demo.mp4` is the technical walkthrough) to YouTube/DoraHacks and attach `dist/onq.ehpk` (`51,344` bytes). Code commit: `<CODE_COMMIT>`.
 3. Paste the Track 04 description above + the 5 requests from `API_FEEDBACK.md` (and reference `docs/HACKATHON_RUBRIC_AUDIT.md`) into DoraHacks and submit.
 4. For Product Hunt: upload `media/product-hunt/gallery-01..04.png`, `thumbnail-240x240.gif`, and paste `media/product-hunt/PRODUCT_HUNT_LAUNCH_COPY.md`.

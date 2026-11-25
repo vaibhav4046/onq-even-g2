@@ -47,7 +47,7 @@ import {
 } from './components/MotionPrimitives';
 import { ArchitectureShowcase } from './components/ArchitectureShowcase';
 import { LiveVoiceStudio } from './components/LiveVoiceStudio';
-import type { AgentTaskDto, UnifiedMemoryDto } from './components/LiveVoiceStudio';
+import type { UnifiedMemoryDto } from './components/LiveVoiceStudio';
 import { OnQLogo } from './components/OnQLogo';
 import { OnQVoiceOrb } from './components/OnQVoiceOrb';
 import { PhosphorMeshShader } from './components/PhosphorMeshShader';
@@ -301,7 +301,7 @@ export function App() {
   const geometryStateName = params.get('state') ?? 'DOSSIER';
 
   const [heroWordIdx, setHeroWordIdx] = useState(0);
-  const [opticsMode, setOpticsMode] = useState<'waveguide' | 'raw'>('waveguide');
+  const [opticsMode] = useState<'waveguide' | 'raw'>('waveguide');
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [sessionMode, setSessionMode] = useState<'LIVE' | 'DEMO' | 'STALE'>('DEMO');
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
@@ -1163,19 +1163,6 @@ export function App() {
     setVoiceFeedback(`Heard (${Math.round(performance.now() - t0)}ms): "${stt.transcript}"`);
     await stageCommand(stt.transcript);
     void refreshWorkspaceInspector(tok);
-  };
-
-  const toggleFaultOffline = async () => {
-    const tok = tokenRef.current;
-    if (!tok) return;
-    const goOffline = hudState.phase !== 'stale';
-    await fetch('/api/workspace/fault', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ forceOffline: goOffline }),
-    });
-    await refreshCorridor(tok);
-    setVoiceFeedback(goOffline ? 'Simulated offline drop: lens preserves cached state as STALE.' : 'Network restored.');
   };
 
   const resetSandbox = async () => {

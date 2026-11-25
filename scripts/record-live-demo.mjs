@@ -227,9 +227,13 @@ async function scrollToLens(page) {
 
 // ONQ_REC_GALLERY_ONLY=1 re-captures just the Product Hunt gallery and keeps the existing clips.
 const GALLERY_ONLY = process.env.ONQ_REC_GALLERY_ONLY === '1';
+// ONQ_REC_ONLY=clip2,clip3 re-records just those clips (keeps the rest, skips simulator sequence and gallery).
+const ONLY = (process.env.ONQ_REC_ONLY ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 
 async function recordClip(browser, url, outName, runnerFn) {
   if (GALLERY_ONLY) return;
+  if (ONLY.length > 0 && !ONLY.some((n) => outName.includes(n))) return;
+  const startedAt = Date.now();
   const context = await browser.newContext({
     viewport: { width: 1920, height: 1080 },
     deviceScaleFactor: 1,
@@ -253,12 +257,15 @@ async function recordClip(browser, url, outName, runnerFn) {
     // non-fatal fallback if sandbox takes longer
   }
   await page.waitForTimeout(900);
+  // Sidecar: how many ms of the recording are page load / first sync, so edits can trim the loading screen.
+  const readyMs = Date.now() - startedAt;
   await runnerFn(page);
   await context.close();
   const srcPath = await video.path();
   const destPath = path.join(RAW_DIR, outName);
   if (fs.existsSync(destPath)) fs.unlinkSync(destPath);
   fs.renameSync(srcPath, destPath);
+  fs.writeFileSync(`${destPath}.ready.json`, JSON.stringify({ readyMs }));
   console.log(`[record] Saved ${outName}`);
 }
 
@@ -269,7 +276,7 @@ async function main() {
 
   try {
     // Clean stale webm clips
-    if (!GALLERY_ONLY) {
+    if (!GALLERY_ONLY && ONLY.length === 0) {
       for (const f of fs.readdirSync(RAW_DIR)) {
         if (f.endsWith('.webm')) fs.unlinkSync(path.join(RAW_DIR, f));
       }
@@ -372,6 +379,7 @@ async function main() {
       });
 
       // Refresh Product Hunt 1270x760 gallery captures from upgraded UI
+      if (ONLY.length === 0) {
       const phCtx = await browser.newContext({ viewport: { width: 1270, height: 760 }, deviceScaleFactor: 1 });
       const phPage = await phCtx.newPage();
       await phPage.goto(webSrv.url, { waitUntil: 'load' });
@@ -401,6 +409,7 @@ async function main() {
       await phPage.screenshot({ path: path.join(PH_DIR, 'gallery-04-architecture.png') });
       await phCtx.close();
       console.log('[record] Refreshed media/product-hunt/gallery-01..04.png (1270x760)');
+      }
     } finally {
       await browser.close();
       await relay2.close();

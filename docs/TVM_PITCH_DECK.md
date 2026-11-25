@@ -93,8 +93,8 @@ Even Realities judges **Read + Write** first:
 
 - `npm test`: `251` tests across `28` files, all passing. `npm run eval:harness`: `32/32` intents, `5/5` injections blocked, `3/3` 409 locks, `5/5` RMS silence rejections, `4` failover scenarios.
 - `dist/onq.ehpk`: `51,344` bytes, SDK `0.0.16`. `npm run verify:geometry`: `11/11` PASS plus the Check 11 negative control. `npm run verify:sim`: `13` real EvenHub Simulator `0.9.5` captures. `npm run verify:security`: `10/10` PASS, `0` vulnerabilities, `112` files at last run.
-- Web entry chunk `292 kB` raw / `76 kB` gzip (was `1,756 kB` / `498 kB`). Studio is now 4 workspaces (Glasses Live, Personal OS, Meeting Scribe, optional Local Skills) with a 60-second guided tour.
+- Web entry chunk `292 kB` raw / `76 kB` gzip (was `1,756 kB` / `498 kB`). Studio is now 3 workspaces (Glasses Live, Personal OS, Meeting Scribe) with a 60-second guided tour.
 - Live connectors, exactly: in the 2026-11-25 run with the demo session, AssemblyAI `STT-3.7` + `TTS-1` was LIVE (`660 ms`); Google Workspace, Notion and Telegram were SANDBOX; Claude, OpenRouter and ChatGPT fell back to Rules. An earlier session at commit `230dd35` with the owner's connected accounts recorded Google OAuth LIVE `116 ms`, Notion LIVE `623 ms`, Telegram LIVE `27 ms` (not re-run this session).
 - Optional local skills (music, market signals, PC tools, YouTube scouting) are not part of the Track 04 pitch. Grok and OmniRoute are optional model routes and are not pitched.
 - **Not done:** physical Even G2 glasses and R1 ring testing (simulator, Chromium geometry gate and automated suites only).
-- Launch video: refresh in progress; update this line with the final length when rendered. Code commit: `<CODE_COMMIT>`.
+- Launch video: pixel-anime film `media/out/onq-anime-film.mp4` (`2:36`); technical walkthrough `media/out/onq-launch-demo.mp4` (`2:05`). Code commit: `<CODE_COMMIT>`.
