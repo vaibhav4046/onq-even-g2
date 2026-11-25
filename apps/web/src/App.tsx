@@ -1344,6 +1344,7 @@ export function App() {
                     activeWord={activeSpokenWord}
                     armProgress01={armProgress01}
                     engineLabel={voiceEngineLabel}
+                    orchestratorLabel={activeLlmProvider}
                   />
                 </div>
               </div>
@@ -1944,7 +1945,7 @@ export function App() {
                               onClick={() => void stageCommand(proactive.activeHarness!.suggestedCommand)}
                               className="px-2.5 py-1 bg-[var(--lime)] text-[#0a0a0a] font-pixel text-[9px] uppercase cursor-pointer shrink-0"
                             >
-                              Stage Default-NO
+                              Preview (Ask First)
                             </button>
                           </div>
                         </div>
@@ -2021,7 +2022,7 @@ export function App() {
                                 type="submit"
                                 className="px-2 py-1 border border-[var(--hairline)] text-[11px] hover:border-[var(--lime)] hover:text-[var(--lime)] cursor-pointer"
                               >
-                                +Busy
+                                Add Busy Slot
                               </button>
                             </form>
                           )}
@@ -2095,7 +2096,7 @@ export function App() {
                                   type="submit"
                                   className="px-2 py-1 border border-[var(--hairline)] text-[11px] hover:border-[var(--lime)] hover:text-[var(--lime)] cursor-pointer"
                                 >
-                                  +Task
+                                  Add Task
                                 </button>
                               </form>
                             )}
@@ -2208,6 +2209,10 @@ export function App() {
                 onWrapUpMeeting={() => void runMeetingWrapUp()}
                 onAskMeeting={(q) => void askMeetingClaude(q)}
                 onWipeMeeting={() => void wipeMeetingScribe()}
+                onPreviewStaged={(preview) => {
+                  ctrlRef.current?.stagePreview(preview, true);
+                  setVoiceFeedback(`Staged by Personal Partner: ${preview.summaryLines[0] ?? 'Ready to confirm'}. Confirm 2s ring to send.`);
+                }}
                 onLiveUiUpdate={async (surface) => {
                   const directLines = surface.components
                     .map((c) => c.text ?? '')
@@ -2423,44 +2428,45 @@ export function App() {
           }}
         />
 
-        {/* Technical FAQ (#faq) */}
+        {/* Technical FAQ (#faq) — Expanded cleanly so nothing is hidden under + signs */}
         <section id="faq" className="section-rule py-20 sm:py-24">
           <div className="container-page grid grid-cols-1 lg:grid-cols-12 gap-12">
             <ScrollReveal className="lg:col-span-5 space-y-4">
               <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
-                SECURITY &amp; HARDWARE HONESTY
+                SECURITY &amp; HARDWARE CLARITY
               </p>
               <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem]">
                 <span className="block text-[var(--lightgray)]">Built cleanly.</span>
-                <GlyphDecodeHeading text="Zero gimmicks." className="block text-[var(--bright)]" />
+                <GlyphDecodeHeading text="Everything visible." className="block text-[var(--bright)]" />
               </h2>
               <ul className="space-y-2 text-sm text-[var(--lightgray)] pt-2">
-                <li>-&gt; Camera-free, speaker-free Even G2 fidelity (TTS-1 routes to earbuds).</li>
-                <li>-&gt; Verified on Even Hub Simulator 0.9.5 &amp; Chromium Geometry Gate.</li>
-                <li>-&gt; Google Workspace, Notion 2026-03-11, Claude / OpenRouter / ChatGPT.</li>
+                <li>-&gt; Even G2 has no camera or speaker — companion audio routes cleanly to your earbuds.</li>
+                <li>-&gt; Tested live in Even Hub Simulator 0.9.5 and Chromium glasses layout checks.</li>
+                <li>-&gt; Unified Personal Agent orchestrates Calendar, Mail, Notion, Telegram, Markets, and PC tools.</li>
               </ul>
             </ScrollReveal>
 
             <ScrollReveal delay={0.06} className="lg:col-span-7 retro-glass-panel px-6 divide-y divide-dashed divide-white/10">
               {[
                 {
-                  q: 'How do accounts stay secure without leaking keys to the browser or glasses?',
-                  a: 'Credentials are stored strictly server-side inside an AES-256-GCM vault at mode 0600, registered for log redaction, and never packed into dist/onq.ehpk or returned over JSON.',
+                  q: 'How do my accounts stay private without keys leaking to the browser or glasses?',
+                  a: 'All tokens live only on your local relay server inside an AES-256-GCM encrypted vault file. Nothing sensitive is packed into the glasses app build or exposed in browser JSON responses.',
                 },
                 {
-                  q: 'How are email prompt injections blocked?',
-                  a: 'Workspace text stays inside <untrusted_workspace_data> tags, recipients bind server-side (HTTP 400 on spoofed "to"), and Code-Guard validates every fact across Claude, OpenRouter, and ChatGPT.',
+                  q: 'How does OnQ block malicious emails or prompt injections?',
+                  a: 'Incoming email and message text stays fenced inside untrusted data tags. Email recipients lock strictly on the server, and our fact-checking guard verifies names and times before showing a preview.',
                 },
                 {
-                  q: 'Does OnQ work if a voice accidental tap or network drop happens?',
-                  a: 'RMS gating drops accidental taps before transcription, 2.0s Countdown Ring locks writes until 0.0s, 409 blocks double-bookings, and offline drops surface cached STALE briefs.',
+                  q: 'What happens if my pocket triggers the mic, the slot gets booked, or Wi-Fi drops?',
+                  a: 'Quiet ambient noise drops locally before speech transcription runs. Every action defaults to NO until you confirm a 2-second ring countdown, double-bookings are blocked right before save, and offline mode keeps your cached brief visible.',
                 },
               ].map((item) => (
-                <details key={item.q} className="group py-5">
+                <details key={item.q} open className="group py-5">
                   <summary className="flex items-center justify-between gap-4 cursor-pointer list-none font-display text-lg font-medium text-[var(--bright)]">
                     <span>{item.q}</span>
-                    <span className="font-plex text-xl text-[var(--lime)] transition-transform group-open:rotate-45">
-                      +
+                    <span className="font-plex text-xl text-[var(--lime)] shrink-0" aria-hidden="true">
+                      <span className="group-open:hidden">+</span>
+                      <span className="hidden group-open:inline">-</span>
                     </span>
                   </summary>
                   <p className="mt-3 text-sm leading-relaxed text-[var(--lightgray)]">{item.a}</p>

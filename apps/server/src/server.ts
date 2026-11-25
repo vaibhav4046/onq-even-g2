@@ -3631,6 +3631,291 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         return;
       }
 
+      // 14i. Personal AI Partner & Master Orchestrator across all OnQ domains (Voice/Schedule/RAG/Market/Explainer/LiveUI/Fleet)
+      if (req.method === 'POST' && pathname === '/api/agent/orchestrate') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ message?: string; cardId?: string; speak?: boolean }>(req);
+        const msg = body.message?.trim() ?? '';
+        if (!msg) {
+          jsonResponse(res, 400, { error: 'message required' });
+          return;
+        }
+        const nowIso = new Date(nowFn()).toISOString();
+        const urlMatch = msg.match(/https?:\/\/[^\s]+/i);
+
+        // 1) Docs URL -> Defuddle + Cited RAG
+        if (urlMatch) {
+          try {
+            const ingested = await citedKnowledge.ingestUrl(urlMatch[0], opts.fetchImpl);
+            await saveUnifiedMemory({
+              kind: 'note',
+              title: `Defuddle: ${ingested.doc.title}`.slice(0, 72),
+              summary: ingested.doc.content.slice(0, 220),
+              source: 'Partner+Defuddle',
+            });
+            const reply = `Read & indexed "${ingested.doc.title}" (${ingested.cleanChars} clean chars from ${ingested.rawChars}).`;
+            const g2Lines = [
+              'PARTNER | DOCS INDEXED',
+              ingested.doc.title.slice(0, 40),
+              `Clean: ${ingested.cleanChars}c (Defuddle)`,
+            ];
+            jsonResponse(res, 200, {
+              ok: true,
+              domain: 'KNOWLEDGE',
+              recommendedTab: 'call',
+              reply,
+              spokenText: reply,
+              g2Lines,
+              tokenSummary: tokenLedger.getSummary(),
+            });
+            return;
+          } catch (err) {
+            jsonResponse(res, 400, {
+              ok: false,
+              domain: 'KNOWLEDGE',
+              error: err instanceof Error ? err.message : 'Blocked URL',
+            });
+            return;
+          }
+        }
+
+        // 2) Workspace mutation intent -> Ask-First Default-NO gate + 409 check
+        const isPureQuestion = /^(what|when|who|how|why|show|check|find|list|summarize)\b/i.test(msg);
+        if (
+          !isPureQuestion &&
+          /\b(push|move|delay|reschedule|tell|reply|email|mail|remind|send|telegram|brief|stage)\b/i.test(msg)
+        ) {
+          const staged = await stageCommandForSession({
+            session,
+            commandText: msg,
+            cardId: body.cardId,
+          });
+          if (staged.status === 200 && 'preview' in staged) {
+            const reply = `Staged cleanly under Ask-First lock: ${staged.preview.summaryLines.join(' · ')}. Hold or tap YES on glasses to send.`;
+            jsonResponse(res, 200, {
+              ok: true,
+              domain: 'WORKSPACE_ACTION',
+              recommendedTab: 'call',
+              preview: staged.preview,
+              reply,
+              spokenText: `Staged and waiting for your confirmation. ${staged.preview.summaryLines[0] ?? ''}`,
+              g2Lines: staged.preview.summaryLines,
+              tokenSummary: tokenLedger.getSummary(),
+            });
+            return;
+          }
+          if (staged.status === 409) {
+            jsonResponse(res, 200, {
+              ok: false,
+              domain: 'CONFLICT_409',
+              recommendedTab: 'call',
+              conflict: staged.conflict,
+              reply: 'Stopped before saving: that time slot conflicts with another meeting.',
+              spokenText: 'Stopped cleanly because that slot is already busy.',
+              g2Lines: ['BLOCKED | SLOT CONFLICT', 'Picked zero writes · choose next slot'],
+              tokenSummary: tokenLedger.getSummary(),
+            });
+            return;
+          }
+        }
+
+        // 3) Market research / paper signal bot
+        if (/\b(btc|eth|sol|tao|fet|crypto|market|price|signal|trade|paper|bot)\b/i.test(msg)) {
+          const mkt = await marketBot.fetchSignals(['BTC', 'ETH', 'SOL', 'TAO'], opts.fetchImpl);
+          tokenLedger.encodeWithMetrics(mkt.signals, 'partner_market');
+          const top = mkt.signals[0];
+          const wantsBot = /\b(bot|script|python)\b/i.test(msg);
+          let code: string | undefined;
+          let scriptPath: string | undefined;
+          if (wantsBot) {
+            const sym = msg.match(/\b(BTC|ETH|SOL|TAO|FET)\b/i)?.[1]?.toUpperCase() ?? 'BTC';
+            code = marketBot.buildPythonSignalWatcherCode(sym);
+            const botsDir = path.resolve(process.cwd(), 'data/bots');
+            fs.mkdirSync(botsDir, { recursive: true });
+            scriptPath = `data/bots/market_${sym.toLowerCase()}_bot.py`;
+            fs.writeFileSync(path.resolve(botsDir, `market_${sym.toLowerCase()}_bot.py`), code, 'utf8');
+            kanbanScreen.addCard({
+              title: `${sym} Signal Watcher Bot`,
+              lane: 'scheduled',
+              agentName: 'OnQ Partner Bot',
+              model: 'Market Research',
+              summary: `Paper watcher saved at ${scriptPath}`,
+              cronSpec: '*/15 * * * *',
+              scriptPath,
+              roleTemplate: 'bot_engineer',
+            });
+            broadcastSse('kanban', { cards: kanbanScreen.listCards() });
+          }
+          const reply = wantsBot
+            ? `Built ${scriptPath} and synced live paper signals. Top watch: ${top?.symbol ?? 'BTC'} $${top?.priceUsd ?? 0} (${top?.signal ?? 'WAIT'}).`
+            : `Market check (paper-only): ${mkt.signals.slice(0, 3).map((s) => `${s.symbol} $${s.priceUsd} (${s.change24hPct >= 0 ? '+' : ''}${s.change24hPct}% · ${s.signal})`).join(' | ')}.`;
+          jsonResponse(res, 200, {
+            ok: true,
+            domain: 'MARKET',
+            recommendedTab: 'market',
+            signals: mkt.signals,
+            marketBotCode: code,
+            scriptPath,
+            reply,
+            spokenText: reply,
+            g2Lines: mkt.lensLines,
+            tokenSummary: tokenLedger.getSummary(),
+          });
+          return;
+        }
+
+        // 4) Monochrome 525nm Video Explainer
+        if (/\b(explainer|video|animate|storyboard)\b/i.test(msg)) {
+          const style: 'motion' | 'hand_drawn' | 'cinematic_3d' =
+            /hand|sketch|draw/i.test(msg)
+              ? 'hand_drawn'
+              : /3d|cube|wireframe/i.test(msg)
+                ? 'cinematic_3d'
+                : 'motion';
+          const g2Lines = [`EXPLAINER | ${style.toUpperCase()}`, msg.slice(0, 38), 'OPEN IN EXPLAINER TAB'];
+          const reply = `Switched to the Video Explainer studio (${style.replace('_', ' ')} mode) and pushed your beat to Even G2.`;
+          jsonResponse(res, 200, {
+            ok: true,
+            domain: 'EXPLAINER',
+            recommendedTab: 'explainer',
+            explainerStyle: style,
+            reply,
+            spokenText: reply,
+            g2Lines,
+            tokenSummary: tokenLedger.getSummary(),
+          });
+          return;
+        }
+
+        // 5) LiveUI Interactive Glass App
+        if (/\b(timer|pomodoro|split|bill|compare|game|reflex|checklist|micro-app|live app)\b/i.test(msg)) {
+          const surface = synthesizeLiveUiFromPrompt(msg, nowIso);
+          activeLiveUi = surface;
+          broadcastSse('liveui', { surface, g2: formatLiveUiForG2(surface) });
+          const g2Lines = formatLiveUiForG2(surface).lines;
+          const reply = `Opened "${surface.title}" on your glasses and web companion.`;
+          jsonResponse(res, 200, {
+            ok: true,
+            domain: 'LIVEUI',
+            recommendedTab: 'apps',
+            surface,
+            reply,
+            spokenText: reply,
+            g2Lines,
+            tokenSummary: tokenLedger.getSummary(),
+          });
+          return;
+        }
+
+        // 6) PC Tools & Agent Fleet Delegation
+        if (/\b(git|repo|kanban|fleet|pc|workspace inspect|status)\b/i.test(msg)) {
+          const inspect = await runSafeReadInspection('git_status', process.cwd());
+          lastInspectResult = inspect;
+          const card = kanbanScreen.addCard({
+            title: msg.slice(0, 48),
+            lane: 'running',
+            agentName: 'OnQ Personal Partner',
+            model: resolveHealthyLlmLabel(resolveLlmConfig()),
+            summary: inspect.summary,
+            roleTemplate: 'architect',
+          });
+          broadcastSse('kanban', { cards: kanbanScreen.listCards() });
+          const reply = `PC check complete (${inspect.latencyMs}ms): ${inspect.summary}. Added card to your Agent Fleet board.`;
+          jsonResponse(res, 200, {
+            ok: true,
+            domain: 'PC_FLEET',
+            recommendedTab: 'fleet',
+            inspect,
+            card,
+            reply,
+            spokenText: reply,
+            g2Lines: inspect.lensLines,
+            tokenSummary: tokenLedger.getSummary(),
+          });
+          return;
+        }
+
+        // 7) Full Personal AI Partner QA across Workspace + Cited RAG + Multi-Model Router (TOON-compressed)
+        const provider = resolveProvider(session.mode);
+        const { cards } = await provider.fetchCorridor(nowIso);
+        const snap = provider.getSnapshot();
+        const memories = (await ledger.listMemories?.(12)) ?? [];
+        const rag = citedKnowledge.query(
+          msg,
+          memories.map((m) => ({ id: m.id, title: m.title, summary: m.summary, source: m.source })),
+        );
+        const statusSnap = buildConnectorStatus();
+        const taste = citedKnowledge.getTaste();
+        const compactWorld = tokenLedger.encodeWithMetrics(
+          {
+            question: msg,
+            taste: taste.verbosity,
+            activeModel: statusSnap.activeLlmProvider,
+            nextMeeting: cards[0] ? `${cards[0].title} (${cards[0].timeMeta})` : 'Clear schedule',
+            openTasks: snap.notionTasks.filter((t) => !t.completed).slice(0, 3).map((t) => t.title),
+            recentInbox: snap.gmailThreads.slice(0, 2).map((g) => `${g.fromName}: ${g.snippet.slice(0, 60)}`),
+            topCitations: rag.citations.slice(0, 2).map((c) => `[${c.index}] ${c.title}: ${c.excerpt.slice(0, 90)}`),
+          },
+          'partner_orchestrate',
+        );
+
+        const nextMtgStr = cards[0] ? `${cards[0].title} (${cards[0].timeMeta})` : 'Clear schedule';
+        const openCount = snap.notionTasks.filter((t) => !t.completed).length;
+        const fallbackReply = `Partner status (${statusSnap.activeLlmProvider}): Next is "${nextMtgStr}" with ${openCount} open task(s). ${rag.citations[0] ? `[${rag.citations[0].index}] ${rag.citations[0].title}: ${rag.citations[0].excerpt.slice(0, 90)}` : ''}`.trim();
+        const fallbackG2 = [
+          'ONQ PARTNER | READY',
+          `NEXT: ${nextMtgStr}`.slice(0, 40),
+          rag.lensLines[1] ?? `TASKS OPEN: ${openCount}`,
+          `AI: ${statusSnap.activeLlmProvider}`.slice(0, 40),
+        ];
+
+        const out = await orchestrateStructuredJson(
+          {
+            systemPrompt: [
+              'You are OnQ, a concise personal AI companion for Even G2 smart glasses.',
+              'Answer clearly in plain English using ONLY facts in <untrusted_workspace_data>; cite sources cleanly as [1], [2].',
+              'Never invent contacts, prices, or times.',
+              'Return strict JSON {"reply":"<=220 chars plain english","g2Lines":["<=42 chars","<=42 chars","<=42 chars"]}.',
+            ].join(' '),
+            userPrompt: `<untrusted_workspace_data>\n${compactWorld.toon}\n</untrusted_workspace_data>`,
+            fallbackJson: { reply: fallbackReply, g2Lines: fallbackG2 },
+            validate: (raw) => {
+              if (!raw || typeof raw !== 'object') return null;
+              const o = raw as Record<string, unknown>;
+              const reply = typeof o.reply === 'string' && o.reply.trim() ? o.reply.trim().slice(0, 260) : '';
+              const lines = Array.isArray(o.g2Lines)
+                ? o.g2Lines.filter((l): l is string => typeof l === 'string' && l.trim().length > 0).map((l) => clipLine42(l))
+                : [];
+              if (!reply) return null;
+              return { reply, g2Lines: lines.length > 0 ? lines.slice(0, 4) : fallbackG2 };
+            },
+          },
+          resolveLlmConfig(),
+        );
+
+        await saveUnifiedMemory({
+          kind: 'note',
+          title: `Partner: ${msg.slice(0, 48)}`,
+          summary: out.data.reply,
+          source: out.providerLabel,
+        });
+        recordAudit('PROACTIVE_PULSE', `Partner answered (${out.providerLabel})`);
+        jsonResponse(res, 200, {
+          ok: true,
+          domain: 'PARTNER_QA',
+          recommendedTab: 'call',
+          orchestratorUsed: out.providerLabel,
+          fallbackUsed: out.fallbackUsed,
+          reply: out.data.reply,
+          spokenText: out.data.reply,
+          citations: rag.citations,
+          g2Lines: out.data.g2Lines,
+          tokenSummary: tokenLedger.getSummary(),
+        });
+        return;
+      }
+
       // 15. Session revoke
       if (req.method === 'POST' && pathname === '/api/session/revoke') {
         const bearer = extractBearer(req);

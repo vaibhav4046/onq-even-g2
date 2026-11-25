@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { formatLiveUiForG2, evaluateSafeFormula, formatFormulaValue, buildSurfaceEnv, parseDisplayMarkup, stepPacedReveal } from '@onq/core';
-import type { AliveMood, LiveUiInteraction, LiveUiSurface, NormalizedEvenEvent, VoiceOrbState } from '@onq/core';
+import type { ActionPreview, AliveMood, LiveUiInteraction, LiveUiSurface, NormalizedEvenEvent, VoiceOrbState } from '@onq/core';
 import { OnQVoiceOrb } from './OnQVoiceOrb';
 import { Memory3DGalaxy } from './Memory3DGalaxy';
 import { ExplainerStudio } from './ExplainerStudio';
@@ -126,15 +126,16 @@ interface LiveVoiceStudioProps {
   onWrapUpMeeting?: () => void;
   onAskMeeting?: (question: string) => void;
   onWipeMeeting?: () => void;
+  onPreviewStaged?: (preview: ActionPreview) => void;
   onLiveUiUpdate?: (surface: LiveUiSurface) => void;
 }
 
 /**
- * Unified OnQ Companion Studio (ahead of OcuClaw v2.2.1):
- * 1) JJK Six-Eyes Alive Engine w/ live word lip-sync, mood expressions & Quiet-Mode Silent Chips
+ * Unified OnQ Companion Studio (Personal AI Partner & Master Orchestrator):
+ * 1) Persistent Shonen Monochrome Avatar Orchestrator across ALL workspace & agent tools
  * 2) Multi-Window Task Cards + LiveUI Generative Apps (Timers, Steppers, Tables, Mini-Games)
  * 3) Multi-Agent Kanban Fleet + Watch Agent Screen w/ Glasses Human Takeover
- * 4) Persistent SQLite Unified Memory w/ 2D Feed <-> Interactive 3D WebGL Galaxy toggle
+ * 4) Persistent SQLite Unified Memory w/ Cited RAG, Defuddle & 3D Galaxy
  */
 export function LiveVoiceStudio({
   sessionToken,
@@ -158,6 +159,7 @@ export function LiveVoiceStudio({
   onWrapUpMeeting,
   onAskMeeting,
   onWipeMeeting,
+  onPreviewStaged,
   onLiveUiUpdate,
 }: LiveVoiceStudioProps) {
   const reduced = useReducedMotion();
@@ -178,6 +180,16 @@ export function LiveVoiceStudio({
   const [busy, setBusy] = useState(false);
   const [studioMsg, setStudioMsg] = useState<string | null>(null);
 
+  // Unified Personal AI Partner & Master Orchestrator State
+  const [partnerInput, setPartnerInput] = useState('');
+  const [partnerReply, setPartnerReply] = useState(
+    'I am OnQ — your personal AI partner. Ask me to coordinate your calendar, Telegram, docs, market bots, apps, explainer videos, or PC tasks.',
+  );
+  const [partnerDomain, setPartnerDomain] = useState<string>('ALL SYSTEMS READY');
+  const [partnerWord, setPartnerWord] = useState('');
+  const [partnerSpeaking, setPartnerSpeaking] = useState(false);
+  const partnerTimerRef = useRef<number[]>([]);
+
   // LiveUI Micro-App + Read-Speed Pacer State
   const [liveUi, setLiveUi] = useState<LiveUiSurface | null>(null);
   const [pinnedApps, setPinnedApps] = useState<LiveUiSurface[]>([]);
@@ -193,7 +205,7 @@ export function LiveVoiceStudio({
   const [newKanbanTitle, setNewKanbanTitle] = useState('');
   const [kanbanRole, setKanbanRole] = useState<'architect' | 'market_analyst' | 'bot_engineer' | 'security_auditor'>('architect');
 
-  // Cited Knowledge RAG + Defuddle + Hermes Taste Profile + TOON/RTK Token Savings
+  // Cited Knowledge RAG + Defuddle + Hermes Taste Profile + Token Savings
   const [ragQuery, setRagQuery] = useState('');
   const [ragUrl, setRagUrl] = useState('');
   const [ragAnswer, setRagAnswer] = useState<{ answer: string; citations: Array<{ ref: string; title: string; source: string; excerpt: string }> } | null>(null);
@@ -201,7 +213,7 @@ export function LiveVoiceStudio({
   const [tokenSavedPct, setTokenSavedPct] = useState<number>(0);
   const [tokenTotalSaved, setTokenTotalSaved] = useState<number>(0);
 
-  // Market Research & Paper-Trading Bot State (research/paper only, Default-NO Telegram alert)
+  // Market Research & Paper-Trading Bot State (research/paper only, Ask-First Telegram alert)
   const [marketSignals, setMarketSignals] = useState<Array<{
     symbol: string;
     name: string;
@@ -215,6 +227,13 @@ export function LiveVoiceStudio({
   }>>([]);
   const [marketBotCode, setMarketBotCode] = useState<string>('');
   const [selectedSymbol, setSelectedSymbol] = useState<'BTC' | 'ETH' | 'SOL' | 'TAO' | 'FET'>('BTC');
+
+  useEffect(() => {
+    return () => {
+      partnerTimerRef.current.forEach((t) => window.clearTimeout(t));
+      partnerTimerRef.current = [];
+    };
+  }, []);
 
   const memories = externalMemories ?? localMemories;
 
@@ -735,26 +754,243 @@ export function LiveVoiceStudio({
       )
     : memories;
 
+  const runPartnerOrchestration = async (customText?: string) => {
+    const message = (customText ?? partnerInput).trim();
+    if (!message || !sessionToken) return;
+    partnerTimerRef.current.forEach((t) => window.clearTimeout(t));
+    partnerTimerRef.current = [];
+    setBusy(true);
+    setPartnerSpeaking(false);
+    setPartnerWord('');
+    setAliveMood('focused');
+    try {
+      const res = await fetch('/api/agent/orchestrate', {
+        method: 'POST',
+        headers: authHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ message }),
+      });
+      const j = (await res.json()) as {
+        ok?: boolean;
+        domain?: string;
+        recommendedTab?: 'call' | 'apps' | 'fleet' | 'market' | 'explainer' | 'notes' | 'computer';
+        reply?: string;
+        spokenText?: string;
+        preview?: ActionPreview;
+        surface?: LiveUiSurface;
+        signals?: typeof marketSignals;
+        marketBotCode?: string;
+        g2Lines?: string[];
+        tokenSummary?: { estimatedSavedTokens?: number; reductionPct?: number };
+        error?: string;
+      };
+      if (j.error) {
+        setPartnerReply(j.error);
+        setStudioMsg(j.error);
+        return;
+      }
+      if (j.domain) setPartnerDomain(j.domain.replace(/_/g, ' '));
+      if (j.reply) {
+        setPartnerReply(j.reply);
+        setStudioMsg(j.reply);
+      }
+      if (j.preview && onPreviewStaged) {
+        onPreviewStaged(j.preview);
+      }
+      if (j.surface) setLiveUi(j.surface);
+      if (j.signals) setMarketSignals(j.signals);
+      if (j.marketBotCode) setMarketBotCode(j.marketBotCode);
+      if (j.tokenSummary) {
+        setTokenTotalSaved(j.tokenSummary.estimatedSavedTokens ?? 0);
+        setTokenSavedPct(j.tokenSummary.reductionPct ?? 0);
+      }
+      if (j.g2Lines?.length && onLiveUiUpdate && !j.preview) {
+        onLiveUiUpdate(makeG2TextSurface('partner_g2', 'OnQ Partner', j.g2Lines));
+      }
+      if (j.recommendedTab) setStudioTab(j.recommendedTab);
+      if (!customText) setPartnerInput('');
+
+      const words = (j.spokenText ?? j.reply ?? '').split(/\s+/).filter(Boolean).slice(0, 18);
+      if (words.length > 0 && !reduced) {
+        setPartnerSpeaking(true);
+        words.forEach((w, idx) => {
+          const timerId = window.setTimeout(() => {
+            setPartnerWord(w);
+          }, idx * 165);
+          partnerTimerRef.current.push(timerId);
+        });
+        const doneId = window.setTimeout(() => {
+          setPartnerWord('');
+          setPartnerSpeaking(false);
+        }, words.length * 165 + 240);
+        partnerTimerRef.current.push(doneId);
+      }
+      onRefreshMemories?.();
+      void loadStudioState();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const liveUiEnv = liveUi ? buildSurfaceEnv(liveUi) : {};
   const g2Preview = liveUi ? formatLiveUiForG2(liveUi) : null;
+  const companionOrbState: VoiceOrbState = partnerSpeaking ? 'speaking' : busy ? 'thinking' : orbState;
 
   return (
     <div className="retro-glass-well p-4 sm:p-5 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-pixel text-[10px] uppercase tracking-[0.18em] text-[var(--g2-phosphor)]">
-            VOICE · LIVE APPS · FLEET
-          </span>
-          <span className="font-pixel text-[9px] uppercase px-2 py-0.5 rounded-full border border-white/15 text-[var(--lightgray)]">
-            {tools.filter((t) => t.installed).length}/{tools.length || 8} PC TOOLS
-          </span>
-          <span className="font-pixel text-[9px] uppercase px-2 py-0.5 rounded-full border border-[var(--g2-phosphor)]/40 text-[var(--g2-phosphor)] bg-[var(--g2-phosphor)]/5">
-            AI: {activeLlmProvider || 'Auto'}
-          </span>
-          <span className="font-pixel text-[9px] uppercase px-2 py-0.5 rounded-full border border-[#86FFAF]/40 text-[#86FFAF] bg-[#86FFAF]/5">
-            TOON/RTK: {tokenSavedPct > 0 ? `-${tokenSavedPct}% (${tokenTotalSaved} tok)` : 'ARMED'}
-          </span>
+      {/* Persistent Personal AI Partner & Overall Orchestrator Avatar Dock (Always Visible Across Every Tab) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch border border-[#34F57E]/25 bg-black/45 p-3.5 rounded-[12px]">
+        <div className="lg:col-span-4 flex flex-col justify-between">
+          <OnQVoiceOrb
+            state={companionOrbState}
+            rmsLevel={rmsLevel}
+            activeWord={partnerWord || activeSpokenWord}
+            armProgress01={armProgress01}
+            engineLabel={voiceEngineLabel}
+            latencyMs={voiceLatencyMs}
+            backchannelText={backchannelText}
+            aliveMood={aliveMood}
+            orchestratorLabel={activeLlmProvider || 'Auto Router'}
+          />
         </div>
+
+        <div className="lg:col-span-8 flex flex-col justify-between gap-3 text-xs">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--g2-phosphor)]">
+                  ONQ PERSONAL PARTNER · MASTER AGENT
+                </span>
+                <span className="font-plex text-[10px] font-semibold px-2 py-0.5 rounded-full border border-[#34F57E]/40 bg-[#34F57E]/10 text-[#86FFAF]">
+                  {partnerDomain}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 font-plex text-[10px]">
+                <span className="px-2 py-0.5 rounded-full border border-white/15 text-[var(--lightgray)]">
+                  PC Tools: {tools.filter((t) => t.installed).length}/{tools.length || 8}
+                </span>
+                <span className="px-2 py-0.5 rounded-full border border-[#86FFAF]/35 text-[#86FFAF] bg-[#86FFAF]/5">
+                  Token Savings: {tokenSavedPct > 0 ? `${tokenSavedPct}% (${tokenTotalSaved} tok)` : 'Ready'}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-1.5 text-[10.5px]">
+              {[
+                { label: 'Schedule & Mail', note: 'Live Sync', tab: 'call' as const },
+                { label: 'Cited Knowledge', note: `${memories.length} notes`, tab: 'call' as const },
+                { label: 'Live Glass Apps', note: liveUi?.title ?? 'Pomodoro', tab: 'apps' as const },
+                { label: 'Agent Fleet', note: `${kanbanCards.length} jobs`, tab: 'fleet' as const },
+                { label: 'Market Bot', note: `${marketSignals.length || 4} assets`, tab: 'market' as const },
+                { label: 'Video Studio', note: '525nm 3D', tab: 'explainer' as const },
+              ].map((sys) => (
+                <button
+                  key={sys.label}
+                  type="button"
+                  onClick={() => setStudioTab(sys.tab)}
+                  className={`text-left border px-2 py-1.5 transition-colors cursor-pointer ${
+                    studioTab === sys.tab
+                      ? 'border-[#34F57E]/70 bg-[#072613] text-[var(--bright)]'
+                      : 'border-white/10 bg-black/50 text-[var(--lightgray)] hover:border-[#34F57E]/40'
+                  }`}
+                >
+                  <div className="font-semibold text-[var(--bright)] truncate">{sys.label}</div>
+                  <div className="text-[9.5px] text-[#86FFAF] truncate">{sys.note}</div>
+                </button>
+              ))}
+            </div>
+
+            <div className="border border-dashed border-[#34F57E]/30 bg-[#041209] px-3 py-2 text-[12px] leading-relaxed text-[var(--bright)]" role="status">
+              {partnerReply}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void runPartnerOrchestration();
+              }}
+              className="flex flex-col sm:flex-row gap-2"
+            >
+              <input
+                type="text"
+                aria-label="Ask or tell your OnQ Partner anything"
+                placeholder="Ask or tell your OnQ partner anything (schedule, markets, docs, apps, PC, video)..."
+                value={partnerInput}
+                onChange={(e) => setPartnerInput(e.target.value)}
+                className="flex-1 bg-[var(--ink)] border border-[var(--hairline)] focus:border-[#34F57E] px-3 py-2 text-[var(--bright)] text-xs"
+              />
+              <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="retro-btn-primary px-3.5 py-2 font-semibold cursor-pointer"
+                >
+                  {busy ? 'Working...' : 'Run Agent'}
+                </button>
+                <button
+                  type="button"
+                  onClick={onToggleMic}
+                  className={`px-3 py-2 font-semibold cursor-pointer ${
+                    micActive
+                      ? 'bg-[var(--danger)] text-[#0a0a0a]'
+                      : 'retro-btn-glass text-[var(--g2-phosphor)]'
+                  }`}
+                >
+                  {micActive ? 'End Call' : 'Talk Hands-Free'}
+                </button>
+              </div>
+            </form>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  'What is our safety rule for G2 glasses?',
+                  'Check BTC and TAO prices',
+                  'Explain OnQ in 3D video',
+                  'Push my next meeting 15m and tell Priya',
+                ].map((sample) => (
+                  <button
+                    key={sample}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void runPartnerOrchestration(sample)}
+                    className="px-2 py-1 border border-[#34f57e]/25 bg-[#04140b] text-[10.5px] text-[#86FFAF] hover:bg-[#34F57E] hover:text-[#041209] cursor-pointer transition-colors"
+                  >
+                    {sample}
+                  </button>
+                ))}
+              </div>
+
+              <div
+                className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-black/70 px-2 py-1 text-[10px]"
+                role="group"
+                aria-label="Even R1 ring controls"
+              >
+                <button type="button" onClick={() => onRingEvent('SCROLL_UP')} className="px-1.5 hover:text-[var(--g2-phosphor)] cursor-pointer">
+                  Up
+                </button>
+                <button type="button" onClick={() => onRingEvent('CLICK')} className="px-1.5 bg-white/10 rounded text-[var(--bright)] hover:text-[var(--g2-phosphor)] cursor-pointer">
+                  Tap
+                </button>
+                <button type="button" onClick={() => onRingEvent('SCROLL_DOWN')} className="px-1.5 hover:text-[var(--g2-phosphor)] cursor-pointer">
+                  Down
+                </button>
+                <button type="button" onClick={() => onRingEvent('DOUBLE_CLICK')} className="px-1.5 text-[var(--danger)] hover:underline cursor-pointer">
+                  Back
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mode Switcher Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="font-plex text-xs font-medium text-[var(--lightgray)]">
+          Choose a workspace view below or let your OnQ Partner route automatically:
+        </span>
 
         <div className="flex flex-wrap gap-1 rounded-[10px] border border-white/10 bg-black/70 p-1 text-[10px] font-pixel uppercase">
           {(
@@ -786,86 +1022,53 @@ export function LiveVoiceStudio({
 
       {studioTab === 'call' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-          {/* Col 1: JJK Alive Engine Avatar + Duplex Mic + R1 Controls + Quiet Silent Chips */}
-          <div className="lg:col-span-4 space-y-2.5">
-            <OnQVoiceOrb
-              state={orbState}
-              rmsLevel={rmsLevel}
-              activeWord={activeSpokenWord}
-              armProgress01={armProgress01}
-              engineLabel={voiceEngineLabel}
-              latencyMs={voiceLatencyMs}
-              backchannelText={backchannelText}
-              aliveMood={aliveMood}
-            />
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <button
-                type="button"
-                onClick={onToggleMic}
-                className={`flex-1 px-3 py-2 font-semibold cursor-pointer ${
-                  micActive
-                    ? 'bg-[var(--danger)] text-[#0a0a0a]'
-                    : 'bg-[var(--g2-phosphor)] text-[#041209]'
-                }`}
-              >
-                {micActive ? 'End Call' : 'Talk Hands-Free'}
-              </button>
-              <div
-                className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-black/70 px-1.5 py-1"
-                role="group"
-                aria-label="Even R1 ring controls"
-              >
-                <button
-                  type="button"
-                  onClick={() => onRingEvent('SCROLL_UP')}
-                  className="px-1.5 py-0.5 text-[10px] hover:text-[var(--g2-phosphor)] cursor-pointer"
-                >
-                  Up
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onRingEvent('CLICK')}
-                  className="px-1.5 py-0.5 text-[10px] bg-white/10 rounded text-[var(--bright)] hover:text-[var(--g2-phosphor)] cursor-pointer"
-                >
-                  Tap
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onRingEvent('SCROLL_DOWN')}
-                  className="px-1.5 py-0.5 text-[10px] hover:text-[var(--g2-phosphor)] cursor-pointer"
-                >
-                  Down
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onRingEvent('DOUBLE_CLICK')}
-                  className="px-1.5 py-0.5 text-[10px] text-[var(--danger)] hover:underline cursor-pointer"
-                >
-                  Back
-                </button>
+          {/* Col 1: Quiet Room Quick Actions & Companion Mood Controls */}
+          <div className="lg:col-span-4 space-y-2.5 text-xs">
+            <div className="border border-white/10 bg-black/50 p-3 space-y-2">
+              <div className="font-pixel text-[9px] uppercase tracking-wider text-[var(--g2-phosphor)]">
+                QUIET ROOM ONE-TAP CONTROLS
+              </div>
+              <p className="text-[11px] text-[var(--lightgray)]">
+                Trigger glasses workflows without speaking aloud:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {silentChips.slice(0, 6).map((chip) => (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    onClick={() => void triggerSilentChip(chip)}
+                    className="px-2.5 py-1 border border-[#34f57e]/25 bg-[#04140b] text-[10.5px] text-[#86FFAF] hover:bg-[#34F57E] hover:text-[#041209] cursor-pointer transition-colors"
+                  >
+                    {chip.label}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Quiet Room Silent Input (no speaking required) */}
-            {silentChips.length > 0 && (
-              <div className="border border-white/10 bg-black/50 p-2 space-y-1.5">
-                <div className="font-pixel text-[8.5px] uppercase tracking-wider text-[var(--lightgray)]">
-                  QUIET ROOM TAP INPUT (NO VOICE NEEDED)
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {silentChips.slice(0, 4).map((chip) => (
-                    <button
-                      key={chip.id}
-                      type="button"
-                      onClick={() => void triggerSilentChip(chip)}
-                      className="px-2 py-0.5 border border-[#34f57e]/25 bg-[#04140b] text-[10px] text-[#86FFAF] hover:bg-[#34F57E] hover:text-[#041209] cursor-pointer transition-colors"
-                    >
-                      {chip.label}
-                    </button>
-                  ))}
-                </div>
+            <div className="border border-white/10 bg-black/50 p-3 space-y-2">
+              <div className="font-pixel text-[9px] uppercase tracking-wider text-[#86FFAF]">
+                COMPANION EXPRESSION &amp; QUICK ACTIONS
               </div>
-            )}
+              <div className="flex flex-wrap gap-1.5">
+                {(['neutral', 'amused', 'focused', 'curious'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setAliveMood(m)}
+                    className={`px-2 py-0.5 border text-[10px] capitalize cursor-pointer ${
+                      aliveMood === m
+                        ? 'border-[#34F57E] bg-[#34F57E] text-[#041209] font-semibold'
+                        : 'border-white/15 text-[var(--lightgray)] hover:text-[var(--bright)]'
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-[var(--lightgray)]">
+                Your Shonen AI Partner tracks speech RMS, syllable mouth shapes, blinks, and coordinates every tool above.
+              </p>
+            </div>
           </div>
 
           {/* Col 2: Multi-Window Task Cards (separate boxes + dot collapse animation) */}
@@ -1443,7 +1646,7 @@ export function LiveVoiceStudio({
                 type="submit"
                 className="px-3 py-1.5 bg-[var(--lime)] text-[#041209] font-semibold cursor-pointer"
               >
-                + Add Card
+                Add Agent Job
               </button>
             </form>
 

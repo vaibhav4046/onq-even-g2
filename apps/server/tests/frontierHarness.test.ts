@@ -287,5 +287,29 @@ describe('Frontier Harness: TOON, Defuddle, RTK, Cited RAG, Grok/OmniRoute, Mark
     expect(kbRole.ok).toBe(true);
     expect(kbRole.card.title).toContain('[SEC]');
     expect(kbRole.card.agentName).toBe('Code-Guard Auditor');
+
+    // 6. Personal AI Partner /api/agent/orchestrate coordinates Markets, LiveUI Apps, Cited QA & Ask-First actions
+    const orchMarket = await (
+      await fetch(`${srv.url}/api/agent/orchestrate`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ message: 'Check BTC and TAO prices' }),
+      })
+    ).json() as { ok: boolean; domain: string; recommendedTab: string; reply: string; g2Lines: string[] };
+    expect(orchMarket.ok).toBe(true);
+    expect(orchMarket.domain).toBe('MARKET');
+    expect(orchMarket.recommendedTab).toBe('market');
+    expect(orchMarket.reply).toContain('BTC');
+
+    const orchQa = await (
+      await fetch(`${srv.url}/api/agent/orchestrate`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ message: 'What is our safety hold rule for G2 glasses?' }),
+      })
+    ).json() as { ok: boolean; domain: string; reply: string; g2Lines: string[] };
+    expect(orchQa.ok).toBe(true);
+    expect(orchQa.domain).toBe('PARTNER_QA');
+    expect(orchQa.g2Lines[0].length).toBeLessThanOrEqual(42);
   });
 });
