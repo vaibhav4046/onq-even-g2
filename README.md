@@ -1,6 +1,14 @@
 # OnQ - Even Realities G2 Corridor & Telegram Copilot (Track 04 + Telegram)
 
-**Own the 90 seconds between meetings on Even Realities G2: a Telegram ping, a calendar clash, a reply to send.**
+**An agent that does real work on your own laptop, steered from Even Realities G2 with one glance and one tap. It never acts on the world without your yes.**
+
+What makes it different, in three lines:
+1. **Glasses-first:** the brief, the change and the yes/no live on a 7-line, 42-column lens. Voice in, earbuds out.
+2. **Agentic on your own PC:** it reads Gmail, Calendar, Notion and Telegram, and drives its own Chrome window on your laptop (your network, your logins), planned by OpenRouter, Claude or ChatGPT, or your own Claude Code / Codex subscription.
+3. **Approval-first safety in code:** every send, booking, purchase or form submit becomes a single-use approval on the glasses, web or Telegram; a 2-second undo ring; a double-booking lock; never types passwords or card numbers; one kill switch.
+
+Two-minute demo: [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md). Everyday use: [docs/DAILY_USE.md](docs/DAILY_USE.md).
+
 OnQ's Track 04 core is **Google Workspace (Calendar, Gmail, Drive)**, **Notion** (`2026-03-11` `data_sources`), **Telegram Bot API** (`/api/telegram/digest` and `/api/telegram/stage-reply`), **Claude / ChatGPT / OpenRouter** model routing with a deterministic `Rules` fallback (`POST /api/connectors/orchestrator`), and **AssemblyAI voice** (`STT-3.7` + `TTS-1`). Together they feed one 42-column monochrome waveguide card with a **76×76 4-bit Gray4 Pixel Avatar**, a **Default-NO Confirm Gate**, a **Commit-Locked 2.0s Undo Ring**, an **HTTP 409 Conflict Hard-Lock**, and a deterministic **Code-Guard Fact Verifier**. The **Self-Harnessing Proactive Agent** (`POST /api/proactive/synthesize`) runs on top and only stages writes behind Default-NO.
 
 **Optional local skills (not Track 04 claims):** music curator (iTunes), market signals (CoinGecko), PC tools (`claude`, `codex`, `gemini`, `ollama`, `gh`, `git`) and YouTube scouting. The web app no longer has a screen for them; the music curator and market research run only as optional crews inside Personal OS. Grok and OmniRoute exist only as optional model routes.
@@ -74,6 +82,16 @@ Open `http://127.0.0.1:5173`. Boots immediately in labeled `DEMO` sandbox mode w
 - **Code commit:** `fd285b6`
 
 ---
+
+## Browser agent on your own PC
+
+OnQ can work inside your own Chrome on your own computer, with your network and your logins. Nothing runs in someone else's cloud browser.
+
+- **Start it** from the web app (Personal OS, Browser agent), from Telegram with `/browse <goal>`, or by voice through the same command path.
+- **Planned by the model you already use:** OpenRouter, Claude or ChatGPT with an API key, or your own Claude Code or Codex subscription through the local CLI. If none is reachable it stops and says so.
+- **Safety is enforced in code, not left to the model:** page text is treated as data; opening pages, links, scrolling and search boxes run directly; buy, send, post, submit, delete and typing into forms pause as a normal OnQ approval (web, glasses or Telegram); it never types into password, card or code fields; localhost and private-network addresses are blocked; 14 steps and 4 minutes at most; the kill switch stops it; one task at a time.
+- **Verified:** 10 tests, including a real headless Chrome run that searched, opened a result and paused before "Buy now". Live smoke on this PC: `node scripts/smoke-browser-agent.mjs` opened Wikipedia and answered correctly, planned by the Claude Code CLI subscription.
+- **Not yet:** control of desktop apps outside the browser, and a saved logins/cards vault. OnQ deliberately never enters passwords or card numbers.
 
 ## System Architecture
 

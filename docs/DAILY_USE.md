@@ -32,9 +32,14 @@ The glasses part is built and passes the simulator checks. It has **not been wor
 | Slot is taken | Same message | OnQ blocks the double booking and offers the next free time. Nothing is written |
 | In a meeting | Web app, Meeting Scribe, Start | Notes are kept in memory only. Say "OnQ, ..." to ask a question. Wrap Up stages Notion tasks, a calendar hold and an email draft for approval |
 | Evening | Web app, Personal OS, Run Morning crew | Specialist agents check Calendar, mail and your repo. An auditor signs off |
+| Any errand on the web | Send `/browse find the cheapest flight to Dubai on Friday` | OnQ works in its own Chrome window on your PC and reports back. Before it buys, sends or submits anything you get an approval card |
 | Anytime | Send `/pause` | Kill switch: stops all scheduled work. `/resume` starts it again |
 
 Web changes have a 30 second undo. The 2-second ring is for the glasses and the web preview.
+
+## Browser agent setup
+
+The first time, OnQ opens a separate Chrome window with its own profile. Sign in to the sites you want it to use, once, in that window. It needs one AI model: an OpenRouter, Claude or ChatGPT key in Connect, or the Claude Code or Codex CLI signed in on this PC (your existing subscription).
 
 ## Limits you should know
 
