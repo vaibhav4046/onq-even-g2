@@ -93,4 +93,4 @@ Every outbound mutation (Calendar shift, Gmail reply, Notion task write, Telegra
 
 **Final-pass changes.** Studio cut from 8 tabs to 3 workspaces (Glasses Live, Personal OS, Meeting Scribe); panels that did not serve Track 04 (glass apps, agent fleet, market watch, video explainer, PC tools) were removed. A 60-second guided tour in the hero (Confirm and undo, Double-booking lock, Morning crew). Hero and page copy cut, with jargon moved into one closed "Engineering & audit" block per section. Fixes: the pixel font drew "." as a plus-shaped cluster (so "$0.001" read as "+"); the music curator used a bare mood as the literal search term (now `lofi beats` for coding, `ambient study` for deep_focus); Telegram `getUpdates` HTTP 409 with an active webhook now gives a clear message and backs off 5 minutes; on Windows the local bridge skipped npm `.cmd` shims that failed with `spawn EINVAL` and now falls back to the built-in planner with a note. Five new tests were added.
 
-Code commit: `<CODE_COMMIT>`
+Code commit: `fd285b6`

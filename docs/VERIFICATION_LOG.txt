@@ -395,4 +395,4 @@ Fixed in this pass
      falls back to the built-in planner with a note.
   6. sim-13 multi-line crew block (see above). 5 new tests added.
 
-Code commit: <CODE_COMMIT>
+Code commit: fd285b6

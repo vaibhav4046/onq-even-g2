@@ -70,7 +70,7 @@ OnQ boots cold in labeled `DEMO` sandbox mode with zero env vars. To plug in rea
 11. **Track 04 positioning:** hero, default corridor cards, walkthrough and README lead with Google Workspace, Notion, Telegram, Claude / ChatGPT / OpenRouter and AssemblyAI voice. Music, market signals, PC tools and YouTube scouting are optional local skills. Grok and OmniRoute are optional model routes and are not pitched.
 12. **Tests:** 5 new tests (multi-line live UI, Telegram 409 x2, music mood x2).
 
-**Still open:** physical Even G2 + R1 ring testing, the launch video re-render, and replacing `<CODE_COMMIT>` with the final hash. Nothing has been submitted to DoraHacks or Product Hunt.
+**Still open:** physical Even G2 + R1 ring testing, the launch video re-render, and replacing `fd285b6` with the final hash. Nothing has been submitted to DoraHacks or Product Hunt.
 
 ---
 
@@ -122,6 +122,6 @@ Target $7/month Work-Pro tier (~$0.001/brief unit cost because deterministic rul
 
 ## 3. Manual Pre-Publish Checklist
 1. Push `onq-even-g2` to `https://github.com/vaibhav4046/onq-even-g2` (`git push -u origin master`) and confirm GitHub Pages (`https://vaibhav4046.github.io/onq-even-g2/`) & Privacy Policy (`https://vaibhav4046.github.io/onq-even-g2/privacy.html`) are live.
-2. Upload `media/out/onq-anime-film.mp4` (`2:36`, the main film; `media/out/onq-launch-demo.mp4` is the technical walkthrough) to YouTube/DoraHacks and attach `dist/onq.ehpk` (`51,344` bytes). Code commit: `<CODE_COMMIT>`.
+2. Upload `media/out/onq-anime-film.mp4` (`2:36`, the main film; `media/out/onq-launch-demo.mp4` is the technical walkthrough) to YouTube/DoraHacks and attach `dist/onq.ehpk` (`51,344` bytes). Code commit: `fd285b6`.
 3. Paste the Track 04 description above + the 5 requests from `API_FEEDBACK.md` (and reference `docs/HACKATHON_RUBRIC_AUDIT.md`) into DoraHacks and submit.
 4. For Product Hunt: upload `media/product-hunt/gallery-01..04.png`, `thumbnail-240x240.gif`, and paste `media/product-hunt/PRODUCT_HUNT_LAUNCH_COPY.md`.

@@ -70,7 +70,7 @@ Open `http://127.0.0.1:5173`. Boots immediately in labeled `DEMO` sandbox mode w
 - **Local computer bridge on Windows:** npm `.cmd` shims (such as `claude.cmd`) could not be spawned (`spawn EINVAL`) and failed a task. Shims are now skipped, and a failing CLI falls back to the built-in planner with a note.
 - **Tests:** 5 new tests (multi-line live UI, Telegram 409 x2, music mood x2).
 - **Launch video:** the existing render predates these changes. Refresh in progress; update this line with the final length when rendered.
-- **Code commit:** `<CODE_COMMIT>`
+- **Code commit:** `fd285b6`
 
 ---
 
