@@ -34,7 +34,7 @@ export function OnQVoiceOrb({
   rmsLevel = 0,
   activeWord = '',
   armProgress01 = 0,
-  engineLabel = 'DEMO · SANDBOX',
+  engineLabel = 'SANDBOX · LOCAL',
   className = '',
 }: OnQVoiceOrbProps) {
   const reduced = useReducedMotion();

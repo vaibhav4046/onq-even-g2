@@ -39,6 +39,7 @@ interface ConnectorStatusResponse {
   voiceEngine: string;
   googleOAuthConfigured: boolean;
   notionOAuthConfigured?: boolean;
+  openRouterOAuthReady?: boolean;
   googleAuthUrl: string | null;
   connectors: {
     googleWorkspace: ConnectorCardStatus;
@@ -66,7 +67,9 @@ type ConnectorProviderId =
   | 'chatgpt'
   | 'assemblyai';
 
-type ConnectorDrawerId = null | 'account' | ConnectorProviderId;
+type ConnectorDrawerId = null | 'account' | 'bulk' | ConnectorProviderId;
+
+const SANDBOX_NOTION_DB_ID = '423373c508ea81b495c7f09c82c0e809';
 
 const QUICK_SAMPLE_ICS = [
   'BEGIN:VCALENDAR',
@@ -117,6 +120,7 @@ export function ConnectorsHub({
   const [accountEmail, setAccountEmail] = useState('');
   const [oauthClientId, setOauthClientId] = useState('');
   const [oauthClientSecret, setOauthClientSecret] = useState('');
+  const [oauthJsonText, setOauthJsonText] = useState('');
   const [icsText, setIcsText] = useState('');
   const [notionToken, setNotionToken] = useState('');
   const [notionDbId, setNotionDbId] = useState('');
@@ -155,6 +159,50 @@ export function ConnectorsHub({
   useEffect(() => {
     void loadStatus();
   }, [loadStatus, sessionToken]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const sp = new URLSearchParams(window.location.search);
+    const conn = sp.get('connected');
+    const signed = sp.get('signedIn');
+    if (conn === 'openrouter') {
+      setFeedback('OpenRouter OAuth PKCE key verified and stored in AES-256-GCM 0600 vault.');
+      void loadStatus();
+      window.history.replaceState({}, '', `${window.location.pathname}#connectors`);
+    } else if (signed === '1') {
+      setFeedback('Google OAuth 2.0 + PKCE session verified and stored in AES-256-GCM vault.');
+      void loadStatus();
+      window.history.replaceState({}, '', `${window.location.pathname}#connectors`);
+    }
+  }, [loadStatus]);
+
+  const handleGoogleJsonFile = (file: File | undefined) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const txt = typeof reader.result === 'string' ? reader.result : '';
+      try {
+        const parsed = JSON.parse(txt) as {
+          web?: { client_id?: string; client_secret?: string };
+          installed?: { client_id?: string; client_secret?: string };
+          client_id?: string;
+          client_secret?: string;
+        };
+        const src = parsed.web ?? parsed.installed ?? parsed;
+        if (src.client_id) setOauthClientId(src.client_id);
+        if (src.client_secret) setOauthClientSecret(src.client_secret);
+        setOauthJsonText(txt);
+        setFeedback(`Loaded Google OAuth JSON (${file.name}). Click Save & Sign in with Google.`);
+      } catch {
+        setFeedback('Could not parse JSON file. Expected Google Cloud OAuth client_secret_*.json.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const startOpenRouterOAuth = () => {
+    window.location.href = '/api/auth/openrouter/start';
+  };
 
   const postConnect = async (payload: Record<string, unknown>, okMessage: string) => {
     setBusy(true);
@@ -356,19 +404,34 @@ export function ConnectorsHub({
               <div className="text-[var(--bright)] font-medium">
                 {status?.accountName
                   ? `${status.accountName}${status.accountEmail ? ` (${status.accountEmail})` : ''}`
-                  : 'Local Encrypted Workspace'}
+                  : 'AES-256-GCM Local Vault'}
               </div>
               <div className="font-pixel text-[9px] uppercase tracking-[0.14em] text-[var(--g2-phosphor)]">
-                {mode === 'DEMO' ? 'SANDBOX' : mode} · {status?.activeLlmProvider ?? 'Rules Engine'}
+                {mode === 'DEMO' ? 'SANDBOX' : mode} · {cards.filter((x) => x.state?.connected).length}/6 LIVE · {status?.activeLlmProvider ?? 'Rules Engine'}
               </div>
             </div>
             <button
               type="button"
-              onClick={() => void startGoogleSignIn()}
-              className="px-3 py-1.5 bg-[var(--lime)] text-[#0a0a0a] font-semibold cursor-pointer hover:brightness-105 inline-flex items-center gap-1.5"
+              onClick={() => setOpenDrawer(openDrawer === 'bulk' ? null : 'bulk')}
+              className="px-3 py-1.5 bg-[var(--lime)] text-[#0a0a0a] font-semibold cursor-pointer hover:brightness-105"
             >
-              <GooglePixelSvg className="w-3.5 h-3.5" theme="light" />
+              Configure All (Vault)
+            </button>
+            <button
+              type="button"
+              onClick={() => void startGoogleSignIn()}
+              className="px-3 py-1.5 border border-[var(--lime)] text-[var(--lime)] hover:bg-[var(--lime)] hover:text-[#0a0a0a] font-semibold cursor-pointer inline-flex items-center gap-1.5 transition-colors"
+            >
+              <GooglePixelSvg className="w-3.5 h-3.5" />
               <span>Sign in with Google</span>
+            </button>
+            <button
+              type="button"
+              onClick={startOpenRouterOAuth}
+              className="px-3 py-1.5 border border-[var(--g2-phosphor)] text-[var(--g2-phosphor)] hover:bg-[var(--g2-phosphor)] hover:text-[#0a0a0a] font-semibold cursor-pointer inline-flex items-center gap-1.5 transition-colors"
+            >
+              <OpenRouterPixelSvg className="w-3.5 h-3.5" />
+              <span>1-Click OpenRouter</span>
             </button>
             <button
               type="button"
@@ -387,6 +450,187 @@ export function ConnectorsHub({
             </button>
           </div>
         </ScrollReveal>
+
+        {openDrawer === 'bulk' && (
+          <div className="border border-[var(--lime)] bg-[var(--surface)] p-5 space-y-4 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-dashed border-[var(--hairline)] pb-3">
+              <div>
+                <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
+                  ONE-GO ENCRYPTED VAULT SETUP (ALL WORKSPACES &amp; AI)
+                </span>
+                <p className="text-[11px] text-[var(--lightgray)] mt-0.5">
+                  Configure Google OAuth JSON / .ics, Notion Sandbox DB, Claude, OpenRouter, OpenAI, and AssemblyAI in one encrypted 0600 save.
+                </p>
+              </div>
+              <button type="button" onClick={() => setOpenDrawer(null)} className="text-[var(--lightgray)] hover:text-[var(--bright)] cursor-pointer">
+                Close
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="bg-[var(--ink)] border border-[var(--hairline)] p-3.5 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-pixel text-[9px] uppercase text-[var(--lime)]">1. GOOGLE WORKSPACE OAUTH OR .ICS</span>
+                  <label className="text-[11px] text-[var(--g2-phosphor)] underline decoration-dashed cursor-pointer">
+                    Drop/Upload client_secret.json
+                    <input
+                      type="file"
+                      accept=".json,application/json"
+                      className="sr-only"
+                      onChange={(e) => handleGoogleJsonFile(e.target.files?.[0])}
+                    />
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    placeholder="OAuth Client ID"
+                    value={oauthClientId}
+                    onChange={(e) => setOauthClientId(e.target.value)}
+                    className="bg-[var(--surface)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
+                  />
+                  <input
+                    type="password"
+                    placeholder="OAuth Client Secret"
+                    value={oauthClientSecret}
+                    onChange={(e) => setOauthClientSecret(e.target.value)}
+                    className="bg-[var(--surface)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void postConnect({ provider: 'ics', icsText: QUICK_SAMPLE_ICS }, 'Live .ics schedule active on G2.')}
+                    className="px-2.5 py-1 border border-[var(--g2-phosphor)] text-[var(--g2-phosphor)] text-[11px] cursor-pointer"
+                  >
+                    1-Click Live .ics
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void startGoogleSignIn()}
+                    className="px-2.5 py-1 border border-[var(--hairline)] text-[var(--bright)] hover:border-[var(--lime)] text-[11px] cursor-pointer"
+                  >
+                    Authorize Google
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-[var(--ink)] border border-[var(--hairline)] p-3.5 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-pixel text-[9px] uppercase text-[var(--lime)]">2. NOTION SANDBOX LEDGER</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotionDbId(SANDBOX_NOTION_DB_ID);
+                      setFeedback(`Filled verified OnQ Notion Sandbox DB ID (${SANDBOX_NOTION_DB_ID}).`);
+                    }}
+                    className="text-[11px] text-[var(--g2-phosphor)] underline decoration-dashed cursor-pointer"
+                  >
+                    Fill OnQ Sandbox DB ID
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="password"
+                    placeholder="Notion token (ntn_...)"
+                    value={notionToken}
+                    onChange={(e) => setNotionToken(e.target.value)}
+                    className="bg-[var(--surface)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
+                  />
+                  <input
+                    type="text"
+                    placeholder={`DB ID (${SANDBOX_NOTION_DB_ID.slice(0, 8)}...)`}
+                    value={notionDbId}
+                    onChange={(e) => setNotionDbId(e.target.value)}
+                    className="bg-[var(--surface)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              <div className="space-y-1">
+                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">3. OPENROUTER (OR 1-CLICK OAUTH)</span>
+                <input
+                  type="password"
+                  placeholder="sk-or-v1-... (or use OAuth)"
+                  value={openRouterKey}
+                  onChange={(e) => setOpenRouterKey(e.target.value)}
+                  className="w-full bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">4. CLAUDE (ANTHROPIC)</span>
+                <input
+                  type="password"
+                  placeholder="sk-ant-..."
+                  value={claudeKey}
+                  onChange={(e) => setClaudeKey(e.target.value)}
+                  className="w-full bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">5. CHATGPT (OPENAI)</span>
+                <input
+                  type="password"
+                  placeholder="sk-..."
+                  value={openAiKey}
+                  onChange={(e) => setOpenAiKey(e.target.value)}
+                  className="w-full bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">6. ASSEMBLYAI VOICE</span>
+                <input
+                  type="password"
+                  placeholder="Optional AAI key"
+                  value={aaiKey}
+                  onChange={(e) => setAaiKey(e.target.value)}
+                  className="w-full bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+              <button
+                type="button"
+                onClick={startOpenRouterOAuth}
+                className="px-3.5 py-2 border border-[var(--g2-phosphor)] text-[var(--g2-phosphor)] hover:bg-[var(--g2-phosphor)] hover:text-[#0a0a0a] font-semibold cursor-pointer"
+              >
+                Authorize OpenRouter in 1 Click (No Key Copy Needed)
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  void postConnect(
+                    {
+                      provider: 'bulk_vault',
+                      accountName,
+                      accountEmail,
+                      googleOAuthJson: oauthJsonText || undefined,
+                      googleClientId: oauthClientId || undefined,
+                      googleClientSecret: oauthClientSecret || undefined,
+                      notionToken: notionToken || undefined,
+                      notionDatabaseId: notionDbId || undefined,
+                      openRouterKey: openRouterKey || undefined,
+                      openRouterModel,
+                      anthropicKey: claudeKey || undefined,
+                      openAiKey: openAiKey || undefined,
+                      assemblyAiKey: aaiKey || undefined,
+                      icsText: icsText || undefined,
+                    },
+                    'All entered credentials saved cleanly to encrypted AES-256-GCM 0600 vault.',
+                  )
+                }
+                className="px-5 py-2 bg-[var(--lime)] text-[#0a0a0a] font-semibold cursor-pointer"
+              >
+                Save All to Encrypted Vault
+              </button>
+            </div>
+          </div>
+        )}
 
         {openDrawer === 'account' && (
           <div className="border border-[var(--lime)] bg-[var(--surface)] p-5 space-y-4 text-xs">
@@ -604,33 +848,47 @@ export function ConnectorsHub({
                   onChange={(e) => setIcsText(e.target.value)}
                   className="w-full bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
                 />
-                <div className="flex flex-wrap gap-2">
-                  {oauthClientId.trim() && oauthClientSecret.trim() && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() =>
-                        void postConnect(
-                          { provider: 'google_oauth', googleClientId: oauthClientId, googleClientSecret: oauthClientSecret },
-                          'Google OAuth credentials saved. Click Sign in with Google OAuth above.',
-                        )
-                      }
-                      className="px-4 py-2 bg-[var(--bright)] text-[#0a0a0a] font-semibold cursor-pointer"
-                    >
-                      Save OAuth App
-                    </button>
-                  )}
-                  {icsText.trim() && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void postConnect({ provider: 'ics', icsText }, 'Live .ics schedule connected.')}
-                      className="px-4 py-2 border border-[var(--lime)] text-[var(--lime)] font-semibold cursor-pointer"
-                    >
-                      Connect Custom .ics
-                    </button>
-                  )}
-                </div>
+                    <div className="flex flex-wrap gap-2">
+                      {oauthClientId.trim() && oauthClientSecret.trim() && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            void postConnect(
+                              {
+                                provider: oauthJsonText ? 'google_oauth_json' : 'google_oauth',
+                                googleOAuthJson: oauthJsonText || undefined,
+                                googleClientId: oauthClientId,
+                                googleClientSecret: oauthClientSecret,
+                              },
+                              'Google OAuth credentials saved. Click Sign in with Google OAuth above.',
+                            )
+                          }
+                          className="px-4 py-2 bg-[var(--bright)] text-[#0a0a0a] font-semibold cursor-pointer"
+                        >
+                          Save OAuth App
+                        </button>
+                      )}
+                      <label className="px-3 py-2 border border-[var(--hairline)] hover:border-[var(--g2-phosphor)] text-[var(--g2-phosphor)] font-semibold cursor-pointer">
+                        Import client_secret.json
+                        <input
+                          type="file"
+                          accept=".json,application/json"
+                          className="sr-only"
+                          onChange={(e) => handleGoogleJsonFile(e.target.files?.[0])}
+                        />
+                      </label>
+                      {icsText.trim() && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void postConnect({ provider: 'ics', icsText }, 'Live .ics schedule connected.')}
+                          className="px-4 py-2 border border-[var(--lime)] text-[var(--lime)] font-semibold cursor-pointer"
+                        >
+                          Connect Custom .ics
+                        </button>
+                      )}
+                    </div>
               </>
             )}
 
@@ -730,7 +988,7 @@ export function ConnectorsHub({
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                    CONNECT OPENROUTER (FREE &amp; PRO MODELS)
+                    CONNECT OPENROUTER (1-CLICK OAUTH PKCE OR API KEY)
                   </span>
                   <a
                     href="https://openrouter.ai/keys"
@@ -738,8 +996,17 @@ export function ConnectorsHub({
                     rel="noopener noreferrer"
                     className="text-[11px] text-[var(--lime)] underline decoration-dashed underline-offset-2"
                   >
-                    Get OpenRouter Key -&gt;
+                    OpenRouter Keys -&gt;
                   </a>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    onClick={startOpenRouterOAuth}
+                    className="px-4 py-2 bg-[var(--g2-phosphor)] text-[#0a0a0a] font-semibold cursor-pointer"
+                  >
+                    1-Click Sign in with OpenRouter (Zero Manual Key)
+                  </button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <input

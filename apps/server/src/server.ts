@@ -50,6 +50,7 @@ import {
   listAvailableTtsVoices,
   synthesizeTtsUtterance,
 } from './tts/assemblyaiTts.js';
+import { ProactiveAgenticHarness } from './proactiveHarness.js';
 import { EncryptedTokenVault } from './tokenVault.js';
 
 export interface AuditTelemetryEvent {
@@ -87,6 +88,7 @@ export interface ServerOptions {
   fetchImpl?: typeof fetch;
   nowFn?: () => number;
   allowTestFaultControls?: boolean;
+  disableProactiveTimer?: boolean;
 }
 
 const DEFAULT_ORIGINS = [
@@ -217,6 +219,22 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     return creds.assemblyAiKey ?? process.env.ASSEMBLYAI_API_KEY;
   }
 
+  function parseGoogleOAuthJson(raw: string): { clientId: string; clientSecret: string } {
+    const parsed = JSON.parse(raw) as {
+      installed?: { client_id?: string; client_secret?: string };
+      web?: { client_id?: string; client_secret?: string };
+      client_id?: string;
+      client_secret?: string;
+    };
+    const src = parsed.web ?? parsed.installed ?? parsed;
+    const clientId = src.client_id?.trim() ?? '';
+    const clientSecret = src.client_secret?.trim() ?? '';
+    if (!clientId || !clientSecret) {
+      throw new Error('Google OAuth JSON must contain web.client_id/client_secret or installed.client_id/client_secret');
+    }
+    return { clientId, clientSecret };
+  }
+
   function buildConnectorStatus() {
     const creds = vault.load();
     const llmCfg = resolveLlmConfig();
@@ -252,10 +270,12 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       activeLlmProvider,
       preferredLlm: creds.preferredLlm ?? 'auto',
       openRouterModel: creds.openRouterModel ?? 'meta-llama/llama-3.2-3b-instruct:free',
-      voiceEngine: aaiKey ? 'LIVE · ASSEMBLYAI' : 'DEMO · SANDBOX',
+      voiceEngine: aaiKey ? 'LIVE · ASSEMBLYAI' : 'SANDBOX · LOCAL',
       googleOAuthConfigured,
       notionOAuthConfigured,
+      openRouterOAuthReady: true,
       googleAuthUrl,
+      proactive: proactiveHarness.getStatus(),
       connectors: {
         googleWorkspace: {
           connected: Boolean(creds.googleRefreshToken),
@@ -264,7 +284,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
             ? 'OAuth Calendar, Gmail & Drive active (AES-256-GCM 0600)'
             : activeIcsFeed
               ? 'Live RFC 5545 .ics schedule active'
-              : 'Ready for OAuth or instant .ics schedule link',
+              : 'Drop Google OAuth JSON, sign in, or click 1-click .ics',
         },
         notion: {
           connected: Boolean(creds.notionToken && creds.notionDatabaseId),
@@ -283,7 +303,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           mode: llmCfg.openRouterKey ? 'LIVE' : 'STANDBY',
           detail: llmCfg.openRouterKey
             ? `${creds.openRouterModel ?? 'llama-3.2-3b-instruct:free'} via OpenRouter`
-            : 'Connect OpenRouter free/pro models',
+            : '1-Click OpenRouter OAuth PKCE ready (0 manual copy)',
         },
         chatgpt: {
           connected: Boolean(llmCfg.openAiKey),
@@ -319,6 +339,46 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       });
     }
     return demoProvider;
+  }
+
+  const proactiveHarness = new ProactiveAgenticHarness({
+    getSnapshot: () => {
+      const creds = vault.load();
+      const hasLive = Boolean(creds.googleRefreshToken || creds.notionToken || activeIcsFeed);
+      const sourceMode: SourceMode = hasLive ? 'LIVE' : 'DEMO';
+      return {
+        snapshot: resolveProvider(sourceMode).getSnapshot(),
+        sourceMode,
+      };
+    },
+    getSummary: () => {
+      const creds = vault.load();
+      const llmCfg = resolveLlmConfig();
+      const activeLlmProvider = llmCfg.anthropicKey
+        ? 'Claude'
+        : llmCfg.openRouterKey
+          ? 'OpenRouter'
+          : llmCfg.openAiKey
+            ? 'ChatGPT'
+            : 'Rules';
+      const voiceConnected = Boolean(resolveAssemblyAiKey());
+      const connectedCount = [
+        Boolean(creds.googleRefreshToken || activeIcsFeed),
+        Boolean(creds.notionToken && creds.notionDatabaseId),
+        Boolean(llmCfg.anthropicKey),
+        Boolean(llmCfg.openRouterKey),
+        Boolean(llmCfg.openAiKey),
+        voiceConnected,
+      ].filter(Boolean).length;
+      return { activeLlmProvider, voiceConnected, connectedCount };
+    },
+    onPulse: (st) => broadcastSse('proactive', st),
+    nowFn,
+    intervalMs: 20_000,
+    autoStart: !opts.disableProactiveTimer && process.env.NODE_ENV !== 'test' && process.env.VITEST !== 'true',
+  });
+  if (proactiveHarness.getStatus().pulseCount === 0) {
+    proactiveHarness.runPulse();
   }
 
   function applyCors(req: http.IncomingMessage, res: http.ServerResponse): boolean {
@@ -394,7 +454,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
             ? 'LIVE · ASSEMBLYAI'
             : process.env.WHISPER_CPP_BIN
               ? 'LOCAL · WHISPER'
-              : 'DEMO · SANDBOX',
+              : 'SANDBOX · LOCAL',
           sttEngine: hasAai
             ? 'assemblyai-stt-3-7'
             : process.env.WHISPER_CPP_BIN
@@ -1269,6 +1329,12 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           notionDatabaseId?: string;
           googleClientId?: string;
           googleClientSecret?: string;
+          googleOAuthJson?: string;
+          anthropicKey?: string;
+          openRouterKey?: string;
+          openRouterModel?: string;
+          openAiKey?: string;
+          assemblyAiKey?: string;
           icsText?: string;
         }>(req);
 
@@ -1307,6 +1373,17 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           next.notionDatabaseId = body.notionDatabaseId.trim();
           upgradedToken = await ledger.mintSession('LIVE');
           upgradedMode = 'LIVE';
+        } else if (prov === 'google_oauth_json' && body.googleOAuthJson?.trim()) {
+          try {
+            const parsed = parseGoogleOAuthJson(body.googleOAuthJson.trim());
+            next.googleClientId = parsed.clientId;
+            next.googleClientSecret = parsed.clientSecret;
+          } catch (err) {
+            jsonResponse(res, 400, {
+              error: err instanceof Error ? err.message : 'Invalid Google OAuth JSON payload',
+            });
+            return;
+          }
         } else if (prov === 'google_oauth' && body.googleClientId?.trim() && body.googleClientSecret?.trim()) {
           next.googleClientId = body.googleClientId.trim();
           next.googleClientSecret = body.googleClientSecret.trim();
@@ -1319,9 +1396,52 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           activeIcsFeed = body.icsText.trim();
           upgradedToken = await ledger.mintSession('LIVE');
           upgradedMode = 'LIVE';
+        } else if (prov === 'bulk_vault') {
+          if (body.googleOAuthJson?.trim()) {
+            try {
+              const parsed = parseGoogleOAuthJson(body.googleOAuthJson.trim());
+              next.googleClientId = parsed.clientId;
+              next.googleClientSecret = parsed.clientSecret;
+            } catch (err) {
+              jsonResponse(res, 400, {
+                error: err instanceof Error ? err.message : 'Invalid Google OAuth JSON payload',
+              });
+              return;
+            }
+          }
+          if (body.googleClientId?.trim()) next.googleClientId = body.googleClientId.trim();
+          if (body.googleClientSecret?.trim()) next.googleClientSecret = body.googleClientSecret.trim();
+          if (body.anthropicKey?.trim()) next.anthropicKey = body.anthropicKey.trim();
+          if (body.openRouterKey?.trim()) next.openRouterKey = body.openRouterKey.trim();
+          if (body.openRouterModel?.trim()) next.openRouterModel = body.openRouterModel.trim();
+          if (body.openAiKey?.trim()) next.openAiKey = body.openAiKey.trim();
+          if (body.assemblyAiKey?.trim()) next.assemblyAiKey = body.assemblyAiKey.trim();
+          if (body.notionToken?.trim() && body.notionDatabaseId?.trim()) {
+            const client = new NotionWorkspaceClient(
+              body.notionToken.trim(),
+              body.notionDatabaseId.trim(),
+              opts.fetchImpl,
+            );
+            discoveredSchema = await client.inspectSchema();
+            next.notionToken = body.notionToken.trim();
+            next.notionDatabaseId = body.notionDatabaseId.trim();
+            upgradedToken = await ledger.mintSession('LIVE');
+            upgradedMode = 'LIVE';
+          }
+          if (body.icsText?.trim()) {
+            const parsedEvents = parseIcsEvents(body.icsText.trim());
+            if (parsedEvents.length === 0) {
+              jsonResponse(res, 422, { error: 'No valid VEVENT entries found in .ics payload' });
+              return;
+            }
+            activeIcsFeed = body.icsText.trim();
+            upgradedToken = await ledger.mintSession('LIVE');
+            upgradedMode = 'LIVE';
+          }
         }
 
         vault.save(next);
+        proactiveHarness.runPulse();
         recordAudit('CONNECTOR_SAVED', `Connector updated cleanly: ${prov}`);
         broadcastSse('corridor', { reason: 'connector_updated' });
         jsonResponse(res, 200, {
@@ -1555,6 +1675,93 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         return;
       }
 
+      if (req.method === 'GET' && pathname === '/api/auth/openrouter/start') {
+        const listenPort =
+          (server.address() as { port?: number } | null)?.port ?? opts.port ?? 8787;
+        const callbackUrl =
+          process.env.OPENROUTER_CALLBACK_URL ?? `http://127.0.0.1:${listenPort}/api/auth/openrouter/callback`;
+        const pkce = createPkcePair();
+        const state = oauthStates.issue({
+          provider: 'openrouter',
+          codeVerifier: pkce.codeVerifier,
+          redirectTo: 'http://127.0.0.1:5173/?connected=openrouter#connectors',
+        });
+        const authUrl = new URL('https://openrouter.ai/auth');
+        authUrl.searchParams.set('callback_url', callbackUrl);
+        authUrl.searchParams.set('code_challenge', pkce.codeChallenge);
+        authUrl.searchParams.set('code_challenge_method', pkce.method);
+        authUrl.searchParams.set('state', state);
+        authUrl.searchParams.set('name', 'OnQ Even G2');
+        if (parsedUrl.searchParams.get('format') === 'json') {
+          jsonResponse(res, 200, {
+            configured: true,
+            authUrl: authUrl.toString(),
+            callbackUrl,
+            state,
+            codeChallengeMethod: pkce.method,
+          });
+          return;
+        }
+        res.writeHead(302, { Location: authUrl.toString(), 'Cache-Control': 'no-store' });
+        res.end();
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/auth/openrouter/callback') {
+        const code = parsedUrl.searchParams.get('code');
+        const state = parsedUrl.searchParams.get('state');
+        const pending = state
+          ? oauthStates.consume(state, 'openrouter')
+          : oauthStates.consumeLatestByProvider('openrouter');
+        if (!pending || !pending.codeVerifier) {
+          jsonResponse(res, 403, { error: 'Invalid or expired OpenRouter PKCE state' });
+          return;
+        }
+        if (!code) {
+          jsonResponse(res, 400, { error: 'Missing OpenRouter authorization code' });
+          return;
+        }
+        const f = opts.fetchImpl ?? fetch;
+        const keyRes = await f('https://openrouter.ai/api/v1/auth/keys', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code,
+            code_verifier: pending.codeVerifier,
+            code_challenge_method: 'S256',
+          }),
+        });
+        if (!keyRes.ok) {
+          jsonResponse(res, 502, { error: `OpenRouter key exchange failed: HTTP ${keyRes.status}` });
+          return;
+        }
+        const keyJson = (await keyRes.json()) as { key?: string };
+        if (!keyJson.key) {
+          jsonResponse(res, 502, { error: 'OpenRouter did not return an API key' });
+          return;
+        }
+        const existing = vault.load();
+        vault.save({
+          ...existing,
+          openRouterKey: keyJson.key,
+          preferredLlm: existing.preferredLlm && existing.preferredLlm !== 'rules' ? existing.preferredLlm : 'openrouter',
+        });
+        proactiveHarness.runPulse();
+        recordAudit('OAUTH_SIGNIN', 'OpenRouter OAuth PKCE key stored in AES-256-GCM 0600 vault');
+        broadcastSse('corridor', { reason: 'openrouter_oauth' });
+        if ((req.headers.accept ?? '').includes('application/json')) {
+          jsonResponse(res, 200, {
+            ok: true,
+            provider: 'openrouter',
+            status: buildConnectorStatus(),
+          });
+          return;
+        }
+        res.writeHead(302, { Location: pending.redirectTo, 'Cache-Control': 'no-store' });
+        res.end();
+        return;
+      }
+
       if (req.method === 'GET' && pathname === '/api/auth/me') {
         const rawToken = extractAuthToken(req);
         const session = await ledger.validateSession(rawToken);
@@ -1772,6 +1979,31 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         return;
       }
 
+      // 14e. 24/7 Proactive Agentic Harness endpoints
+      if (req.method === 'GET' && pathname === '/api/proactive/status') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        jsonResponse(res, 200, proactiveHarness.getStatus());
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/proactive/toggle') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ running?: boolean; intervalMs?: number }>(req);
+        const st = proactiveHarness.toggle(body.running, body.intervalMs);
+        jsonResponse(res, 200, st);
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/proactive/pulse') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const st = proactiveHarness.runPulse();
+        jsonResponse(res, 200, st);
+        return;
+      }
+
       // 15. Session revoke
       if (req.method === 'POST' && pathname === '/api/session/revoke') {
         const bearer = extractBearer(req);
@@ -1861,7 +2093,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     sendJson({
       type: 'orb_state',
       state: 'idle',
-      engine: resolveAssemblyAiKey() ? 'LIVE · ASSEMBLYAI' : 'DEMO · SANDBOX',
+      engine: resolveAssemblyAiKey() ? 'LIVE · ASSEMBLYAI' : 'SANDBOX · LOCAL',
     });
 
     ws.on('message', async (data: Buffer | ArrayBuffer | Buffer[], isBinary: boolean) => {
@@ -1959,6 +2191,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     vault,
     demoProvider,
     close: async () => {
+      proactiveHarness.stop();
       meetingBuffer.wipe();
       for (const client of wss.clients) {
         try {

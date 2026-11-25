@@ -134,6 +134,7 @@ function formatTimeShort(iso: string): string {
 
 export function formatLensFrame(state: HudState): FormattedLensFrame {
   const provenanceTag = state.sourceMode;
+  const displayTag = provenanceTag === 'DEMO' ? 'SANDBOX' : provenanceTag;
   const clock = formatTimeShort(state.syncedAtIso);
   let header = '';
   const body: string[] = [];
@@ -155,7 +156,7 @@ export function formatLensFrame(state: HudState): FormattedLensFrame {
   } else if (state.phase === 'meeting_live' && state.meeting) {
     const mins = String(Math.floor(state.meeting.elapsedSec / 60)).padStart(2, '0');
     const secs = String(state.meeting.elapsedSec % 60).padStart(2, '0');
-    const recBadge = state.meeting.providerMode === 'LIVE_ASSEMBLYAI' ? 'LIVE' : 'DEMO';
+    const recBadge = state.meeting.providerMode === 'LIVE_ASSEMBLYAI' ? 'LIVE' : 'SANDBOX';
     header = padHeaderLine(`REC ${mins}:${secs} | ${state.meeting.speakerCount} SPK | ${recBadge}`, 'RAM');
     const lastTurn = state.meeting.turns[state.meeting.turns.length - 1];
     if (lastTurn) {
@@ -174,7 +175,7 @@ export function formatLensFrame(state: HudState): FormattedLensFrame {
     }
     footer = 'SAY "ONQ, ..." ASK | "WRAP UP"';
   } else if (state.phase === 'wrap_up' && state.preview) {
-    header = padHeaderLine(`${provenanceTag} | WRAP-UP DEFAULT NO`, '45s');
+    header = padHeaderLine(`${displayTag} | WRAP-UP DEFAULT NO`, '45s');
     for (const ln of state.preview.summaryLines.slice(0, 3)) {
       body.push(clipLine42(ln));
     }
@@ -183,7 +184,7 @@ export function formatLensFrame(state: HudState): FormattedLensFrame {
     body.push(clipLine42(`${noMarker}  ${yesMarker}`));
     footer = 'SAY "CONFIRM ACTION" | TAP RING';
   } else if (state.phase === 'listening') {
-    header = padHeaderLine(`${provenanceTag} | VOICE MIC 16KHZ`, 'REC');
+    header = padHeaderLine(`${displayTag} | VOICE MIC 16KHZ`, 'REC');
     body.push('SPEAK CORRIDOR COMMAND:');
     body.push(`MIC ${renderAudioBarAscii(state.rmsLevel, 16)}`);
     body.push(clipLine42(state.transcript ? `"${state.transcript}"` : 'Ex: "Push 15m and tell Priya"'));
@@ -193,8 +194,8 @@ export function formatLensFrame(state: HudState): FormattedLensFrame {
       1,
       Math.round((Date.parse(state.preview.expiresAtIso) - Date.now()) / 1000),
     );
-    const ttlLabel = Number.isFinite(ttl) && ttl < 999 ? `EXP ${ttl}s` : `${provenanceTag}`;
-    header = padHeaderLine(`${provenanceTag} | CONFIRM DEFAULT NO`, ttlLabel);
+    const ttlLabel = Number.isFinite(ttl) && ttl < 999 ? `EXP ${ttl}s` : `${displayTag}`;
+    header = padHeaderLine(`${displayTag} | CONFIRM DEFAULT NO`, ttlLabel);
     for (const ln of state.preview.summaryLines.slice(0, 3)) {
       body.push(clipLine42(ln));
     }
@@ -205,19 +206,19 @@ export function formatLensFrame(state: HudState): FormattedLensFrame {
   } else if (state.phase === 'armed' && state.preview) {
     const secs = (Math.max(0, state.armRemainingMs) / 1000).toFixed(1);
     ringProgress01 = Math.max(0, Math.min(1, 1 - state.armRemainingMs / 2000));
-    header = padHeaderLine(`${provenanceTag} | ARMED TAP TO CANCEL`, `${secs}s`);
+    header = padHeaderLine(`${displayTag} | ARMED TAP TO CANCEL`, `${secs}s`);
     for (const ln of state.preview.summaryLines.slice(0, 2)) {
       body.push(clipLine42(ln));
     }
     body.push(clipLine42(`IDEMP #${state.preview.idempotencyKey.slice(0, 6)}`));
     footer = 'ANY TAP = ZERO WRITES  HOLDING LOCK';
   } else if (state.phase === 'committing') {
-    header = padHeaderLine(`${provenanceTag} | COMMITTING LOCKED`, 'WAIT');
+    header = padHeaderLine(`${displayTag} | COMMITTING LOCKED`, 'WAIT');
     body.push('EXECUTING VERIFIED WORKSPACE WRITE...');
     body.push('INPUT LOCKED AT 0.0s BOUNDARY');
     footer = 'PLEASE WAIT FOR RECEIPT';
   } else if (state.phase === 'conflict' && state.conflict) {
-    header = padHeaderLine(`${provenanceTag} | !! LOCKED (409)`, 'BLOCKED');
+    header = padHeaderLine(`${displayTag} | !! LOCKED (409)`, 'BLOCKED');
     body.push(clipLine42(state.conflict.message));
     body.push('NO CALENDAR EDIT | NO EMAIL SENT');
     if (state.conflict.nextFreeLabel) {
@@ -228,7 +229,7 @@ export function formatLensFrame(state: HudState): FormattedLensFrame {
     }
   } else if (state.phase === 'done' && state.receipt) {
     header = padHeaderLine(
-      `${provenanceTag} | COMMITTED #${state.receipt.receiptId.slice(-4)}`,
+      `${displayTag} | COMMITTED #${state.receipt.receiptId.slice(-4)}`,
       formatTimeShort(state.receipt.committedAtIso),
     );
     for (const ln of state.receipt.summaryLines.slice(0, 3)) {
@@ -236,18 +237,18 @@ export function formatLensFrame(state: HudState): FormattedLensFrame {
     }
     footer = state.receipt.canUndo ? 'TAP: UNDO (30s)   2xTAP: DOSSIER' : 'TAP: DOSSIER      2xTAP: BACK';
   } else if (state.phase === 'undone') {
-    header = padHeaderLine(`${provenanceTag} | CANCELLED`, clock);
+    header = padHeaderLine(`${displayTag} | CANCELLED`, clock);
     body.push('ZERO WORKSPACE WRITES EXECUTED');
     body.push('CALENDAR & INBOX UNCHANGED');
     footer = 'TAP: DOSSIER      2xTAP: BACK';
   } else if (state.phase === 'error') {
-    header = padHeaderLine(`${provenanceTag} | NOTICE`, clock);
+    header = padHeaderLine(`${displayTag} | NOTICE`, clock);
     body.push(clipLine42(state.errorMessage ?? 'ACTION COULD NOT BE COMPLETED'));
     body.push('NO UNCONFIRMED CHANGES MADE');
     footer = 'TAP: DOSSIER      2xTAP: BACK';
   } else if (state.phase === 'detail') {
     const card = state.cards[state.selectedCardIndex];
-    header = padHeaderLine(`${provenanceTag} | ACTIONS`, card ? card.timeMeta.slice(0, 14) : clock);
+    header = padHeaderLine(`${displayTag} | ACTIONS`, card ? card.timeMeta.slice(0, 14) : clock);
     if (card) {
       body.push(clipLine42(card.title));
       const opts = card.quickActions.slice(0, 3);
@@ -264,7 +265,8 @@ export function formatLensFrame(state: HudState): FormattedLensFrame {
     const total = state.cards.length;
     const card = state.cards[state.selectedCardIndex];
     const counter = total > 0 ? `${clock} ${state.selectedCardIndex + 1}/${total}` : clock;
-    header = padHeaderLine(`${provenanceTag} | ${state.provenanceLabel}`, counter);
+    const subTag = state.provenanceLabel === displayTag ? 'CORRIDOR' : state.provenanceLabel;
+    header = padHeaderLine(`${displayTag} | ${subTag}`, counter);
     if (card) {
       body.push(clipLine42(`${card.timeMeta} | ${card.title}`));
       body.push(clipLine42(`ASK: ${card.contextLine1}`));

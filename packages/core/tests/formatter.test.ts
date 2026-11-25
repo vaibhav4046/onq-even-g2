@@ -87,7 +87,7 @@ describe('formatter.ts', () => {
     const frame = formatLensFrame(state);
     expect(frame.lines.length).toBeLessThanOrEqual(G2_MAX_LINES);
     expect(frame.utf8Bytes).toBeLessThanOrEqual(G2_MAX_UTF8_BYTES);
-    expect(frame.header).toContain('DEMO');
+    expect(frame.header).toContain('SANDBOX');
     assertLensBudget(frame.lines);
   });
 

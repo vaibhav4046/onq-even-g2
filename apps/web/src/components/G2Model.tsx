@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import type { HudPhase, VoiceOrbState } from '@onq/core';
 import {
   createBrushedTitaniumMaps,
+  createDotSpriteTexture,
   createMatteAcetateMaps,
   createWaveguideGratingTexture,
   drawLeftLensHudCanvas,
@@ -44,6 +45,54 @@ function applyFaceWrap(geom: THREE.BufferGeometry, wrapK = 0.082, convexZ = 0, c
   pos.needsUpdate = true;
   geom.computeVertexNormals();
   return geom;
+}
+
+/**
+ * Samples evenly spaced vertices across sculpted hardware meshes so micro-dots form
+ * the glasses contour and assemble into photorealistic matte acetate + brushed titanium.
+ */
+function buildHardwareDotCloud(
+  geometries: THREE.BufferGeometry[],
+  maxDots: number,
+): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const emerald = new THREE.Color('#34F57E');
+  const lime = new THREE.Color('#daff52');
+  const titanium = new THREE.Color('#b8ccc0');
+
+  const totalVerts = geometries.reduce((acc, g) => acc + g.attributes.position.count, 0);
+  const stride = Math.max(1, Math.floor(totalVerts / maxDots));
+
+  let globalIdx = 0;
+  for (const g of geometries) {
+    const pos = g.attributes.position;
+    const norm = g.attributes.normal;
+    for (let i = 0; i < pos.count; i += stride) {
+      const nx = norm ? norm.getX(i) : 0;
+      const ny = norm ? norm.getY(i) : 0;
+      const nz = norm ? norm.getZ(i) : 0;
+      positions.push(
+        pos.getX(i) + nx * 0.0045,
+        pos.getY(i) + ny * 0.0045,
+        pos.getZ(i) + nz * 0.0045,
+      );
+      const t = (globalIdx % 13) / 12;
+      const c =
+        globalIdx % 9 === 0
+          ? lime
+          : globalIdx % 3 === 0
+            ? emerald
+            : titanium.clone().lerp(emerald, t * 0.42);
+      colors.push(c.r, c.g, c.b);
+      globalIdx++;
+    }
+  }
+
+  const cloud = new THREE.BufferGeometry();
+  cloud.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  cloud.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  return cloud;
 }
 
 /**
@@ -161,10 +210,16 @@ export function G2Model({
   const lensGroupRef = useRef<THREE.Group>(null);
   const hudGroupRef = useRef<THREE.Group>(null);
   const templesGroupRef = useRef<THREE.Group>(null);
+  const frameDotMatRef = useRef<THREE.PointsMaterial>(null);
+  const templeDotMatRef = useRef<THREE.PointsMaterial>(null);
+  const solidFrameMatRef = useRef<THREE.MeshPhysicalMaterial>(null);
+  const solidLeftTempleMatRef = useRef<THREE.MeshPhysicalMaterial>(null);
+  const solidRightTempleMatRef = useRef<THREE.MeshPhysicalMaterial>(null);
 
   const acetateMaps = useMemo(() => createMatteAcetateMaps(), []);
   const titaniumMaps = useMemo(() => createBrushedTitaniumMaps(), []);
   const gratingTex = useMemo(() => createWaveguideGratingTexture(), []);
+  const dotSpriteTex = useMemo(() => createDotSpriteTexture(), []);
 
   const leftHudCanvas = useMemo(() => {
     const c = document.createElement('canvas');
@@ -260,6 +315,12 @@ export function G2Model({
   const leftTempleGeom = useMemo(() => buildSculptedTempleGeometry(-1), []);
   const rightTempleGeom = useMemo(() => buildSculptedTempleGeometry(1), []);
 
+  const frameDotGeom = useMemo(() => buildHardwareDotCloud([frontFrameGeom], 1900), [frontFrameGeom]);
+  const templeDotGeom = useMemo(
+    () => buildHardwareDotCloud([leftTempleGeom, rightTempleGeom], 950),
+    [leftTempleGeom, rightTempleGeom],
+  );
+
   // Titanium gooseneck nose-pad stems
   const { leftPadStemGeom, rightPadStemGeom } = useMemo(() => {
     const mkStem = (side: -1 | 1) =>
@@ -282,6 +343,7 @@ export function G2Model({
       acetateMaps.dispose();
       titaniumMaps.dispose();
       gratingTex.dispose();
+      dotSpriteTex.dispose();
       leftHudTex.dispose();
       rightHudTex.dispose();
       frontFrameGeom.dispose();
@@ -293,6 +355,8 @@ export function G2Model({
       rightHudGeom.dispose();
       leftTempleGeom.dispose();
       rightTempleGeom.dispose();
+      frameDotGeom.dispose();
+      templeDotGeom.dispose();
       leftPadStemGeom.dispose();
       rightPadStemGeom.dispose();
     };
@@ -300,6 +364,7 @@ export function G2Model({
     acetateMaps,
     titaniumMaps,
     gratingTex,
+    dotSpriteTex,
     leftHudTex,
     rightHudTex,
     frontFrameGeom,
@@ -311,6 +376,8 @@ export function G2Model({
     rightHudGeom,
     leftTempleGeom,
     rightTempleGeom,
+    frameDotGeom,
+    templeDotGeom,
     leftPadStemGeom,
     rightPadStemGeom,
   ]);
@@ -333,6 +400,18 @@ export function G2Model({
     }
 
     const now = state.clock.elapsedTime;
+    // Dot-matrix photorealism reveal: micro-dots form the eyewear silhouette then shimmer along the contours
+    const reveal = reducedMotion ? 1 : Math.min(1, Math.max(0.15, now / 1.35));
+    const smoothReveal = reveal * reveal * (3 - 2 * reveal);
+    const dotPulse = reducedMotion ? 0.32 : 0.34 + 0.14 * Math.sin(now * 2.1);
+    const dotOpacity = THREE.MathUtils.lerp(0.95, dotPulse + explodeFactor * 0.24, smoothReveal);
+
+    if (frameDotMatRef.current) frameDotMatRef.current.opacity = dotOpacity;
+    if (templeDotMatRef.current) templeDotMatRef.current.opacity = dotOpacity * 0.92;
+    if (solidFrameMatRef.current) solidFrameMatRef.current.opacity = THREE.MathUtils.lerp(0.28, 1, smoothReveal);
+    if (solidLeftTempleMatRef.current) solidLeftTempleMatRef.current.opacity = THREE.MathUtils.lerp(0.28, 1, smoothReveal);
+    if (solidRightTempleMatRef.current) solidRightTempleMatRef.current.opacity = THREE.MathUtils.lerp(0.28, 1, smoothReveal);
+
     if (lastDrawRef.current < 0 || (!reducedMotion && now - lastDrawRef.current > 0.08)) {
       lastDrawRef.current = now;
       drawRightLensHudCanvas(rightHudCanvas, {
@@ -365,11 +444,14 @@ export function G2Model({
 
   return (
     <group>
-      {/* Layer 1: Sculpted Matte Obsidian Front Frame + Silicone Nose Pads */}
+      {/* Layer 1: Sculpted Matte Obsidian Front Frame + Dot-Matrix Photorealism Lattice */}
       <group ref={frameGroupRef}>
         <mesh geometry={frontFrameGeom} castShadow receiveShadow>
           <meshPhysicalMaterial
+            ref={solidFrameMatRef}
             color={frameColor}
+            transparent
+            opacity={1}
             roughness={0.42}
             metalness={0.12}
             clearcoat={0.18}
@@ -380,6 +462,20 @@ export function G2Model({
             envMapIntensity={1.25}
           />
         </mesh>
+        <points geometry={frameDotGeom}>
+          <pointsMaterial
+            ref={frameDotMatRef}
+            map={dotSpriteTex}
+            size={0.021}
+            sizeAttenuation
+            vertexColors
+            transparent
+            opacity={0.45}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </points>
 
         {/* Titanium gooseneck stems & dark smoke silicone nose pads */}
         <mesh geometry={leftPadStemGeom}>
@@ -563,7 +659,10 @@ export function G2Model({
 
         <mesh geometry={leftTempleGeom} castShadow receiveShadow>
           <meshPhysicalMaterial
+            ref={solidLeftTempleMatRef}
             color={frameColor}
+            transparent
+            opacity={1}
             roughness={0.4}
             metalness={0.14}
             clearcoat={0.2}
@@ -573,7 +672,10 @@ export function G2Model({
         </mesh>
         <mesh geometry={rightTempleGeom} castShadow receiveShadow>
           <meshPhysicalMaterial
+            ref={solidRightTempleMatRef}
             color={frameColor}
+            transparent
+            opacity={1}
             roughness={0.4}
             metalness={0.14}
             clearcoat={0.2}
@@ -581,6 +683,20 @@ export function G2Model({
             bumpScale={0.0025}
           />
         </mesh>
+        <points geometry={templeDotGeom}>
+          <pointsMaterial
+            ref={templeDotMatRef}
+            map={dotSpriteTex}
+            size={0.018}
+            sizeAttenuation
+            vertexColors
+            transparent
+            opacity={0.42}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </points>
 
         {/* Flush capacitive touch seam & micro-etched OnQ tick on right temple (NO camera/speaker) */}
         <mesh position={[1.515, 0.155, -0.78]} rotation={[0, 0.025, 0]}>

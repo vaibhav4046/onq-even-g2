@@ -44,6 +44,32 @@ import { OnQLogo } from './components/OnQLogo';
 import { OnQVoiceOrb } from './components/OnQVoiceOrb';
 import { ResearchGraphsSection } from './components/ResearchGraphsSection';
 import { StickySafetyStory } from './components/StickySafetyStory';
+import {
+  ConflictShieldVisual,
+  CorridorBriefVisual,
+  EarbudsRecallVisual,
+  InRoomScribeVisual,
+  ShiftScheduleVisual,
+  WrapUpFanoutVisual,
+} from './components/WorkflowVisuals';
+
+interface ProactiveInsight {
+  id: string;
+  atIso: string;
+  category: 'MEETING' | 'INBOX' | 'NOTION' | 'HEALTH';
+  severity: 'info' | 'action' | 'warn';
+  title: string;
+  detail: string;
+  suggestedCommand?: string;
+}
+
+interface ProactiveHarnessStatus {
+  running: boolean;
+  intervalMs: number;
+  pulseCount: number;
+  lastPulseAtIso: string | null;
+  insights: ProactiveInsight[];
+}
 
 interface SnapshotState {
   calendarEvents: Array<{
@@ -248,12 +274,12 @@ export function App() {
   const [workspace, setWorkspace] = useState<SnapshotState | null>(null);
   const [receipts, setReceipts] = useState<CommitReceipt[]>([]);
   const [auditLog, setAuditLog] = useState<AuditEventItem[]>([]);
-  const [commandInput, setCommandInput] = useState('Push 15m and tell Priya');
-  const [voiceFeedback, setVoiceFeedback] = useState<string>('Ready. Speak with Live Mic or click a preset WAV clip.');
+  const [commandInput, setCommandInput] = useState('Shift next meeting +15m and update thread');
+  const [voiceFeedback, setVoiceFeedback] = useState<string>('Ready. Speak with Live Mic or run a workflow.');
   const [simLoading, setSimLoading] = useState(false);
   const [micActive, setMicActive] = useState(false);
   const [lensPovOpen, setLensPovOpen] = useState(false);
-  const [voiceEngineLabel, setVoiceEngineLabel] = useState('ASSEMBLYAI · SANDBOX');
+  const [voiceEngineLabel, setVoiceEngineLabel] = useState('SANDBOX · LOCAL');
   const [ttsVoiceId, setTtsVoiceId] = useState('aai-kyla');
   const [speakingNow, setSpeakingNow] = useState(false);
   const [activeSpokenWord, setActiveSpokenWord] = useState('');
@@ -261,6 +287,7 @@ export function App() {
   const [thinkingNow, setThinkingNow] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState<'schedule' | 'inbox' | 'notes' | 'activity'>('schedule');
   const [showTestTools, setShowTestTools] = useState(false);
+  const [proactive, setProactive] = useState<ProactiveHarnessStatus | null>(null);
 
   // Live workspace mutation inputs
   const [newBusyTitle, setNewBusyTitle] = useState('');
@@ -277,22 +304,53 @@ export function App() {
 
   const refreshWorkspaceInspector = useCallback(async (tok: string) => {
     try {
-      const res = await fetch('/api/workspace/state', {
-        headers: { Authorization: `Bearer ${tok}` },
-      });
-      if (!res.ok) return;
-      const json = (await res.json()) as {
-        snapshot: SnapshotState;
-        receipts: CommitReceipt[];
-        auditLog?: AuditEventItem[];
-      };
-      setWorkspace(json.snapshot);
-      setReceipts(json.receipts);
-      if (json.auditLog) setAuditLog(json.auditLog);
+      const [res, proRes] = await Promise.all([
+        fetch('/api/workspace/state', {
+          headers: { Authorization: `Bearer ${tok}` },
+        }),
+        fetch('/api/proactive/status', {
+          headers: { Authorization: `Bearer ${tok}` },
+        }),
+      ]);
+      if (res.ok) {
+        const json = (await res.json()) as {
+          snapshot: SnapshotState;
+          receipts: CommitReceipt[];
+          auditLog?: AuditEventItem[];
+        };
+        setWorkspace(json.snapshot);
+        setReceipts(json.receipts);
+        if (json.auditLog) setAuditLog(json.auditLog);
+      }
+      if (proRes.ok) {
+        setProactive((await proRes.json()) as ProactiveHarnessStatus);
+      }
     } catch {
       // keep existing inspector state
     }
   }, []);
+
+  const toggleProactiveWatch = async () => {
+    const tok = tokenRef.current;
+    if (!tok) return;
+    const res = await fetch('/api/proactive/toggle', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ running: !(proactive?.running ?? true) }),
+    });
+    if (res.ok) setProactive((await res.json()) as ProactiveHarnessStatus);
+  };
+
+  const scanProactiveNow = async () => {
+    const tok = tokenRef.current;
+    if (!tok) return;
+    const res = await fetch('/api/proactive/pulse', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    if (res.ok) setProactive((await res.json()) as ProactiveHarnessStatus);
+  };
 
   const refreshCorridor = useCallback(async (tok: string) => {
     const res = await fetch('/api/corridor', {
@@ -480,6 +538,13 @@ export function App() {
     });
     es.addEventListener('audit', () => {
       if (tokenRef.current) void refreshWorkspaceInspector(tokenRef.current);
+    });
+    es.addEventListener('proactive', (ev) => {
+      try {
+        setProactive(JSON.parse((ev as MessageEvent).data) as ProactiveHarnessStatus);
+      } catch {
+        // ignore
+      }
     });
     es.addEventListener('meeting', (ev) => {
       try {
@@ -1167,16 +1232,23 @@ export function App() {
                 className="lg:col-span-7"
               >
                 <G2Hardware3D
-                  phase={hudState.phase}
+                  hudState={hudState}
                   orbState={orbState}
                   activeWord={activeSpokenWord}
-                  headerLine={`${sessionMode} | ${hudState.phase.toUpperCase()}`}
+                  headerLine={`${sessionMode === 'DEMO' ? 'SANDBOX' : sessionMode} | ${hudState.phase.toUpperCase()}`}
                   primaryLine={
-                    hudState.cards[hudState.selectedCardIndex]?.title ?? 'VC Sync - Priya Nair'
+                    hudState.cards[hudState.selectedCardIndex]?.title ?? 'Corridor Ready'
                   }
                   ringProgress={armProgress01}
                   rmsLevel={hudState.rmsLevel ?? 0}
+                  engineLabel={voiceEngineLabel}
                   onEnterLensView={() => setLensPovOpen(true)}
+                  onRunVoice={() => void runVoicePreset('Push 15m and tell Priya')}
+                  onConfirmAction={async () => {
+                    await ctrlRef.current?.handleEvent({ kind: 'SCROLL_DOWN' });
+                    await ctrlRef.current?.handleEvent({ kind: 'CLICK' });
+                  }}
+                  onCancelAction={() => void ctrlRef.current?.handleEvent({ kind: 'CLICK' })}
                 />
               </motion.div>
             </div>
@@ -1411,6 +1483,65 @@ export function App() {
                     ))}
                   </div>
 
+                  {/* 24/7 Proactive Agentic Harness Live Pulse */}
+                  {proactive && (
+                    <div className="border border-dashed border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-2 text-[11px]">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="inline-flex items-center gap-2 font-pixel text-[9px] uppercase tracking-[0.14em] text-[var(--g2-phosphor)]">
+                          <span
+                            className={`inline-block w-2 h-2 rounded-full ${
+                              proactive.running ? 'bg-[var(--g2-phosphor)] animate-pulse' : 'bg-[var(--lightgray)]'
+                            }`}
+                          />
+                          <span>
+                            24/7 PROACTIVE AGENT · {proactive.running ? 'WATCHING' : 'PAUSED'} · {proactive.pulseCount} SCANS
+                          </span>
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => void scanProactiveNow()}
+                            className="px-2 py-0.5 border border-[var(--hairline)] text-[10px] text-[var(--lightgray)] hover:border-[var(--g2-phosphor)] hover:text-[var(--g2-phosphor)] cursor-pointer"
+                          >
+                            Scan Now
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void toggleProactiveWatch()}
+                            className="px-2 py-0.5 border border-[var(--hairline)] text-[10px] text-[var(--lightgray)] hover:border-[var(--lime)] hover:text-[var(--lime)] cursor-pointer"
+                          >
+                            {proactive.running ? 'Pause' : 'Resume'}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        {proactive.insights.slice(0, 2).map((ins) => (
+                          <button
+                            key={ins.id}
+                            type="button"
+                            onClick={() => {
+                              if (ins.suggestedCommand) {
+                                void stageCommand(ins.suggestedCommand);
+                              }
+                            }}
+                            className={`text-left border px-2.5 py-1.5 bg-[var(--surface)]/70 transition-colors ${
+                              ins.suggestedCommand ? 'cursor-pointer hover:border-[var(--lime)]' : 'cursor-default'
+                            } ${
+                              ins.severity === 'warn'
+                                ? 'border-[var(--warning)]/60'
+                                : ins.severity === 'action'
+                                  ? 'border-[var(--g2-phosphor)]/45'
+                                  : 'border-[var(--hairline)]/60'
+                            }`}
+                          >
+                            <div className="font-semibold text-[var(--bright)] truncate">{ins.title}</div>
+                            <div className="text-[10px] text-[var(--lightgray)] truncate">{ins.detail}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {!workspace ? (
                     <div className="border border-dashed border-[var(--hairline)] p-4 text-xs text-[var(--lightgray)]">
                       Syncing workspace relay...
@@ -1639,7 +1770,8 @@ export function App() {
                 {
                   num: '01 · BEFORE',
                   title: 'Hallway Corridor Brief',
-                  desc: 'Calendar countdown, latest Gmail ask, and linked Drive snippet in 42 legible columns.',
+                  desc: 'Calendar countdown, active thread snippet, and linked Drive deck streamed in 42 crisp columns.',
+                  visual: <CorridorBriefVisual />,
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
                       <CalendarPixelSvg className="w-3.5 h-3.5" />
@@ -1653,7 +1785,8 @@ export function App() {
                 {
                   num: '02 · BEFORE',
                   title: 'One-Line Reschedule & Reply',
-                  desc: 'Say "OnQ, push 15m and tell Priya". Checks Free/Busy, drafts safely, arms 2.0s Undo Ring.',
+                  desc: 'Say "OnQ, move my next meeting 15 minutes and update the thread." Verifies Free/Busy and arms 2.0s Undo Ring.',
+                  visual: <ShiftScheduleVisual />,
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
                       <CalendarPixelSvg className="w-3.5 h-3.5" />
@@ -1666,7 +1799,8 @@ export function App() {
                 {
                   num: '03 · DURING',
                   title: 'Private In-Room Meeting Notes',
-                  desc: 'Separates speakers in volatile memory with zero audio recordings written to disk.',
+                  desc: 'Separates speakers in volatile RAM with zero audio files ever persisted to disk.',
+                  visual: <InRoomScribeVisual />,
                   icons: <AssemblyAiPixelSvg className="w-3.5 h-3.5" />,
                   cta: 'Start Live Meeting Scribe',
                   action: () => void runLiveMeetingDemo(),
@@ -1674,7 +1808,8 @@ export function App() {
                 {
                   num: '04 · DURING',
                   title: 'Quiet Earbuds Recall',
-                  desc: 'Ask "OnQ, what did Priya ask about Q4?" for a lens summary plus quiet earbuds playback.',
+                  desc: 'Ask "OnQ, what changed on Q4 metrics?" for a silent lens summary plus word-synced earbuds audio.',
+                  visual: <EarbudsRecallVisual />,
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
                       <ClaudePixelSvg className="w-3.5 h-3.5" />
@@ -1688,7 +1823,8 @@ export function App() {
                 {
                   num: '05 · AFTER',
                   title: 'Instant Post-Meeting Wrap-Up',
-                  desc: 'Turns spoken decisions and deadlines into Notion tasks, a Calendar hold, and a Gmail draft.',
+                  desc: 'Turns spoken decisions into Notion tasks, a Calendar follow-up hold, and a Gmail draft under Default-NO.',
+                  visual: <WrapUpFanoutVisual />,
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
                       <NotionPixelSvg className="w-3.5 h-3.5" />
@@ -1701,13 +1837,14 @@ export function App() {
                 {
                   num: '06 · GUARD',
                   title: 'Double-Booking & Prompt Shield',
-                  desc: 'Blocks calendar overlaps and stale Gmail threads automatically, surfacing the next free slot.',
+                  desc: 'Blocks overlapping holds and drifted threads with HTTP 409 and automatically surfaces the next free slot.',
+                  visual: <ConflictShieldVisual />,
                   icons: <ShieldPixelSvg className="w-3.5 h-3.5" />,
                   cta: 'Test 409 Conflict Lock',
                   action: () => void stageCommand('Move VC sync to 14:45'),
                 },
               ].map((uc) => (
-                <div key={uc.num} className="bg-[var(--ink)] hover:bg-[var(--surface)] p-6 flex flex-col justify-between space-y-5 transition-colors">
+                <div key={uc.num} className="bg-[var(--ink)] hover:bg-[var(--surface)] p-6 flex flex-col justify-between space-y-4 transition-colors">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
@@ -1715,6 +1852,7 @@ export function App() {
                       </span>
                       {uc.icons}
                     </div>
+                    {uc.visual}
                     <h3 className="font-display text-xl font-bold text-[var(--bright)]">{uc.title}</h3>
                     <p className="text-xs leading-relaxed text-[var(--lightgray)]">{uc.desc}</p>
                   </div>
@@ -1733,7 +1871,7 @@ export function App() {
         </section>
 
         {/* Visual Survey Graphs, Curves & Field Benchmark (#research) */}
-        <ResearchGraphsSection testCount={213} />
+        <ResearchGraphsSection testCount={216} />
 
         {/* Sticky Scroll Safety Story (#safety) */}
         <StickySafetyStory />

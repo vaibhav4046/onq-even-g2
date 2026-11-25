@@ -15,7 +15,7 @@ export function createPkcePair(): PkcePair {
 }
 
 export interface PendingOAuthState {
-  provider: 'google' | 'notion';
+  provider: 'google' | 'notion' | 'openrouter';
   codeVerifier?: string;
   redirectTo: string;
   expiresAtMs: number;
@@ -31,7 +31,7 @@ export class OAuthStateStore {
   constructor(private readonly nowFn: () => number = () => Date.now()) {}
 
   issue(params: {
-    provider: 'google' | 'notion';
+    provider: 'google' | 'notion' | 'openrouter';
     codeVerifier?: string;
     redirectTo?: string;
     ttlMs?: number;
@@ -46,7 +46,10 @@ export class OAuthStateStore {
     return state;
   }
 
-  consume(state: string | null | undefined, expectedProvider?: 'google' | 'notion'): PendingOAuthState | null {
+  consume(
+    state: string | null | undefined,
+    expectedProvider?: 'google' | 'notion' | 'openrouter',
+  ): PendingOAuthState | null {
     if (!state) return null;
     const entry = this.entries.get(state);
     this.entries.delete(state);
@@ -54,6 +57,22 @@ export class OAuthStateStore {
     if (expectedProvider && entry.provider !== expectedProvider) return null;
     if (this.nowFn() > entry.expiresAtMs) return null;
     return entry;
+  }
+
+  consumeLatestByProvider(
+    provider: 'google' | 'notion' | 'openrouter',
+  ): PendingOAuthState | null {
+    const now = this.nowFn();
+    let matchedKey: string | null = null;
+    let matchedEntry: PendingOAuthState | null = null;
+    for (const [key, entry] of this.entries.entries()) {
+      if (entry.provider === provider && now <= entry.expiresAtMs) {
+        matchedKey = key;
+        matchedEntry = entry;
+      }
+    }
+    if (matchedKey) this.entries.delete(matchedKey);
+    return matchedEntry;
   }
 }
 
