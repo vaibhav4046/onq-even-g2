@@ -30,12 +30,13 @@ export interface MusicFocusSession {
   g2Lines: string[];
 }
 
+// ponytail: iTunes ranks multi-word queries by popularity; short genre terms return on-mood tracks.
 const MOOD_QUERY_MAP: Record<MusicMood, string> = {
-  deep_focus: 'ambient instrumental study focus',
-  coding: 'synthwave lofi instrumental coding',
-  gym: 'workout electronic running energy',
-  commute: 'indie acoustic chill',
-  wind_down: 'piano sleep calm',
+  deep_focus: 'ambient study',
+  coding: 'lofi beats',
+  gym: 'workout edm',
+  commute: 'acoustic chill',
+  wind_down: 'sleep piano',
 };
 
 const SPOTIFY_NOTE =
