@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import { encodeCountdownRingPng, encodePixelAvatarPng, formatLensFrame } from '@onq/core';
 import type { HudState } from '@onq/core';
 
@@ -13,6 +13,7 @@ export function G2LensCanvas({
   opticsMode,
   negativeControlOverflow = false,
 }: G2LensCanvasProps) {
+  const phosphorId = useId().replace(/:/g, '');
   const frame = useMemo(() => formatLensFrame(hudState), [hudState]);
 
   const ringDataUrl = useMemo(() => {
@@ -75,14 +76,30 @@ export function G2LensCanvas({
     >
       <div className="flex items-start gap-3 min-w-0">
         {sideImgUrl && (
-          <img
-            src={sideImgUrl}
-            width={76}
-            height={76}
-            alt={ringDataUrl ? '2.0 second countdown undo ring' : 'OnQ 4-bit Muse pixel avatar'}
-            className="shrink-0 mt-4"
-            style={{ imageRendering: 'pixelated' }}
-          />
+          <>
+            <svg width="0" height="0" aria-hidden="true" className="absolute pointer-events-none">
+              <filter id={`g2-phosphor-${phosphorId}`} colorInterpolationFilters="sRGB">
+                <feColorMatrix
+                  type="matrix"
+                  values="0.204 0 0 0 0  0.961 0 0 0 0  0.494 0 0 0 0  0 0 0 1 0"
+                />
+              </filter>
+            </svg>
+            <img
+              src={sideImgUrl}
+              width={76}
+              height={76}
+              alt={ringDataUrl ? '2.0 second countdown undo ring' : 'OnQ 4-bit Anime Dots avatar'}
+              className="shrink-0 mt-4"
+              style={{
+                imageRendering: 'pixelated',
+                filter:
+                  opticsMode === 'waveguide'
+                    ? `url(#g2-phosphor-${phosphorId}) drop-shadow(0 0 4px rgba(52, 245, 126, 0.42))`
+                    : `url(#g2-phosphor-${phosphorId})`,
+              }}
+            />
+          </>
         )}
         <div className="flex flex-col w-full min-w-0">
           {frame.lines.map((line, idx) => (

@@ -58,7 +58,7 @@ function buildHardwareDotCloud(
   const positions: number[] = [];
   const colors: number[] = [];
   const emerald = new THREE.Color('#34F57E');
-  const lime = new THREE.Color('#daff52');
+  const lime = new THREE.Color('#86FFAF');
   const titanium = new THREE.Color('#b8ccc0');
 
   const totalVerts = geometries.reduce((acc, g) => acc + g.attributes.position.count, 0);

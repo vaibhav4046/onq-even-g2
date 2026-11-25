@@ -28,7 +28,7 @@ const FLOW_TABS: FlowGraphSpec[] = [
     ],
     nodes: [
       { id: 'mic', title: 'R1 + Mic 16kHz', role: 'RMS Gate >= 0.012', x: 75, y: 54, tint: '#34F57E' },
-      { id: 'orch', title: 'OnQ Orchestrator', role: 'Code-Guard · 45s TTL', x: 280, y: 54, tint: '#daff52' },
+      { id: 'orch', title: 'OnQ Orchestrator', role: 'Code-Guard · 45s TTL', x: 280, y: 54, tint: '#86FFAF' },
       { id: 'gcal', title: 'Google Calendar', role: 'PATCH +15m Etag OK', x: 500, y: 36, tint: '#4285F4' },
       { id: 'gmail', title: 'Gmail Draft/Send', role: 'Server-bound to:', x: 500, y: 122, tint: '#EA4335' },
     ],
@@ -51,7 +51,7 @@ const FLOW_TABS: FlowGraphSpec[] = [
     ],
     nodes: [
       { id: 'tg_in', title: 'Telegram Digest', role: 'Even G2 Builders', x: 75, y: 54, tint: '#26A5E4' },
-      { id: 'draft', title: 'Grounded Router', role: 'Claude / OpenRouter', x: 280, y: 54, tint: '#daff52' },
+      { id: 'draft', title: 'Grounded Router', role: 'Claude / OpenRouter', x: 280, y: 54, tint: '#86FFAF' },
       { id: 'ring', title: '2.0s Undo Ring', role: 'Default-NO Lock', x: 280, y: 128, tint: '#34F57E' },
       { id: 'tg_out', title: 'Bot API sendMessage', role: '200 OK · Chat Bound', x: 500, y: 88, tint: '#26A5E4' },
     ],
@@ -74,7 +74,7 @@ const FLOW_TABS: FlowGraphSpec[] = [
     ],
     nodes: [
       { id: 'pcm', title: 'G2 Mic PCM Stream', role: 'Zero Disk Write', x: 75, y: 54, tint: '#34F57E' },
-      { id: 'ram', title: 'RAM RingBuffer (48)', role: 'Auto-Wipe on Close', x: 280, y: 54, tint: '#daff52' },
+      { id: 'ram', title: 'RAM RingBuffer (48)', role: 'Auto-Wipe on Close', x: 280, y: 54, tint: '#86FFAF' },
       { id: 'lens', title: '576x288 HUD', role: '<= 999B ASCII Card', x: 500, y: 36, tint: '#34F57E' },
       { id: 'tts', title: 'AssemblyAI TTS-1', role: 'Earbuds Audio Out', x: 500, y: 122, tint: '#2dd4bf' },
     ],
@@ -96,7 +96,7 @@ const FLOW_TABS: FlowGraphSpec[] = [
       { num: '03', label: 'Atomic Multi-Write', detail: 'Creates Notion task, holds 30m follow-up, saves Gmail draft inside 1 transaction.' },
     ],
     nodes: [
-      { id: 'buf', title: 'Decisions + Owners', role: 'Meeting Session RAM', x: 75, y: 78, tint: '#daff52' },
+      { id: 'buf', title: 'Decisions + Owners', role: 'Meeting Session RAM', x: 75, y: 78, tint: '#86FFAF' },
       { id: 'notion', title: 'Notion 2026-03-11', role: 'Auto-Schema DS', x: 320, y: 26, tint: '#f2f2f2' },
       { id: 'cal', title: 'Calendar Hold', role: 'Free Slot 17:00', x: 320, y: 84, tint: '#4285F4' },
       { id: 'mail', title: 'Gmail Recap Draft', role: 'Safe Draft Only', x: 320, y: 140, tint: '#EA4335' },
@@ -119,7 +119,7 @@ const FLOW_TABS: FlowGraphSpec[] = [
       { num: '03', label: 'Surface Next Free Slot', detail: 'Presents 15:45 verified opening on lens so 1 tap re-stages cleanly without typing.' },
     ],
     nodes: [
-      { id: 'cmd', title: 'Staged Move 14:45', role: 'At 0.0s Boundary', x: 75, y: 78, tint: '#daff52' },
+      { id: 'cmd', title: 'Staged Move 14:45', role: 'At 0.0s Boundary', x: 75, y: 78, tint: '#86FFAF' },
       { id: 'guard', title: 'Conflict Engine', role: 'HTTP 409 Hard-Lock', x: 280, y: 78, tint: '#ffb020' },
       { id: 'zero', title: '0 Edits Executed', role: 'Mail + Cal Unchanged', x: 500, y: 36, tint: '#ff5a4f' },
       { id: 'next', title: 'Next Free: 15:45', role: '1-Tap Re-Stage', x: 500, y: 122, tint: '#34F57E' },
@@ -234,8 +234,8 @@ export function ArchitectureShowcase({ testCount = 220 }: { testCount?: number }
 
               <div className="col-span-1 flex justify-center">
                 <svg viewBox="0 0 60 20" className="w-full h-5" aria-hidden="true">
-                  <path d="M2 10 L54 10" stroke="#daff52" strokeWidth="2" className="animate-svg-flow" />
-                  <polygon points="50,6 58,10 50,14" fill="#daff52" />
+                  <path d="M2 10 L54 10" stroke="#86FFAF" strokeWidth="2" className="animate-svg-flow" />
+                  <polygon points="50,6 58,10 50,14" fill="#86FFAF" />
                 </svg>
               </div>
 
@@ -248,7 +248,7 @@ export function ArchitectureShowcase({ testCount = 220 }: { testCount?: number }
               <div className="col-span-1 flex justify-center">
                 <svg viewBox="0 0 60 64" className="w-full h-16" aria-hidden="true">
                   <path d="M2 32 C24 32, 24 10, 56 10" fill="none" stroke="#34F57E" strokeWidth="1.6" className="animate-svg-flow" />
-                  <path d="M2 32 L56 32" fill="none" stroke="#daff52" strokeWidth="1.6" className="animate-svg-flow" />
+                  <path d="M2 32 L56 32" fill="none" stroke="#86FFAF" strokeWidth="1.6" className="animate-svg-flow" />
                   <path d="M2 32 C24 32, 24 54, 56 54" fill="none" stroke="#26A5E4" strokeWidth="1.6" className="animate-svg-flow" />
                 </svg>
               </div>
@@ -365,7 +365,7 @@ export function ArchitectureShowcase({ testCount = 220 }: { testCount?: number }
                         className={reduced ? '' : 'animate-svg-flow'}
                       />
                       <rect x={midX - 40} y={(y1 + y2) / 2 - 8} width="80" height="15" rx="3" fill="#070a09" stroke="rgba(255,255,255,0.16)" />
-                      <text x={midX} y={(y1 + y2) / 2 + 2.5} textAnchor="middle" fill="#daff52" fontSize="7.2" fontFamily="monospace" fontWeight="700">
+                      <text x={midX} y={(y1 + y2) / 2 + 2.5} textAnchor="middle" fill="#86FFAF" fontSize="7.2" fontFamily="monospace" fontWeight="700">
                         {edge.label}
                       </text>
                     </g>
@@ -531,7 +531,7 @@ export function ArchitectureShowcase({ testCount = 220 }: { testCount?: number }
                 />
 
                 <rect x="64" y="16" width="9" height="9" fill="#34F57E" />
-                <text x="78" y="24" fill="#daff52" fontSize="9.5" fontFamily="monospace" fontWeight="700">
+                <text x="78" y="24" fill="#86FFAF" fontSize="9.5" fontFamily="monospace" fontWeight="700">
                   OnQ Even G2 (Read + Write + 409 Lock · 97-100%)
                 </text>
                 <rect x="395" y="16" width="9" height="9" fill={compareMode === 'readonly' ? '#ffb020' : '#f2f2f2'} />

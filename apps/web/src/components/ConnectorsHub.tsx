@@ -454,7 +454,7 @@ export function ConnectorsHub({
       name: 'OpenRouter',
       sub: 'Multi-Model Free & Pro Failover',
       icon: (
-        <ApplePixelTile size="lg" tint="#daff52">
+        <ApplePixelTile size="lg" tint="#86FFAF">
           <OpenRouterPixelSvg className="w-6 h-6" />
         </ApplePixelTile>
       ),

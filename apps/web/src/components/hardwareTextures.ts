@@ -154,7 +154,7 @@ export function createWaveguideGratingTexture(): THREE.CanvasTexture {
   }
 
   // Subtle corner optical alignment ticks (no solid box)
-  ctx.strokeStyle = 'rgba(218, 255, 82, 0.22)';
+  ctx.strokeStyle = 'rgba(52, 245, 126, 0.24)';
   ctx.lineWidth = 1.5;
   const pad = 16;
   const arm = 12;
@@ -179,15 +179,15 @@ export function createWaveguideGratingTexture(): THREE.CanvasTexture {
 
 function getPhosphorPalette(phase: HudPhase) {
   if (phase === 'conflict' || phase === 'error') {
-    return { primary: '#ffb020', secondary: '#ff7a45', glow: 'rgba(255, 176, 32, 0.75)' };
+    return { primary: '#D4FFE4', secondary: '#34F57E', bright: '#FFFFFF', dim: '#1A7A3F', glow: 'rgba(134, 255, 175, 0.78)' };
   }
   if (phase === 'armed' || phase === 'wrap_up') {
-    return { primary: '#daff52', secondary: '#34F57E', glow: 'rgba(218, 255, 82, 0.8)' };
+    return { primary: '#86FFAF', secondary: '#34F57E', bright: '#E2FFEC', dim: '#156634', glow: 'rgba(134, 255, 175, 0.85)' };
   }
   if (phase === 'stale') {
-    return { primary: '#a7f3d0', secondary: '#6ee7b7', glow: 'rgba(110, 231, 183, 0.55)' };
+    return { primary: '#6EE7B7', secondary: '#1EA352', bright: '#A7F3D0', dim: '#0D4A26', glow: 'rgba(52, 245, 126, 0.52)' };
   }
-  return { primary: '#34F57E', secondary: '#daff52', glow: 'rgba(52, 245, 126, 0.8)' };
+  return { primary: '#34F57E', secondary: '#86FFAF', bright: '#D4FFE4', dim: '#0F4D28', glow: 'rgba(52, 245, 126, 0.82)' };
 }
 
 function drawScanlines(ctx: CanvasRenderingContext2D, w: number, h: number) {
@@ -365,40 +365,145 @@ export function drawRightLensHudCanvas(
                   ? 'listening'
                   : 'idle'));
 
-  // 1. Hybrid Muse Pixel Face + Stepped Bayer Dot Matrix inside right G2 lens
+  // 1. Sleek Monochrome 525nm Green Anime Dots Companion inside right G2 waveguide lens
   const amp = Math.max(idleReelStage === 1 ? 0.62 : 0, Math.min(1, Math.max(0, opts.rmsLevel * 6.5)));
   const breathe = 0.5 + 0.5 * Math.sin(opts.timeSec * (orbMode === 'speaking' ? 7 : 2.1));
-  const showMuseFace = orbMode === 'idle' || orbMode === 'listening' || orbMode === 'speaking' || orbMode === 'conflict';
+  const showAnimeFace = orbMode === 'idle' || orbMode === 'listening' || orbMode === 'speaking' || orbMode === 'conflict';
 
-  if (showMuseFace) {
-    // Muse pixel eyes (soft periodic blink during idle)
+  const drawDot = (dx: number, dy: number, r: number, color: string, alpha = 1) => {
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(dx, dy, r, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  if (showAnimeFace) {
+    // Twinkling 4-point dot sparkles
+    const sPulse = 0.45 + 0.55 * Math.sin(opts.timeSec * 3.1);
+    for (const [sx, sy, a] of [
+      [cx - 48, cy - 30, 0.35 + sPulse * 0.6],
+      [cx + 48, cy - 22, 0.95 - sPulse * 0.55],
+    ] as const) {
+      drawDot(sx, sy, 2.3, pal.bright, a);
+      drawDot(sx - 4, sy, 1.1, pal.primary, a * 0.8);
+      drawDot(sx + 4, sy, 1.1, pal.primary, a * 0.8);
+      drawDot(sx, sy - 4, 1.1, pal.primary, a * 0.8);
+      drawDot(sx, sy + 4, 1.1, pal.primary, a * 0.8);
+    }
+
+    // Swept anime crown, parted bangs, cheek side-locks & chin whisper dots
+    for (let deg = -156; deg <= -24; deg += 12) {
+      const rad = (deg * Math.PI) / 180;
+      drawDot(cx + Math.cos(rad) * 44, cy + 2 + Math.sin(rad) * 40, 2.1, pal.primary, 0.58);
+    }
+    for (const [bx, by, br, ba] of [
+      [-21, -30, 1.9, 0.55], [-18, -24, 1.6, 0.42],
+      [-4, -33, 2.1, 0.62], [-2, -26, 1.8, 0.48], [0, -20, 1.5, 0.34],
+      [17, -30, 1.9, 0.55], [19, -24, 1.6, 0.42],
+    ] as const) {
+      drawDot(cx + bx, cy + by, br, pal.primary, ba);
+    }
+    for (const side of [-1, 1] as const) {
+      for (const [dy, xOff, ba] of [
+        [-12, 39, 0.52],
+        [-2, 40, 0.46],
+        [8, 38, 0.4],
+        [18, 35, 0.32],
+      ] as const) {
+        drawDot(cx + side * xOff, cy + dy, 1.8, pal.primary, ba);
+      }
+    }
+    drawDot(cx + 22, cy - 34, 2.2, pal.bright, 0.92);
+
+    // Sculpted anime dot-matrix eyes + upper lash wings + gleaming catchlights
     const blink = orbMode === 'idle' && opts.timeSec % 4.2 > 3.95;
-    const eyeH = blink ? 3 : orbMode === 'listening' ? 20 : 15;
-    ctx.fillStyle = pal.primary;
-    ctx.fillRect(Math.round(cx - 26), Math.round(cy - 18 - eyeH / 2), 11, eyeH);
-    ctx.fillRect(Math.round(cx + 15), Math.round(cy - 18 - eyeH / 2), 11, eyeH);
+    for (const side of [-1, 1] as const) {
+      const eyeCx = cx + side * 19;
+      const eyeCy = cy - 4;
+      if (blink) {
+        ctx.globalAlpha = 0.95;
+        ctx.strokeStyle = pal.bright;
+        ctx.lineWidth = 2.6;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(eyeCx - 9, eyeCy - 1);
+        ctx.quadraticCurveTo(eyeCx, eyeCy + 4, eyeCx + 9, eyeCy - 1);
+        ctx.stroke();
+      } else if (orbMode === 'conflict') {
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = pal.bright;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(eyeCx - 9, eyeCy - 11 - side * 3);
+        ctx.lineTo(eyeCx + 9, eyeCy - 11 + side * 3);
+        ctx.stroke();
+        drawDot(eyeCx, eyeCy, 6.5, pal.primary, 0.92);
+        drawDot(eyeCx, eyeCy, 2.5, '#000000', 1);
+        drawDot(eyeCx - 2, eyeCy - 2, 1.8, pal.bright, 1);
+      } else {
+        ctx.globalAlpha = 0.96;
+        ctx.strokeStyle = pal.bright;
+        ctx.lineWidth = 2.8;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(eyeCx - 9, eyeCy - 5);
+        ctx.quadraticCurveTo(eyeCx, eyeCy - 12, eyeCx + 9, eyeCy - 5);
+        ctx.stroke();
+        drawDot(eyeCx + side * 10.5, eyeCy - 7, 1.5, pal.primary, 0.9);
+        // Iris halo + deep pupil void + dual catchlights
+        ctx.strokeStyle = pal.primary;
+        ctx.lineWidth = 1.9;
+        ctx.beginPath();
+        ctx.ellipse(eyeCx, eyeCy + 1, 7.6, 8.6, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        drawDot(eyeCx, eyeCy + 1, 3.6, '#000000', 1);
+        drawDot(eyeCx - 3, eyeCy - 2.5, 2.4, pal.bright, 1);
+        drawDot(eyeCx + 3, eyeCy + 3.5, 1.2, pal.bright, 0.95);
+      }
+      // Subtle cheek blush micro-dots
+      drawDot(cx + side * 26, cy + 10, 1.3, pal.primary, 0.45);
+      drawDot(cx + side * 30, cy + 9, 1.2, pal.primary, 0.42);
+    }
 
-    // Muse reactive pixel mouth / voice bars
+    // Expressive anime mouth: lock chevron, reactive dot equalizer, or 'w' smile
     if (orbMode === 'conflict') {
-      ctx.fillRect(Math.round(cx - 22), Math.round(cy + 14), 44, 6);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = pal.bright;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx - 15, cy + 23);
+      ctx.lineTo(cx, cy + 15);
+      ctx.lineTo(cx + 15, cy + 23);
+      ctx.stroke();
     } else if (orbMode === 'listening' || orbMode === 'speaking') {
       for (let b = -2; b <= 2; b++) {
         const wave = Math.abs(Math.sin(opts.timeSec * 8 + b * 0.9));
-        const mh = Math.max(5, Math.round(6 + (amp * 14 + breathe * 8) * wave));
-        ctx.fillStyle = b === 0 ? pal.secondary : pal.primary;
-        ctx.fillRect(Math.round(cx + b * 11 - 4), Math.round(cy + 14 - mh / 2), 8, mh);
+        const dotRows = Math.max(1, Math.min(3, Math.round(1 + (amp * 1.4 + breathe * 1.1) * wave)));
+        for (let r = 0; r < dotRows; r++) {
+          const offset = (r - (dotRows - 1) / 2) * 4.8;
+          drawDot(cx + b * 7.5, cy + 20 + offset, 2.1, b === 0 ? pal.bright : pal.primary, 0.95);
+        }
       }
     } else {
-      ctx.fillStyle = pal.secondary;
-      ctx.fillRect(Math.round(cx - 20), Math.round(cy + 12), 6, 6);
-      ctx.fillRect(Math.round(cx - 14), Math.round(cy + 18), 28, 6);
-      ctx.fillRect(Math.round(cx + 14), Math.round(cy + 12), 6, 6);
+      for (const [mx, my, mr] of [
+        [-8, 18, 1.5],
+        [-5, 21, 1.8],
+        [-2, 21.5, 1.8],
+        [0, 19, 1.9],
+        [2, 21.5, 1.8],
+        [5, 21, 1.8],
+        [8, 18, 1.5],
+      ] as const) {
+        drawDot(cx + mx, cy + my, mr, pal.bright, 0.92);
+      }
     }
+    ctx.globalAlpha = 1;
   } else {
-    // Stepped Bayer 4x4 circular pixel constellation for thinking / armed
+    // Stepped Bayer 4x4 circular phosphor dot constellation for thinking / armed
     const grid = 11;
     const pitch = 9;
-    const cell = 7;
+    const dotR = 3.2;
     const half = (grid - 1) / 2;
 
     for (let gy = 0; gy < grid; gy++) {
@@ -408,7 +513,6 @@ export function drawRightLensHudCanvas(
         const dist = Math.hypot(dx, dy);
         if (dist > half + 0.25) continue;
 
-        const bayer = BAYER_4X4[gy % 4][gx % 4] / 16;
         const normDist = dist / half;
         const ang = Math.atan2(dy, dx);
         let alpha = 0.25;
@@ -420,20 +524,19 @@ export function drawRightLensHudCanvas(
           alpha = 0.78 - normDist * 0.28;
         }
 
-        ctx.globalAlpha = Math.max(0.12, Math.min(1, alpha));
-        ctx.fillStyle = (gx + gy) % 3 === 0 ? pal.secondary : pal.primary;
-        ctx.fillRect(
-          Math.round(cx + dx * pitch - cell / 2),
-          Math.round(cy + dy * pitch - cell / 2),
-          cell,
-          cell,
+        drawDot(
+          cx + dx * pitch,
+          cy + dy * pitch,
+          dotR,
+          (gx + gy) % 3 === 0 ? pal.secondary : pal.primary,
+          Math.max(0.12, Math.min(1, alpha)),
         );
       }
     }
     ctx.globalAlpha = 1;
   }
 
-  // 2. Concentric 24-segment phosphor reticle / 2.0s Undo Countdown Ring around orb
+  // 2. Concentric 24-dot phosphor reticle / 2.0s Undo Countdown Ring around orb
   const segments = 24;
   const radius = 64;
   const reelRingProg = idleReelStage === 2 ? ((opts.timeSec % 3) / 3) : 0;
@@ -453,11 +556,11 @@ export function drawRightLensHudCanvas(
   for (let i = 0; i < segments; i++) {
     const idx = (i + spinOffset) % segments;
     const ang = -Math.PI / 2 + (idx / segments) * Math.PI * 2;
-    const px = cx + Math.cos(ang) * radius - 3;
-    const py = cy + Math.sin(ang) * radius - 3;
-    ctx.fillStyle = i < litCount ? pal.primary : 'rgba(52, 245, 126, 0.18)';
-    ctx.fillRect(Math.round(px), Math.round(py), 6, 6);
+    const px = cx + Math.cos(ang) * radius;
+    const py = cy + Math.sin(ang) * radius;
+    drawDot(px, py, i < litCount ? 3 : 2, i < litCount ? pal.primary : 'rgba(52, 245, 126, 0.22)', 1);
   }
+  ctx.globalAlpha = 1;
 
   // 3. Crisp centered caption inside lens margins (zero clipping)
   ctx.fillStyle = pal.secondary;
@@ -501,8 +604,8 @@ export function createDotSpriteTexture(): THREE.CanvasTexture {
   const half = size / 2;
   const grad = ctx.createRadialGradient(half, half, 1, half, half, half);
   grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
-  grad.addColorStop(0.32, 'rgba(218, 255, 178, 0.82)');
-  grad.addColorStop(0.68, 'rgba(52, 245, 126, 0.25)');
+  grad.addColorStop(0.32, 'rgba(139, 255, 181, 0.85)');
+  grad.addColorStop(0.68, 'rgba(52, 245, 126, 0.28)');
   grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, size, size);

@@ -175,7 +175,7 @@ export function ChatGptPixelSvg({ className = 'w-4 h-4', theme = 'dark' }: Ecosy
 
 /** 16x16 pixel-art OpenRouter branching route nodes glyph. */
 export function OpenRouterPixelSvg({ className = 'w-4 h-4', theme = 'dark' }: EcosystemIconProps) {
-  const lime = theme === 'light' ? '#0a0a0a' : '#daff52';
+  const lime = theme === 'light' ? '#0a0a0a' : '#86FFAF';
   const wire = theme === 'light' ? '#525252' : '#f2f2f2';
 
   return (
@@ -217,7 +217,7 @@ export function TelegramPixelSvg({ className = 'w-4 h-4', theme = 'dark' }: Ecos
 
 /** 16x16 pixel-art AssemblyAI waveform mark. */
 export function AssemblyAiPixelSvg({ className = 'w-4 h-4', theme = 'dark' }: EcosystemIconProps) {
-  const primary = theme === 'light' ? '#0a0a0a' : '#daff52';
+  const primary = theme === 'light' ? '#0a0a0a' : '#86FFAF';
   const secondary = theme === 'light' ? '#525252' : '#f2f2f2';
 
   return (
@@ -234,7 +234,7 @@ export function AssemblyAiPixelSvg({ className = 'w-4 h-4', theme = 'dark' }: Ec
 /** 24x14 pixel-art Even G2 optical frame mark. */
 export function EvenG2PixelSvg({ className = 'w-6 h-3.5', theme = 'dark' }: EcosystemIconProps) {
   const frame = theme === 'light' ? '#0a0a0a' : '#f2f2f2';
-  const beam = theme === 'light' ? '#0a0a0a' : '#daff52';
+  const beam = theme === 'light' ? '#0a0a0a' : '#86FFAF';
 
   return (
     <svg viewBox="0 0 24 14" shapeRendering="crispEdges" className={`shrink-0 ${className}`} aria-hidden="true">
@@ -255,7 +255,7 @@ export function EvenG2PixelSvg({ className = 'w-6 h-3.5', theme = 'dark' }: Ecos
 
 /** 16x16 pixel-art Shield Lock mark. */
 export function ShieldPixelSvg({ className = 'w-4 h-4', theme = 'dark' }: EcosystemIconProps) {
-  const frame = theme === 'light' ? '#0a0a0a' : '#daff52';
+  const frame = theme === 'light' ? '#0a0a0a' : '#86FFAF';
   const fill = theme === 'light' ? '#0a0a0a' : '#f2f2f2';
 
   return (
@@ -333,7 +333,7 @@ export function EcosystemStrip() {
     { label: 'Notion', tint: '#f2f2f2', icon: <NotionPixelSvg className="w-4 h-4" /> },
     { label: 'Claude', tint: '#D97757', icon: <ClaudePixelSvg className="w-4 h-4" /> },
     { label: 'ChatGPT', tint: '#10A37F', icon: <ChatGptPixelSvg className="w-4 h-4" /> },
-    { label: 'OpenRouter', tint: '#daff52', icon: <OpenRouterPixelSvg className="w-4 h-4" /> },
+    { label: 'OpenRouter', tint: '#86FFAF', icon: <OpenRouterPixelSvg className="w-4 h-4" /> },
     { label: 'AssemblyAI', tint: '#34F57E', icon: <AssemblyAiPixelSvg className="w-4 h-4" /> },
   ];
 

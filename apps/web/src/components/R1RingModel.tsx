@@ -81,7 +81,7 @@ export function R1RingModel({
     const pts: number[] = [];
     const cols: number[] = [];
     const c1 = new THREE.Color('#34F57E');
-    const c2 = new THREE.Color('#daff52');
+    const c2 = new THREE.Color('#86FFAF');
     for (let i = 0; i < pos.count; i += 2) {
       const nx = norm ? norm.getX(i) : 0;
       const ny = norm ? norm.getY(i) : 0;
@@ -107,9 +107,9 @@ export function R1RingModel({
 
   const accentColor =
     phase === 'conflict' || phase === 'error'
-      ? '#ffb020'
+      ? '#D4FFE4'
       : phase === 'armed' || phase === 'wrap_up'
-        ? '#daff52'
+        ? '#86FFAF'
         : '#34F57E';
 
   useFrame((state, delta) => {

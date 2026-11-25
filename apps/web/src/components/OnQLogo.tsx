@@ -12,7 +12,7 @@ interface OnQLogoProps {
 export function OnQLogo({ className = 'h-7', showWordmark = true, theme = 'dark' }: OnQLogoProps) {
   const frameInk = theme === 'light' ? '#0a0a0a' : '#f2f2f2';
   const phosphor = theme === 'light' ? '#0a0a0a' : '#34F57E';
-  const lime = theme === 'light' ? '#0a0a0a' : '#daff52';
+  const lime = theme === 'light' ? '#0a0a0a' : '#86FFAF';
   const wordColor = theme === 'light' ? 'text-[#0a0a0a]' : 'text-[var(--bright)]';
 
   return (

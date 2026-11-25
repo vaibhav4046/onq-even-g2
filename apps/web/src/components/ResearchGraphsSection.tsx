@@ -15,7 +15,7 @@ import {
  */
 export function ResearchGraphsSection({ testCount = 213 }: { testCount?: number }) {
   const wtiBars = [
-    { label: 'Lack uninterrupted focus time (WTI 2023)', pct: 68, stat: '68%', accent: '#daff52' },
+    { label: 'Lack uninterrupted focus time (WTI 2023)', pct: 68, stat: '68%', accent: '#86FFAF' },
     { label: 'Meetings in peak focus 9-11am / 1-3pm (WTI 2025)', pct: 50, stat: '50%', accent: '#34F57E' },
     { label: 'Workers report chaotic / fragmented work (WTI 2025)', pct: 48, stat: '48%', accent: '#2dd4bf' },
     { label: 'Interruptions per workday (~every 2m, WTI 2025)', pct: 82, stat: '275 / day', accent: '#f2f2f2' },
@@ -32,7 +32,7 @@ export function ResearchGraphsSection({ testCount = 213 }: { testCount?: number 
       label: 'Prompt-Injection Refusal',
       stat: `${harnessEval.promptInjection.blocked}/${harnessEval.promptInjection.total} Blocked (${harnessEval.promptInjection.obeyed}% obeyed)`,
       pct: harnessEval.promptInjection.pct,
-      accent: '#daff52',
+      accent: '#86FFAF',
     },
     {
       label: 'HTTP 409 Conflict Hard-Lock',
@@ -129,7 +129,7 @@ export function ResearchGraphsSection({ testCount = 213 }: { testCount?: number 
                   x="0"
                   y="6"
                   height="22"
-                  fill="#daff52"
+                  fill="#86FFAF"
                   initial={{ width: 0 }}
                   whileInView={{ width: 296 }}
                   viewport={{ once: true, amount: 0.4 }}
@@ -246,7 +246,7 @@ export function ResearchGraphsSection({ testCount = 213 }: { testCount?: number 
                 Phone Unlock + 4 Apps (High Stress &amp; Frustration)
               </text>
               <rect x="64" y="128" width="10" height="10" fill="#34F57E" />
-              <text x="80" y="137" fill="#daff52" fontSize="11" fontFamily="monospace">
+              <text x="80" y="137" fill="#86FFAF" fontSize="11" fontFamily="monospace">
                 OnQ Hands-Free G2 + Default-NO + 2s Ring
               </text>
             </svg>
@@ -355,7 +355,7 @@ export function ResearchGraphsSection({ testCount = 213 }: { testCount?: number 
               >
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center text-xs">
                   <div className="lg:col-span-3 font-semibold text-[var(--bright)] flex items-center gap-2">
-                    <span className="font-pixel text-[11px]" style={{ color: row.highlight ? '#daff52' : '#8a8a8a' }}>
+                    <span className="font-pixel text-[11px]" style={{ color: row.highlight ? '#86FFAF' : '#8a8a8a' }}>
                       {row.entry}
                     </span>
                   </div>

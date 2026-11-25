@@ -12,7 +12,7 @@ export function CorridorBriefVisual() {
       <svg viewBox="0 0 260 76" className="w-full h-full" aria-hidden="true">
         {/* Left incoming nodes */}
         {[
-          { y: 16, label: 'CAL', color: '#daff52', delay: 0 },
+          { y: 16, label: 'CAL', color: '#86FFAF', delay: 0 },
           { y: 38, label: 'MAIL', color: '#34F57E', delay: 0.35 },
           { y: 60, label: 'DOC', color: '#8ab4ff', delay: 0.7 },
         ].map((node) => (
@@ -36,7 +36,7 @@ export function CorridorBriefVisual() {
 
         {/* Right 525nm waveguide viewport */}
         <rect x="124" y="10" width="124" height="56" rx="6" fill="#04110a" stroke="#34F57E" strokeOpacity="0.65" strokeWidth="1.2" />
-        <text x="134" y="25" fill="#daff52" fontSize="7" fontFamily="monospace" fontWeight="700">
+        <text x="134" y="25" fill="#86FFAF" fontSize="7" fontFamily="monospace" fontWeight="700">
           LIVE | 14:00 VC SYNC
         </text>
         <text x="134" y="40" fill="#34F57E" fontSize="6.5" fontFamily="monospace">
@@ -82,7 +82,7 @@ export function ShiftScheduleVisual() {
           transition={{ duration: 3.8, repeat: Infinity, times: [0, 0.35, 0.78, 1], ease: EASE }}
         >
           <rect x="16" y="27" width="84" height="22" fill="#082414" stroke="#34F57E" strokeWidth="1.2" />
-          <text x="23" y="41" fill="#daff52" fontSize="7.2" fontFamily="monospace" fontWeight="700">
+          <text x="23" y="41" fill="#86FFAF" fontSize="7.2" fontFamily="monospace" fontWeight="700">
             SYNC +15M OK
           </text>
         </motion.g>
@@ -92,7 +92,7 @@ export function ShiftScheduleVisual() {
           animate={reduced ? undefined : { opacity: [0.35, 1, 1, 0.35] }}
           transition={{ duration: 3.8, repeat: Infinity, times: [0, 0.45, 0.8, 1] }}
         >
-          <rect x="150" y="27" width="96" height="22" fill="#0d1510" stroke="#daff52" strokeOpacity="0.7" strokeWidth="1" />
+          <rect x="150" y="27" width="96" height="22" fill="#0d1510" stroke="#86FFAF" strokeOpacity="0.7" strokeWidth="1" />
           <text x="157" y="41" fill="#34F57E" fontSize="6.8" fontFamily="monospace">
             MAIL DRAFT SENT
           </text>
@@ -122,7 +122,7 @@ export function InRoomScribeVisual() {
             x={16 + i * 11}
             width="6"
             rx="1"
-            fill={i % 2 === 0 ? '#34F57E' : '#daff52'}
+            fill={i % 2 === 0 ? '#34F57E' : '#86FFAF'}
             initial={{ y: 38 - h / 2, height: h }}
             animate={
               reduced
@@ -140,7 +140,7 @@ export function InRoomScribeVisual() {
 
         {/* RAM badge (Zero disk persistence) */}
         <rect x="142" y="13" width="104" height="50" fill="#07160e" stroke="#34F57E" strokeOpacity="0.7" strokeWidth="1.2" />
-        <text x="152" y="29" fill="#daff52" fontSize="7.5" fontFamily="monospace" fontWeight="700">
+        <text x="152" y="29" fill="#86FFAF" fontSize="7.5" fontFamily="monospace" fontWeight="700">
           RAM-ONLY BUFFER
         </text>
         <text x="152" y="42" fill="#34F57E" fontSize="6.5" fontFamily="monospace">
@@ -163,7 +163,7 @@ export function EarbudsRecallVisual() {
     <div className="retro-glass-well relative h-24 w-full overflow-hidden flex items-center justify-center px-3">
       <svg viewBox="0 0 260 76" className="w-full h-full" aria-hidden="true">
         <rect x="12" y="14" width="108" height="48" fill="#09110d" stroke="#34F57E" strokeOpacity="0.55" strokeWidth="1" />
-        <text x="20" y="30" fill="#daff52" fontSize="7" fontFamily="monospace" fontWeight="700">
+        <text x="20" y="30" fill="#86FFAF" fontSize="7" fontFamily="monospace" fontWeight="700">
           &quot;ONQ, Q4 STATUS?&quot;
         </text>
         <text x="20" y="43" fill="#34F57E" fontSize="6.5" fontFamily="monospace">
@@ -181,15 +181,15 @@ export function EarbudsRecallVisual() {
             cy="38"
             r={10 + ring * 7}
             fill="none"
-            stroke={ring === 1 ? '#daff52' : '#34F57E'}
+            stroke={ring === 1 ? '#86FFAF' : '#34F57E'}
             strokeWidth="1.2"
             animate={reduced ? undefined : { opacity: [0.15, 0.85, 0.15], scale: [0.94, 1.06, 0.94] }}
             transition={{ duration: 1.8, repeat: Infinity, delay: ring * 0.25 }}
             style={{ transformOrigin: '198px 38px' }}
           />
         ))}
-        <circle cx="198" cy="38" r="8" fill="#daff52" />
-        <path d="M198 46 L198 59" stroke="#daff52" strokeWidth="3" strokeLinecap="round" />
+        <circle cx="198" cy="38" r="8" fill="#86FFAF" />
+        <path d="M198 46 L198 59" stroke="#86FFAF" strokeWidth="3" strokeLinecap="round" />
       </svg>
     </div>
   );
@@ -203,8 +203,8 @@ export function WrapUpFanoutVisual() {
   return (
     <div className="retro-glass-well relative h-24 w-full overflow-hidden flex items-center justify-center px-3">
       <svg viewBox="0 0 260 76" className="w-full h-full" aria-hidden="true">
-        <rect x="12" y="20" width="76" height="36" fill="#0b1510" stroke="#daff52" strokeWidth="1.2" />
-        <text x="50" y="36" textAnchor="middle" fill="#daff52" fontSize="7" fontFamily="monospace" fontWeight="700">
+        <rect x="12" y="20" width="76" height="36" fill="#0b1510" stroke="#86FFAF" strokeWidth="1.2" />
+        <text x="50" y="36" textAnchor="middle" fill="#86FFAF" fontSize="7" fontFamily="monospace" fontWeight="700">
           WRAP-UP
         </text>
         <text x="50" y="48" textAnchor="middle" fill="#34F57E" fontSize="6" fontFamily="monospace">
@@ -213,7 +213,7 @@ export function WrapUpFanoutVisual() {
 
         {[
           { y: 17, label: 'NOTION TASK', color: '#ffffff' },
-          { y: 38, label: 'GCAL HOLD', color: '#daff52' },
+          { y: 38, label: 'GCAL HOLD', color: '#86FFAF' },
           { y: 59, label: 'MAIL DRAFT', color: '#34F57E' },
         ].map((target, idx) => (
           <g key={target.label}>
@@ -221,7 +221,7 @@ export function WrapUpFanoutVisual() {
             {!reduced && (
               <motion.circle
                 r="2"
-                fill="#daff52"
+                fill="#86FFAF"
                 animate={{ cx: [88, 142], cy: [38, target.y], opacity: [0, 1, 0] }}
                 transition={{ duration: 1.9, repeat: Infinity, delay: idx * 0.35, ease: EASE }}
               />
@@ -270,7 +270,7 @@ export function ConflictShieldVisual() {
           transition={{ duration: 2.2, repeat: Infinity }}
         >
           <rect x="146" y="16" width="100" height="44" fill="#051c0f" stroke="#34F57E" strokeWidth="1.3" />
-          <text x="196" y="34" textAnchor="middle" fill="#daff52" fontSize="7.5" fontFamily="monospace" fontWeight="700">
+          <text x="196" y="34" textAnchor="middle" fill="#86FFAF" fontSize="7.5" fontFamily="monospace" fontWeight="700">
             15:45 FREE
           </text>
           <text x="196" y="47" textAnchor="middle" fill="#34F57E" fontSize="6" fontFamily="monospace">

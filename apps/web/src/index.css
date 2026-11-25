@@ -7,11 +7,11 @@
   --bright: #f2f2f2;
   --lightgray: #8a8a8a;
   --hairline: #37383a;
-  --lime: #daff52;
-  --lime-deep: #1f2606;
+  --lime: #34f57e;
+  --lime-deep: #072613;
   --g2-phosphor: #34f57e;
   --g2-dim: #1ea352;
-  --verified: #2dd4bf;
+  --verified: #7effad;
   --warning: #ffb020;
   --danger: #ff5a4f;
 
@@ -115,9 +115,9 @@ body {
 
 .retro-glass-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(218, 255, 82, 0.34);
+  border-color: rgba(52, 245, 126, 0.36);
   box-shadow:
-    inset 0 1px 0 rgba(218, 255, 82, 0.25),
+    inset 0 1px 0 rgba(52, 245, 126, 0.25),
     0 16px 38px rgba(0, 0, 0, 0.6);
 }
 
@@ -156,12 +156,12 @@ body {
 .retro-btn-primary {
   border-radius: 10px;
   background: var(--lime);
-  color: #0a0a0a;
+  color: #041209;
   font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(134, 255, 175, 0.5);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    0 8px 20px rgba(218, 255, 82, 0.16);
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 8px 20px rgba(52, 245, 126, 0.2);
   transition: transform 150ms ease, filter 150ms ease, background-color 150ms ease;
 }
 
@@ -181,13 +181,13 @@ body {
 }
 
 .retro-btn-glass:hover {
-  border-color: rgba(218, 255, 82, 0.45);
-  background: rgba(255, 255, 255, 0.095);
+  border-color: rgba(52, 245, 126, 0.45);
+  background: rgba(52, 245, 126, 0.08);
   transform: translateY(-1px);
 }
 
 .dot-grid-backdrop {
-  background-image: radial-gradient(#3a3a3a 1px, transparent 1.5px);
+  background-image: radial-gradient(rgba(52, 245, 126, 0.28) 1px, transparent 1.5px);
   background-size: 10px 10px;
   mask-image: radial-gradient(ellipse at center, black 25%, transparent 72%);
   -webkit-mask-image: radial-gradient(ellipse at center, black 25%, transparent 72%);
@@ -195,7 +195,7 @@ body {
 
 .hydra-dot-canvas {
   background-color: rgba(6, 8, 7, 0.92);
-  background-image: radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1.25px);
+  background-image: radial-gradient(rgba(52, 245, 126, 0.16) 1px, transparent 1.25px);
   background-size: 16px 16px;
 }
 

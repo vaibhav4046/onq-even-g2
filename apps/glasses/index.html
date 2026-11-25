@@ -39,13 +39,19 @@
         height: 76px;
         display: none;
         image-rendering: pixelated;
+        filter: url(#g2-green-tint);
       }
     </style>
   </head>
   <body>
+    <svg width="0" height="0" aria-hidden="true" style="position:absolute;pointer-events:none">
+      <filter id="g2-green-tint" color-interpolation-filters="sRGB">
+        <feColorMatrix type="matrix" values="0.204 0 0 0 0  0.961 0 0 0 0  0.494 0 0 0 0  0 0 0 1 0" />
+      </filter>
+    </svg>
     <div id="g2-preview">
       <div class="ring-wrap">
-        <img id="ring-img" alt="Countdown ring" />
+        <img id="ring-img" alt="OnQ 525nm monochrome green optical sprite" />
         <pre id="lens-text">ONQ | INITIALIZING...</pre>
       </div>
     </div>
