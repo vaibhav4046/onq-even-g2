@@ -11,6 +11,7 @@
     "build": "npm run build -w @onq/core && npm run build -w @onq/server && npm run build -w @onq/glasses && npm run build -w @onq/web",
     "pretest": "npm run build -w @onq/core",
     "test": "vitest run",
+    "eval:harness": "node scripts/eval-harness.mjs",
     "pack": "node scripts/pack-ehpk.mjs",
     "verify:geometry": "node scripts/verify-geometry.mjs",
     "verify:sim": "node scripts/verify-sim.mjs",

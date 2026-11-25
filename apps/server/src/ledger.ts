@@ -42,6 +42,8 @@ export interface LedgerStore {
   saveReceipt(receipt: CommitReceipt): Promise<void>;
   listReceipts(limit?: number): Promise<CommitReceipt[]>;
   checkAndConsumeRateLimit(dayKey: string, minuteKey: string, maxPerDay?: number, maxPerMin?: number): Promise<{ allowed: boolean; reason?: string }>;
+  saveEncryptedConnectorEnvelope?(userKey: string, envelopeJson: string): Promise<void>;
+  loadEncryptedConnectorEnvelope?(userKey: string): Promise<string | null>;
   close(): Promise<void>;
 }
 
@@ -94,6 +96,11 @@ export class SqliteLedgerStore implements LedgerStore {
       CREATE TABLE IF NOT EXISTS rate_counters (
         bucket_key TEXT PRIMARY KEY,
         count INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS user_connectors (
+        user_key TEXT PRIMARY KEY,
+        encrypted_envelope TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
       );
     `);
   }
@@ -295,6 +302,22 @@ export class SqliteLedgerStore implements LedgerStore {
     return { allowed: true };
   }
 
+  async saveEncryptedConnectorEnvelope(userKey: string, envelopeJson: string): Promise<void> {
+    this.db
+      .prepare(
+        `INSERT INTO user_connectors (user_key, encrypted_envelope, updated_at) VALUES (?, ?, ?)
+         ON CONFLICT(user_key) DO UPDATE SET encrypted_envelope = excluded.encrypted_envelope, updated_at = excluded.updated_at`,
+      )
+      .run(userKey, envelopeJson, this.nowFn());
+  }
+
+  async loadEncryptedConnectorEnvelope(userKey: string): Promise<string | null> {
+    const row = this.db
+      .prepare(`SELECT encrypted_envelope FROM user_connectors WHERE user_key = ?`)
+      .get(userKey) as { encrypted_envelope: string } | undefined;
+    return row?.encrypted_envelope ?? null;
+  }
+
   async close(): Promise<void> {
     this.db.close();
   }
@@ -350,6 +373,11 @@ export class PostgresLedgerStore implements LedgerStore {
       CREATE TABLE IF NOT EXISTS rate_counters (
         bucket_key TEXT PRIMARY KEY,
         count INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS user_connectors (
+        user_key TEXT PRIMARY KEY,
+        encrypted_envelope TEXT NOT NULL,
+        updated_at BIGINT NOT NULL
       );
     `);
     this.initialized = true;
@@ -553,6 +581,26 @@ export class PostgresLedgerStore implements LedgerStore {
       [minuteKey],
     );
     return { allowed: true };
+  }
+
+  async saveEncryptedConnectorEnvelope(userKey: string, envelopeJson: string): Promise<void> {
+    await this.ensureSchema();
+    await this.pool.query(
+      `INSERT INTO user_connectors (user_key, encrypted_envelope, updated_at)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_key) DO UPDATE SET encrypted_envelope = $2, updated_at = $3`,
+      [userKey, envelopeJson, this.nowFn()],
+    );
+  }
+
+  async loadEncryptedConnectorEnvelope(userKey: string): Promise<string | null> {
+    await this.ensureSchema();
+    const res = await this.pool.query(
+      `SELECT encrypted_envelope FROM user_connectors WHERE user_key = $1`,
+      [userKey],
+    );
+    const row = res.rows[0] as { encrypted_envelope: string } | undefined;
+    return row?.encrypted_envelope ?? null;
   }
 
   async close(): Promise<void> {

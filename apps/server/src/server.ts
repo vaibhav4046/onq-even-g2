@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
@@ -21,8 +22,15 @@ import type {
   SourceMode,
 } from '@onq/core';
 import { loadLocalEnvFile } from './env.js';
-import { generateGroundedDraft } from './llm.js';
-import type { LlmConfig } from './llm.js';
+import {
+  createPkcePair,
+  OAuthStateStore,
+  SignedSessionCookie,
+} from './auth/sessionAuth.js';
+import { routeModelCompletion } from './harness/modelRouter.js';
+import { runOrchestrationHarness } from './harness/orchestrationHarness.js';
+import { generateGroundedDraft, probeLlmProvider } from './llm.js';
+import type { LlmConfig, PreferredLlmProvider } from './llm.js';
 import { createConfiguredLedgerStore, SqliteLedgerStore } from './ledger.js';
 import type { LedgerStore } from './ledger.js';
 import { logError, logInfo, redactSecrets } from './logger.js';
@@ -57,7 +65,11 @@ export interface AuditTelemetryEvent {
     | 'ICS_IMPORT'
     | 'MEETING_START'
     | 'MEETING_WIPE'
-    | 'TTS_BARGE_IN';
+    | 'TTS_BARGE_IN'
+    | 'CONNECTOR_SAVED'
+    | 'CONNECTOR_DISCONNECTED'
+    | 'CONNECTOR_TESTED'
+    | 'OAUTH_SIGNIN';
   detail: string;
 }
 
@@ -149,6 +161,8 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       ? new SqliteLedgerStore(path.join(dataDir, 'onq.sqlite'), nowFn)
       : await createConfiguredLedgerStore(dataDir, nowFn));
   const vault = new EncryptedTokenVault(dataDir);
+  const cookieAuth = new SignedSessionCookie(dataDir);
+  const oauthStates = new OAuthStateStore(nowFn);
   const demoProvider = opts.demoProvider ?? new DemoWorkspaceProvider();
   const allowedOrigins = new Set(opts.allowedOrigins ?? DEFAULT_ORIGINS);
   const sseClients = new Set<http.ServerResponse>();
@@ -185,6 +199,108 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     broadcastSse('audit', entry);
   }
 
+  function resolveLlmConfig(overrideProvider?: PreferredLlmProvider): LlmConfig {
+    const creds = vault.load();
+    return {
+      anthropicKey: opts.llmConfig?.anthropicKey ?? creds.anthropicKey ?? process.env.ANTHROPIC_API_KEY,
+      openRouterKey: opts.llmConfig?.openRouterKey ?? creds.openRouterKey ?? process.env.OPENROUTER_API_KEY,
+      openRouterModel: opts.llmConfig?.openRouterModel ?? creds.openRouterModel ?? process.env.OPENROUTER_MODEL,
+      openAiKey: opts.llmConfig?.openAiKey ?? creds.openAiKey ?? process.env.OPENAI_API_KEY,
+      preferredProvider: overrideProvider ?? opts.llmConfig?.preferredProvider ?? creds.preferredLlm ?? 'auto',
+      timeoutMs: opts.llmConfig?.timeoutMs,
+      fetchImpl: opts.llmConfig?.fetchImpl ?? opts.fetchImpl,
+    };
+  }
+
+  function resolveAssemblyAiKey(): string | undefined {
+    const creds = vault.load();
+    return creds.assemblyAiKey ?? process.env.ASSEMBLYAI_API_KEY;
+  }
+
+  function buildConnectorStatus() {
+    const creds = vault.load();
+    const llmCfg = resolveLlmConfig();
+    const activeLlmProvider =
+      llmCfg.preferredProvider === 'rules'
+        ? 'Rules (Deterministic)'
+        : llmCfg.preferredProvider === 'claude' && llmCfg.anthropicKey
+          ? 'Claude'
+          : llmCfg.preferredProvider === 'openrouter' && llmCfg.openRouterKey
+            ? 'OpenRouter'
+            : llmCfg.preferredProvider === 'chatgpt' && llmCfg.openAiKey
+              ? 'ChatGPT'
+              : llmCfg.anthropicKey
+                ? 'Claude'
+                : llmCfg.openRouterKey
+                  ? 'OpenRouter'
+                  : llmCfg.openAiKey
+                    ? 'ChatGPT'
+                    : 'Rules (Deterministic)';
+    const aaiKey = resolveAssemblyAiKey();
+    const clientId = creds.googleClientId ?? process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = creds.googleClientSecret ?? process.env.GOOGLE_CLIENT_SECRET;
+    const googleOAuthConfigured = Boolean(clientId && clientSecret);
+    const googleAuthUrl = googleOAuthConfigured ? '/api/auth/google/start' : null;
+    const notionOAuthConfigured = Boolean(
+      (process.env.NOTION_CLIENT_ID ?? '') && (process.env.NOTION_CLIENT_SECRET ?? ''),
+    );
+
+    return {
+      accountName: creds.accountName ?? null,
+      accountEmail: creds.accountEmail ?? null,
+      vaultEncrypted: true,
+      activeLlmProvider,
+      preferredLlm: creds.preferredLlm ?? 'auto',
+      openRouterModel: creds.openRouterModel ?? 'meta-llama/llama-3.2-3b-instruct:free',
+      voiceEngine: aaiKey ? 'LIVE · ASSEMBLYAI' : 'DEMO · SANDBOX',
+      googleOAuthConfigured,
+      notionOAuthConfigured,
+      googleAuthUrl,
+      connectors: {
+        googleWorkspace: {
+          connected: Boolean(creds.googleRefreshToken),
+          mode: creds.googleRefreshToken ? 'LIVE' : activeIcsFeed ? 'ICS' : 'SANDBOX',
+          detail: creds.googleRefreshToken
+            ? 'OAuth Calendar, Gmail & Drive active (AES-256-GCM 0600)'
+            : activeIcsFeed
+              ? 'Live RFC 5545 .ics schedule active'
+              : 'Ready for OAuth or instant .ics schedule link',
+        },
+        notion: {
+          connected: Boolean(creds.notionToken && creds.notionDatabaseId),
+          mode: creds.notionToken && creds.notionDatabaseId ? 'LIVE' : 'SANDBOX',
+          detail: creds.notionDatabaseId
+            ? `Database ...${creds.notionDatabaseId.slice(-6)} synced (2026-03-11)`
+            : 'Internal integration + auto-schema discovery ready',
+        },
+        claude: {
+          connected: Boolean(llmCfg.anthropicKey),
+          mode: llmCfg.anthropicKey ? 'LIVE' : 'STANDBY',
+          detail: llmCfg.anthropicKey ? 'Anthropic Claude Haiku 3.5 key stored in 0600 vault' : 'Add Anthropic API key',
+        },
+        openrouter: {
+          connected: Boolean(llmCfg.openRouterKey),
+          mode: llmCfg.openRouterKey ? 'LIVE' : 'STANDBY',
+          detail: llmCfg.openRouterKey
+            ? `${creds.openRouterModel ?? 'llama-3.2-3b-instruct:free'} via OpenRouter`
+            : 'Connect OpenRouter free/pro models',
+        },
+        chatgpt: {
+          connected: Boolean(llmCfg.openAiKey),
+          mode: llmCfg.openAiKey ? 'LIVE' : 'STANDBY',
+          detail: llmCfg.openAiKey ? 'OpenAI GPT-4o-mini key stored in 0600 vault' : 'Add OpenAI API key',
+        },
+        assemblyai: {
+          connected: Boolean(aaiKey),
+          mode: aaiKey ? 'LIVE' : 'LOCAL_FALLBACK',
+          detail: aaiKey
+            ? 'STT-3.7 real-time diarization + TTS-1 earbuds voice active'
+            : 'Local faster-whisper + offline timings active (add key for live TTS-1)',
+        },
+      },
+    };
+  }
+
   function resolveProvider(sessionMode: SourceMode): WorkspaceProvider {
     if (sessionMode === 'LIVE') {
       if (opts.liveProviderOverride) return opts.liveProviderOverride;
@@ -213,20 +329,27 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       return false;
     }
     res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-OnQ-Preset');
     return true;
   }
 
-  async function requireAuth(req: http.IncomingMessage, res: http.ServerResponse) {
+  function extractAuthToken(req: http.IncomingMessage): string | undefined {
     const bearer = extractBearer(req);
-    const session = await ledger.validateSession(bearer);
-    if (!session) {
+    if (bearer) return bearer;
+    return cookieAuth.extractSessionToken(req.headers.cookie) ?? undefined;
+  }
+
+  async function requireAuth(req: http.IncomingMessage, res: http.ServerResponse) {
+    const rawToken = extractAuthToken(req);
+    const session = await ledger.validateSession(rawToken);
+    if (!session || !rawToken) {
       jsonResponse(res, 401, { error: 'Unauthorized: valid Bearer session required' });
       return null;
     }
-    return session;
+    return { ...session, rawToken };
   }
 
   const server = http.createServer(async (req, res) => {
@@ -610,7 +733,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
                 computedFacts: [newHhMm],
                 fallbackDraft: `Running slightly behind, shifting ${targetCard.title} to ${newHhMm}.`,
               },
-              opts.llmConfig,
+              resolveLlmConfig(),
             );
             if (grounded.factGuardViolations.length > 0) {
               recordAudit('CODE_GUARD', grounded.factGuardViolations.join('; '));
@@ -652,7 +775,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
               computedFacts: [],
               fallbackDraft: parsed.replyMessage ?? 'Confirmed, thank you.',
             },
-            opts.llmConfig,
+            opts.llmConfig ?? resolveLlmConfig(),
           );
           operations.push({
             provider: 'GMAIL',
@@ -991,7 +1114,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
               computedFacts: [holdHhMm],
               fallbackDraft: recapBody,
             },
-            opts.llmConfig,
+            opts.llmConfig ?? resolveLlmConfig(),
           );
           operations.push({
             provider: 'GMAIL',
@@ -1111,7 +1234,532 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         return;
       }
 
-      // 14. Session revoke
+      // 14. Antigravity-Style Connector Hub & Multi-Model Inference Probe (strict Bearer auth, zero leaked keys)
+      if (req.method === 'GET' && pathname === '/api/connectors/status') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        jsonResponse(res, 200, buildConnectorStatus());
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/connectors/connect') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{
+          provider?: string;
+          accountName?: string;
+          accountEmail?: string;
+          apiKey?: string;
+          model?: string;
+          preferredLlm?: PreferredLlmProvider;
+          notionToken?: string;
+          notionDatabaseId?: string;
+          googleClientId?: string;
+          googleClientSecret?: string;
+          icsText?: string;
+        }>(req);
+
+        const existing = vault.load();
+        const next = { ...existing };
+
+        if (body.accountName?.trim()) next.accountName = body.accountName.trim();
+        if (body.accountEmail?.trim()) next.accountEmail = body.accountEmail.trim();
+        if (body.preferredLlm) next.preferredLlm = body.preferredLlm;
+
+        const prov = body.provider ?? 'account';
+        let upgradedToken: string | undefined;
+        let upgradedMode: SourceMode | undefined;
+        let discoveredSchema: unknown;
+
+        if (prov === 'claude' && body.apiKey?.trim()) {
+          next.anthropicKey = body.apiKey.trim();
+          next.preferredLlm = 'claude';
+        } else if (prov === 'openrouter') {
+          if (body.apiKey?.trim()) next.openRouterKey = body.apiKey.trim();
+          if (body.model?.trim()) next.openRouterModel = body.model.trim();
+          next.preferredLlm = 'openrouter';
+        } else if (prov === 'chatgpt' && body.apiKey?.trim()) {
+          next.openAiKey = body.apiKey.trim();
+          next.preferredLlm = 'chatgpt';
+        } else if (prov === 'assemblyai' && body.apiKey?.trim()) {
+          next.assemblyAiKey = body.apiKey.trim();
+        } else if (prov === 'notion' && body.notionToken?.trim() && body.notionDatabaseId?.trim()) {
+          const client = new NotionWorkspaceClient(
+            body.notionToken.trim(),
+            body.notionDatabaseId.trim(),
+            opts.fetchImpl,
+          );
+          discoveredSchema = await client.inspectSchema();
+          next.notionToken = body.notionToken.trim();
+          next.notionDatabaseId = body.notionDatabaseId.trim();
+          upgradedToken = await ledger.mintSession('LIVE');
+          upgradedMode = 'LIVE';
+        } else if (prov === 'google_oauth' && body.googleClientId?.trim() && body.googleClientSecret?.trim()) {
+          next.googleClientId = body.googleClientId.trim();
+          next.googleClientSecret = body.googleClientSecret.trim();
+        } else if (prov === 'ics' && body.icsText?.trim()) {
+          const parsedEvents = parseIcsEvents(body.icsText.trim());
+          if (parsedEvents.length === 0) {
+            jsonResponse(res, 422, { error: 'No valid VEVENT entries found in .ics payload' });
+            return;
+          }
+          activeIcsFeed = body.icsText.trim();
+          upgradedToken = await ledger.mintSession('LIVE');
+          upgradedMode = 'LIVE';
+        }
+
+        vault.save(next);
+        recordAudit('CONNECTOR_SAVED', `Connector updated cleanly: ${prov}`);
+        broadcastSse('corridor', { reason: 'connector_updated' });
+        jsonResponse(res, 200, {
+          ok: true,
+          status: buildConnectorStatus(),
+          ...(upgradedToken ? { sessionToken: upgradedToken, mode: upgradedMode } : {}),
+          ...(discoveredSchema ? { schema: discoveredSchema } : {}),
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/connectors/test-llm') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ preferredProvider?: PreferredLlmProvider }>(req);
+        const result = await probeLlmProvider(resolveLlmConfig(body.preferredProvider));
+        jsonResponse(res, 200, result);
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/connectors/disconnect') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ provider?: string }>(req);
+        const existing = vault.load();
+        const prov = body.provider ?? 'all';
+        if (prov === 'all') {
+          vault.save({});
+          activeIcsFeed = null;
+        } else {
+          const next = { ...existing };
+          if (prov === 'claude') delete next.anthropicKey;
+          if (prov === 'openrouter') {
+            delete next.openRouterKey;
+            delete next.openRouterModel;
+          }
+          if (prov === 'chatgpt') delete next.openAiKey;
+          if (prov === 'assemblyai') delete next.assemblyAiKey;
+          if (prov === 'notion') {
+            delete next.notionToken;
+            delete next.notionDatabaseId;
+          }
+          if (prov === 'googleWorkspace') {
+            delete next.googleRefreshToken;
+            delete next.googleAccessToken;
+            activeIcsFeed = null;
+          }
+          vault.save(next);
+        }
+        recordAudit('CONNECTOR_DISCONNECTED', `Connector disconnected: ${prov}`);
+        jsonResponse(res, 200, { ok: true, status: buildConnectorStatus() });
+        return;
+      }
+
+      // 14b. Real OAuth 2.0 + PKCE + CSRF State + Signed HttpOnly Session Cookie
+      if (req.method === 'GET' && pathname === '/api/auth/google/start') {
+        const creds = vault.load();
+        const clientId = creds.googleClientId ?? process.env.GOOGLE_CLIENT_ID;
+        const clientSecret = creds.googleClientSecret ?? process.env.GOOGLE_CLIENT_SECRET;
+        if (!clientId || !clientSecret) {
+          jsonResponse(res, 200, {
+            configured: false,
+            sandboxAvailable: true,
+            error:
+              'Google OAuth not configured; set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET or use instant local sandbox.',
+          });
+          return;
+        }
+        const listenPort =
+          (server.address() as { port?: number } | null)?.port ?? opts.port ?? 8787;
+        const redirectUri =
+          process.env.GOOGLE_REDIRECT_URI ?? `http://127.0.0.1:${listenPort}/api/auth/google/callback`;
+        const pkce = createPkcePair();
+        const state = oauthStates.issue({
+          provider: 'google',
+          codeVerifier: pkce.codeVerifier,
+          redirectTo: 'http://127.0.0.1:5173/?signedIn=1#connectors',
+        });
+        const authUrl = buildGoogleAuthUrl({
+          clientId,
+          redirectUri,
+          state,
+          codeChallenge: pkce.codeChallenge,
+          codeChallengeMethod: pkce.method,
+        });
+        if (parsedUrl.searchParams.get('format') === 'json') {
+          jsonResponse(res, 200, { configured: true, authUrl, state, codeChallengeMethod: pkce.method });
+          return;
+        }
+        res.writeHead(302, { Location: authUrl, 'Cache-Control': 'no-store' });
+        res.end();
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/auth/google/callback') {
+        const oauthCode = parsedUrl.searchParams.get('code');
+        const state = parsedUrl.searchParams.get('state');
+        const pending = oauthStates.consume(state, 'google');
+        if (!pending) {
+          jsonResponse(res, 403, { error: 'Invalid or expired OAuth CSRF state' });
+          return;
+        }
+        const creds = vault.load();
+        const clientId = creds.googleClientId ?? process.env.GOOGLE_CLIENT_ID;
+        const clientSecret = creds.googleClientSecret ?? process.env.GOOGLE_CLIENT_SECRET;
+        if (!oauthCode || !clientId || !clientSecret) {
+          jsonResponse(res, 400, { error: 'Missing Google OAuth authorization code or client credentials' });
+          return;
+        }
+        const listenPort =
+          (server.address() as { port?: number } | null)?.port ?? opts.port ?? 8787;
+        const redirectUri =
+          process.env.GOOGLE_REDIRECT_URI ?? `http://127.0.0.1:${listenPort}/api/auth/google/callback`;
+        const gClient = new GoogleWorkspaceClient(vault, opts.fetchImpl);
+        const saved = await gClient.exchangeAuthorizationCode({
+          code: oauthCode,
+          clientId,
+          clientSecret,
+          redirectUri,
+          codeVerifier: pending.codeVerifier,
+        });
+        const liveSessionToken = await ledger.mintSession('LIVE');
+        const setCookie = cookieAuth.buildSetCookieHeader(liveSessionToken, {
+          secure: process.env.NODE_ENV === 'production',
+        });
+        recordAudit(
+          'OAUTH_SIGNIN',
+          `Google OAuth PKCE sign-in complete (${saved.accountEmail ?? 'verified account'})`,
+        );
+        broadcastSse('corridor', { reason: 'oauth_signin' });
+        if ((req.headers.accept ?? '').includes('application/json')) {
+          jsonResponse(
+            res,
+            200,
+            {
+              ok: true,
+              authenticated: true,
+              mode: 'LIVE',
+              accountName: saved.accountName ?? null,
+              accountEmail: saved.accountEmail ?? null,
+              sessionToken: liveSessionToken,
+            },
+            { 'Set-Cookie': setCookie },
+          );
+          return;
+        }
+        res.writeHead(302, {
+          Location: pending.redirectTo,
+          'Set-Cookie': setCookie,
+          'Cache-Control': 'no-store',
+        });
+        res.end();
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/auth/notion/start') {
+        const notionClientId = process.env.NOTION_CLIENT_ID;
+        const notionClientSecret = process.env.NOTION_CLIENT_SECRET;
+        if (!notionClientId || !notionClientSecret) {
+          jsonResponse(res, 200, {
+            configured: false,
+            error: 'Notion OAuth not configured; paste integration token in Connectors or set NOTION_CLIENT_ID/SECRET.',
+          });
+          return;
+        }
+        const listenPort =
+          (server.address() as { port?: number } | null)?.port ?? opts.port ?? 8787;
+        const redirectUri =
+          process.env.NOTION_REDIRECT_URI ?? `http://127.0.0.1:${listenPort}/api/auth/notion/callback`;
+        const state = oauthStates.issue({
+          provider: 'notion',
+          redirectTo: 'http://127.0.0.1:5173/?notion=connected#connectors',
+        });
+        const url = new URL('https://api.notion.com/v1/oauth/authorize');
+        url.searchParams.set('client_id', notionClientId);
+        url.searchParams.set('response_type', 'code');
+        url.searchParams.set('owner', 'user');
+        url.searchParams.set('redirect_uri', redirectUri);
+        url.searchParams.set('state', state);
+        if (parsedUrl.searchParams.get('format') === 'json') {
+          jsonResponse(res, 200, { configured: true, authUrl: url.toString(), state });
+          return;
+        }
+        res.writeHead(302, { Location: url.toString(), 'Cache-Control': 'no-store' });
+        res.end();
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/auth/notion/callback') {
+        const code = parsedUrl.searchParams.get('code');
+        const state = parsedUrl.searchParams.get('state');
+        const pending = oauthStates.consume(state, 'notion');
+        if (!pending) {
+          jsonResponse(res, 403, { error: 'Invalid or expired Notion OAuth CSRF state' });
+          return;
+        }
+        const notionClientId = process.env.NOTION_CLIENT_ID;
+        const notionClientSecret = process.env.NOTION_CLIENT_SECRET;
+        if (!code || !notionClientId || !notionClientSecret) {
+          jsonResponse(res, 400, { error: 'Missing Notion OAuth code or client credentials' });
+          return;
+        }
+        const listenPort =
+          (server.address() as { port?: number } | null)?.port ?? opts.port ?? 8787;
+        const redirectUri =
+          process.env.NOTION_REDIRECT_URI ?? `http://127.0.0.1:${listenPort}/api/auth/notion/callback`;
+        const f = opts.fetchImpl ?? fetch;
+        const basic = Buffer.from(`${notionClientId}:${notionClientSecret}`, 'utf8').toString('base64');
+        const tokenRes = await f('https://api.notion.com/v1/oauth/token', {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${basic}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            grant_type: 'authorization_code',
+            code,
+            redirect_uri: redirectUri,
+          }),
+        });
+        if (!tokenRes.ok) {
+          jsonResponse(res, 502, { error: `Notion OAuth token exchange failed: HTTP ${tokenRes.status}` });
+          return;
+        }
+        const tokenJson = (await tokenRes.json()) as { access_token?: string };
+        const existing = vault.load();
+        vault.save({ ...existing, notionToken: tokenJson.access_token });
+        recordAudit('OAUTH_SIGNIN', 'Notion OAuth token stored in AES-256-GCM 0600 vault');
+        res.writeHead(302, { Location: pending.redirectTo, 'Cache-Control': 'no-store' });
+        res.end();
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/auth/me') {
+        const rawToken = extractAuthToken(req);
+        const session = await ledger.validateSession(rawToken);
+        if (!session || !rawToken) {
+          jsonResponse(res, 200, {
+            authenticated: false,
+            mode: 'DEMO',
+            accountName: null,
+            accountEmail: null,
+          });
+          return;
+        }
+        const st = buildConnectorStatus();
+        jsonResponse(res, 200, {
+          authenticated: true,
+          mode: session.mode,
+          accountName: st.accountName,
+          accountEmail: st.accountEmail,
+          activeLlmProvider: st.activeLlmProvider,
+          sessionToken: rawToken,
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/auth/signout') {
+        const rawToken = extractAuthToken(req);
+        if (rawToken) await ledger.revokeSession(rawToken);
+        vault.save({});
+        activeIcsFeed = null;
+        recordAudit('CONNECTOR_DISCONNECTED', 'Signed out and wiped encrypted vault + session');
+        jsonResponse(
+          res,
+          200,
+          { ok: true, authenticated: false },
+          { 'Set-Cookie': cookieAuth.buildClearCookieHeader() },
+        );
+        return;
+      }
+
+      // 14c. Live health-check endpoint per connector provider
+      const testMatch = pathname.match(/^\/api\/connectors\/([a-zA-Z0-9_-]+)\/test$/);
+      if (req.method === 'POST' && testMatch) {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const provider = testMatch[1];
+        const creds = vault.load();
+        const t0 = Date.now();
+
+        if (provider === 'googleWorkspace') {
+          if (creds.googleRefreshToken) {
+            const client = new GoogleWorkspaceClient(vault, opts.fetchImpl);
+            const ping = await client.ping();
+            recordAudit('CONNECTOR_TESTED', `googleWorkspace: ${ping.detail} (${ping.latencyMs}ms)`);
+            jsonResponse(res, 200, { provider, mode: 'LIVE', ...ping });
+            return;
+          }
+          if (activeIcsFeed) {
+            const evts = parseIcsEvents(activeIcsFeed);
+            const latencyMs = Math.max(1, Date.now() - t0);
+            recordAudit('CONNECTOR_TESTED', `googleWorkspace (.ics): ${evts.length} event(s)`);
+            jsonResponse(res, 200, {
+              ok: evts.length > 0,
+              provider,
+              mode: 'ICS',
+              latencyMs,
+              detail: `${evts.length} RFC 5545 calendar event(s) active`,
+            });
+            return;
+          }
+          jsonResponse(res, 200, {
+            ok: true,
+            provider,
+            mode: 'SANDBOX',
+            latencyMs: Math.max(1, Date.now() - t0),
+            detail: 'Sandbox Calendar + Gmail + Drive healthy (no OAuth key required locally)',
+          });
+          return;
+        }
+
+        if (provider === 'notion') {
+          if (creds.notionToken && creds.notionDatabaseId) {
+            try {
+              const notion = new NotionWorkspaceClient(creds.notionToken, creds.notionDatabaseId, opts.fetchImpl);
+              const schema = await notion.inspectSchema();
+              const latencyMs = Math.max(1, Date.now() - t0);
+              const detail = `Notion 2026-03-11 schema OK (title="${schema.titleProp}", complete="${schema.completionProp ?? 'none'}")`;
+              recordAudit('CONNECTOR_TESTED', `notion: ${detail}`);
+              jsonResponse(res, 200, { ok: true, provider, mode: 'LIVE', latencyMs, detail, schema });
+              return;
+            } catch (err) {
+              const latencyMs = Math.max(1, Date.now() - t0);
+              jsonResponse(res, 200, {
+                ok: false,
+                provider,
+                mode: 'ERROR',
+                latencyMs,
+                detail: err instanceof Error ? err.message : 'Notion verification failed',
+              });
+              return;
+            }
+          }
+          jsonResponse(res, 200, {
+            ok: true,
+            provider,
+            mode: 'SANDBOX',
+            latencyMs: Math.max(1, Date.now() - t0),
+            detail: 'Sandbox Notion workspace healthy (connect token for live 2026-03-11 sync)',
+          });
+          return;
+        }
+
+        if (provider === 'claude' || provider === 'openrouter' || provider === 'chatgpt') {
+          const probe = await probeLlmProvider(resolveLlmConfig(provider));
+          recordAudit('CONNECTOR_TESTED', `${provider}: ${probe.providerLabel} (${probe.latencyMs}ms)`);
+          jsonResponse(res, 200, {
+            ok: probe.factGuardPassed,
+            provider,
+            mode: probe.fallbackUsed ? 'FALLBACK' : 'LIVE',
+            latencyMs: probe.latencyMs,
+            providerLabel: probe.providerLabel,
+            fallbackUsed: probe.fallbackUsed,
+            factGuardPassed: probe.factGuardPassed,
+            sampleDraft: probe.sampleDraft,
+            attempts: probe.attempts,
+            detail: `${probe.providerLabel} · Code-Guard ${probe.factGuardPassed ? 'PASS' : 'BLOCKED'} (${probe.latencyMs}ms)`,
+          });
+          return;
+        }
+
+        if (provider === 'assemblyai') {
+          const aaiKey = resolveAssemblyAiKey();
+          if (aaiKey) {
+            const f = opts.fetchImpl ?? fetch;
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 5000);
+            try {
+              const r = await f('https://api.assemblyai.com/v2/transcript?limit=1', {
+                headers: { Authorization: aaiKey },
+                signal: ctrl.signal,
+              });
+              const latencyMs = Math.max(1, Date.now() - t0);
+              const ok = r.ok;
+              recordAudit('CONNECTOR_TESTED', `assemblyai: HTTP ${r.status} (${latencyMs}ms)`);
+              jsonResponse(res, 200, {
+                ok,
+                provider,
+                mode: ok ? 'LIVE' : 'ERROR',
+                latencyMs,
+                detail: ok
+                  ? `AssemblyAI STT-3.7 + TTS-1 key verified live (${latencyMs}ms)`
+                  : `AssemblyAI rejected key: HTTP ${r.status}`,
+              });
+              return;
+            } catch (err) {
+              jsonResponse(res, 200, {
+                ok: false,
+                provider,
+                mode: 'ERROR',
+                latencyMs: Math.max(1, Date.now() - t0),
+                detail: err instanceof Error ? err.message : 'AssemblyAI network check failed',
+              });
+              return;
+            } finally {
+              clearTimeout(timer);
+            }
+          }
+          jsonResponse(res, 200, {
+            ok: true,
+            provider,
+            mode: 'LOCAL_FALLBACK',
+            latencyMs: Math.max(1, Date.now() - t0),
+            detail: 'Local faster-whisper + offline timing fallback ready (add key for live TTS-1)',
+          });
+          return;
+        }
+
+        jsonResponse(res, 404, { error: `Unknown connector provider: ${provider}` });
+        return;
+      }
+
+      // 14d. Multi-Model Orchestration & Safety Evaluation Harness endpoints
+      if (req.method === 'GET' && pathname === '/api/harness/eval') {
+        const candidates = [
+          path.resolve(process.cwd(), 'docs/HARNESS_EVAL.json'),
+          path.resolve(process.cwd(), '../../docs/HARNESS_EVAL.json'),
+        ];
+        const found = candidates.find((p) => fs.existsSync(p));
+        if (found) {
+          const raw = fs.readFileSync(found, 'utf8');
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+          res.end(raw);
+          return;
+        }
+        jsonResponse(res, 200, {
+          status: 'NOT_GENERATED',
+          hint: 'Run npm run eval:harness to generate docs/HARNESS_EVAL.json',
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/harness/run') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ utterance?: string }>(req);
+        const report = await runOrchestrationHarness({
+          utterance: body.utterance?.trim() || 'Push 15m and tell Priya',
+          provider: resolveProvider(session.mode),
+          ledger,
+          sessionHash: session.tokenHash,
+          mode: session.mode,
+          llmConfig: resolveLlmConfig(),
+          nowFn,
+        });
+        jsonResponse(res, 200, report);
+        return;
+      }
+
+      // 15. Session revoke
       if (req.method === 'POST' && pathname === '/api/session/revoke') {
         const bearer = extractBearer(req);
         if (bearer) await ledger.revokeSession(bearer);
@@ -1141,7 +1789,11 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       socket.destroy();
       return;
     }
-    const token = reqUrl.searchParams.get('token') ?? extractBearer(req);
+    const token =
+      reqUrl.searchParams.get('token') ??
+      extractBearer(req) ??
+      cookieAuth.extractSessionToken(req.headers.cookie) ??
+      undefined;
     void ledger.validateSession(token).then((session) => {
       if (!session) {
         socket.destroy();
@@ -1361,6 +2013,9 @@ export {
   LiveWorkspaceProvider,
   NotionWorkspaceClient,
   checkCalendarConflict,
+  createPkcePair,
   listAvailableTtsVoices,
+  routeModelCompletion,
+  runOrchestrationHarness,
   synthesizeTtsUtterance,
 };

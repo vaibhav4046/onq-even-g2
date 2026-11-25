@@ -26,6 +26,8 @@ export function buildGoogleAuthUrl(params: {
   clientId: string;
   redirectUri: string;
   state: string;
+  codeChallenge?: string;
+  codeChallengeMethod?: 'S256';
 }): string {
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   url.searchParams.set('client_id', params.clientId);
@@ -34,9 +36,16 @@ export function buildGoogleAuthUrl(params: {
   url.searchParams.set('access_type', 'offline');
   url.searchParams.set('prompt', 'consent');
   url.searchParams.set('state', params.state);
+  if (params.codeChallenge) {
+    url.searchParams.set('code_challenge', params.codeChallenge);
+    url.searchParams.set('code_challenge_method', params.codeChallengeMethod ?? 'S256');
+  }
   url.searchParams.set(
     'scope',
     [
+      'openid',
+      'email',
+      'profile',
       'https://www.googleapis.com/auth/calendar.events',
       'https://www.googleapis.com/auth/calendar.readonly',
       'https://www.googleapis.com/auth/gmail.modify',
@@ -67,6 +76,7 @@ export class GoogleWorkspaceClient {
     clientId: string;
     clientSecret: string;
     redirectUri: string;
+    codeVerifier?: string;
   }): Promise<StoredCredentials> {
     registerSecretForRedaction(params.clientSecret);
     const body = new URLSearchParams({
@@ -76,6 +86,9 @@ export class GoogleWorkspaceClient {
       redirect_uri: params.redirectUri,
       grant_type: 'authorization_code',
     });
+    if (params.codeVerifier) {
+      body.set('code_verifier', params.codeVerifier);
+    }
     const res = await this.fetchWithTimeout('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -87,6 +100,7 @@ export class GoogleWorkspaceClient {
       refresh_token?: string;
       expires_in?: number;
     };
+    const profile = await this.fetchUserProfile(json.access_token).catch(() => ({} as { name?: string; email?: string }));
     const existing = this.vault.load();
     const next: StoredCredentials = {
       ...existing,
@@ -95,9 +109,47 @@ export class GoogleWorkspaceClient {
       googleAccessToken: json.access_token,
       googleRefreshToken: json.refresh_token ?? existing.googleRefreshToken,
       googleAccessExpiresAt: Date.now() + (json.expires_in ?? 3600) * 1000,
+      ...(profile.name ? { accountName: profile.name } : {}),
+      ...(profile.email ? { accountEmail: profile.email } : {}),
     };
     this.vault.save(next);
     return next;
+  }
+
+  async fetchUserProfile(accessToken: string): Promise<{ name?: string; email?: string }> {
+    const res = await this.fetchWithTimeout('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return {};
+    const json = (await res.json()) as { name?: string; email?: string };
+    return { name: json.name, email: json.email };
+  }
+
+  async ping(): Promise<{ ok: boolean; latencyMs: number; detail: string }> {
+    const t0 = Date.now();
+    try {
+      const token = await this.getAccessToken();
+      const res = await this.fetchWithTimeout(
+        'https://www.googleapis.com/calendar/v3/users/me/calendarList/primary?fields=id,summary',
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const latencyMs = Math.max(1, Date.now() - t0);
+      if (!res.ok) {
+        return { ok: false, latencyMs, detail: `Google Calendar HTTP ${res.status}` };
+      }
+      const data = (await res.json()) as { summary?: string; id?: string };
+      return {
+        ok: true,
+        latencyMs,
+        detail: `Calendar "${data.summary ?? data.id ?? 'primary'}" verified live`,
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        latencyMs: Math.max(1, Date.now() - t0),
+        detail: err instanceof Error ? err.message : 'Google Workspace ping failed',
+      };
+    }
   }
 
   async getAccessToken(): Promise<string> {

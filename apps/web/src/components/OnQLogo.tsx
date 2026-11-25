@@ -41,8 +41,8 @@ export function OnQLogo({ className = 'h-7', showWordmark = true, theme = 'dark'
         <rect x="26" y="26" width="4" height="4" fill={lime} />
       </svg>
       {showWordmark && (
-        <span className={`font-pixel text-xs uppercase tracking-[0.2em] ${wordColor}`}>
-          ONQ // G2
+        <span className={`font-dots text-xl font-black leading-none tracking-[0.04em] whitespace-nowrap ${wordColor}`}>
+          OnQ
         </span>
       )}
     </span>

@@ -1,5 +1,5 @@
 {
-  "total_duration_s": 110.98,
+  "total_duration_s": 121.76,
   "voice_engine": "assemblyai-tts-1",
   "chapters": [
     {
@@ -7,45 +7,45 @@
       "title": "Before: The 90-Second Corridor Brief",
       "caption": "275 daily interruptions (Microsoft WTI) \u00b7 OnQ fuses GCal, Gmail, Drive, and Notion on Even G2",
       "vo_start": 1.0,
-      "vo_end": 21.48,
+      "vo_end": 22.84,
       "clip_start": 0.0,
-      "clip_end": 23.08
+      "clip_end": 24.44
     },
     {
       "id": "02_read_voice",
       "title": "Live 576x288 Waveguide & AssemblyAI STT-3.7",
       "caption": "42-column waveguide brief \u00b7 16 kHz PCM streaming + RMS silence gate",
-      "vo_start": 23.48,
-      "vo_end": 40.823,
-      "clip_start": 23.08,
-      "clip_end": 42.223
+      "vo_start": 24.84,
+      "vo_end": 43.579,
+      "clip_start": 24.44,
+      "clip_end": 44.979
     },
     {
       "id": "03_safety_write",
       "title": "Default-NO & 2.0s Optical Undo Ring",
       "caption": "45s Default-NO preview -> 2.0s 4-bit PNG Undo Ring -> live SSE commit",
-      "vo_start": 42.623,
-      "vo_end": 61.093,
-      "clip_start": 42.223,
-      "clip_end": 62.893
+      "vo_start": 45.379,
+      "vo_end": 64.659,
+      "clip_start": 44.979,
+      "clip_end": 66.459
     },
     {
       "id": "04_conflict_notion",
       "title": "During & After: Live Diarization, TTS-1 & 409 Lock",
       "caption": "RAM-only STT-3.7 diarization -> Companion TTS-1 answer -> Notion Wrap-Up & 409 Lock",
-      "vo_start": 63.293,
-      "vo_end": 84.886,
-      "clip_start": 62.893,
-      "clip_end": 86.686
+      "vo_start": 66.859,
+      "vo_end": 88.379,
+      "clip_start": 66.459,
+      "clip_end": 90.179
     },
     {
       "id": "05_proof_close",
-      "title": "Honest Failure Modes & Clean-Room Proof",
-      "caption": "RMS silence gate \u00b7 STALE offline cache \u00b7 189 tests \u00b7 11/11 geometry \u00b7 10/10 security",
-      "vo_start": 87.086,
-      "vo_end": 106.675,
-      "clip_start": 86.686,
-      "clip_end": 109.075
+      "title": "Connectors Hub, Multi-Model Harness & Clean-Room Proof",
+      "caption": "207 tests \u00b7 32/32 intent eval \u00b7 5/5 injection block \u00b7 11/11 geometry \u00b7 10/10 security",
+      "vo_start": 90.579,
+      "vo_end": 117.459,
+      "clip_start": 90.179,
+      "clip_end": 119.859
     }
   ]
 }

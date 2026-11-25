@@ -2,7 +2,7 @@ node_modules/
 dist/
 apps/*/dist/
 packages/*/dist/
-data/
+/data/
 .env
 .env.*
 *.sqlite

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import {
   createInitialHudState,
   encodePcm16ToWav,
@@ -27,21 +27,20 @@ import {
   NotionPixelSvg,
   ShieldPixelSvg,
 } from './components/EcosystemIcons';
-import { EvidenceSection } from './components/EvidenceSection';
+import { ConnectorsHub } from './components/ConnectorsHub';
 import { G2Hardware3D } from './components/G2Hardware3D';
 import { G2LensCanvas } from './components/G2LensCanvas';
 import { startBrowserMicCapture } from './components/MicRecorder';
 import type { MicRecordingHandle } from './components/MicRecorder';
 import {
   GlyphDecodeHeading,
-  KineticNumber,
   MOTION_EASE,
   ScrollProgressRail,
   ScrollReveal,
 } from './components/MotionPrimitives';
 import { OnQLogo } from './components/OnQLogo';
 import { OnQVoiceOrb } from './components/OnQVoiceOrb';
-import { PairingSection } from './components/PairingSection';
+import { ResearchGraphsSection } from './components/ResearchGraphsSection';
 import { StickySafetyStory } from './components/StickySafetyStory';
 
 interface SnapshotState {
@@ -251,7 +250,8 @@ export function App() {
   const [voiceFeedback, setVoiceFeedback] = useState<string>('Ready. Speak with Live Mic or click a preset WAV clip.');
   const [simLoading, setSimLoading] = useState(false);
   const [micActive, setMicActive] = useState(false);
-  const [voiceEngineLabel, setVoiceEngineLabel] = useState('DEMO · SANDBOX');
+  const [lensPovOpen, setLensPovOpen] = useState(false);
+  const [voiceEngineLabel, setVoiceEngineLabel] = useState('ASSEMBLYAI · SANDBOX');
   const [ttsVoiceId, setTtsVoiceId] = useState('aai-kyla');
   const [speakingNow, setSpeakingNow] = useState(false);
   const [activeSpokenWord, setActiveSpokenWord] = useState('');
@@ -382,13 +382,36 @@ export function App() {
         } catch {
           // ignore
         }
-        const res = await fetch('/api/demo/session', { method: 'POST' });
-        if (!res.ok) throw new Error('Relay unavailable');
-        const json = (await res.json()) as { sessionToken: string };
+        let bootedToken: string | null = null;
+        let bootedMode: SourceMode = 'DEMO';
+        try {
+          const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+          if (meRes.ok) {
+            const me = (await meRes.json()) as {
+              authenticated?: boolean;
+              sessionToken?: string;
+              mode?: SourceMode;
+            };
+            if (me.authenticated && me.sessionToken) {
+              bootedToken = me.sessionToken;
+              bootedMode = me.mode ?? 'LIVE';
+            }
+          }
+        } catch {
+          // ignore
+        }
+        if (!bootedToken) {
+          const res = await fetch('/api/demo/session', { method: 'POST', credentials: 'include' });
+          if (!res.ok) throw new Error('Relay unavailable');
+          const json = (await res.json()) as { sessionToken: string; mode?: SourceMode };
+          bootedToken = json.sessionToken;
+          bootedMode = json.mode ?? 'DEMO';
+        }
         if (cancelled) return;
-        tokenRef.current = json.sessionToken;
-        setSessionToken(json.sessionToken);
-        await refreshCorridor(json.sessionToken);
+        tokenRef.current = bootedToken;
+        setSessionToken(bootedToken);
+        setSessionMode(bootedMode);
+        await refreshCorridor(bootedToken);
       } catch {
         if (!cancelled) {
           setWorkspace({
@@ -487,12 +510,16 @@ export function App() {
         void ctrlRef.current?.handleEvent({ kind: 'CLICK' });
       } else if (e.key === 'Escape') {
         e.preventDefault();
-        void ctrlRef.current?.handleEvent({ kind: 'DOUBLE_CLICK' });
+        if (lensPovOpen) {
+          setLensPovOpen(false);
+        } else {
+          void ctrlRef.current?.handleEvent({ kind: 'DOUBLE_CLICK' });
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [geometryMode]);
+  }, [geometryMode, lensPovOpen]);
 
   const clearTtsPlayback = () => {
     for (const id of ttsTimersRef.current) window.clearTimeout(id);
@@ -943,7 +970,118 @@ export function App() {
   return (
     <div className="min-h-screen bg-[var(--ink)] text-[var(--bright)]">
       <ScrollProgressRail />
-      {/* Sticky KaneCLI-styled Navbar */}
+
+      {/* Expanded First-Person Inside-the-Glasses Waveguide View (Click 3D Lenses to Enter) */}
+      <AnimatePresence>
+        {lensPovOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 sm:p-8"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Inside OnQ Glasses Optical View"
+          >
+            <div className="w-full max-w-4xl border border-[var(--g2-phosphor)]/60 bg-[#050806] p-5 sm:p-7 space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-dashed border-[var(--hairline)] pb-4">
+                <div className="flex items-center gap-3">
+                  <OnQLogo showWordmark />
+                  <span className="font-pixel text-[10px] uppercase tracking-[0.18em] text-[var(--g2-phosphor)]">
+                    INSIDE LENS POV · 525NM MONOCHROME WAVEGUIDE
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLensPovOpen(false)}
+                  className="px-3 py-1.5 border border-[var(--hairline)] text-xs text-[var(--lightgray)] hover:text-[var(--bright)] hover:border-[var(--lime)] cursor-pointer"
+                >
+                  Exit Glasses View (Esc)
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                <div className="md:col-span-8 g2-lens-scaler overflow-x-auto">
+                  <G2LensCanvas hudState={hudState} opticsMode="waveguide" />
+                </div>
+                <div className="md:col-span-4">
+                  <OnQVoiceOrb
+                    state={orbState}
+                    rmsLevel={hudState.rmsLevel ?? 0}
+                    activeWord={activeSpokenWord}
+                    armProgress01={armProgress01}
+                    engineLabel={voiceEngineLabel}
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-dashed border-[var(--hairline)]">
+                <div className="flex flex-wrap gap-2">
+                  {(hudState.phase === 'preview' || hudState.phase === 'wrap_up') && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await ctrlRef.current?.handleEvent({ kind: 'SCROLL_DOWN' });
+                          await ctrlRef.current?.handleEvent({ kind: 'CLICK' });
+                        }}
+                        className="px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] text-xs font-semibold cursor-pointer"
+                      >
+                        Confirm &amp; Arm 2.0s Ring
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void ctrlRef.current?.handleEvent({ kind: 'DOUBLE_CLICK' })}
+                        className="px-3 py-2 border border-[var(--hairline)] text-xs hover:border-[var(--bright)] cursor-pointer"
+                      >
+                        Cancel (Zero Writes)
+                      </button>
+                    </>
+                  )}
+                  {hudState.phase === 'armed' && (
+                    <button
+                      type="button"
+                      onClick={() => void ctrlRef.current?.handleEvent({ kind: 'CLICK' })}
+                      className="px-4 py-2 border border-[var(--danger)] text-[var(--danger)] text-xs font-semibold cursor-pointer"
+                    >
+                      Tap to Cancel Write ({(hudState.armRemainingMs / 1000).toFixed(1)}s)
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void toggleLiveMic()}
+                    className={`px-4 py-2 border text-xs font-semibold cursor-pointer ${
+                      micActive
+                        ? 'border-[var(--danger)] bg-[var(--danger)] text-[#0a0a0a]'
+                        : 'border-[var(--g2-phosphor)] text-[var(--g2-phosphor)]'
+                    }`}
+                  >
+                    {micActive ? 'Stop Listening' : 'Run Voice'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void runLiveMeetingDemo()}
+                    className="px-3 py-2 border border-[var(--hairline)] text-xs hover:border-[var(--lime)] cursor-pointer"
+                  >
+                    Live Meeting Notes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void askMeetingClaude('What did Priya ask about Q4?')}
+                    className="px-3 py-2 border border-[var(--hairline)] text-xs hover:border-[var(--verified)] cursor-pointer"
+                  >
+                    Ask &quot;OnQ, Q4?&quot;
+                  </button>
+                </div>
+                <p className="text-xs text-[var(--lightgray)]" role="status">{voiceFeedback}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Minimal Sticky Navbar */}
       <header className="sticky top-0 z-40 h-16 bg-[var(--ink)]/95 backdrop-blur-sm border-b border-[var(--hairline)]">
         <div className="container-page h-full flex items-center justify-between gap-4">
           <a href="#top" className="flex items-center gap-3 group">
@@ -951,107 +1089,116 @@ export function App() {
           </a>
 
           <nav aria-label="Primary navigation" className="hidden md:flex items-center gap-6 text-sm text-[var(--lightgray)]">
-            <a href="#simulator" className="hover:text-[var(--bright)] transition-colors">Simulator</a>
-            <a href="#evidence" className="hover:text-[var(--bright)] transition-colors">Evidence</a>
+            <a href="#experience" className="hover:text-[var(--bright)] transition-colors">Experience</a>
+            <a href="#use-cases" className="hover:text-[var(--bright)] transition-colors">Use Cases</a>
+            <a href="#research" className="hover:text-[var(--bright)] transition-colors">Research</a>
             <a href="#safety" className="hover:text-[var(--bright)] transition-colors">Safety</a>
-            <a href="#hardware" className="hover:text-[var(--bright)] transition-colors">Hardware</a>
-            <a href="#pair" className="hover:text-[var(--bright)] transition-colors">Pair G2</a>
-            <a href="#faq" className="hover:text-[var(--bright)] transition-colors">FAQ</a>
+            <a href="#connectors" className="hover:text-[var(--bright)] transition-colors">Connectors</a>
           </nav>
 
           <div className="flex items-center gap-3">
             <a
-              href="#pair"
+              href="#connectors"
               className="px-4 py-2 border border-[var(--hairline)] text-[var(--bright)] hover:border-[var(--lime)] hover:text-[var(--lime)] text-xs sm:text-sm transition-colors"
             >
-              Pair G2
+              Connect Apps
             </a>
             <button
               type="button"
               onClick={() => void runVoicePreset('Push 15m and tell Priya')}
               className="px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] hover:bg-[var(--bright)] text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
             >
-              Run Voice Demo
+              Run Voice
             </button>
           </div>
         </div>
       </header>
 
-      {/* Hero + Interactive 3D G2 + Live Workbench */}
+      {/* Hero: Full-Size 360° 3D Glasses Artifact with Inside-Lens Voice Orb + Live Workbench */}
       <main id="top">
-        <section id="simulator" className="py-12 sm:py-16 relative overflow-hidden">
-          <div className="container-page relative space-y-12">
+        <section id="experience" className="py-10 sm:py-14 relative overflow-hidden">
+          <div className="container-page relative space-y-10">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
               <motion.div
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.45, ease: MOTION_EASE }}
-                className="lg:col-span-6 space-y-5"
+                className="lg:col-span-5 space-y-5"
               >
                 <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
-                  EVEN REALITIES G2 · TRACK 04 · SDK 0.0.16
+                  EVEN REALITIES G2 · TRACK 04
                 </p>
-                <h1 className="font-dots font-black leading-[0.94] tracking-[-0.02em] text-[2.3rem] sm:text-[3.1rem] lg:text-[3.35rem] xl:text-[3.85rem]">
+                <h1 className="font-dots font-black leading-[0.94] tracking-[-0.02em] text-[2.3rem] sm:text-[3.05rem] lg:text-[3.35rem]">
                   <span className="block text-[var(--lightgray)]">Own the room, before</span>
                   <span className="block text-[var(--bright)]">during, and after.</span>
                 </h1>
-                <p className="text-sm md:text-base leading-relaxed text-[var(--lightgray)] max-w-xl">
-                  Calendar, Gmail, Drive, and Notion on Even G2, paired with AssemblyAI STT-3.7
-                  &amp; TTS-1 behind Default-NO, 2.0s undo ring, and 409 conflict hard-lock.
+                <p className="text-sm md:text-base leading-relaxed text-[var(--lightgray)]">
+                  Calendar, Gmail, Drive, Notion, and multi-model AI projected onto Even G2 with an inside-lens Voice Orb, Default-NO gate, and 409 conflict hard-lock.
                 </p>
 
                 <EcosystemStrip />
+
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => void runVoicePreset('Push 15m and tell Priya')}
+                    className="px-5 py-2.5 bg-[var(--lime)] text-[#0a0a0a] hover:bg-[var(--bright)] text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
+                  >
+                    Run Voice
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLensPovOpen(true)}
+                    className="px-4 py-2.5 border border-[var(--g2-phosphor)] text-[var(--g2-phosphor)] hover:bg-[var(--g2-phosphor)] hover:text-[#0a0a0a] text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
+                  >
+                    Look Through G2
+                  </button>
+                </div>
               </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, delay: 0.08, ease: MOTION_EASE }}
-                className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-12 gap-3 items-stretch"
+                className="lg:col-span-7"
               >
-                <div className="sm:col-span-8">
-                  <G2Hardware3D
-                    phase={hudState.phase}
-                    headerLine={`${sessionMode} | ${hudState.phase.toUpperCase()}`}
-                    primaryLine={
-                      hudState.cards[hudState.selectedCardIndex]?.title ?? 'VC Sync - Priya Nair'
-                    }
-                    ringProgress={armProgress01}
-                  />
-                </div>
-                <OnQVoiceOrb
-                  state={orbState}
-                  rmsLevel={hudState.rmsLevel ?? 0}
+                <G2Hardware3D
+                  phase={hudState.phase}
+                  orbState={orbState}
                   activeWord={activeSpokenWord}
-                  armProgress01={armProgress01}
-                  engineLabel={voiceEngineLabel}
-                  className="sm:col-span-4"
+                  headerLine={`${sessionMode} | ${hudState.phase.toUpperCase()}`}
+                  primaryLine={
+                    hudState.cards[hudState.selectedCardIndex]?.title ?? 'VC Sync - Priya Nair'
+                  }
+                  ringProgress={armProgress01}
+                  rmsLevel={hudState.rmsLevel ?? 0}
+                  onEnterLensView={() => setLensPovOpen(true)}
                 />
               </motion.div>
             </div>
 
-            {/* Interactive 576x288 Simulator + Live Companion Control Center */}
+            {/* Clean Live Product Workbench (Zero Debug Button Clutter) */}
             <div className="border border-dashed border-[var(--hairline)] bg-[var(--surface)]">
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-px bg-[var(--hairline)]">
-                {/* Left: 576x288 Optical Lens & R1 Hardware Controls */}
+                {/* Left: Clean Lens Preview, Contextual Write Action & Voice Prompt Bar */}
                 <div className="xl:col-span-7 bg-[var(--ink)] p-5 sm:p-6 space-y-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2.5">
                       <EvenG2PixelSvg className="w-6 h-3.5" />
-                      <span className="font-pixel text-[11px] uppercase tracking-[0.2em] text-[var(--bright)]">
-                        EVEN G2 WAVEGUIDE (576x288)
+                      <span className="font-pixel text-[11px] uppercase tracking-[0.18em] text-[var(--bright)]">
+                        LIVE GLASSES VIEW
                       </span>
-                      <span className="border border-[var(--lime)] px-2 py-0.5 font-pixel text-[10px] uppercase text-[var(--lime)]">
+                      <span className="font-pixel text-[9px] uppercase px-2 py-0.5 border border-[var(--g2-phosphor)] text-[var(--g2-phosphor)]">
                         {hudState.phase.toUpperCase()}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setOpticsMode((m) => (m === 'waveguide' ? 'raw' : 'waveguide'))}
-                        className="px-3 py-1.5 border border-[var(--hairline)] text-xs text-[var(--lightgray)] hover:text-[var(--bright)] hover:border-[var(--bright)] cursor-pointer"
+                        onClick={() => setLensPovOpen(true)}
+                        className="px-3 py-1.5 border border-[var(--hairline)] text-xs text-[var(--bright)] hover:border-[var(--g2-phosphor)] hover:text-[var(--g2-phosphor)] cursor-pointer"
                       >
-                        Optics: {opticsMode === 'waveguide' ? 'Waveguide Glow' : 'Raw Pixel'}
+                        Expand Glasses POV
                       </button>
                       <button
                         type="button"
@@ -1063,18 +1210,22 @@ export function App() {
                     </div>
                   </div>
 
-                  <div className="g2-lens-scaler overflow-x-auto">
+                  <div
+                    className="g2-lens-scaler overflow-x-auto cursor-pointer"
+                    onClick={() => setLensPovOpen(true)}
+                    title="Click to expand Inside-the-Glasses view"
+                  >
                     {simLoading ? (
                       <div className="g2-lens-canvas flex items-center justify-center text-xs">
-                        SYNCING CORRIDOR DOSSIER...
+                        SYNCING WORKSPACE...
                       </div>
                     ) : (
                       <AnimatePresence mode="wait">
                         <motion.div
                           key={`${hudState.phase}-${hudState.selectedCardIndex}`}
-                          initial={{ opacity: 0.72, y: 3 }}
+                          initial={{ opacity: 0.75, y: 3 }}
                           animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0.72 }}
+                          exit={{ opacity: 0.75 }}
                           transition={{ duration: 0.16, ease: MOTION_EASE }}
                         >
                           <G2LensCanvas hudState={hudState} opticsMode={opticsMode} />
@@ -1083,151 +1234,73 @@ export function App() {
                     )}
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void ctrlRef.current?.handleEvent({ kind: 'SCROLL_UP' })}
-                      className="px-3 py-2 border border-[var(--hairline)] bg-[var(--surface)] text-xs hover:border-[var(--bright)] cursor-pointer"
-                    >
-                      Swipe Up (Up)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void ctrlRef.current?.handleEvent({ kind: 'SCROLL_DOWN' })}
-                      className="px-3 py-2 border border-[var(--hairline)] bg-[var(--surface)] text-xs hover:border-[var(--bright)] cursor-pointer"
-                    >
-                      Swipe Down (Down)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void ctrlRef.current?.handleEvent({ kind: 'CLICK' })}
-                      className="px-4 py-2 bg-[var(--bright)] text-[var(--ink)] hover:bg-[var(--lime)] text-xs font-semibold cursor-pointer"
-                    >
-                      Tap R1 / Temple (Enter)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void ctrlRef.current?.handleEvent({ kind: 'DOUBLE_CLICK' })}
-                      className="px-3 py-2 border border-[var(--hairline)] bg-[var(--surface)] text-xs hover:border-[var(--bright)] cursor-pointer"
-                    >
-                      2x Tap / Back (Esc)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void toggleLiveMic()}
-                      className={`px-3 py-2 border text-xs font-semibold cursor-pointer ${
-                        micActive
-                          ? 'border-[var(--danger)] bg-[var(--danger)] text-[var(--ink)]'
-                          : 'border-[var(--lime)] text-[var(--lime)] hover:bg-[var(--lime)] hover:text-[var(--ink)]'
-                      }`}
-                    >
-                      {micActive ? 'Stop & Transcribe' : 'Speak Live Mic'}
-                    </button>
-                  </div>
-
-                  {/* Voice Presets, Meeting Lifecycle, TTS-1 Earbuds Audio Out & Fault Triggers */}
-                  <div className="border-t border-dashed border-[var(--hairline)] pt-4 space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lightgray)]">
-                        VOICE PRESETS, MEETING SCRIBE &amp; FAULT TESTS
+                  {/* Contextual Write Safety Pill (appears ONLY when staged / armed / 409) */}
+                  {(hudState.phase === 'preview' || hudState.phase === 'wrap_up') && (
+                    <div className="flex flex-wrap items-center gap-2 p-3 border border-[var(--lime)] bg-[var(--lime-deep)]/40">
+                      <span className="text-xs text-[var(--bright)] mr-auto">
+                        Default-NO safeguard active. Confirm on R1 ring or click:
                       </span>
-                      <span className="font-pixel text-[9px] uppercase tracking-[0.14em] text-[var(--verified)]">
-                        {voiceEngineLabel}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        onClick={() => void runVoicePreset('Push 15m and tell Priya')}
-                        className="px-3 py-1.5 border border-[var(--lime)] text-[var(--lime)] hover:bg-[var(--lime)] hover:text-[var(--ink)] text-xs cursor-pointer"
+                        onClick={async () => {
+                          await ctrlRef.current?.handleEvent({ kind: 'SCROLL_DOWN' });
+                          await ctrlRef.current?.handleEvent({ kind: 'CLICK' });
+                        }}
+                        className="px-3.5 py-1.5 bg-[var(--lime)] text-[#0a0a0a] text-xs font-semibold cursor-pointer"
                       >
-                        Voice: Push 15m + Tell Priya
+                        Confirm &amp; Arm 2.0s Ring
                       </button>
                       <button
                         type="button"
-                        onClick={() => void runLiveMeetingDemo()}
-                        className="px-3 py-1.5 border border-[var(--verified)] text-[var(--verified)] hover:bg-[var(--verified)] hover:text-[var(--ink)] text-xs cursor-pointer"
-                      >
-                        Run Live Meeting Demo
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void askMeetingClaude('What did Priya ask about Q4?')}
-                        className="px-3 py-1.5 border border-[var(--hairline)] text-xs hover:border-[var(--lime)] cursor-pointer"
-                      >
-                        Ask &quot;OnQ, Q4?&quot; (TTS-1)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void runMeetingWrapUp()}
+                        onClick={() => void ctrlRef.current?.handleEvent({ kind: 'DOUBLE_CLICK' })}
                         className="px-3 py-1.5 border border-[var(--hairline)] text-xs hover:border-[var(--bright)] cursor-pointer"
                       >
-                        Wrap Up &amp; Save
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void runVoicePreset('Task: send Q4 metrics to Alex by Thursday')}
-                        className="px-3 py-1.5 border border-[var(--hairline)] text-xs hover:border-[var(--bright)] cursor-pointer"
-                      >
-                        Action Pack (Notion + Hold)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void stageCommand('Move VC sync to 14:45')}
-                        className="px-3 py-1.5 border border-[var(--warning)] text-[var(--warning)] hover:bg-[var(--warning)] hover:text-[var(--ink)] text-xs cursor-pointer"
-                      >
-                        Trigger 409 Conflict
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void runVoicePreset('', true)}
-                        className="px-3 py-1.5 border border-[var(--hairline)] text-xs hover:border-[var(--bright)] cursor-pointer"
-                      >
-                        Test Silent WAV
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void toggleFaultOffline()}
-                        className="px-3 py-1.5 border border-[var(--hairline)] text-xs hover:border-[var(--bright)] cursor-pointer"
-                      >
-                        Toggle STALE Offline
+                        Cancel
                       </button>
                     </div>
+                  )}
 
-                    {/* Companion Earbuds TTS-1 Selector + Barge-In (G2 has no speaker) */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 border border-dashed border-[var(--hairline)] bg-[var(--surface)] px-3 py-2 text-[11px]">
-                      <div className="flex items-center gap-2 text-[var(--lightgray)]">
-                        <AssemblyAiPixelSvg className="w-3.5 h-3.5" />
-                        <span>Companion Phone / Bluetooth Earbuds Audio Out (Even G2 has no speaker)</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <label htmlFor="tts-voice-select" className="sr-only">
-                          TTS-1 Voice
-                        </label>
-                        <select
-                          id="tts-voice-select"
-                          value={ttsVoiceId}
-                          onChange={(e) => setTtsVoiceId(e.target.value)}
-                          className="bg-[var(--ink)] border border-[var(--hairline)] px-2 py-1 text-[11px] text-[var(--bright)]"
+                  {hudState.phase === 'armed' && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-3 border border-[var(--danger)] bg-black">
+                      <span className="text-xs text-[var(--bright)]">
+                        2.0s Optical Countdown Ring armed. Tap anywhere to abort with zero writes.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void ctrlRef.current?.handleEvent({ kind: 'CLICK' })}
+                        className="px-3.5 py-1.5 bg-[var(--danger)] text-[#0a0a0a] text-xs font-semibold cursor-pointer"
+                      >
+                        Abort Write
+                      </button>
+                    </div>
+                  )}
+
+                  {hudState.phase === 'conflict' && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-3 border border-[var(--warning)] bg-black">
+                      <span className="text-xs text-[var(--warning)]">
+                        409 Conflict Hard-Lock: 0 calendar or email edits sent.
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void ctrlRef.current?.handleEvent({ kind: 'CLICK' })}
+                          className="px-3 py-1.5 border border-[var(--warning)] text-[var(--warning)] hover:bg-[var(--warning)] hover:text-[#0a0a0a] text-xs font-semibold cursor-pointer"
                         >
-                          <option value="aai-kyla">aai-kyla</option>
-                          <option value="aai-titus">aai-titus</option>
-                          <option value="aai-audrey">aai-audrey</option>
-                          <option value="aai-sara">aai-sara</option>
-                          <option value="aai-ewald">aai-ewald</option>
-                        </select>
-                        {speakingNow && (
-                          <button
-                            type="button"
-                            onClick={clearTtsPlayback}
-                            className="px-2 py-1 border border-[var(--danger)] text-[var(--danger)] hover:bg-[var(--danger)] hover:text-[var(--ink)] text-[10px] font-pixel uppercase cursor-pointer"
-                          >
-                            Stop TTS (Barge-In)
-                          </button>
-                        )}
+                          Use Next Free Slot
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void ctrlRef.current?.handleEvent({ kind: 'DOUBLE_CLICK' })}
+                          className="px-3 py-1.5 border border-[var(--hairline)] text-xs cursor-pointer"
+                        >
+                          Dismiss
+                        </button>
                       </div>
                     </div>
+                  )}
 
+                  {/* Perplexity-Style Voice & Command Bar */}
+                  <div className="space-y-3 border-t border-dashed border-[var(--hairline)] pt-4">
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
@@ -1237,38 +1310,72 @@ export function App() {
                     >
                       <input
                         type="text"
-                        aria-label="Simulate spoken voice command"
+                        aria-label="Speak or enter an OnQ command"
                         value={commandInput}
                         onChange={(e) => setCommandInput(e.target.value)}
-                        className="flex-1 bg-[var(--surface)] border border-[var(--hairline)] px-3 py-2 text-xs text-[var(--bright)]"
+                        className="flex-1 bg-[var(--surface)] border border-[var(--hairline)] px-3.5 py-2.5 text-xs text-[var(--bright)] focus:border-[var(--lime)]"
                       />
                       <button
-                        type="submit"
-                        className="px-4 py-2 border border-[var(--bright)] text-[var(--bright)] hover:bg-[var(--bright)] hover:text-[var(--ink)] text-xs cursor-pointer"
+                        type="button"
+                        onClick={() => void toggleLiveMic()}
+                        className={`px-4 py-2.5 border text-xs font-semibold cursor-pointer ${
+                          micActive
+                            ? 'border-[var(--danger)] bg-[var(--danger)] text-[#0a0a0a]'
+                            : 'border-[var(--lime)] text-[var(--lime)] hover:bg-[var(--lime)] hover:text-[#0a0a0a]'
+                        }`}
                       >
-                        Stage Phrase
+                        {micActive ? 'Stop Voice' : 'Run Voice'}
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-2.5 bg-[var(--bright)] text-[#0a0a0a] hover:bg-[var(--lime)] text-xs font-semibold cursor-pointer"
+                      >
+                        Send
                       </button>
                     </form>
+
+                    {/* Clean Companion Audio Out Status */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--lightgray)]">
+                      <span className="inline-flex items-center gap-2">
+                        <AssemblyAiPixelSvg className="w-3.5 h-3.5" />
+                        <span>Earbuds Out ({ttsVoiceId}) · Even G2 has no speaker</span>
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {speakingNow && (
+                          <button
+                            type="button"
+                            onClick={clearTtsPlayback}
+                            className="px-2 py-0.5 border border-[var(--danger)] text-[var(--danger)] font-pixel text-[9px] uppercase cursor-pointer"
+                          >
+                            Barge-In Stop
+                          </button>
+                        )}
+                        <span className="font-pixel text-[9px] uppercase text-[var(--verified)]">
+                          {voiceEngineLabel}
+                        </span>
+                      </div>
+                    </div>
+
                     <p className="text-xs text-[var(--lightgray)]" role="status">
                       {voiceFeedback}
                     </p>
                   </div>
                 </div>
 
-                {/* Right: Live Split Workspace Control Center */}
+                {/* Right: Live Workspace Control Center */}
                 <div className="xl:col-span-5 bg-[var(--surface)] p-5 sm:p-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="font-pixel text-[11px] uppercase tracking-[0.2em] text-[var(--bright)]">
-                      LIVE WORKSPACE CONTROL CENTER
+                      LIVE WORKSPACE
                     </span>
                     <span className="font-pixel text-[10px] uppercase tracking-[0.15em] text-[var(--verified)]">
-                      {sessionMode} SSE SYNC
+                      {sessionMode} SYNC
                     </span>
                   </div>
 
                   {!workspace ? (
                     <div className="border border-dashed border-[var(--hairline)] p-4 text-xs text-[var(--lightgray)]">
-                      Connecting to workspace relay...
+                      Syncing workspace relay...
                     </div>
                   ) : (
                     <div className="space-y-3 text-xs">
@@ -1279,22 +1386,19 @@ export function App() {
                             <AssemblyAiPixelSvg className="w-4 h-4" />
                             <span>LIVE MEETING SCRIBE (RAM-ONLY)</span>
                           </span>
-                          <div className="flex items-center gap-1.5">
-                            {meetingState?.active && (
-                              <button
-                                type="button"
-                                onClick={() => void wipeMeetingScribe()}
-                                className="font-pixel text-[9px] px-2 py-0.5 border border-[var(--hairline)] text-[var(--lightgray)] hover:border-[var(--danger)] hover:text-[var(--danger)] cursor-pointer"
-                              >
-                                Wipe RAM
-                              </button>
-                            )}
-                          </div>
+                          {meetingState?.active && (
+                            <button
+                              type="button"
+                              onClick={() => void wipeMeetingScribe()}
+                              className="font-pixel text-[9px] px-2 py-0.5 border border-[var(--hairline)] text-[var(--lightgray)] hover:border-[var(--danger)] hover:text-[var(--danger)] cursor-pointer"
+                            >
+                              Wipe RAM
+                            </button>
+                          )}
                         </div>
                         {!meetingState || meetingState.turns.length === 0 ? (
                           <p className="text-[var(--lightgray)]">
-                            Idle. Click &quot;Run Live Meeting Demo&quot; for speaker diarization,
-                            decisions, and &quot;OnQ, wrap up&quot;.
+                            Ready for in-room speaker diarization with zero audio stored to disk.
                           </p>
                         ) : (
                           <div className="space-y-1 border-t border-dashed border-[var(--hairline)] pt-1.5">
@@ -1351,7 +1455,7 @@ export function App() {
                         </form>
                       </div>
 
-                      {/* Gmail + Simulate Incoming Reply */}
+                      {/* Gmail + Incoming Reply */}
                       <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
                           <span className="inline-flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
@@ -1363,7 +1467,7 @@ export function App() {
                             onClick={() => void handleSimulateIncomingReply()}
                             className="font-pixel text-[9px] px-2 py-0.5 border border-[var(--warning)] text-[var(--warning)] hover:bg-[var(--warning)] hover:text-[var(--ink)] cursor-pointer"
                           >
-                            Simulate Incoming Reply
+                            New Incoming Reply
                           </button>
                         </div>
                         {workspace.gmailThreads.map((t) => (
@@ -1382,7 +1486,7 @@ export function App() {
                         ))}
                       </div>
 
-                      {/* Notion + Add/Toggle */}
+                      {/* Notion Database */}
                       <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
                         <div className="flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
                           <NotionPixelSvg className="w-4 h-4" />
@@ -1420,14 +1524,14 @@ export function App() {
                         </form>
                       </div>
 
-                      {/* Receipts + Undo + Telemetry */}
+                      {/* Audit Receipts */}
                       <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
                         <div className="flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--bright)]">
                           <ShieldPixelSvg className="w-4 h-4" />
                           <span>AUDIT RECEIPT LEDGER ({receipts.length})</span>
                         </div>
                         {receipts.length === 0 ? (
-                          <p className="text-[var(--lightgray)]">No commits yet. Stage and arm an action to verify.</p>
+                          <p className="text-[var(--lightgray)]">Run any voice workflow above to inspect live receipts &amp; 30s surgical undo.</p>
                         ) : (
                           receipts.slice(0, 2).map((rec) => (
                             <div key={rec.receiptId} className="border-t border-dashed border-[var(--hairline)] pt-1.5 space-y-1">
@@ -1465,122 +1569,25 @@ export function App() {
           </div>
         </section>
 
-        {/* Research Citations, Problem Framework & 54-Entry Gallery Benchmark */}
-        <EvidenceSection />
-
-        {/* Sticky Scroll Safety Story (#safety) */}
-        <StickySafetyStory />
-
-        {/* Full-Bleed Light-Inversion Section (#hardware) */}
-        <section
-          id="hardware"
-          className="section-rule py-20 sm:py-28 bg-[#f2f2f2] text-[#0a0a0a] [--bright:#0a0a0a] [--hairline:#c4c4c4] [--ink:#f2f2f2] [--lightgray:#525252] [--surface:#e8e8e8]"
-        >
-          <div className="container-page space-y-12">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-              <ScrollReveal className="lg:col-span-6 space-y-4">
-                <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[#525252]">
-                  HARDWARE &amp; UNIT ECONOMICS
-                </p>
-                <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem] lg:text-[3.5rem]">
-                  <span className="block text-[#525252]">Built for 576x288.</span>
-                  <GlyphDecodeHeading text="Zero phone clutter." className="block text-[#0a0a0a]" />
-                </h2>
-                <p className="text-sm md:text-base leading-relaxed text-[#525252] max-w-lg">
-                  Text, native List, and 76x76 4-bit Ring containers packed cleanly into Even Hub SDK 0.0.16.
-                </p>
-                <div className="flex flex-wrap gap-2 pt-1" aria-label="Hardware and local runtime stack">
-                  <span className="inline-flex items-center gap-1.5 border border-[#c4c4c4] bg-[#e8e8e8] px-2.5 py-1 text-[11px] font-medium text-[#0a0a0a]">
-                    <EvenG2PixelSvg theme="light" className="w-5 h-3" />
-                    <span>Even G2</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 border border-[#c4c4c4] bg-[#e8e8e8] px-2.5 py-1 text-[11px] font-medium text-[#0a0a0a]">
-                    <AssemblyAiPixelSvg theme="light" className="w-3.5 h-3.5" />
-                    <span>STT-3.7 + TTS-1</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 border border-[#c4c4c4] bg-[#e8e8e8] px-2.5 py-1 text-[11px] font-medium text-[#0a0a0a]">
-                    <ClaudePixelSvg theme="light" className="w-3.5 h-3.5" />
-                    <span>Claude + Rules</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 border border-[#c4c4c4] bg-[#e8e8e8] px-2.5 py-1 text-[11px] font-medium text-[#0a0a0a]">
-                    <ShieldPixelSvg theme="light" className="w-3.5 h-3.5" />
-                    <span>Zero Keys in WebView</span>
-                  </span>
-                </div>
-              </ScrollReveal>
-              <ScrollReveal delay={0.08} className="lg:col-span-6">
-                <G2Hardware3D
-                  theme="light"
-                  defaultMode="ring"
-                  phase={hudState.phase}
-                  headerLine="R1 GESTURE + G2"
-                  primaryLine="76x76 4-BIT RING"
-                />
-              </ScrollReveal>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 border-t border-b border-dashed border-[#c4c4c4] divide-y md:divide-y-0 md:divide-x divide-dashed divide-[#c4c4c4]">
-              <div className="py-8 md:pr-6 space-y-2.5">
-                <div className="font-dots text-5xl sm:text-6xl font-black leading-none text-[#0a0a0a]">
-                  <KineticNumber value={189} />
-                </div>
-                <div className="font-display text-2xl font-bold text-[#0a0a0a]">Passing Tests</div>
-                <span className="inline-block bg-[#0a0a0a] text-[#f2f2f2] px-2 py-0.5 font-pixel text-[10px] uppercase tracking-[0.15em]">
-                  CLEAN-ROOM VERIFIED
-                </span>
-                <p className="text-sm text-[#525252] leading-relaxed">
-                  125 pure core + 64 server/voice tests plus 11/11 Chromium optical geometry checks.
-                </p>
-              </div>
-              <div className="py-8 md:px-6 space-y-2.5">
-                <div className="font-dots text-5xl sm:text-6xl font-black leading-none text-[#0a0a0a]">
-                  <KineticNumber value={576} />px
-                </div>
-                <div className="font-display text-2xl font-bold text-[#0a0a0a]">&lt;= 999 UTF-8 Bytes</div>
-                <span className="inline-block bg-[#0a0a0a] text-[#f2f2f2] px-2 py-0.5 font-pixel text-[10px] uppercase tracking-[0.15em]">
-                  OPTICAL BUDGET
-                </span>
-                <p className="text-sm text-[#525252] leading-relaxed">
-                  42-column word wrapping with &gt;= 97% pure black transparent waveguide background.
-                </p>
-              </div>
-              <div className="py-8 md:pl-6 space-y-2.5">
-                <div className="font-dots text-5xl sm:text-6xl font-black leading-none text-[#0a0a0a]">
-                  $<KineticNumber value={7} />/mo
-                </div>
-                <div className="font-display text-2xl font-bold text-[#0a0a0a]">~$0.001 / brief est.</div>
-                <span className="inline-block bg-[var(--lime)] text-[#0a0a0a] px-2 py-0.5 font-pixel text-[10px] uppercase tracking-[0.15em]">
-                  PLANNED PRO TIER
-                </span>
-                <p className="text-sm text-[#525252] leading-relaxed">
-                  Local Whisper, chrono-node, and SQLite run at £0 API cost; cloud LLM stays optional.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* 4-Column Corridor Modes (#modes) */}
-        <section id="modes" className="section-rule py-20 sm:py-28">
+        {/* 6 Live-Runnable Product Use Cases (#use-cases) */}
+        <section id="use-cases" className="section-rule py-20 sm:py-24">
           <div className="container-page space-y-8">
-            <ScrollReveal className="space-y-2">
+            <ScrollReveal className="space-y-2 max-w-2xl">
               <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
-                MEETING LIFECYCLE WORKFLOWS
+                FULL MEETING LIFECYCLE · USP
               </p>
-              <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem] lg:text-[3.5rem]">
-                <span className="block text-[var(--lightgray)]">Before, during, after.</span>
-                <GlyphDecodeHeading text="Zero dead widgets." className="block text-[var(--bright)]" />
+              <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem] lg:text-[3.4rem]">
+                <span className="block text-[var(--lightgray)]">Six everyday workflows.</span>
+                <GlyphDecodeHeading text="Click any to run live." className="block text-[var(--bright)]" />
               </h2>
             </ScrollReveal>
 
-            <ScrollReveal delay={0.06}>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px border border-dashed border-[var(--hairline)] bg-[var(--hairline)]">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px border border-dashed border-[var(--hairline)] bg-[var(--hairline)]">
               {[
                 {
-                  num: '01',
-                  tag: 'BEFORE · BRIEF',
-                  title: 'Pre-Meeting Brief',
-                  bullets: ['Next event & countdown', 'Attendee latest email ask', 'Linked Drive doc snippet'],
+                  num: '01 · BEFORE',
+                  title: 'Hallway Corridor Brief',
+                  desc: 'Fuses Calendar countdown, attendee Gmail ask, and linked Drive snippet in 42 legible columns.',
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
                       <CalendarPixelSvg className="w-3.5 h-3.5" />
@@ -1588,128 +1595,138 @@ export function App() {
                       <DrivePixelSvg className="w-3.5 h-3.5" />
                     </span>
                   ),
-                  inverted: false,
+                  cta: 'Inspect Inside Lens',
+                  action: () => setLensPovOpen(true),
                 },
                 {
-                  num: '02',
-                  tag: 'DURING · VOICE',
-                  title: 'Live Diarization + Ask',
-                  bullets: ['STT-3.7 speaker labels', 'RAM-only transcript buffer', 'Read-only Claude answers'],
+                  num: '02 · BEFORE',
+                  title: 'Transit Shift + Grounded Reply',
+                  desc: 'Say "OnQ, push 15m and tell Priya". Checks Free/Busy, drafts under Code-Guard, arms 2.0s Undo Ring.',
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
-                      <AssemblyAiPixelSvg className="w-3.5 h-3.5" />
-                      <ClaudePixelSvg className="w-3.5 h-3.5" />
+                      <CalendarPixelSvg className="w-3.5 h-3.5" />
+                      <GmailPixelSvg className="w-3.5 h-3.5" />
                     </span>
                   ),
-                  inverted: false,
+                  cta: 'Run Shift + Reply',
+                  action: () => void runVoicePreset('Push 15m and tell Priya'),
                 },
                 {
-                  num: '03',
-                  tag: 'AFTER · WRAP-UP',
-                  title: 'Recap + Tasks + Hold',
-                  bullets: ['Notion notes & action items', 'Verified follow-up hold', 'Gmail draft + Default-NO'],
+                  num: '03 · DURING',
+                  title: 'RAM-Only Speaker Diarization',
+                  desc: 'AssemblyAI STT-3.7 separates wearer vs attendees in volatile RAM with zero audio persisted to disk.',
+                  icons: <AssemblyAiPixelSvg className="w-3.5 h-3.5" />,
+                  cta: 'Start Live Meeting Scribe',
+                  action: () => void runLiveMeetingDemo(),
+                },
+                {
+                  num: '04 · DURING',
+                  title: 'Quiet Earbuds & Lens Recall',
+                  desc: 'Ask "OnQ, what did Priya ask about Q4?" -> cites live transcript or Drive + speaks over TTS-1 earbuds.',
+                  icons: (
+                    <span className="inline-flex items-center gap-1.5">
+                      <ClaudePixelSvg className="w-3.5 h-3.5" />
+                      <AssemblyAiPixelSvg className="w-3.5 h-3.5" />
+                    </span>
+                  ),
+                  cta: 'Ask "OnQ, Q4?" (TTS-1)',
+                  action: () => void askMeetingClaude('What did Priya ask about Q4?'),
+                },
+                {
+                  num: '05 · AFTER',
+                  title: 'Zero-Friction Wrap-Up Pack',
+                  desc: 'Extracts decisions + deadlines via chrono-node -> Notion 2026-03-11 tasks, Calendar hold & Gmail draft.',
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
                       <NotionPixelSvg className="w-3.5 h-3.5" />
                       <CalendarPixelSvg className="w-3.5 h-3.5" />
                     </span>
                   ),
-                  inverted: false,
+                  cta: 'Stage Wrap-Up Pack',
+                  action: () => void runMeetingWrapUp(),
                 },
                 {
-                  num: '04',
-                  tag: 'GUARD · HTTP 409',
-                  title: 'Conflict Hard-Lock',
-                  bullets: ['Blocks overlapping slots', 'Catches stale thread drift', 'Suggests next verified slot'],
-                  icons: <ShieldPixelSvg theme="light" className="w-3.5 h-3.5" />,
-                  inverted: true,
+                  num: '06 · GUARD',
+                  title: 'HTTP 409 Lock & Prompt Shield',
+                  desc: 'Blocks double-bookings and stale Gmail threads before committing, proposing the next free verified slot.',
+                  icons: <ShieldPixelSvg className="w-3.5 h-3.5" />,
+                  cta: 'Test 409 Conflict Lock',
+                  action: () => void stageCommand('Move VC sync to 14:45'),
                 },
-              ].map((lane) => (
-                <div
-                  key={lane.num}
-                  className={
-                    lane.inverted
-                      ? 'bg-[var(--lime)] text-[#0a0a0a] p-6 flex flex-col justify-between space-y-6'
-                      : 'group bg-[var(--ink)] hover:bg-[var(--surface)] p-6 flex flex-col justify-between space-y-6 transition-colors'
-                  }
-                >
+              ].map((uc) => (
+                <div key={uc.num} className="bg-[var(--ink)] hover:bg-[var(--surface)] p-6 flex flex-col justify-between space-y-5 transition-colors">
                   <div className="space-y-3">
-                    <div
-                      className={
-                        lane.inverted
-                          ? 'font-dots text-5xl font-black text-[#0a0a0a]'
-                          : 'font-dots text-5xl font-black text-[var(--hairline)] group-hover:text-[var(--lime)] transition-colors'
-                      }
-                    >
-                      {lane.num}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
+                        {uc.num}
+                      </span>
+                      {uc.icons}
                     </div>
-                    <span
-                      className={
-                        lane.inverted
-                          ? 'inline-flex items-center gap-2 border border-[#0a0a0a] px-2 py-0.5 font-pixel text-[10px] uppercase tracking-[0.15em]'
-                          : 'inline-flex items-center gap-2 border border-[var(--lime)] text-[var(--lime)] px-2 py-0.5 font-pixel text-[10px] uppercase tracking-[0.15em]'
-                      }
-                    >
-                      {lane.icons}
-                      <span>{lane.tag}</span>
-                    </span>
-                    <h3 className="font-display text-2xl font-bold">{lane.title}</h3>
+                    <h3 className="font-display text-xl font-bold text-[var(--bright)]">{uc.title}</h3>
+                    <p className="text-xs leading-relaxed text-[var(--lightgray)]">{uc.desc}</p>
                   </div>
-
-                  <ul
-                    className={
-                      lane.inverted
-                        ? 'border-t border-dashed border-[#0a0a0a]/40 pt-4 space-y-2 text-sm'
-                        : 'border-t border-dashed border-[var(--hairline)] pt-4 space-y-2 text-sm text-[var(--lightgray)]'
-                    }
+                  <button
+                    type="button"
+                    onClick={uc.action}
+                    className="w-full py-2 px-3 border border-[var(--hairline)] hover:border-[var(--lime)] hover:text-[var(--lime)] text-xs font-pixel uppercase tracking-[0.12em] text-left flex items-center justify-between cursor-pointer transition-colors"
                   >
-                    {lane.bullets.map((b) => (
-                      <li key={b}>-&gt; {b}</li>
-                    ))}
-                  </ul>
+                    <span>{uc.cta}</span>
+                    <span>-&gt;</span>
+                  </button>
                 </div>
               ))}
             </div>
-            </ScrollReveal>
           </div>
         </section>
 
-        {/* Phone Pairing & Live Workspace Credentials */}
-        <PairingSection
+        {/* Visual Survey Graphs, Curves & Field Benchmark (#research) */}
+        <ResearchGraphsSection testCount={207} />
+
+        {/* Sticky Scroll Safety Story (#safety) */}
+        <StickySafetyStory />
+
+        {/* Antigravity-Style Account & Cloud Connectors (#connectors) */}
+        <ConnectorsHub
           sessionToken={sessionToken}
           mode={sessionMode}
+          ttsVoiceId={ttsVoiceId}
+          onChangeTtsVoice={setTtsVoiceId}
           onSessionUpdated={(tok, m) => {
             tokenRef.current = tok;
             setSessionToken(tok);
             setSessionMode(m);
             void refreshCorridor(tok);
           }}
-          onRevokeSession={() => {
-            if (sessionToken) {
-              void fetch('/api/session/revoke', {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${sessionToken}` },
-              });
+          onRevokeSession={async () => {
+            const res = await fetch('/api/demo/session', { method: 'POST', credentials: 'include' });
+            if (res.ok) {
+              const j = (await res.json()) as { sessionToken: string };
+              tokenRef.current = j.sessionToken;
+              setSessionToken(j.sessionToken);
+              setSessionMode('DEMO');
+              void refreshCorridor(j.sessionToken);
+            } else {
+              tokenRef.current = null;
+              setSessionToken(null);
+              setWorkspace(null);
             }
-            setSessionToken(null);
-            setWorkspace(null);
           }}
         />
 
         {/* Technical FAQ (#faq) */}
-        <section id="faq" className="section-rule py-20 sm:py-28">
+        <section id="faq" className="section-rule py-20 sm:py-24">
           <div className="container-page grid grid-cols-1 lg:grid-cols-12 gap-12">
             <ScrollReveal className="lg:col-span-5 space-y-4">
               <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
-                TECHNICAL NOTES
+                SECURITY &amp; HARDWARE HONESTY
               </p>
               <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem]">
-                <span className="block text-[var(--lightgray)]">How it works.</span>
-                <GlyphDecodeHeading text="No guesswork." className="block text-[var(--bright)]" />
+                <span className="block text-[var(--lightgray)]">Built cleanly.</span>
+                <GlyphDecodeHeading text="Zero gimmicks." className="block text-[var(--bright)]" />
               </h2>
               <ul className="space-y-2 text-sm text-[var(--lightgray)] pt-2">
+                <li>-&gt; Camera-free, speaker-free Even G2 fidelity (TTS-1 routes to earbuds).</li>
                 <li>-&gt; Verified on Even Hub Simulator 0.9.5 &amp; Chromium Geometry Gate.</li>
-                <li>-&gt; Physical Even G2 + R1 ring hardware testing pending.</li>
                 <li>-&gt; Google Workspace, Notion 2026-03-11, Claude / OpenRouter / ChatGPT.</li>
               </ul>
             </ScrollReveal>
@@ -1717,20 +1734,16 @@ export function App() {
             <ScrollReveal delay={0.06} className="lg:col-span-7 divide-y divide-dashed divide-[var(--hairline)] border-t border-b border-dashed border-[var(--hairline)]">
               {[
                 {
-                  q: 'Why pair OAuth on phone instead of inside the G2 WebView?',
-                  a: 'Google blocks OAuth inside embedded WebViews. Pairing uses a 15m single-use code (10-try lockout) and stores AES-256-GCM tokens on disk at mode 0600.',
+                  q: 'How do accounts stay secure without leaking keys to the browser or glasses?',
+                  a: 'Credentials are stored strictly server-side inside an AES-256-GCM vault at mode 0600, registered for log redaction, and never packed into dist/onq.ehpk or returned over JSON.',
                 },
                 {
                   q: 'How are email prompt injections blocked?',
-                  a: 'Workspace bodies stay inside <untrusted_workspace_data> tags, reply recipients bind server-side (HTTP 400 on spoofed "to"), and Code-Guard validates every fact.',
+                  a: 'Workspace text stays inside <untrusted_workspace_data> tags, recipients bind server-side (HTTP 400 on spoofed "to"), and Code-Guard validates every fact across Claude, OpenRouter, and ChatGPT.',
                 },
                 {
-                  q: 'What happens if I tap right as the 2.0s Undo Ring hits 0.0s?',
-                  a: 'The state machine locks inputs synchronously at 0.0s before network I/O. Server preview tokens are single-use (409 on replay) with SHA-256 idempotency keys.',
-                },
-                {
-                  q: 'Does OnQ need paid API keys or cloud hosting to run?',
-                  a: 'No. Rules triage, chrono-node, faster-whisper STT, and node:sqlite run locally at £0; Claude/OpenRouter/ChatGPT and Neon Postgres remain optional.',
+                  q: 'Does OnQ work if a voice accidental tap or network drop happens?',
+                  a: 'RMS gating drops accidental taps before transcription, 2.0s Countdown Ring locks writes until 0.0s, 409 blocks double-bookings, and offline drops surface cached STALE briefs.',
                 },
               ].map((item) => (
                 <details key={item.q} className="group py-5">
@@ -1751,9 +1764,9 @@ export function App() {
       <footer className="border-t border-[var(--hairline)] py-8">
         <div className="container-page flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs text-[var(--lightgray)]">
           <div className="flex flex-wrap items-center gap-3">
-            <OnQLogo showWordmark={false} />
-            <span className="font-pixel uppercase tracking-[0.18em] text-[var(--bright)]">
-              ONQ · EVEN REALITIES G2 · TRACK 04
+            <OnQLogo showWordmark />
+            <span className="font-pixel text-[10px] uppercase tracking-[0.18em] text-[var(--lightgray)]">
+              EVEN REALITIES G2 · TRACK 04
             </span>
             <span className="inline-flex items-center gap-2 pl-2 border-l border-dashed border-[var(--hairline)]" aria-label="Supported ecosystems">
               <NotionPixelSvg className="w-3.5 h-3.5" />
@@ -1765,10 +1778,10 @@ export function App() {
             </span>
           </div>
           <div className="flex flex-wrap gap-6">
-            <a href="#simulator" className="hover:text-[var(--bright)]">Optical Simulator</a>
-            <a href="#evidence" className="hover:text-[var(--bright)]">Research &amp; Benchmark</a>
-            <a href="#safety" className="hover:text-[var(--bright)]">4-Layer Safety</a>
-            <a href="#pair" className="hover:text-[var(--bright)]">OAuth Pairing</a>
+            <a href="#experience" className="hover:text-[var(--bright)]">3D Glasses</a>
+            <a href="#use-cases" className="hover:text-[var(--bright)]">Use Cases</a>
+            <a href="#research" className="hover:text-[var(--bright)]">Research</a>
+            <a href="#connectors" className="hover:text-[var(--bright)]">Connectors</a>
           </div>
         </div>
       </footer>

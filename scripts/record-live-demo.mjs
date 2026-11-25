@@ -179,6 +179,15 @@ async function captureRealSimulatorSequence() {
   }
 }
 
+async function scrollToLens(page) {
+  await page.waitForTimeout(400);
+  await page.locator('[data-testid="g2-lens"]').waitFor({ state: 'visible', timeout: 10000 });
+  await page.evaluate(() => {
+    const el = document.querySelector('[data-testid="g2-lens"]');
+    if (el) el.scrollIntoView({ block: 'center' });
+  });
+}
+
 async function recordClip(browser, url, outName, runnerFn) {
   const context = await browser.newContext({
     viewport: { width: 1920, height: 1080 },
@@ -187,8 +196,9 @@ async function recordClip(browser, url, outName, runnerFn) {
   });
   const page = await context.newPage();
   const video = page.video();
-  await page.goto(url, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(800);
+  await page.goto(url, { waitUntil: 'load' });
+  await page.locator('#experience').waitFor({ state: 'visible', timeout: 15000 });
+  await page.waitForTimeout(900);
   await runnerFn(page);
   await context.close();
   const srcPath = await video.path();
@@ -219,41 +229,39 @@ async function main() {
 
     const browser = await chromium.launch({ headless: true });
     try {
-      // Clip 1: Hero + Interactive 3D G2 + Sticky Safety Story
+      // Clip 1: Hero 360 3D G2 + Inside-Lens POV Modal + Sticky Safety Story
       await recordClip(browser, webSrv.url, 'clip1_hero_story.webm', async (page) => {
-        await page.waitForTimeout(1600);
-        // Gentle pointer sweep over 3D glasses
-        await page.mouse.move(1440, 260, { steps: 18 });
-        await page.waitForTimeout(700);
-        await page.locator('#simulator').getByRole('button', { name: 'Exploded', exact: true }).click();
-        await page.waitForTimeout(2100);
-        await page.locator('#simulator').getByRole('button', { name: 'R1 Ring', exact: true }).click();
-        await page.waitForTimeout(2100);
-        await page.locator('#simulator').getByRole('button', { name: '3D Optics', exact: true }).click();
-        await page.waitForTimeout(1200);
-
-        // Smooth scroll into Sticky Safety Story & step through 01..04
-        await page.locator('#safety').scrollIntoViewIfNeeded();
         await page.waitForTimeout(1400);
-        await page.getByRole('tab', { name: '02' }).click();
-        await page.waitForTimeout(1500);
-        await page.getByRole('tab', { name: '03' }).click();
-        await page.waitForTimeout(2100);
-        await page.getByRole('tab', { name: '04' }).click();
+        await page.mouse.move(1440, 260, { steps: 18 });
+        await page.waitForTimeout(600);
+        await page.locator('#experience').getByRole('button', { name: 'Exploded', exact: true }).click();
         await page.waitForTimeout(1800);
+        await page.locator('#experience').getByRole('button', { name: 'R1 Ring', exact: true }).click();
+        await page.waitForTimeout(1800);
+        await page.locator('#experience').getByRole('button', { name: '3D Optics', exact: true }).click();
+        await page.waitForTimeout(900);
+        await page.locator('#experience').getByRole('button', { name: 'Look Through G2', exact: true }).first().click();
+        await page.waitForTimeout(1800);
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(700);
+
+        await page.locator('#safety').scrollIntoViewIfNeeded();
+        await page.waitForTimeout(1200);
+        await page.getByRole('tab', { name: '02' }).click();
+        await page.waitForTimeout(1300);
+        await page.getByRole('tab', { name: '03' }).click();
+        await page.waitForTimeout(1800);
+        await page.getByRole('tab', { name: '04' }).click();
+        await page.waitForTimeout(1500);
       });
 
-      // Clip 2: Continuous Live Walkthrough (Read -> Stage -> Ring -> Live Write Receipt)
+      // Clip 2: Continuous Live Walkthrough (Run Voice -> Confirm & Arm 2.0s Ring -> Live Receipt)
       await recordClip(browser, webSrv.url, 'clip2_live_walkthrough.webm', async (page) => {
-        await page.locator('[data-testid="g2-lens"]').scrollIntoViewIfNeeded();
-        await page.evaluate(() => window.scrollBy(0, -140));
-        await page.waitForTimeout(2000);
-        await page.getByRole('button', { name: 'Voice: Push 15m + Tell Priya' }).click();
-        await page.waitForTimeout(2600);
-        await page.getByRole('button', { name: 'Swipe Down (Down)' }).click();
-        await page.waitForTimeout(1500);
-        await page.getByRole('button', { name: 'Tap R1 / Temple (Enter)' }).click();
-        // Watch real 2.0s ring sweep and SSE writeback
+        await scrollToLens(page);
+        await page.waitForTimeout(1600);
+        await page.getByRole('button', { name: 'Run Voice' }).first().click();
+        await page.waitForTimeout(2400);
+        await page.getByRole('button', { name: 'Confirm & Arm 2.0s Ring' }).click();
         await page.waitForTimeout(4200);
       });
 
@@ -261,62 +269,55 @@ async function main() {
       await recordClip(browser, webSrv.url, 'clip3_conflict_and_notion.webm', async (page) => {
         await page.getByRole('button', { name: 'Reset', exact: true }).click();
         await page.waitForTimeout(700);
-        await page.locator('[data-testid="g2-lens"]').scrollIntoViewIfNeeded();
-        await page.evaluate(() => window.scrollBy(0, -140));
-        await page.waitForTimeout(800);
+        await page.locator('#use-cases').scrollIntoViewIfNeeded();
+        await page.waitForTimeout(700);
 
-        await page.getByRole('button', { name: 'Run Live Meeting Demo' }).click();
-        await page.waitForTimeout(2100);
-        await page.getByRole('button', { name: 'Ask "OnQ, Q4?" (TTS-1)' }).click();
-        await page.waitForTimeout(2400);
-        await page.getByRole('button', { name: 'Wrap Up & Save' }).click();
-        await page.waitForTimeout(2100);
-        await page.getByRole('button', { name: 'Swipe Down (Down)' }).click();
-        await page.waitForTimeout(900);
-        await page.getByRole('button', { name: 'Tap R1 / Temple (Enter)' }).click();
+        await page.getByRole('button', { name: /Start Live Meeting Scribe/ }).click();
+        await scrollToLens(page);
+        await page.waitForTimeout(2000);
+
+        await page.getByRole('button', { name: /Ask "OnQ, Q4\?"/ }).click();
+        await page.waitForTimeout(2300);
+
+        await page.getByRole('button', { name: /Stage Wrap-Up Pack/ }).click();
+        await scrollToLens(page);
+        await page.waitForTimeout(1800);
+        await page.getByRole('button', { name: 'Confirm & Arm 2.0s Ring' }).click();
         await page.waitForTimeout(3200);
 
         await page.getByRole('button', { name: 'Reset', exact: true }).click();
-        await page.waitForTimeout(700);
-        await page.getByRole('button', { name: 'Trigger 409 Conflict' }).click();
-        await page.waitForTimeout(2600);
+        await page.waitForTimeout(600);
+        await page.getByRole('button', { name: /Test 409 Conflict Lock/ }).click();
+        await scrollToLens(page);
+        await page.waitForTimeout(2400);
       });
 
-      // Clip 4: RMS Silence Gate + STALE Offline + Evidence Table + 189 Tests Hardware Band
+      // Clip 4: Visual Research Graphs, Harness Eval & 1-Click Connectors Hub
       await recordClip(browser, webSrv.url, 'clip4_failures_and_proof.webm', async (page) => {
-        await page.getByRole('button', { name: 'Reset', exact: true }).click();
-        await page.waitForTimeout(700);
-        await page.locator('[data-testid="g2-lens"]').scrollIntoViewIfNeeded();
-        await page.evaluate(() => window.scrollBy(0, -140));
-        await page.waitForTimeout(700);
-
-        await page.getByRole('button', { name: 'Test Silent WAV' }).click();
+        await page.locator('#research').scrollIntoViewIfNeeded();
+        await page.waitForTimeout(3200);
+        await page.locator('#connectors').scrollIntoViewIfNeeded();
+        await page.waitForTimeout(1000);
+        await page.locator('#connectors').getByRole('button', { name: 'Test Connection', exact: true }).first().click();
         await page.waitForTimeout(2400);
-        await page.getByRole('button', { name: 'Toggle STALE Offline' }).click();
-        await page.waitForTimeout(2200);
-        await page.getByRole('button', { name: 'Toggle STALE Offline' }).click();
-        await page.waitForTimeout(900);
-        await page.getByRole('button', { name: 'Action Pack (Notion + Hold)' }).click();
-        await page.waitForTimeout(2200);
-
-        await page.locator('#evidence').scrollIntoViewIfNeeded();
-        await page.waitForTimeout(3000);
-        await page.locator('#hardware').scrollIntoViewIfNeeded();
-        await page.waitForTimeout(2600);
       });
 
       // Refresh Product Hunt 1270x760 gallery captures from upgraded UI
       const phCtx = await browser.newContext({ viewport: { width: 1270, height: 760 }, deviceScaleFactor: 1 });
       const phPage = await phCtx.newPage();
-      await phPage.goto(webSrv.url, { waitUntil: 'networkidle' });
-      await phPage.waitForTimeout(1000);
+      await phPage.goto(webSrv.url, { waitUntil: 'load' });
+      await phPage.locator('#experience').waitFor({ state: 'visible', timeout: 15000 });
+      await phPage.waitForTimeout(1200);
       await phPage.screenshot({ path: path.join(PH_DIR, 'gallery-01-hero.png') });
 
-      await phPage.getByRole('button', { name: 'Trigger 409 Conflict' }).click();
-      await phPage.waitForTimeout(700);
-      await phPage.locator('[data-testid="g2-lens"]').scrollIntoViewIfNeeded();
-      await phPage.evaluate(() => window.scrollBy(0, -80));
-      await phPage.waitForTimeout(600);
+      await phPage.getByRole('button', { name: /Test 409 Conflict Lock/ }).click();
+      await phPage.waitForTimeout(900);
+      await phPage.locator('[data-testid="g2-lens"]').waitFor({ state: 'visible' });
+      await phPage.evaluate(() => {
+        const el = document.querySelector('[data-testid="g2-lens"]');
+        if (el) el.scrollIntoView({ block: 'center' });
+      });
+      await phPage.waitForTimeout(500);
       await phPage.screenshot({ path: path.join(PH_DIR, 'gallery-02-conflict-lock.png') });
 
       await phPage.locator('#safety').scrollIntoViewIfNeeded();
@@ -324,8 +325,8 @@ async function main() {
       await phPage.waitForTimeout(700);
       await phPage.screenshot({ path: path.join(PH_DIR, 'gallery-03-voice-pack.png') });
 
-      await phPage.locator('#hardware').scrollIntoViewIfNeeded();
-      await phPage.waitForTimeout(800);
+      await phPage.locator('#research').scrollIntoViewIfNeeded();
+      await phPage.waitForTimeout(1000);
       await phPage.screenshot({ path: path.join(PH_DIR, 'gallery-04-architecture.png') });
       await phCtx.close();
       console.log('[record] Refreshed media/product-hunt/gallery-01..04.png (1270x760)');

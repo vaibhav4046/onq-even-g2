@@ -1,0 +1,67 @@
+{
+  "generatedAtIso": "2026-11-25T02:35:40.756Z",
+  "commitHash": "8baa70e",
+  "intentAccuracy": {
+    "passed": 32,
+    "total": 32,
+    "pct": 100
+  },
+  "promptInjection": {
+    "blocked": 5,
+    "total": 5,
+    "obeyed": 0,
+    "pct": 100
+  },
+  "conflictHardLock": {
+    "blocked": 3,
+    "total": 3,
+    "partialWrites": 0,
+    "pct": 100
+  },
+  "rmsSilenceGate": {
+    "rejected": 5,
+    "totalSilent": 5,
+    "acceptedSpeech": 1,
+    "pct": 100
+  },
+  "opticalCompliance": {
+    "statesChecked": 7,
+    "allUnder42Cols": true,
+    "allUnder999Bytes": true,
+    "minDarkFieldPct": 97
+  },
+  "failoverMatrix": [
+    {
+      "scenario": "Claude Primary 200 OK",
+      "providerUsed": "Claude",
+      "hops": 1,
+      "latencyMs": 1,
+      "fallbackUsed": false,
+      "factGuardPassed": true
+    },
+    {
+      "scenario": "Claude 429 -> OpenRouter",
+      "providerUsed": "OpenRouter",
+      "hops": 2,
+      "latencyMs": 1,
+      "fallbackUsed": false,
+      "factGuardPassed": true
+    },
+    {
+      "scenario": "Claude 401 + OR 503 -> ChatGPT",
+      "providerUsed": "ChatGPT",
+      "hops": 3,
+      "latencyMs": 1,
+      "fallbackUsed": false,
+      "factGuardPassed": true
+    },
+    {
+      "scenario": "All Remote Fail -> Rules Engine",
+      "providerUsed": "Rules (Fallback)",
+      "hops": 4,
+      "latencyMs": 34,
+      "fallbackUsed": true,
+      "factGuardPassed": true
+    }
+  ]
+}

@@ -1,20 +1,31 @@
 # OnQ - Final Hackathon & Product Hunt Submission Handoff
 
-**Clean-Room Verified Code Commit:** `bbed3f1` (verified in `docs/VERIFICATION_LOG.txt`)
 **Project Root:** `C:\Users\lalwa\.gemini\antigravity\scratch\oncue-even-g2`
-**Hard Safety Stop Enforced:** All local building, testing, `.ehpk` packaging, simulator capture, security auditing, UI overhaul, and launch film rendering are complete. External DoraHacks / Product Hunt submission and any paid hosting remain unsubmitted for your manual review and final click.
+**Hard Safety Stop Enforced:** All local building, testing (`207/207`), harness benchmarking (`npm run eval:harness`), `.ehpk` packaging, simulator capture, security auditing, 3D WebGL UI overhaul, and launch film rendering (`121.72s <= 2:45`) are complete. External DoraHacks / Product Hunt submission and any paid hosting remain unsubmitted for your manual review and final click.
 
 ---
 
-## 0. 60-Second Live Google OAuth + Notion `2026-03-11` + AssemblyAI Plug-In Checklist (Safe Test Isolation)
+## 0. 60-Second OAuth Plug-In Guide (Google Cloud + Notion 2026-03-11 + AI / AssemblyAI)
 
-OnQ boots cleanly offline in labeled `DEMO` mode with zero env vars. To connect real **AssemblyAI STT-3.7 / TTS-1** plus a **Google Workspace + Notion** sandbox account cleanly without risking personal contacts or primary calendars:
-1. Export `ASSEMBLYAI_API_KEY` (stored locally in gitignored `.env`, never bundled into `dist/onq.ehpk` or browser JS). Speech output targets **Companion Phone / Bluetooth Earbuds Audio Out** (Even G2 has no speaker).
-2. Create a dedicated **Google Cloud OAuth Desktop/Web Client** with scopes `calendar.events`, `gmail.readonly`, `gmail.compose`, `drive.readonly` and redirect URI `http://127.0.0.1:8787/api/pair/google-callback`.
-3. Export `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` before running `npm run dev` (use a secondary test calendar or self-addressed test Gmail thread).
-4. In Notion (`2026-03-11` `data_sources` API enabled cleanly), share ONE disposable test task database with your internal integration (`ntn_...`).
-5. Open `http://127.0.0.1:5173/#pair`: click `Mint 6-Digit Pairing Code` -> `Exchange Code` -> click `Open Google OAuth` + click `Test Notion Auto-Schema` -> `Save to 0600 Vault`. Refresh tokens stay encrypted at mode `0600` (AES-256-GCM), and lens badge switches from `DEMO` to `LIVE`.
-6. Zero OAuth shortcut: paste any exported `.ics` calendar directly into `03. ZERO-CONFIG .ICS CALENDAR IMPORT` on `/#pair` for immediate `LIVE` schedule triage.
+OnQ boots cold in labeled `DEMO` sandbox mode with zero env vars. To plug in real OAuth / API keys cleanly into a disposable sandbox workspace without touching personal contacts or primary calendars:
+
+1. **Google Cloud Console (OAuth 2.0 + PKCE `S256`):**
+   - Create one OAuth 2.0 Web Client in Google Cloud Console.
+   - Add Authorized Redirect URI: `http://127.0.0.1:8787/api/auth/google/callback` (legacy compatibility URI `/api/pair/google-callback` is also retained).
+   - Enable scopes: `openid email profile`, `calendar.events`, `calendar.readonly`, `gmail.modify`, `drive.readonly`.
+   - Export `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (in gitignored `.env` or enter inside `#connectors`), start `npm run dev`, and click **Sign in with Google** in `#connectors`. Server issues single-use CSRF state + PKCE verifier, sets a signed `HttpOnly; SameSite=Lax` cookie, and encrypts refresh tokens inside the AES-256-GCM mode `0600` vault.
+   - Zero-OAuth shortcut: paste any RFC 5545 `.ics` export inside the Google Workspace card in `#connectors` for instant live schedule triage.
+
+2. **Notion (`2026-03-11` `data_sources` API):**
+   - Option A (1-click token): Share ONE disposable task database with your internal integration (`ntn_...`), open **Connect Notion** in `#connectors`, paste token + Database ID, and click **Discover Schema & Connect**.
+   - Option B (OAuth): Set `NOTION_CLIENT_ID`, `NOTION_CLIENT_SECRET`, and redirect URI `http://127.0.0.1:8787/api/auth/notion/callback`, then click **Authorize Notion OAuth**.
+
+3. **Multi-Model AI & AssemblyAI Voice (`STT-3.7` + `TTS-1`):**
+   - Add any combination of `ANTHROPIC_API_KEY` (`Claude`), `OPENROUTER_API_KEY` (`OpenRouter`), `OPENAI_API_KEY` (`ChatGPT`), or `ASSEMBLYAI_API_KEY` (`AssemblyAI`) in gitignored `.env` or inside `#connectors`.
+   - Use **Test Connection** on any connector card (`POST /api/connectors/:provider/test`) to verify real upstream status and round-trip `latencyMs`. Missing keys automatically cascade cleanly (`Claude -> OpenRouter -> ChatGPT -> Deterministic Rules` and `local faster-whisper` fallback).
+
+4. **Physical Even G2 Glasses WebView Pairing:**
+   - Because Even Realities blocks Google OAuth sign-in inside the embedded G2 WebView, open **Link Even G2 Glasses** at the bottom of `#connectors` to mint a 15-minute pairing handshake for `dist/onq.ehpk`.
 
 ---
 
@@ -22,13 +33,14 @@ OnQ boots cleanly offline in labeled `DEMO` mode with zero env vars. To connect 
 
 | Artifact | Path | Observed Verification |
 | :--- | :--- | :--- |
-| **Monorepo Source** | `packages/core`, `apps/server`, `apps/glasses`, `apps/web` | `npm ci && npm test && npm run build` passed cold (`189 / 189` tests: 125 core + 64 server/AssemblyAI/live-provider/Postgres/fault tests) |
+| **Monorepo Source** | `packages/core`, `apps/server`, `apps/glasses`, `apps/web` | `npm ci && npm test && npm run build` passed cold (**207 / 207 tests** across 14 files) |
+| **Orchestration & Safety Eval** | `docs/HARNESS_EVAL.json` (`npm run eval:harness`) | **32/32 intents (100%)**, **5/5 prompt injections blocked**, **3/3 409 locks**, **5/5 RMS silence rejections**, **4-tier failover matrix** |
 | **EvenHub G2 Package** | `dist/onq.ehpk` | Packed via `@evenrealities/evenhub-cli@0.2.0` (`45,096` bytes, SDK `0.0.16`, `min_app_version 2.2.10`, 0 warnings, 0 secrets) |
 | **Official Simulator Captures** | `docs/screenshots/sim-01..07.png` | 7 real 576x288 RGBA captures from `@evenrealities/evenhub-simulator@0.9.5` (including native `ListContainer`) with 0 uncaught/unhandled errors |
-| **11-Check Geometry Gate** | `scripts/verify-geometry.mjs` + `docs/screenshots/geometry-*.png` | `11 / 11` PASS across all lens states (`MEETING_LIVE` & `WRAP_UP` included, `97.3%-98.0%` dark pixels, `<= 257` UTF-8 bytes) + Check 11 Negative Control caught 3 injected defects |
-| **Security Audit Report** | `SECURITY_AUDIT.md` (`scripts/security-scan.mjs`) | `10 / 10` domains PASS (`0` High/Critical findings, `0` secrets in source/EHPK, `npm audit --omit=dev: 0 vulnerabilities`) |
-| **Clean-Room Verification Log** | `docs/VERIFICATION_LOG.txt` | Full fresh-clone terminal transcript with zero API keys set (`=== ALL CLEAN ROOM GATES PASSED ===`) |
-| **Product Launch Film** | `media/out/onq-launch-demo.mp4` | `1920x1080`, `60 fps`, `110.97s` (`1:51 <= 2:45`), `8.84 MB` H.264 + 48 kHz AAC stereo (`-14 LUFS`, `AssemblyAI-TTS-1` VO + minimal ambient pad + continuous live desktop & EvenHub Simulator 0.9.5 footage) |
+| **11-Check Geometry Gate** | `scripts/verify-geometry.mjs` + `docs/screenshots/geometry-*.png` | `11 / 11` PASS across all lens states (`97.3%-98.0%` black pixels, `<= 257` UTF-8 bytes) + Check 11 Negative Control |
+| **Security Audit Report** | `SECURITY_AUDIT.md` (`scripts/security-scan.mjs`) | `10 / 10` domains PASS (`0` High/Critical findings, `0` secrets across 82 scanned files + `.ehpk`, `npm audit --omit=dev: 0 vulnerabilities`) |
+| **Clean-Room Verification Log** | `docs/VERIFICATION_LOG.txt` | Fresh-clone verification transcript with zero env vars |
+| **Product Launch Film** | `media/out/onq-launch-demo.mp4` | `1920x1080`, `60 fps`, `121.72s` (`2:02 <= 2:45`), `9.12 MB` H.264 + 48 kHz AAC stereo (`-14 LUFS`, `AssemblyAI-TTS-1` VO + unified 3D G2 + EvenHub Simulator 0.9.5 footage) |
 | **Product Hunt Launch Kit** | `media/product-hunt/` | `gallery-01-hero.png` .. `gallery-04-architecture.png` (`1270x760`), `thumbnail-240x240.gif`, `PRODUCT_HUNT_LAUNCH_COPY.md` |
 | **API Feedback Deliverable** | `API_FEEDBACK.md` | 5 concrete Even Hub SDK `0.0.16`, Simulator `0.9.5`, and WebView OAuth PKCE feature requests |
 
@@ -48,35 +60,28 @@ OnQ boots cleanly offline in labeled `DEMO` mode with zero env vars. To connect 
 ### Full Description (Copy-Paste Ready)
 ```markdown
 ## The 90-Second Corridor Problem
-Every workday, founders, engineers, and investors lose the 90 seconds between back-to-back meetings juggling Google Calendar, Gmail, Google Drive, and Notion on their phone while walking into a room.
+Every workday, founders, engineers, and investors lose the 90 seconds between back-to-back meetings juggling Google Calendar, Gmail, Google Drive, and Notion on their phone while walking into a room (Microsoft Work Trend Index 2023-2025: 57% of work time spent communicating, up to 275 daily interruptions, 68% lacking uninterrupted focus time; Mark, Gudith & Klocke CHI '08 doi:10.1145/1357054.1357072).
 
-OnQ turns Even Realities G2 into a private, hands-free corridor copilot: one 42-column card tells you who you are meeting, what they just asked in Gmail, and the linked Drive/Notion snippet. One voice phrase or two R1 ring gestures shifts the meeting, sends a grounded reply, or captures a Notion + Calendar action pack behind four deterministic safety locks.
+OnQ turns Even Realities G2 into a private, hands-free corridor copilot: one 42-column card tells you who you are meeting, what they just asked in Gmail, and the linked Drive/Notion snippet. One voice phrase or two R1 ring gestures shifts the meeting, sends a grounded reply, captures live RAM-only diarized meeting notes, or builds a Notion + Calendar follow-up pack behind four deterministic safety locks.
 
 ## Try It in 10 Seconds (Zero API Keys Required)
 git clone <YOUR_PUBLIC_REPO_URL>
 cd onq-even-g2
-npm ci && npm test && npm run build && npm run pack
+npm ci && npm test && npm run eval:harness && npm run build && npm run pack
 npm run dev
 
-Open http://127.0.0.1:5173 for the interactive 576x288 Browser Optical Simulator (labeled DEMO sandbox) and Phone OAuth Pairing Console, or sideload dist/onq.ehpk in Even Hub.
-
-## How OnQ Works (Read -> Stage -> Arm 2.0s Ring -> Receipt)
-1. Corridor Dossier (READ): Aggregates upcoming Calendar events, recent attendee Gmail threads, linked Drive doc snippets, and Notion tasks into <= 7 lines, <= 42 columns, <= 999 UTF-8 bytes, and >= 70% pure black transparent pixels.
-2. Voice Capture & RMS Silence Gate (16 kHz PCM): Defensive frame.slice() audio buffering rejects accidental silent taps (< 350ms or RMS < 0.012) locally with 0 STT calls, then transcribes valid speech locally via Whisper + deterministic chrono-node date parsing.
-3. Default-NO Confirm Gate: Voice NEVER executes directly. It stages a single-use ActionPreview (45s TTL) defaulting strictly to [NO - CANCEL].
-4. Commit-Locked 2.0s 4-Bit PNG Undo Ring: Swiping to YES and tapping sweeps a 76x76 4-bit grayscale PNG ring (updateImageRawData at <= 4 Hz). Any tap or FOREGROUND_EXIT cancels with zero writes. At 0.0s, the state machine locks inputs synchronously before network I/O.
-5. HTTP 409 Conflict Hard-Lock & Code-Guard: Re-queries Calendar Free/Busy, Gmail historyId, and Notion last_edited_time synchronously before committing. Overlaps or stale threads abort with HTTP 409 and suggest the next verified free slot. Gmail recipients bind strictly server-side from thread metadata, and Code-Guard blocks LLM-invented emails, times, or prompt injections.
+Open http://127.0.0.1:5173 for the interactive 3D Even G2 hardware stage, 576x288 Browser Optical Simulator, Harness Eval Telemetry, and 1-Click Connectors Hub, or sideload dist/onq.ehpk in Even Hub.
 
 ## Verified, Not Claimed
-- 189 / 189 automated tests passing via npm test (125 pure core + 64 HTTP/WS/AssemblyAI/live-provider/Postgres/fault-injection tests, 0 keys required)
+- 207 / 207 automated tests passing via npm test (core + PKCE OAuth, HttpOnly cookie, 4-tier failover, WS/AssemblyAI, Postgres, fault-injection tests, 0 keys required)
+- Reproducible Harness Eval (npm run eval:harness -> docs/HARNESS_EVAL.json): 32/32 intents (100%), 5/5 prompt injections blocked, 3/3 HTTP 409 conflict locks, 5/5 RMS silence rejections, 4-tier cascading failover matrix
 - 11 / 11 Chromium 576x288 Geometry Gate passing across all lens states + Check 11 Negative Control
 - 7 real 576x288 captures in @evenrealities/evenhub-simulator@0.9.5 with 0 uncaught/unhandled errors
 - 10 / 10 Security Audit domains PASS (SECURITY_AUDIT.md, 0 secrets in repo or dist/onq.ehpk)
-- Clean-room fresh-clone verified in docs/VERIFICATION_LOG.txt
 
 ## Honest Limits & Pre-Nov 23 Disclosure
 - Verified end-to-end in Even Hub Simulator 0.9.5, our Chromium Geometry Gate, and automated HTTP suites. Physical Even G2 + R1 ring hardware testing is pending.
-- 100% of OnQ application code, tests, UI, and launch media were built during the Nov 23-29, 2026 hackathon window using standard OSS packages (@evenrealities/even_hub_sdk@0.0.16, chrono-node, React, Tailwind CSS, Vite, Vitest, Playwright).
+- 100% of OnQ application code, tests, UI, and launch media were built during the Nov 23-29, 2026 hackathon window using standard OSS packages (@evenrealities/even_hub_sdk@0.0.16, three, @react-three/fiber, chrono-node, React, Tailwind CSS, Vite, Vitest, Playwright).
 
 ## Business Potential
 Target $7/month Work-Pro tier (~$0.001/brief unit cost because deterministic rules handle triage, date parsing, and conflict locking before optional LLM compression).
@@ -84,8 +89,8 @@ Target $7/month Work-Pro tier (~$0.001/brief unit cost because deterministic rul
 
 ---
 
-## 3. Manual Pre-Publish Checklist for Vaibhav
+## 3. Manual Pre-Publish Checklist
 1. Push `onq-even-g2` to a public GitHub repository (`git remote add origin ... && git push -u origin master`).
-2. Upload `media/out/onq-launch-demo.mp4` (`1:51`, 1080p60, `8.84 MB`, voiced with `AssemblyAI-TTS-1`) to YouTube/DoraHacks and attach `dist/onq.ehpk`.
-3. Paste the Track 04 description above + the 5 requests from `API_FEEDBACK.md` into DoraHacks and click Submit.
+2. Upload `media/out/onq-launch-demo.mp4` (`2:02`, 1080p60, `9.12 MB`, voiced with `AssemblyAI-TTS-1`) to YouTube/DoraHacks and attach `dist/onq.ehpk`.
+3. Paste the Track 04 description above + the 5 requests from `API_FEEDBACK.md` into DoraHacks and submit.
 4. For Product Hunt: upload `media/product-hunt/gallery-01..04.png`, `thumbnail-240x240.gif`, and paste `media/product-hunt/PRODUCT_HUNT_LAUNCH_COPY.md`.

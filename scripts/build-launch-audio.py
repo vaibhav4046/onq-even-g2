@@ -65,13 +65,13 @@ CHAPTERS = [
     },
     {
         "id": "05_proof_close",
-        "title": "Honest Failure Modes & Clean-Room Proof",
-        "caption": "RMS silence gate · STALE offline cache · 189 tests · 11/11 geometry · 10/10 security",
+        "title": "Connectors Hub, Multi-Model Harness & Clean-Room Proof",
+        "caption": "207 tests · 32/32 intent eval · 5/5 injection block · 11/11 geometry · 10/10 security",
         "text": (
-            "Silent accidental taps drop before transcription. "
-            "Offline drops surface an honest Stale badge with cached state instead of blank glass. "
-            "Verified across one hundred eighty-nine automated tests, eleven geometry checks, "
-            "and a clean ten-domain security audit, ready to run cold with zero paid keys."
+            "Connect Google OAuth, Notion, Claude, OpenRouter, or ChatGPT in one click inside an AES-256-GCM encrypted vault, "
+            "backed by automatic multi-model failover. "
+            "Verified across two hundred seven automated tests, thirty-two evaluation intents with five out of five injection blocks, "
+            "eleven optical geometry gates, and a clean ten-domain security audit."
         ),
         "pad_after": 2.4,
     },
