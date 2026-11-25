@@ -1418,7 +1418,7 @@ export function App() {
             <OnQLogo showWordmark />
           </a>
 
-          <nav aria-label="Primary navigation" className="hidden md:flex items-center gap-5 text-sm text-[var(--lightgray)] whitespace-nowrap">
+          <nav aria-label="Primary navigation" className="hidden lg:flex items-center gap-5 text-sm text-[var(--lightgray)] whitespace-nowrap">
             <a href="#experience" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Lens</a>
             <a href="#use-cases" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Workflows</a>
             <a href="#architecture" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">How it works</a>
