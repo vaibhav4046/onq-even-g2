@@ -14,11 +14,15 @@ export interface StoredCredentials {
   notionDatabaseId?: string;
   telegramBotToken?: string;
   telegramChatId?: string;
-  preferredLlm?: 'auto' | 'claude' | 'openrouter' | 'chatgpt' | 'rules';
+  preferredLlm?: 'auto' | 'claude' | 'openrouter' | 'chatgpt' | 'grok' | 'omniroute' | 'rules';
   anthropicKey?: string;
   openRouterKey?: string;
   openRouterModel?: string;
   openAiKey?: string;
+  xaiKey?: string;
+  omniRouteUrl?: string;
+  omniRouteKey?: string;
+  omniRouteModel?: string;
   assemblyAiKey?: string;
   accountName?: string;
   accountEmail?: string;
@@ -59,6 +63,8 @@ export class EncryptedTokenVault {
     if (creds.anthropicKey) registerSecretForRedaction(creds.anthropicKey);
     if (creds.openRouterKey) registerSecretForRedaction(creds.openRouterKey);
     if (creds.openAiKey) registerSecretForRedaction(creds.openAiKey);
+    if (creds.xaiKey) registerSecretForRedaction(creds.xaiKey);
+    if (creds.omniRouteKey) registerSecretForRedaction(creds.omniRouteKey);
     if (creds.assemblyAiKey) registerSecretForRedaction(creds.assemblyAiKey);
 
     const iv = crypto.randomBytes(12);
@@ -106,6 +112,8 @@ export class EncryptedTokenVault {
       if (parsed.anthropicKey) registerSecretForRedaction(parsed.anthropicKey);
       if (parsed.openRouterKey) registerSecretForRedaction(parsed.openRouterKey);
       if (parsed.openAiKey) registerSecretForRedaction(parsed.openAiKey);
+      if (parsed.xaiKey) registerSecretForRedaction(parsed.xaiKey);
+      if (parsed.omniRouteKey) registerSecretForRedaction(parsed.omniRouteKey);
       if (parsed.assemblyAiKey) registerSecretForRedaction(parsed.assemblyAiKey);
       return parsed;
     } catch {

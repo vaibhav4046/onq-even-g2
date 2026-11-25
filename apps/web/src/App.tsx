@@ -41,12 +41,14 @@ import {
   MOTION_EASE,
   ScrollProgressRail,
   ScrollReveal,
+  SpotlightBentoCard,
 } from './components/MotionPrimitives';
 import { ArchitectureShowcase } from './components/ArchitectureShowcase';
 import { LiveVoiceStudio } from './components/LiveVoiceStudio';
 import type { AgentTaskDto, UnifiedMemoryDto } from './components/LiveVoiceStudio';
 import { OnQLogo } from './components/OnQLogo';
 import { OnQVoiceOrb } from './components/OnQVoiceOrb';
+import { PhosphorMeshShader } from './components/PhosphorMeshShader';
 import { ResearchGraphsSection } from './components/ResearchGraphsSection';
 import { StickySafetyStory } from './components/StickySafetyStory';
 import {
@@ -1451,7 +1453,8 @@ export function App() {
       {/* Hero: Full-Size 360° 3D Glasses Artifact + HydraDB-inspired Rotating-Word Tagline */}
       <main id="top">
         <section id="experience" className="py-10 sm:py-14 relative overflow-hidden">
-          <div className="container-page relative space-y-10">
+          <PhosphorMeshShader intensity={0.85} />
+          <div className="container-page relative z-10 space-y-10">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
               <motion.div
                 initial={{ opacity: 0, y: 14 }}
@@ -1464,14 +1467,15 @@ export function App() {
                 </p>
                 <h1 className="font-dots font-black leading-[0.96] tracking-[-0.02em] text-[2.35rem] sm:text-[3.05rem] lg:text-[3.4rem]">
                   <span className="block text-[var(--bright)]">Your glasses that</span>
-                  <span className="inline-flex min-h-[1.08em] items-center text-[var(--g2-phosphor)]">
-                    <AnimatePresence mode="wait">
+                  <span className="block min-h-[1.08em] text-[var(--g2-phosphor)]">
+                    <AnimatePresence initial={false}>
                       <motion.span
                         key={HERO_WORDS[heroWordIdx]}
-                        initial={reducedMotion ? undefined : { opacity: 0, y: 10 }}
-                        animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}
-                        exit={reducedMotion ? undefined : { opacity: 0, y: -10 }}
-                        transition={{ duration: 0.22, ease: MOTION_EASE }}
+                        className="inline-block"
+                        initial={reducedMotion ? false : { opacity: 0.25, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={reducedMotion ? undefined : { opacity: 0, position: 'absolute' }}
+                        transition={{ duration: 0.18, ease: MOTION_EASE }}
                       >
                         {HERO_WORDS[heroWordIdx]}
                       </motion.span>
@@ -2205,6 +2209,15 @@ export function App() {
                 onAskMeeting={(q) => void askMeetingClaude(q)}
                 onWipeMeeting={() => void wipeMeetingScribe()}
                 onLiveUiUpdate={async (surface) => {
+                  const directLines = surface.components
+                    .map((c) => c.text ?? '')
+                    .filter((t) => t.trim().length > 0);
+                  if (directLines.length > 0 && !surface.presetKey) {
+                    ctrlRef.current?.showAnswer(
+                      [surface.title.toUpperCase(), ...directLines].slice(0, 4),
+                    );
+                    return;
+                  }
                   const tok = tokenRef.current;
                   if (!tok) return;
                   const res = await fetch('/api/liveui', {
@@ -2345,37 +2358,39 @@ export function App() {
                     ),
                 },
               ].map((uc) => (
-                <div key={uc.title} className="retro-glass-card p-6 flex flex-col justify-between space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                        {uc.tag}
-                      </span>
-                      {uc.icons}
+                <SpotlightBentoCard key={uc.title} className="retro-glass-card p-6 flex flex-col justify-between">
+                  <div className="flex flex-col justify-between space-y-4 h-full">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
+                          {uc.tag}
+                        </span>
+                        {uc.icons}
+                      </div>
+                      {uc.visual}
+                      <h3 className="font-display text-xl font-bold text-[var(--bright)]">{uc.title}</h3>
+                      <p className="text-xs leading-relaxed text-[var(--lightgray)]">{uc.desc}</p>
                     </div>
-                    {uc.visual}
-                    <h3 className="font-display text-xl font-bold text-[var(--bright)]">{uc.title}</h3>
-                    <p className="text-xs leading-relaxed text-[var(--lightgray)]">{uc.desc}</p>
+                    <button
+                      type="button"
+                      onClick={uc.action}
+                      className="retro-btn-glass w-full py-2 px-3 hover:text-[var(--lime)] text-xs font-pixel uppercase tracking-[0.12em] text-left flex items-center justify-between cursor-pointer"
+                    >
+                      <span>{uc.cta}</span>
+                      <span>-&gt;</span>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={uc.action}
-                    className="retro-btn-glass w-full py-2 px-3 hover:text-[var(--lime)] text-xs font-pixel uppercase tracking-[0.12em] text-left flex items-center justify-between cursor-pointer"
-                  >
-                    <span>{uc.cta}</span>
-                    <span>-&gt;</span>
-                  </button>
-                </div>
+                </SpotlightBentoCard>
               ))}
             </div>
           </div>
         </section>
 
         {/* Interactive System Architecture & Telemetry (#architecture) */}
-        <ArchitectureShowcase testCount={236} />
+        <ArchitectureShowcase testCount={240} />
 
         {/* Visual Survey Graphs, Curves & Field Benchmark (#research) */}
-        <ResearchGraphsSection testCount={236} />
+        <ResearchGraphsSection testCount={240} />
 
         {/* Sticky Scroll Safety Story (#safety) */}
         <StickySafetyStory />

@@ -1,4 +1,4 @@
-export type ModelProviderId = 'claude' | 'openrouter' | 'chatgpt' | 'rules';
+export type ModelProviderId = 'claude' | 'openrouter' | 'chatgpt' | 'grok' | 'omniroute' | 'rules';
 
 export type ModelAttemptStatus =
   | 'OK'

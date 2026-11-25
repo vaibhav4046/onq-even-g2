@@ -24,7 +24,8 @@ export interface CompressReplyOutput {
   totalLatencyMs?: number;
 }
 
-export type PreferredLlmProvider = 'auto' | 'claude' | 'openrouter' | 'chatgpt' | 'rules';
+export type PreferredLlmProvider = 'auto' | 'claude' | 'openrouter' | 'chatgpt' | 'grok' | 'omniroute' | 'rules';
+export type RemoteProviderId = 'claude' | 'openrouter' | 'chatgpt' | 'grok' | 'omniroute';
 
 export const OPENROUTER_FREE_FALLBACK_MODELS = [
   'openrouter/free',
@@ -37,7 +38,7 @@ export const OPENROUTER_FREE_FALLBACK_MODELS = [
 const COOLDOWN_MS = 5 * 60_000;
 const providerCooldowns = new Map<string, number>();
 
-function cooldownKey(provider: 'claude' | 'openrouter' | 'chatgpt', key: string): string {
+function cooldownKey(provider: RemoteProviderId, key: string): string {
   const tail = key.slice(-6);
   return `${provider}:${tail}`;
 }
@@ -47,7 +48,7 @@ export function clearProviderCooldowns(): void {
 }
 
 export function isProviderCooledDown(
-  provider: 'claude' | 'openrouter' | 'chatgpt',
+  provider: RemoteProviderId,
   key?: string,
   nowMs = Date.now(),
 ): boolean {
@@ -61,7 +62,7 @@ export function isProviderCooledDown(
   return true;
 }
 
-function markProviderCooldown(provider: 'claude' | 'openrouter' | 'chatgpt', key: string): void {
+function markProviderCooldown(provider: RemoteProviderId, key: string): void {
   if (!key) return;
   providerCooldowns.set(cooldownKey(provider, key), Date.now() + COOLDOWN_MS);
 }
@@ -71,6 +72,10 @@ export interface LlmConfig {
   openRouterModel?: string;
   anthropicKey?: string;
   openAiKey?: string;
+  xaiKey?: string;
+  omniRouteUrl?: string;
+  omniRouteKey?: string;
+  omniRouteModel?: string;
   preferredProvider?: PreferredLlmProvider;
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
@@ -88,12 +93,14 @@ const SYSTEM_PROMPT = [
 function displayName(p: ModelProviderId): string {
   if (p === 'claude') return 'Claude';
   if (p === 'openrouter') return 'OpenRouter';
+  if (p === 'grok') return 'Grok (xAI)';
+  if (p === 'omniroute') return 'OmniRoute';
   if (p === 'chatgpt') return 'ChatGPT';
   return 'Rules (Deterministic)';
 }
 
 export function getProviderHealthStatus(
-  provider: 'claude' | 'openrouter' | 'chatgpt',
+  provider: RemoteProviderId,
   key?: string,
 ): 'READY' | 'COOLDOWN' | 'UNCONFIGURED' {
   if (!key) return 'UNCONFIGURED';
@@ -102,20 +109,24 @@ export function getProviderHealthStatus(
 
 function resolveConfiguredKeys(
   cfg: LlmConfig,
-): Record<'claude' | 'openrouter' | 'chatgpt', string | undefined> {
+): Record<RemoteProviderId, string | undefined> {
   return {
     claude: cfg.anthropicKey ?? process.env.ANTHROPIC_API_KEY,
     openrouter: cfg.openRouterKey ?? process.env.OPENROUTER_API_KEY,
+    grok: cfg.xaiKey ?? process.env.XAI_API_KEY,
+    omniroute: cfg.omniRouteKey ?? process.env.OMNIROUTE_API_KEY ?? (cfg.omniRouteUrl ?? process.env.OMNIROUTE_BASE_URL ? 'omniroute-local' : undefined),
     chatgpt: cfg.openAiKey ?? process.env.OPENAI_API_KEY,
   };
 }
 
 function getProviderOrder(
   preferred: PreferredLlmProvider,
-): Array<'claude' | 'openrouter' | 'chatgpt'> {
-  if (preferred === 'openrouter') return ['openrouter', 'claude', 'chatgpt'];
-  if (preferred === 'chatgpt') return ['chatgpt', 'claude', 'openrouter'];
-  return ['claude', 'openrouter', 'chatgpt'];
+): RemoteProviderId[] {
+  if (preferred === 'openrouter') return ['openrouter', 'claude', 'chatgpt', 'grok', 'omniroute'];
+  if (preferred === 'grok') return ['grok', 'openrouter', 'omniroute', 'claude', 'chatgpt'];
+  if (preferred === 'omniroute') return ['omniroute', 'openrouter', 'grok', 'claude', 'chatgpt'];
+  if (preferred === 'chatgpt') return ['chatgpt', 'claude', 'openrouter', 'grok', 'omniroute'];
+  return ['claude', 'openrouter', 'chatgpt', 'grok', 'omniroute'];
 }
 
 export function resolveHealthyLlmLabel(cfg: LlmConfig = {}): string {
@@ -147,8 +158,42 @@ function extractJsonPayload(raw: string): unknown {
   }
 }
 
+async function invokeOpenAiCompat(params: {
+  url: string;
+  apiKey?: string;
+  model: string;
+  systemPrompt: string;
+  prompt: string;
+  maxTokens: number;
+  f: typeof fetch;
+  signal: AbortSignal;
+}): Promise<{ raw: string; httpStatus: number }> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (params.apiKey && params.apiKey !== 'omniroute-local') {
+    headers.Authorization = `Bearer ${params.apiKey}`;
+  }
+  const res = await params.f(params.url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      model: params.model,
+      max_tokens: params.maxTokens,
+      messages: [
+        { role: 'system', content: params.systemPrompt },
+        { role: 'user', content: params.prompt },
+      ],
+    }),
+    signal: params.signal,
+  });
+  if (!res.ok) {
+    throw Object.assign(new Error(`HTTP ${res.status}`), { httpStatus: res.status });
+  }
+  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  return { raw: data.choices?.[0]?.message?.content ?? '', httpStatus: res.status };
+}
+
 async function invokeRemoteProvider(
-  provider: 'claude' | 'openrouter' | 'chatgpt',
+  provider: RemoteProviderId,
   prompt: string,
   cfg: LlmConfig,
   f: typeof fetch,
@@ -242,28 +287,43 @@ async function invokeRemoteProvider(
     throw lastErr;
   }
 
-  const key = cfg.openAiKey ?? process.env.OPENAI_API_KEY ?? '';
-  const res = await f('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      max_tokens: maxTokens ?? 140,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: prompt },
-      ],
-    }),
+  if (provider === 'grok') {
+    return invokeOpenAiCompat({
+      url: 'https://api.x.ai/v1/chat/completions',
+      apiKey: cfg.xaiKey ?? process.env.XAI_API_KEY ?? '',
+      model: 'grok-3-mini',
+      systemPrompt,
+      prompt,
+      maxTokens: maxTokens ?? 240,
+      f,
+      signal,
+    });
+  }
+
+  if (provider === 'omniroute') {
+    const base = (cfg.omniRouteUrl ?? process.env.OMNIROUTE_BASE_URL ?? 'http://127.0.0.1:20128/v1').replace(/\/+$/, '');
+    return invokeOpenAiCompat({
+      url: `${base}/chat/completions`,
+      apiKey: cfg.omniRouteKey ?? process.env.OMNIROUTE_API_KEY,
+      model: cfg.omniRouteModel ?? process.env.OMNIROUTE_MODEL ?? 'auto',
+      systemPrompt,
+      prompt,
+      maxTokens: maxTokens ?? 240,
+      f,
+      signal,
+    });
+  }
+
+  return invokeOpenAiCompat({
+    url: 'https://api.openai.com/v1/chat/completions',
+    apiKey: cfg.openAiKey ?? process.env.OPENAI_API_KEY ?? '',
+    model: 'gpt-4o-mini',
+    systemPrompt,
+    prompt,
+    maxTokens: maxTokens ?? 140,
+    f,
     signal,
   });
-  if (!res.ok) {
-    throw Object.assign(new Error(`HTTP ${res.status}`), { httpStatus: res.status });
-  }
-  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  return { raw: data.choices?.[0]?.message?.content ?? '', httpStatus: res.status };
 }
 
 type ValidationOutcome<T> =
@@ -300,6 +360,8 @@ async function runCascadingJsonProviders<T>(params: {
 
   if (configuredKeys.claude) registerSecretForRedaction(configuredKeys.claude);
   if (configuredKeys.openrouter) registerSecretForRedaction(configuredKeys.openrouter);
+  if (configuredKeys.grok) registerSecretForRedaction(configuredKeys.grok);
+  if (configuredKeys.omniroute) registerSecretForRedaction(configuredKeys.omniroute);
   if (configuredKeys.chatgpt) registerSecretForRedaction(configuredKeys.chatgpt);
 
   const attempts: ModelAttemptTrace[] = [];
@@ -315,10 +377,12 @@ async function runCascadingJsonProviders<T>(params: {
     };
   }
 
-  const baseOrder = getProviderOrder(preferred);
+  const baseOrder = getProviderOrder(preferred).filter(
+    (p) => (p !== 'grok' && p !== 'omniroute') || preferred === p || Boolean(configuredKeys[p]),
+  );
   // In live auto mode (without mocked fetchImpl unless explicitly requested), deprioritize cooled-down providers
   const trackCooldowns = params.cfg.trackCooldowns ?? !params.cfg.fetchImpl;
-  const order: Array<'claude' | 'openrouter' | 'chatgpt'> =
+  const order: RemoteProviderId[] =
     preferred === 'auto' && trackCooldowns
       ? [...baseOrder].sort((a, b) => {
           const ac = isProviderCooledDown(a, configuredKeys[a]) ? 1 : 0;
@@ -363,6 +427,8 @@ async function runCascadingJsonProviders<T>(params: {
           ...params.cfg,
           anthropicKey: configuredKeys.claude,
           openRouterKey: configuredKeys.openrouter,
+          xaiKey: configuredKeys.grok,
+          omniRouteKey: configuredKeys.omniroute,
           openAiKey: configuredKeys.chatgpt,
         },
         f,

@@ -251,12 +251,26 @@ body {
   }
 }
 
+@keyframes phosphorPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(52, 245, 126, 0.22), 0 0 18px rgba(52, 245, 126, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(134, 255, 175, 0.44), 0 0 26px rgba(52, 245, 126, 0.16);
+  }
+}
+
+.phosphor-aura-card {
+  animation: phosphorPulse 4.5s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
   }
   .animate-rise,
-  .animate-svg-flow {
+  .animate-svg-flow,
+  .phosphor-aura-card {
     animation: none !important;
   }
 }

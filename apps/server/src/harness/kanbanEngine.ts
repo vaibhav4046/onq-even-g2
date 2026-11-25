@@ -12,6 +12,7 @@ export interface KanbanCard {
   canApprove?: boolean;
   actionCommand?: string;
   scriptPath?: string;
+  roleTemplate?: 'architect' | 'market_analyst' | 'bot_engineer' | 'security_auditor';
 }
 
 export type BotScreenControlAction =
@@ -49,6 +50,7 @@ export const SILENT_QUICK_CHIPS: SilentQuickChip[] = [
   { id: 'chip_tg', label: 'Push Telegram Brief', kind: 'telegram', payload: 'brief_push' },
   { id: 'chip_pomodoro', label: 'Build Pomodoro App', kind: 'liveui', payload: 'Build a Pomodoro focus timer' },
   { id: 'chip_yt', label: 'Find AI YouTube Videos', kind: 'scout', payload: 'Find top new AI agent YouTube videos today' },
+  { id: 'chip_market', label: 'BTC / TAO Market Bot', kind: 'liveui', payload: 'Show BTC TAO market watch signals' },
   { id: 'chip_compare', label: 'Model Router Matrix', kind: 'liveui', payload: 'Compare AI models' },
   { id: 'chip_game', label: 'Play G2 Reflex Arena', kind: 'liveui', payload: 'Launch reflex mini-game' },
 ];
@@ -155,18 +157,31 @@ export class KanbanAndScreenManager {
     cronSpec?: string;
     actionCommand?: string;
     scriptPath?: string;
+    roleTemplate?: 'architect' | 'market_analyst' | 'bot_engineer' | 'security_auditor';
   }): KanbanCard {
+    const roleDefaults =
+      input.roleTemplate === 'architect'
+        ? { agent: 'System Architect (GStack)', model: 'Claude / Opus', prefix: '[ARCH] ' }
+        : input.roleTemplate === 'market_analyst'
+          ? { agent: 'Market Research Quant', model: 'Grok / OpenRouter', prefix: '[MKT] ' }
+          : input.roleTemplate === 'bot_engineer'
+            ? { agent: 'Python Bot Engineer (Ruflo)', model: 'OmniRoute / Codex', prefix: '[BOT] ' }
+            : input.roleTemplate === 'security_auditor'
+              ? { agent: 'Code-Guard Auditor', model: 'Local Verifier', prefix: '[SEC] ' }
+              : null;
+
     const card: KanbanCard = {
       id: `kb_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
       lane: input.lane ?? 'needs_you',
-      title: input.title.trim(),
-      agentName: input.agentName?.trim() || 'OnQ Autonomous Agent',
-      model: input.model?.trim() || 'OpenRouter / Claude',
+      title: `${roleDefaults?.prefix ?? ''}${input.title.trim()}`,
+      agentName: input.agentName?.trim() || roleDefaults?.agent || 'OnQ Autonomous Agent',
+      model: input.model?.trim() || roleDefaults?.model || 'OpenRouter / Claude',
       summary: input.summary?.trim() || input.title.trim(),
       cronSpec: input.cronSpec,
       canApprove: (input.lane ?? 'needs_you') === 'needs_you',
       actionCommand: input.actionCommand,
       scriptPath: input.scriptPath,
+      roleTemplate: input.roleTemplate,
       updatedAtIso: new Date().toISOString(),
     };
     this.cards = [card, ...this.cards].slice(0, 24);

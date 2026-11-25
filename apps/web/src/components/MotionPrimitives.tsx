@@ -49,6 +49,38 @@ export function ScrollReveal({ children, className = '', delay = 0 }: ScrollReve
   );
 }
 
+/**
+ * 60fps GPU-friendly spotlight bento card inspired by 21st.dev & 60fps.design.
+ */
+export function SpotlightBentoCard({
+  children,
+  className = '',
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      onMouseMove={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        e.currentTarget.style.setProperty('--mx', `${e.clientX - rect.left}px`);
+        e.currentTarget.style.setProperty('--my', `${e.clientY - rect.top}px`);
+      }}
+      className={`group relative overflow-hidden transition-transform duration-200 hover:-translate-y-0.5 ${className}`}
+    >
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -inset-px opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+        style={{
+          background:
+            'radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), rgba(52,245,126,0.16), transparent 68%)',
+        }}
+      />
+      <div className="relative z-10">{children}</div>
+    </div>
+  );
+}
+
 interface GlyphDecodeHeadingProps {
   text: string;
   className?: string;

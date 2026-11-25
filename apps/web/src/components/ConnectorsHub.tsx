@@ -9,7 +9,9 @@ import {
   EvenG2PixelSvg,
   GmailPixelSvg,
   GooglePixelSvg,
+  GrokPixelSvg,
   NotionPixelSvg,
+  OmniRoutePixelSvg,
   OpenRouterPixelSvg,
   ShieldPixelSvg,
   TelegramPixelSvg,
@@ -36,8 +38,10 @@ interface ConnectorStatusResponse {
   accountEmail: string | null;
   vaultEncrypted: boolean;
   activeLlmProvider: string;
-  preferredLlm: 'auto' | 'claude' | 'openrouter' | 'chatgpt' | 'rules';
+  preferredLlm: 'auto' | 'claude' | 'openrouter' | 'chatgpt' | 'grok' | 'omniroute' | 'rules';
   openRouterModel: string;
+  omniRouteUrl?: string;
+  omniRouteModel?: string;
   voiceEngine: string;
   googleOAuthConfigured: boolean;
   notionOAuthConfigured?: boolean;
@@ -48,6 +52,8 @@ interface ConnectorStatusResponse {
     notion: ConnectorCardStatus;
     claude: ConnectorCardStatus;
     openrouter: ConnectorCardStatus;
+    grok?: ConnectorCardStatus;
+    omniroute?: ConnectorCardStatus;
     chatgpt: ConnectorCardStatus;
     assemblyai: ConnectorCardStatus;
     telegram?: ConnectorCardStatus;
@@ -77,12 +83,17 @@ type ConnectorProviderId =
   | 'telegram'
   | 'claude'
   | 'openrouter'
+  | 'grok'
+  | 'omniroute'
   | 'chatgpt'
   | 'assemblyai';
 
 type ConnectorDrawerId = null | 'account' | 'bulk' | ConnectorProviderId;
 
 const SANDBOX_NOTION_DB_ID = '423373c508ea81b495c7f09c82c0e809';
+
+const fmtIcsUtc = (minsAhead: number) =>
+  new Date(Date.now() + minsAhead * 60_000).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 
 const QUICK_SAMPLE_ICS = [
   'BEGIN:VCALENDAR',
@@ -91,15 +102,15 @@ const QUICK_SAMPLE_ICS = [
   'BEGIN:VEVENT',
   'UID:onq-live-1@local',
   'SUMMARY:VC Sync - Priya Nair',
-  'DTSTART:20261125T140000Z',
-  'DTEND:20261125T143000Z',
+  `DTSTART:${fmtIcsUtc(20)}`,
+  `DTEND:${fmtIcsUtc(50)}`,
   'ATTENDEE;CN="Priya Nair":mailto:priya@tvm.example',
   'END:VEVENT',
   'BEGIN:VEVENT',
   'UID:onq-live-2@local',
   'SUMMARY:Product Review - Alex Chen',
-  'DTSTART:20261125T151500Z',
-  'DTEND:20261125T154500Z',
+  `DTSTART:${fmtIcsUtc(85)}`,
+  `DTEND:${fmtIcsUtc(115)}`,
   'ATTENDEE;CN="Alex Chen":mailto:alex@partner.example',
   'END:VEVENT',
   'END:VCALENDAR',
@@ -140,6 +151,10 @@ export function ConnectorsHub({
   const [claudeKey, setClaudeKey] = useState('');
   const [openRouterKey, setOpenRouterKey] = useState('');
   const [openRouterModel, setOpenRouterModel] = useState('openrouter/free');
+  const [grokKey, setGrokKey] = useState('');
+  const [omniRouteUrl, setOmniRouteUrl] = useState('http://127.0.0.1:20128/v1');
+  const [omniRouteKey, setOmniRouteKey] = useState('');
+  const [omniRouteModel, setOmniRouteModel] = useState('auto');
   const [openAiKey, setOpenAiKey] = useState('');
   const [aaiKey, setAaiKey] = useState('');
   const [telegramBotToken, setTelegramBotToken] = useState('');
@@ -166,6 +181,8 @@ export function ConnectorsHub({
         const json = (await res.json()) as ConnectorStatusResponse;
         setStatus(json);
         if (json.openRouterModel) setOpenRouterModel(json.openRouterModel);
+        if (json.omniRouteUrl) setOmniRouteUrl(json.omniRouteUrl);
+        if (json.omniRouteModel) setOmniRouteModel(json.omniRouteModel);
       }
       const compRes = await fetch('/api/computer/tools', {
         headers: authHeaders(),
@@ -462,6 +479,30 @@ export function ConnectorsHub({
       state: status?.connectors.openrouter,
     },
     {
+      id: 'grok' as const,
+      name: 'Grok (xAI)',
+      sub: 'xAI Grok-3-mini Rapid Synthesis',
+      icon: (
+        <ApplePixelTile size="lg" tint="#34F57E">
+          <GrokPixelSvg className="w-6 h-6" />
+        </ApplePixelTile>
+      ),
+      secondaryIcons: null,
+      state: status?.connectors.grok,
+    },
+    {
+      id: 'omniroute' as const,
+      name: 'OmniRoute Gateway',
+      sub: '1,400+ Models · Universal Local Proxy',
+      icon: (
+        <ApplePixelTile size="lg" tint="#86FFAF">
+          <OmniRoutePixelSvg className="w-6 h-6" />
+        </ApplePixelTile>
+      ),
+      secondaryIcons: null,
+      state: status?.connectors.omniroute,
+    },
+    {
       id: 'chatgpt' as const,
       name: 'ChatGPT',
       sub: 'OpenAI GPT-4o-mini Backup Route',
@@ -524,7 +565,7 @@ export function ConnectorsHub({
                   : 'AES-256-GCM Local Vault'}
               </div>
               <div className="font-pixel text-[9px] uppercase tracking-[0.14em] text-[var(--g2-phosphor)]">
-                {mode === 'DEMO' ? 'SANDBOX' : mode} · {cards.filter((x) => x.state?.connected).length}/7 LIVE · {status?.activeLlmProvider ?? 'Rules Engine'}
+                {mode === 'DEMO' ? 'SANDBOX' : mode} · {cards.filter((x) => x.state?.connected).length}/{cards.length} LIVE · {status?.activeLlmProvider ?? 'Rules Engine'}
               </div>
             </div>
             <button
@@ -580,7 +621,7 @@ export function ConnectorsHub({
               </span>
             </div>
             <p className="text-[11px] text-[var(--lightgray)]">
-              1-click failover across OpenRouter, ChatGPT, Claude, or deterministic Rules with automatic quota cooldowns.
+              1-click failover across OpenRouter, Grok (xAI), OmniRoute (1,400+ models), ChatGPT, Claude, or Rules with auto cooldowns.
             </p>
           </div>
 
@@ -589,6 +630,8 @@ export function ConnectorsHub({
               [
                 ['auto', 'Auto (Smart Failover)'],
                 ['openrouter', 'OpenRouter'],
+                ['grok', 'Grok (xAI)'],
+                ['omniroute', 'OmniRoute'],
                 ['chatgpt', 'ChatGPT'],
                 ['claude', 'Claude'],
                 ['rules', 'Rules'],
@@ -730,7 +773,7 @@ export function ConnectorsHub({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               <div className="space-y-1">
                 <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">3. OPENROUTER (OR 1-CLICK OAUTH)</span>
                 <input
@@ -762,7 +805,27 @@ export function ConnectorsHub({
                 />
               </div>
               <div className="space-y-1">
-                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">6. ASSEMBLYAI VOICE</span>
+                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">6. GROK (XAI)</span>
+                <input
+                  type="password"
+                  placeholder="xai-..."
+                  value={grokKey}
+                  onChange={(e) => setGrokKey(e.target.value)}
+                  className="w-full bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">7. OMNIROUTE GATEWAY (1,400+)</span>
+                <input
+                  type="text"
+                  placeholder="http://127.0.0.1:20128/v1"
+                  value={omniRouteUrl}
+                  onChange={(e) => setOmniRouteUrl(e.target.value)}
+                  className="w-full bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">8. ASSEMBLYAI VOICE</span>
                 <input
                   type="password"
                   placeholder="Optional AAI key"
@@ -797,6 +860,10 @@ export function ConnectorsHub({
                       notionDatabaseId: notionDbId || undefined,
                       openRouterKey: openRouterKey || undefined,
                       openRouterModel,
+                      xaiKey: grokKey || undefined,
+                      omniRouteUrl: omniRouteUrl || undefined,
+                      omniRouteKey: omniRouteKey || undefined,
+                      omniRouteModel: omniRouteModel || undefined,
                       anthropicKey: claudeKey || undefined,
                       openAiKey: openAiKey || undefined,
                       assemblyAiKey: aaiKey || undefined,
@@ -837,10 +904,12 @@ export function ConnectorsHub({
                 }
                 className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
               >
-                <option value="auto">Auto Failover (Claude -&gt; OpenRouter -&gt; ChatGPT -&gt; Rules)</option>
-                <option value="claude">Primary: Claude (Failover -&gt; OR -&gt; GPT)</option>
-                <option value="openrouter">Primary: OpenRouter (Failover -&gt; Claude -&gt; GPT)</option>
-                <option value="chatgpt">Primary: ChatGPT (Failover -&gt; Claude -&gt; OR)</option>
+                <option value="auto">Auto Failover (Claude -&gt; Grok -&gt; OpenRouter -&gt; OmniRoute -&gt; GPT)</option>
+                <option value="claude">Primary: Claude</option>
+                <option value="grok">Primary: Grok (xAI)</option>
+                <option value="omniroute">Primary: OmniRoute (1,400+ models)</option>
+                <option value="openrouter">Primary: OpenRouter</option>
+                <option value="chatgpt">Primary: ChatGPT</option>
                 <option value="rules">Rules Engine Only ($0 / Zero External API)</option>
               </select>
               <input
@@ -1280,6 +1349,88 @@ export function ConnectorsHub({
                     Connect ChatGPT
                   </button>
                 </div>
+              </>
+            )}
+
+            {openDrawer === 'grok' && (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--g2-phosphor)]">
+                    CONNECT GROK (XAI GROK-3-MINI)
+                  </span>
+                  <a
+                    href="https://console.x.ai"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-[var(--lime)] underline decoration-dashed underline-offset-2"
+                  >
+                    xAI Console -&gt;
+                  </a>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="password"
+                    placeholder="xai-..."
+                    value={grokKey}
+                    onChange={(e) => setGrokKey(e.target.value)}
+                    className="flex-1 bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
+                  />
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void postConnect({ provider: 'grok', apiKey: grokKey }, 'Grok (xAI) connected & set active.')}
+                    className="px-4 py-2 bg-[var(--g2-phosphor)] text-[#0a0a0a] font-semibold cursor-pointer"
+                  >
+                    Connect Grok
+                  </button>
+                </div>
+              </>
+            )}
+
+            {openDrawer === 'omniroute' && (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[#86FFAF]">
+                    CONNECT OMNIROUTE (1,400+ MODELS UNIVERSAL GATEWAY)
+                  </span>
+                  <span className="text-[11px] text-[var(--lightgray)]">Default local proxy: 127.0.0.1:20128/v1</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <input
+                    type="text"
+                    placeholder="http://127.0.0.1:20128/v1"
+                    value={omniRouteUrl}
+                    onChange={(e) => setOmniRouteUrl(e.target.value)}
+                    className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Model (e.g. auto)"
+                    value={omniRouteModel}
+                    onChange={(e) => setOmniRouteModel(e.target.value)}
+                    className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Optional OmniRoute Bearer token"
+                    value={omniRouteKey}
+                    onChange={(e) => setOmniRouteKey(e.target.value)}
+                    className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    void postConnect(
+                      { provider: 'omniroute', baseUrl: omniRouteUrl, apiKey: omniRouteKey, model: omniRouteModel },
+                      'OmniRoute gateway linked & set active.',
+                    )
+                  }
+                  className="px-4 py-2 bg-[var(--g2-phosphor)] text-[#0a0a0a] font-semibold cursor-pointer"
+                >
+                  Connect OmniRoute
+                </button>
               </>
             )}
 

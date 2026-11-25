@@ -313,7 +313,9 @@ describe('Brutal Concurrency, Live-Provider & Adversarial Stress Suite', () => {
   });
 
   it('6. Connect live RFC 5545 .ics calendar -> upgrades session to LIVE & passes /api/connectors/googleWorkspace/test', async () => {
-    const srv = await startStressServer();
+    const srv = await startStressServer({
+      nowFn: () => Date.parse('2026-11-25T15:30:00Z'),
+    });
     const { sessionToken } = (await (await fetch(`${srv.url}/api/demo/session`, { method: 'POST' })).json()) as {
       sessionToken: string;
     };

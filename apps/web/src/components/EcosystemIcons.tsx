@@ -324,6 +324,34 @@ export function ApplePixelTile({
   );
 }
 
+export function GrokPixelSvg({ className = 'w-4 h-4', theme = 'dark' }: EcosystemIconProps) {
+  const stroke = theme === 'light' ? '#0a0a0a' : '#34F57E';
+  return (
+    <svg viewBox="0 0 16 16" shapeRendering="crispEdges" className={`shrink-0 ${className}`} aria-hidden="true">
+      <rect x="4" y="2" width="8" height="2" fill={stroke} />
+      <rect x="2" y="4" width="2" height="8" fill={stroke} />
+      <rect x="4" y="12" width="8" height="2" fill={stroke} />
+      <rect x="12" y="7" width="2" height="5" fill={stroke} />
+      <rect x="8" y="7" width="4" height="2" fill={stroke} />
+      <rect x="11" y="2" width="3" height="2" fill="#86FFAF" />
+    </svg>
+  );
+}
+
+export function OmniRoutePixelSvg({ className = 'w-4 h-4', theme = 'dark' }: EcosystemIconProps) {
+  const stroke = theme === 'light' ? '#0a0a0a' : '#86FFAF';
+  return (
+    <svg viewBox="0 0 16 16" shapeRendering="crispEdges" className={`shrink-0 ${className}`} aria-hidden="true">
+      <rect x="2" y="3" width="3" height="3" fill={stroke} />
+      <rect x="2" y="10" width="3" height="3" fill={stroke} />
+      <rect x="7" y="6" width="3" height="4" fill="#34F57E" />
+      <rect x="5" y="4" width="2" height="2" fill={stroke} />
+      <rect x="5" y="10" width="2" height="2" fill={stroke} />
+      <rect x="10" y="7" width="4" height="2" fill={stroke} />
+    </svg>
+  );
+}
+
 export function EcosystemStrip() {
   const items: Array<{ label: string; tint: string; icon: ReactNode }> = [
     { label: 'Calendar', tint: '#4285F4', icon: <CalendarPixelSvg className="w-4 h-4" /> },
@@ -333,6 +361,8 @@ export function EcosystemStrip() {
     { label: 'Notion', tint: '#f2f2f2', icon: <NotionPixelSvg className="w-4 h-4" /> },
     { label: 'Claude', tint: '#D97757', icon: <ClaudePixelSvg className="w-4 h-4" /> },
     { label: 'ChatGPT', tint: '#10A37F', icon: <ChatGptPixelSvg className="w-4 h-4" /> },
+    { label: 'Grok', tint: '#34F57E', icon: <GrokPixelSvg className="w-4 h-4" /> },
+    { label: 'OmniRoute', tint: '#86FFAF', icon: <OmniRoutePixelSvg className="w-4 h-4" /> },
     { label: 'OpenRouter', tint: '#86FFAF', icon: <OpenRouterPixelSvg className="w-4 h-4" /> },
     { label: 'AssemblyAI', tint: '#34F57E', icon: <AssemblyAiPixelSvg className="w-4 h-4" /> },
   ];

@@ -50,6 +50,8 @@ describe('Connector Hub & Multi-Model Inference Harness', () => {
       'telegram',
       'claude',
       'openrouter',
+      'grok',
+      'omniroute',
       'chatgpt',
       'assemblyai',
     ]);

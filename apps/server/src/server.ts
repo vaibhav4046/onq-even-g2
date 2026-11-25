@@ -35,6 +35,9 @@ import {
   SILENT_QUICK_CHIPS,
 } from './harness/kanbanEngine.js';
 import type { BotScreenControlAction, KanbanLane } from './harness/kanbanEngine.js';
+import { TokenSavingsLedger } from './harness/tokenOptimizer.js';
+import { CitedKnowledgeEngine } from './harness/ragEngine.js';
+import { MarketResearchBotEngine } from './harness/marketBotEngine.js';
 import { loadLocalEnvFile } from './env.js';
 import {
   createPkcePair,
@@ -210,6 +213,9 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
   const meetingBuffer = new MeetingTranscriptBuffer(48);
   const agentTasks = new AgentTaskEngine(nowFn);
   const kanbanScreen = new KanbanAndScreenManager(new Date(nowFn()).toISOString());
+  const tokenLedger = new TokenSavingsLedger();
+  const citedKnowledge = new CitedKnowledgeEngine(tokenLedger);
+  const marketBot = new MarketResearchBotEngine();
   let activeLiveUi: LiveUiSurface = buildPresetLiveUi('pomodoro', new Date(nowFn()).toISOString());
   const pinnedLiveUiApps: LiveUiSurface[] = [
     activeLiveUi,
@@ -278,6 +284,10 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       openRouterKey: opts.llmConfig?.openRouterKey ?? creds.openRouterKey ?? process.env.OPENROUTER_API_KEY,
       openRouterModel: opts.llmConfig?.openRouterModel ?? creds.openRouterModel ?? process.env.OPENROUTER_MODEL,
       openAiKey: opts.llmConfig?.openAiKey ?? creds.openAiKey ?? process.env.OPENAI_API_KEY,
+      xaiKey: opts.llmConfig?.xaiKey ?? creds.xaiKey ?? process.env.XAI_API_KEY,
+      omniRouteUrl: opts.llmConfig?.omniRouteUrl ?? creds.omniRouteUrl ?? process.env.OMNIROUTE_BASE_URL,
+      omniRouteKey: opts.llmConfig?.omniRouteKey ?? creds.omniRouteKey ?? process.env.OMNIROUTE_API_KEY,
+      omniRouteModel: opts.llmConfig?.omniRouteModel ?? creds.omniRouteModel ?? process.env.OMNIROUTE_MODEL,
       preferredProvider: overrideProvider ?? opts.llmConfig?.preferredProvider ?? creds.preferredLlm ?? 'auto',
       timeoutMs: opts.llmConfig?.timeoutMs,
       fetchImpl: opts.llmConfig?.fetchImpl ?? opts.fetchImpl,
@@ -311,6 +321,9 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     const activeLlmProvider = resolveHealthyLlmLabel(llmCfg);
     const claudeHealth = getProviderHealthStatus('claude', llmCfg.anthropicKey);
     const openRouterHealth = getProviderHealthStatus('openrouter', llmCfg.openRouterKey);
+    const grokHealth = getProviderHealthStatus('grok', llmCfg.xaiKey);
+    const omniRouteToken = llmCfg.omniRouteKey ?? (llmCfg.omniRouteUrl ? 'omniroute-local' : undefined);
+    const omniRouteHealth = getProviderHealthStatus('omniroute', omniRouteToken);
     const chatGptHealth = getProviderHealthStatus('chatgpt', llmCfg.openAiKey);
     const aaiKey = resolveAssemblyAiKey();
     const clientId = creds.googleClientId ?? process.env.GOOGLE_CLIENT_ID;
@@ -330,6 +343,8 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       activeLlmProvider,
       preferredLlm: creds.preferredLlm ?? 'auto',
       openRouterModel: creds.openRouterModel ?? 'openrouter/free',
+      omniRouteUrl: llmCfg.omniRouteUrl ?? 'http://127.0.0.1:20128/v1',
+      omniRouteModel: llmCfg.omniRouteModel ?? 'auto',
       voiceEngine: aaiKey ? 'LIVE · ASSEMBLYAI' : 'SANDBOX · LOCAL',
       googleOAuthConfigured,
       notionOAuthConfigured,
@@ -386,6 +401,25 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
               : llmCfg.openRouterKey
                 ? `${creds.openRouterModel ?? 'openrouter/free'} via OpenRouter`
                 : '1-Click OpenRouter OAuth PKCE ready (0 manual copy)',
+        },
+        grok: {
+          connected: Boolean(llmCfg.xaiKey),
+          mode: grokHealth === 'COOLDOWN' ? 'COOLDOWN' : llmCfg.xaiKey ? 'LIVE' : 'STANDBY',
+          health: grokHealth,
+          detail:
+            grokHealth === 'COOLDOWN'
+              ? 'xAI Grok-3-mini (cooldown after upstream limit — auto-routing)'
+              : llmCfg.xaiKey
+                ? 'xAI Grok-3-mini fast synthesis key stored in 0600 vault'
+                : 'Add xAI key (api.x.ai) for rapid synthesis route',
+        },
+        omniroute: {
+          connected: Boolean(omniRouteToken),
+          mode: omniRouteHealth === 'COOLDOWN' ? 'COOLDOWN' : omniRouteToken ? 'LIVE' : 'STANDBY',
+          health: omniRouteHealth,
+          detail: omniRouteToken
+            ? `${llmCfg.omniRouteModel ?? 'auto'} @ ${llmCfg.omniRouteUrl ?? 'http://127.0.0.1:20128/v1'}`
+            : 'Free 1,400+ model universal gateway (127.0.0.1:20128/v1)',
         },
         chatgpt: {
           connected: Boolean(llmCfg.openAiKey),
@@ -567,19 +601,21 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         '{"goal":"...","rationale":"...","suggestedCommand":"...","opticalCardLines":["<=42 chars","<=42 chars"],"steps":[{"id":"step-1","phase":"OBSERVE|VERIFY|STAGE|GUARD","tool":"...","detail":"...","status":"DONE|READY|LOCKED"}]}',
       ].join(' ');
 
+      const compactInsights = tokenLedger.encodeWithMetrics(
+        insights.map((i) => ({
+          category: i.category,
+          severity: i.severity,
+          title: i.title,
+          detail: i.detail,
+          suggestedCommand: i.suggestedCommand,
+        })),
+        'proactive_insights',
+      );
       const userPrompt = [
         `Source mode: ${sourceMode}`,
         focusHint ? `Focus hint: ${focusHint}` : 'Focus hint: none',
-        'Current insights:',
-        JSON.stringify(
-          insights.map((i) => ({
-            category: i.category,
-            severity: i.severity,
-            title: i.title,
-            detail: i.detail,
-            suggestedCommand: i.suggestedCommand,
-          })),
-        ),
+        'Current insights (TOON):',
+        compactInsights.toon,
       ].join('\n');
 
       const computedFacts = ['15m', '30m'];
@@ -1835,6 +1871,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           accountEmail?: string;
           apiKey?: string;
           model?: string;
+          baseUrl?: string;
           preferredLlm?: PreferredLlmProvider;
           notionToken?: string;
           notionDatabaseId?: string;
@@ -1847,6 +1884,10 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           openRouterKey?: string;
           openRouterModel?: string;
           openAiKey?: string;
+          xaiKey?: string;
+          omniRouteUrl?: string;
+          omniRouteKey?: string;
+          omniRouteModel?: string;
           assemblyAiKey?: string;
           icsText?: string;
         }>(req);
@@ -1870,6 +1911,16 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           if (body.apiKey?.trim()) next.openRouterKey = body.apiKey.trim();
           if (body.model?.trim()) next.openRouterModel = body.model.trim();
           next.preferredLlm = 'openrouter';
+        } else if (prov === 'grok' && body.apiKey?.trim()) {
+          next.xaiKey = body.apiKey.trim();
+          next.preferredLlm = 'grok';
+        } else if (prov === 'omniroute') {
+          next.omniRouteUrl = (body.baseUrl ?? body.omniRouteUrl ?? 'http://127.0.0.1:20128/v1').trim();
+          if (body.apiKey?.trim()) next.omniRouteKey = body.apiKey.trim();
+          if (body.model?.trim() ?? body.omniRouteModel?.trim()) {
+            next.omniRouteModel = (body.model ?? body.omniRouteModel ?? '').trim();
+          }
+          next.preferredLlm = 'omniroute';
         } else if (prov === 'chatgpt' && body.apiKey?.trim()) {
           next.openAiKey = body.apiKey.trim();
           next.preferredLlm = 'chatgpt';
@@ -1948,6 +1999,10 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           if (body.openRouterKey?.trim()) next.openRouterKey = body.openRouterKey.trim();
           if (body.openRouterModel?.trim()) next.openRouterModel = body.openRouterModel.trim();
           if (body.openAiKey?.trim()) next.openAiKey = body.openAiKey.trim();
+          if (body.xaiKey?.trim()) next.xaiKey = body.xaiKey.trim();
+          if (body.omniRouteUrl?.trim()) next.omniRouteUrl = body.omniRouteUrl.trim();
+          if (body.omniRouteKey?.trim()) next.omniRouteKey = body.omniRouteKey.trim();
+          if (body.omniRouteModel?.trim()) next.omniRouteModel = body.omniRouteModel.trim();
           if (body.assemblyAiKey?.trim()) next.assemblyAiKey = body.assemblyAiKey.trim();
           if (body.telegramBotToken?.trim()) next.telegramBotToken = body.telegramBotToken.trim();
           if (body.telegramChatId?.trim()) {
@@ -2016,17 +2071,20 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const body = await readJsonBody<{
           preferredLlm?: string;
           openRouterModel?: string;
+          omniRouteModel?: string;
         }>(req);
         const allowedPreferred = new Set<PreferredLlmProvider>([
           'auto',
           'openrouter',
+          'grok',
+          'omniroute',
           'chatgpt',
           'claude',
           'rules',
         ]);
         if (!body.preferredLlm || !allowedPreferred.has(body.preferredLlm as PreferredLlmProvider)) {
           jsonResponse(res, 400, {
-            error: 'preferredLlm must be one of: auto, openrouter, chatgpt, claude, rules',
+            error: 'preferredLlm must be one of: auto, openrouter, grok, omniroute, chatgpt, claude, rules',
           });
           return;
         }
@@ -2037,6 +2095,9 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         };
         if (typeof body.openRouterModel === 'string' && body.openRouterModel.trim()) {
           next.openRouterModel = body.openRouterModel.trim();
+        }
+        if (typeof body.omniRouteModel === 'string' && body.omniRouteModel.trim()) {
+          next.omniRouteModel = body.omniRouteModel.trim();
         }
         vault.save(next);
         clearProviderCooldowns();
@@ -2062,6 +2123,12 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           if (prov === 'openrouter') {
             delete next.openRouterKey;
             delete next.openRouterModel;
+          }
+          if (prov === 'grok') delete next.xaiKey;
+          if (prov === 'omniroute') {
+            delete next.omniRouteUrl;
+            delete next.omniRouteKey;
+            delete next.omniRouteModel;
           }
           if (prov === 'chatgpt') delete next.openAiKey;
           if (prov === 'assemblyai') delete next.assemblyAiKey;
@@ -2484,7 +2551,13 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           return;
         }
 
-        if (provider === 'claude' || provider === 'openrouter' || provider === 'chatgpt') {
+        if (
+          provider === 'claude' ||
+          provider === 'openrouter' ||
+          provider === 'chatgpt' ||
+          provider === 'grok' ||
+          provider === 'omniroute'
+        ) {
           const probe = await probeLlmProvider(resolveLlmConfig(provider));
           recordAudit('CONNECTOR_TESTED', `${provider}: ${probe.providerLabel} (${probe.latencyMs}ms)`);
           jsonResponse(res, 200, {
@@ -2852,26 +2925,55 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const session = await requireAuth(req, res);
         if (!session) return;
         const body = await readJsonBody<{
-          action?: 'brief_push' | 'outreach_digest' | 'voice_reply';
+          action?: 'brief_push' | 'outreach_digest' | 'voice_reply' | 'market_alert';
           text?: string;
           chatId?: string;
         }>(req);
-        const action = body.action ?? 'brief_push';
+        const rawText = body.text?.trim() ?? '';
+        const slashMatch = rawText.match(/^\/(brief|market|ask|scout|explain)(?:\s+(.*))?$/i);
+        const resolvedAction: 'brief_push' | 'outreach_digest' | 'voice_reply' | 'market_alert' =
+          slashMatch?.[1]?.toLowerCase() === 'market'
+            ? 'market_alert'
+            : slashMatch?.[1]?.toLowerCase() === 'brief'
+              ? 'brief_push'
+              : (body.action ?? 'brief_push');
+
         const creds = vault.load();
         const targetChat = (body.chatId ?? creds.telegramChatId ?? 'tg-grp-even').trim();
         const provider = resolveProvider(session.mode);
         const { cards } = await provider.fetchCorridor();
         const snap = provider.getSnapshot();
 
-        const generatedText =
-          action === 'voice_reply' && body.text?.trim()
-            ? body.text.trim()
-            : action === 'outreach_digest'
-              ? `OnQ 24/7 Outreach: Next "${cards[0]?.title ?? 'VC Sync'}" | Open tasks: ${snap.notionTasks.filter((t) => !t.completed).length} | Free slot 15:45`
-              : `OnQ Daily Brief: ${cards[0]?.title ?? 'Clear schedule'} (${cards[0]?.timeMeta ?? 'now'}) | ${snap.gmailThreads[0]?.fromName ?? 'Inbox'}: ${snap.gmailThreads[0]?.snippet?.slice(0, 60) ?? 'No unread items'}`;
+        let generatedText = '';
+        if (resolvedAction === 'market_alert') {
+          const mkt = await marketBot.fetchSignals(['BTC', 'ETH', 'TAO'], opts.fetchImpl);
+          const summaryStr = mkt.signals
+            .map((s) => `${s.symbol} $${s.priceUsd} (${s.change24hPct >= 0 ? '+' : ''}${s.change24hPct}% ${s.signal})`)
+            .join(' | ');
+          generatedText = rawText && !slashMatch
+            ? `OnQ Market Watch: ${rawText} | Paper Only`
+            : `OnQ Market Signal Watch (Paper Only): ${summaryStr}`;
+        } else if (slashMatch?.[1]?.toLowerCase() === 'ask' && slashMatch[2]?.trim()) {
+          const memories = (await ledger.listMemories?.(12)) ?? [];
+          const rag = citedKnowledge.query(
+            slashMatch[2].trim(),
+            memories.map((m) => ({ id: m.id, title: m.title, summary: m.summary, source: m.source })),
+          );
+          generatedText = `OnQ RAG: ${rag.answer.slice(0, 180)}`;
+        } else if (slashMatch?.[1]?.toLowerCase() === 'explain') {
+          const expTopic = slashMatch[2]?.trim() || 'OnQ Matrix G2 Flow';
+          generatedText = `OnQ /video-explainer staged for "${expTopic}" in monochrome 525nm green.`;
+        } else {
+          generatedText =
+            resolvedAction === 'voice_reply' && rawText
+              ? rawText
+              : resolvedAction === 'outreach_digest'
+                ? `OnQ 24/7 Outreach: Next "${cards[0]?.title ?? 'VC Sync'}" | Open tasks: ${snap.notionTasks.filter((t) => !t.completed).length} | Free slot 15:45`
+                : `OnQ Daily Brief: ${cards[0]?.title ?? 'Clear schedule'} (${cards[0]?.timeMeta ?? 'now'}) | ${snap.gmailThreads[0]?.fromName ?? 'Inbox'}: ${snap.gmailThreads[0]?.snippet?.slice(0, 60) ?? 'No unread items'}`;
+        }
 
         const nowMs = nowFn();
-        const canonical = JSON.stringify({ intent: 'TELEGRAM_AUTOMATE', action, chatId: targetChat, text: generatedText });
+        const canonical = JSON.stringify({ intent: 'TELEGRAM_AUTOMATE', action: resolvedAction, chatId: targetChat, text: generatedText });
         const idempotencyKey = crypto.createHash('sha256').update(canonical).digest('hex');
         const preview: ActionPreview = {
           previewToken: `pt_${crypto.randomBytes(12).toString('hex')}`,
@@ -2900,7 +3002,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           },
         };
         await ledger.savePreview(preview, session.tokenHash);
-        jsonResponse(res, 200, { ok: true, action, generatedText, preview });
+        jsonResponse(res, 200, { ok: true, action: resolvedAction, generatedText, preview });
         return;
       }
 
@@ -3151,6 +3253,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           summary?: string;
           cronSpec?: string;
           actionCommand?: string;
+          roleTemplate?: 'architect' | 'market_analyst' | 'bot_engineer' | 'security_auditor';
         }>(req);
         if (!body.title?.trim()) {
           jsonResponse(res, 400, { error: 'Kanban card title required' });
@@ -3164,6 +3267,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           summary: body.summary,
           cronSpec: body.cronSpec,
           actionCommand: body.actionCommand,
+          roleTemplate: body.roleTemplate,
         });
         broadcastSse('kanban', { cards: kanbanScreen.listCards() });
         jsonResponse(res, 200, { ok: true, card, cards: kanbanScreen.listCards() });
@@ -3237,6 +3341,293 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const body = await readJsonBody<{ text?: string; wpm?: number }>(req);
         const parsed = parseDisplayMarkup(body.text ?? '', body.wpm ?? 220);
         jsonResponse(res, 200, { ok: true, parsed });
+        return;
+      }
+
+      // 14h-ext. TOON/RTK Token Telemetry, Cited Knowledge RAG (+ Defuddle), Hermes Taste Profile, Market Bot, & Explainer
+      if (req.method === 'GET' && pathname === '/api/harness/tokens') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        jsonResponse(res, 200, { ok: true, summary: tokenLedger.getSummary() });
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/preferences') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        jsonResponse(res, 200, { ok: true, taste: citedKnowledge.getTaste() });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/preferences') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{
+          verbosity?: 'caveman' | 'concise' | 'detailed';
+          visualStyle?: 'monochrome-matrix' | 'motion' | 'illustrated' | '3d';
+          defaultRole?: 'architect' | 'market_analyst' | 'bot_engineer' | 'security_auditor';
+        }>(req);
+        const taste = citedKnowledge.updateTaste({
+          verbosity: body.verbosity,
+          visualStyle: body.visualStyle,
+          defaultRole: body.defaultRole,
+        });
+        recordAudit('PROACTIVE_PULSE', `Hermes Taste updated (${taste.verbosity})`);
+        jsonResponse(res, 200, { ok: true, taste });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/rag/query') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ query?: string }>(req);
+        const q = body.query?.trim();
+        if (!q) {
+          jsonResponse(res, 400, { error: 'query required' });
+          return;
+        }
+        const memories = (await ledger.listMemories?.(20)) ?? [];
+        const ragResult = citedKnowledge.query(
+          q,
+          memories.map((m) => ({ id: m.id, title: m.title, summary: m.summary, source: m.source })),
+        );
+        recordAudit('PROACTIVE_PULSE', `Cited RAG query (${ragResult.citations.length} refs)`);
+        jsonResponse(res, 200, {
+          ok: true,
+          ...ragResult,
+          g2Lines: ragResult.lensLines,
+          tokenSummary: tokenLedger.getSummary(),
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/rag/ingest-url') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ url?: string; title?: string }>(req);
+        const urlStr = body.url?.trim();
+        if (!urlStr) {
+          jsonResponse(res, 400, { error: 'url required' });
+          return;
+        }
+        try {
+          const ingested = await citedKnowledge.ingestUrl(urlStr, opts.fetchImpl);
+          await saveUnifiedMemory({
+            kind: 'note',
+            title: `Defuddle: ${body.title?.trim() || ingested.doc.title}`.slice(0, 72),
+            summary: ingested.doc.content.slice(0, 220),
+            source: 'Defuddle+RAG',
+          });
+          recordAudit('PROACTIVE_PULSE', `Defuddle ingested ${ingested.doc.title}`);
+          jsonResponse(res, 200, {
+            ok: true,
+            doc: {
+              id: ingested.doc.id,
+              title: ingested.doc.title,
+              source: ingested.doc.source,
+              preview: ingested.doc.content.slice(0, 240),
+            },
+            rawChars: ingested.rawChars,
+            cleanChars: ingested.cleanChars,
+            tokenSummary: tokenLedger.getSummary(),
+          });
+        } catch (err) {
+          jsonResponse(res, 400, {
+            ok: false,
+            error: err instanceof Error ? err.message : 'URL ingest blocked',
+          });
+        }
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/market/signals') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const rawSym = parsedUrl.searchParams.get('symbols');
+        const requested = rawSym
+          ? rawSym.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean)
+          : undefined;
+        const mkt = await marketBot.fetchSignals(requested, opts.fetchImpl);
+        tokenLedger.encodeWithMetrics(mkt.signals, 'market_signals');
+        jsonResponse(res, 200, {
+          ok: true,
+          signals: mkt.signals.map((s) => ({
+            ...s,
+            suggestedAction: s.signal,
+            g2Line: `${s.symbol} $${s.priceUsd.toLocaleString('en-US')} ${s.change24hPct >= 0 ? '+' : ''}${s.change24hPct}% [${s.signal}]`,
+          })),
+          paperTrades: mkt.paperTrades,
+          lensLines: mkt.lensLines,
+          disclaimer: mkt.disclaimer,
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/market/paper-trade') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ symbol?: string; notionalUsd?: number }>(req);
+        const sym = (body.symbol ?? 'BTC').toUpperCase();
+        const trade = marketBot.simulatePaperAction(sym, body.notionalUsd ?? 500);
+        const summary = `${trade.side} $${trade.notionalUsd} ${trade.symbol} @ $${trade.entryPriceUsd} [${trade.status}]`;
+        const g2Line = `${trade.symbol} PAPER $${trade.notionalUsd} @ $${trade.entryPriceUsd}`;
+        await saveUnifiedMemory({
+          kind: 'note',
+          title: `Paper ${trade.symbol}: ${trade.side}`,
+          summary,
+          source: 'MarketPaperBot',
+        });
+        recordAudit('AGENT_TASK', `Paper simulation (${trade.symbol}): ${summary}`);
+        jsonResponse(res, 200, {
+          ok: true,
+          result: {
+            ...trade,
+            mode: 'PAPER_ONLY',
+            summary,
+            g2Line,
+          },
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/market/bot-script') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ symbol?: string }>(req);
+        const cleanSym = (body.symbol ?? 'BTC').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'BTC';
+        const code = marketBot.buildPythonSignalWatcherCode(cleanSym);
+        const botsDir = path.resolve(process.cwd(), 'data/bots');
+        fs.mkdirSync(botsDir, { recursive: true });
+        const scriptRel = `data/bots/market_${cleanSym.toLowerCase()}_bot.py`;
+        fs.writeFileSync(path.resolve(botsDir, `market_${cleanSym.toLowerCase()}_bot.py`), code, 'utf8');
+        const card = kanbanScreen.addCard({
+          title: `${cleanSym} Signal Watcher Bot`,
+          lane: 'scheduled',
+          agentName: 'Python Bot Engineer (Ruflo)',
+          model: 'Market Research',
+          summary: `Paper & Telegram watcher script saved at ${scriptRel}`,
+          cronSpec: '*/15 * * * *',
+          scriptPath: scriptRel,
+          roleTemplate: 'bot_engineer',
+        });
+        broadcastSse('kanban', { cards: kanbanScreen.listCards() });
+        recordAudit('AGENT_TASK', `Generated ${scriptRel}`);
+        jsonResponse(res, 200, {
+          ok: true,
+          symbol: cleanSym,
+          scriptPath: scriptRel,
+          code,
+          card,
+          cards: kanbanScreen.listCards(),
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/explainer/script') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{
+          topic?: string;
+          style?: 'motion' | 'hand_drawn' | 'cinematic_3d';
+        }>(req);
+        const topic = (body.topic?.trim() || 'OnQ Proactive Smart-Glasses Architecture').slice(0, 96);
+        const tasteStyle = citedKnowledge.getTaste().visualStyle;
+        const style: 'motion' | 'hand_drawn' | 'cinematic_3d' =
+          body.style ?? (tasteStyle === 'illustrated' ? 'hand_drawn' : tasteStyle === '3d' ? 'cinematic_3d' : 'motion');
+        const statusSnap = buildConnectorStatus();
+        const tokSum = tokenLedger.getSummary();
+        const fallbackScenes = [
+          {
+            id: 'sc_1',
+            durationSec: 3.2,
+            headline: `01 · ${topic.toUpperCase().slice(0, 30)}`,
+            caption: `OnQ pulses live context onto 525nm waveguide lenses (${statusSnap.activeLlmProvider}).`,
+            metricBadge: '60FPS · 7x42 GRID',
+            visualCue: style.toUpperCase(),
+          },
+          {
+            id: 'sc_2',
+            durationSec: 3.2,
+            headline: '02 · OMNIROUTE & GROK CASCADE',
+            caption: 'Routes across Claude, Grok xAI, OmniRoute 1,400+ models, OpenRouter & ChatGPT.',
+            metricBadge: `${Object.values(statusSnap.connectors).filter((c) => c.connected).length} CONNECTORS`,
+            visualCue: 'MODEL_ROUTER',
+          },
+          {
+            id: 'sc_3',
+            durationSec: 3.2,
+            headline: '03 · TOON + RTK TOKEN GUARD',
+            caption: `Compresses tables & scraped web pages cleanly (${tokSum.reductionPct || 58}% saved).`,
+            metricBadge: `${tokSum.estimatedSavedTokens} TOK SAVED`,
+            visualCue: 'TOON_LEDGER',
+          },
+          {
+            id: 'sc_4',
+            durationSec: 3.2,
+            headline: '04 · CITED RAG + MARKET SIGNALS',
+            caption: 'Defuddle-indexed docs + paper BTC/ETH/TAO bots stream directly to your lens.',
+            metricBadge: 'CITED [1][2] · PAPER',
+            visualCue: 'RAG_SIGNALS',
+          },
+          {
+            id: 'sc_5',
+            durationSec: 3.2,
+            headline: '05 · DEFAULT-NO HOLD GUARD',
+            caption: 'Every send, schedule push, or Telegram alert waits for your explicit 2.0s hold.',
+            metricBadge: 'DEFAULT-NO ARMED',
+            visualCue: 'SAFETY_RING',
+          },
+        ];
+
+        const compactCtx = tokenLedger.encodeWithMetrics(
+          { topic, style, activeLlm: statusSnap.activeLlmProvider },
+          'explainer_prompt',
+        );
+        const out = await orchestrateStructuredJson(
+          {
+            systemPrompt:
+              'Generate 5 concise monochrome smart-glasses video explainer scenes as strict JSON {"scenes":[{"id":"sc_1","durationSec":3.2,"headline":"<=36 chars","caption":"<=72 chars","metricBadge":"<=24 chars","visualCue":"MOTION"}]}.',
+            userPrompt: compactCtx.toon,
+            fallbackJson: { scenes: fallbackScenes },
+            validate: (raw) => {
+              if (!raw || typeof raw !== 'object') return null;
+              const arr = (raw as { scenes?: unknown[] }).scenes;
+              if (!Array.isArray(arr) || arr.length < 3) return null;
+              const cleaned = arr.slice(0, 5).map((item, idx) => {
+                const s = (item ?? {}) as Record<string, unknown>;
+                if (typeof s.headline !== 'string' || typeof s.caption !== 'string') return fallbackScenes[idx % 5];
+                return {
+                  id: `sc_${idx + 1}`,
+                  durationSec: typeof s.durationSec === 'number' ? Math.min(5, Math.max(2, s.durationSec)) : 3.2,
+                  headline: s.headline.trim().slice(0, 38),
+                  caption: s.caption.trim().slice(0, 76),
+                  metricBadge: typeof s.metricBadge === 'string' ? s.metricBadge.trim().slice(0, 26) : `${style.toUpperCase()}`,
+                  visualCue: typeof s.visualCue === 'string' ? s.visualCue : style.toUpperCase(),
+                };
+              });
+              return { scenes: cleaned };
+            },
+          },
+          resolveLlmConfig(),
+        );
+
+        const g2Lines = [
+          `EXPLAINER | ${style.toUpperCase()}`,
+          out.data.scenes[0]?.headline.slice(0, 40) ?? topic.slice(0, 40),
+          out.data.scenes[0]?.metricBadge.slice(0, 40) ?? '60FPS MONOCHROME',
+          `ROUTE: ${out.providerLabel}`.slice(0, 40),
+        ];
+        recordAudit('PROACTIVE_PULSE', `Explainer generated (${style}) via ${out.providerLabel}`);
+        jsonResponse(res, 200, {
+          ok: true,
+          topic,
+          style,
+          providerLabel: out.providerLabel,
+          fallbackUsed: out.fallbackUsed,
+          scenes: out.data.scenes,
+          g2Lines,
+          tokenSummary: tokenLedger.getSummary(),
+        });
         return;
       }
 

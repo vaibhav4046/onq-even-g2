@@ -4,6 +4,7 @@ import { formatLiveUiForG2, evaluateSafeFormula, formatFormulaValue, buildSurfac
 import type { AliveMood, LiveUiInteraction, LiveUiSurface, NormalizedEvenEvent, VoiceOrbState } from '@onq/core';
 import { OnQVoiceOrb } from './OnQVoiceOrb';
 import { Memory3DGalaxy } from './Memory3DGalaxy';
+import { ExplainerStudio } from './ExplainerStudio';
 
 export interface LocalToolInfoDto {
   id: string;
@@ -160,7 +161,7 @@ export function LiveVoiceStudio({
   onLiveUiUpdate,
 }: LiveVoiceStudioProps) {
   const reduced = useReducedMotion();
-  const [studioTab, setStudioTab] = useState<'call' | 'apps' | 'fleet' | 'notes' | 'computer'>('call');
+  const [studioTab, setStudioTab] = useState<'call' | 'apps' | 'fleet' | 'market' | 'explainer' | 'notes' | 'computer'>('call');
   const [tools, setTools] = useState<LocalToolInfoDto[]>([]);
   const [tasks, setTasks] = useState<AgentTaskDto[]>([]);
   const [localMemories, setLocalMemories] = useState<UnifiedMemoryDto[]>([]);
@@ -185,11 +186,35 @@ export function LiveVoiceStudio({
   const [aliveMood, setAliveMood] = useState<AliveMood>('neutral');
   const [pacedPreview, setPacedPreview] = useState<string>('');
 
-  // Kanban Fleet + Watch Agent Screen + Silent Input
+  // Kanban Fleet + Watch Agent Screen + Silent Input + Specialist Role
   const [kanbanCards, setKanbanCards] = useState<KanbanCardDto[]>([]);
   const [watchScreen, setWatchScreen] = useState<WatchScreenDto | null>(null);
   const [silentChips, setSilentChips] = useState<SilentQuickChipDto[]>([]);
   const [newKanbanTitle, setNewKanbanTitle] = useState('');
+  const [kanbanRole, setKanbanRole] = useState<'architect' | 'market_analyst' | 'bot_engineer' | 'security_auditor'>('architect');
+
+  // Cited Knowledge RAG + Defuddle + Hermes Taste Profile + TOON/RTK Token Savings
+  const [ragQuery, setRagQuery] = useState('');
+  const [ragUrl, setRagUrl] = useState('');
+  const [ragAnswer, setRagAnswer] = useState<{ answer: string; citations: Array<{ ref: string; title: string; source: string; excerpt: string }> } | null>(null);
+  const [tasteVerbosity, setTasteVerbosity] = useState<'caveman' | 'concise' | 'detailed'>('caveman');
+  const [tokenSavedPct, setTokenSavedPct] = useState<number>(0);
+  const [tokenTotalSaved, setTokenTotalSaved] = useState<number>(0);
+
+  // Market Research & Paper-Trading Bot State (research/paper only, Default-NO Telegram alert)
+  const [marketSignals, setMarketSignals] = useState<Array<{
+    symbol: string;
+    name: string;
+    priceUsd: number;
+    change24hPct: number;
+    rsiProxy: number;
+    regime: string;
+    suggestedAction: string;
+    g2Line: string;
+    source: string;
+  }>>([]);
+  const [marketBotCode, setMarketBotCode] = useState<string>('');
+  const [selectedSymbol, setSelectedSymbol] = useState<'BTC' | 'ETH' | 'SOL' | 'TAO' | 'FET'>('BTC');
 
   const memories = externalMemories ?? localMemories;
 
@@ -203,11 +228,14 @@ export function LiveVoiceStudio({
     if (!sessionToken) return;
     try {
       const headers = { Authorization: `Bearer ${sessionToken}` };
-      const [compRes, memRes, liveRes, kbRes] = await Promise.all([
+      const [compRes, memRes, liveRes, kbRes, tokRes, mktRes, prefRes] = await Promise.all([
         fetch('/api/computer/tools', { headers, credentials: 'include' }),
         fetch('/api/memory', { headers, credentials: 'include' }),
         fetch('/api/liveui', { headers, credentials: 'include' }),
         fetch('/api/kanban', { headers, credentials: 'include' }),
+        fetch('/api/harness/tokens', { headers, credentials: 'include' }),
+        fetch('/api/market/signals', { headers, credentials: 'include' }),
+        fetch('/api/preferences', { headers, credentials: 'include' }),
       ]);
       if (compRes.ok) {
         const j = (await compRes.json()) as {
@@ -242,6 +270,21 @@ export function LiveVoiceStudio({
         if (kj.cards) setKanbanCards(kj.cards);
         if (kj.screen) setWatchScreen(kj.screen);
         if (kj.silentChips) setSilentChips(kj.silentChips);
+      }
+      if (tokRes.ok) {
+        const tj = (await tokRes.json()) as {
+          summary?: { estimatedSavedTokens?: number; reductionPct?: number };
+        };
+        setTokenTotalSaved(tj.summary?.estimatedSavedTokens ?? 0);
+        setTokenSavedPct(tj.summary?.reductionPct ?? 0);
+      }
+      if (mktRes.ok) {
+        const mkj = (await mktRes.json()) as { signals?: typeof marketSignals };
+        if (mkj.signals) setMarketSignals(mkj.signals);
+      }
+      if (prefRes.ok) {
+        const pj = (await prefRes.json()) as { taste?: { verbosity?: 'caveman' | 'concise' | 'detailed' } };
+        if (pj.taste?.verbosity) setTasteVerbosity(pj.taste.verbosity);
       }
     } catch {
       // ignore offline
@@ -481,7 +524,11 @@ export function LiveVoiceStudio({
       method: 'POST',
       headers: authHeaders(),
       credentials: 'include',
-      body: JSON.stringify({ title: newKanbanTitle.trim(), lane: 'needs_you', agentName: 'Custom G2 Agent' }),
+      body: JSON.stringify({
+        title: newKanbanTitle.trim(),
+        lane: 'needs_you',
+        roleTemplate: kanbanRole,
+      }),
     });
     const j = (await res.json()) as { cards?: KanbanCardDto[] };
     if (j.cards) setKanbanCards(j.cards);
@@ -500,6 +547,166 @@ export function LiveVoiceStudio({
     });
     const j = (await res.json()) as { screen?: WatchScreenDto };
     if (j.screen) setWatchScreen(j.screen);
+  };
+
+  const makeG2TextSurface = (id: string, title: string, lines: string[]): LiveUiSurface => ({
+    id,
+    title,
+    frame: 'full',
+    repairedCodes: [],
+    vars: {},
+    updatedAtIso: new Date().toISOString(),
+    components: lines.slice(0, 4).map((line, idx) => ({
+      id: `${id}_${idx}`,
+      kind: 'text',
+      region: 'main',
+      text: line,
+    })),
+  });
+
+  const runCitedRagQuery = async () => {
+    if (!sessionToken || !ragQuery.trim()) return;
+    setBusy(true);
+    try {
+      const res = await fetch('/api/rag/query', {
+        method: 'POST',
+        headers: authHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ query: ragQuery.trim() }),
+      });
+      const j = (await res.json()) as {
+        answer?: string;
+        citations?: Array<{ index?: number; ref?: string; title: string; source: string; excerpt: string }>;
+        g2Lines?: string[];
+        tokenSummary?: { estimatedSavedTokens?: number; reductionPct?: number };
+      };
+      if (j.answer) {
+        const normalizedCites = (j.citations ?? []).map((c, idx) => ({
+          ref: c.ref ?? `[${c.index ?? idx + 1}]`,
+          title: c.title,
+          source: c.source,
+          excerpt: c.excerpt,
+        }));
+        setRagAnswer({ answer: j.answer, citations: normalizedCites });
+        setStudioMsg(`RAG answer grounded across ${normalizedCites.length} citation(s).`);
+      }
+      if (j.tokenSummary) {
+        setTokenTotalSaved(j.tokenSummary.estimatedSavedTokens ?? 0);
+        setTokenSavedPct(j.tokenSummary.reductionPct ?? 0);
+      }
+      if (j.g2Lines?.length && onLiveUiUpdate) {
+        onLiveUiUpdate(makeG2TextSurface('rag_cite', 'Cited RAG Brief', j.g2Lines));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const ingestDefuddleUrl = async () => {
+    if (!sessionToken || !ragUrl.trim()) return;
+    setBusy(true);
+    try {
+      const res = await fetch('/api/rag/ingest-url', {
+        method: 'POST',
+        headers: authHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ url: ragUrl.trim() }),
+      });
+      const j = (await res.json()) as {
+        ok?: boolean;
+        doc?: { title: string };
+        error?: string;
+        tokenSummary?: { estimatedSavedTokens?: number; reductionPct?: number };
+      };
+      if (!res.ok) {
+        setStudioMsg(j.error ?? 'URL blocked by security policy.');
+        return;
+      }
+      if (j.tokenSummary) {
+        setTokenTotalSaved(j.tokenSummary.estimatedSavedTokens ?? 0);
+        setTokenSavedPct(j.tokenSummary.reductionPct ?? 0);
+      }
+      setRagUrl('');
+      onRefreshMemories?.();
+      setStudioMsg(`Defuddle ingested "${j.doc?.title ?? 'document'}" cleanly into RAG index.`);
+      void loadStudioState();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const updateTastePreference = async (verbosity: 'caveman' | 'concise' | 'detailed') => {
+    setTasteVerbosity(verbosity);
+    if (!sessionToken) return;
+    await fetch('/api/preferences', {
+      method: 'POST',
+      headers: authHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ verbosity }),
+    });
+    setStudioMsg(`Hermes Taste Profile updated: ${verbosity.toUpperCase()}.`);
+  };
+
+  const runMarketPaperTrade = async (symbol: 'BTC' | 'ETH' | 'SOL' | 'TAO' | 'FET') => {
+    if (!sessionToken) return;
+    setBusy(true);
+    try {
+      const res = await fetch('/api/market/paper-trade', {
+        method: 'POST',
+        headers: authHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ symbol, notionalUsd: 500 }),
+      });
+      const j = (await res.json()) as { ok?: boolean; result?: { summary?: string; g2Line?: string } };
+      if (j.result?.summary) setStudioMsg(j.result.summary);
+      if (j.result?.g2Line && onLiveUiUpdate) {
+        onLiveUiUpdate(makeG2TextSurface('mkt_paper', `${symbol} Paper Watch`, [j.result.g2Line]));
+      }
+      onRefreshMemories?.();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const generateMarketBot = async (symbol: 'BTC' | 'ETH' | 'SOL' | 'TAO' | 'FET') => {
+    if (!sessionToken) return;
+    setBusy(true);
+    try {
+      const res = await fetch('/api/market/bot-script', {
+        method: 'POST',
+        headers: authHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ symbol }),
+      });
+      const j = (await res.json()) as { scriptPath?: string; code?: string; cards?: KanbanCardDto[] };
+      if (j.code) setMarketBotCode(j.code);
+      if (j.cards) setKanbanCards(j.cards);
+      setStudioMsg(`Generated Python Signal Watcher -> ${j.scriptPath ?? `data/bots/market_${symbol.toLowerCase()}_bot.py`}`);
+      void loadStudioState();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const stageMarketTelegramAlert = async (symbol: 'BTC' | 'ETH' | 'SOL' | 'TAO' | 'FET') => {
+    if (!sessionToken) return;
+    setBusy(true);
+    try {
+      const sig = marketSignals.find((s) => s.symbol === symbol);
+      const res = await fetch('/api/telegram/automate', {
+        method: 'POST',
+        headers: authHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({
+          action: 'market_alert',
+          text: sig ? `${sig.symbol} $${sig.priceUsd} · RSI ${sig.rsiProxy} · ${sig.suggestedAction}` : `${symbol} Signal Watch`,
+        }),
+      });
+      const j = (await res.json()) as { generatedText?: string };
+      setStudioMsg(`Default-NO Telegram market alert staged (Hold YES to send): ${j.generatedText ?? symbol}`);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const triggerSilentChip = async (chip: SilentQuickChipDto) => {
@@ -544,6 +751,9 @@ export function LiveVoiceStudio({
           <span className="font-pixel text-[9px] uppercase px-2 py-0.5 rounded-full border border-[var(--g2-phosphor)]/40 text-[var(--g2-phosphor)] bg-[var(--g2-phosphor)]/5">
             AI: {activeLlmProvider || 'Auto'}
           </span>
+          <span className="font-pixel text-[9px] uppercase px-2 py-0.5 rounded-full border border-[#86FFAF]/40 text-[#86FFAF] bg-[#86FFAF]/5">
+            TOON/RTK: {tokenSavedPct > 0 ? `-${tokenSavedPct}% (${tokenTotalSaved} tok)` : 'ARMED'}
+          </span>
         </div>
 
         <div className="flex flex-wrap gap-1 rounded-[10px] border border-white/10 bg-black/70 p-1 text-[10px] font-pixel uppercase">
@@ -552,6 +762,8 @@ export function LiveVoiceStudio({
               ['call', 'Voice & Tasks'],
               ['apps', 'Live Apps'],
               ['fleet', 'Agent Fleet'],
+              ['market', 'Market Bot'],
+              ['explainer', 'Explainer'],
               ['notes', 'Meeting Notes'],
               ['computer', 'PC Tools'],
             ] as const
@@ -827,10 +1039,89 @@ export function LiveVoiceStudio({
               <Memory3DGalaxy memories={memories as Array<{ id: string; kind: 'task' | 'meeting' | 'email' | 'telegram' | 'note'; title: string; summary: string; source: string; createdAtIso: string }>} />
             ) : (
               <>
+                <div className="flex items-center justify-between gap-1.5 border border-white/10 bg-black/50 px-2 py-1 text-[10px]">
+                  <span className="font-pixel text-[8px] uppercase text-[var(--lightgray)]">TASTE:</span>
+                  <div className="flex gap-1">
+                    {(['caveman', 'concise', 'detailed'] as const).map((modeOption) => (
+                      <button
+                        key={modeOption}
+                        type="button"
+                        onClick={() => void updateTastePreference(modeOption)}
+                        className={`px-1.5 py-0.5 rounded font-pixel text-[8px] uppercase cursor-pointer ${
+                          tasteVerbosity === modeOption
+                            ? 'bg-[#34F57E] text-[#041209]'
+                            : 'text-[var(--lightgray)] hover:text-[var(--bright)]'
+                        }`}
+                      >
+                        {modeOption}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void runCitedRagQuery();
+                  }}
+                  className="flex gap-1"
+                >
+                  <input
+                    type="text"
+                    aria-label="Ask Cited RAG"
+                    placeholder="Cited QA (RAGFlow/GBrain)..."
+                    value={ragQuery}
+                    onChange={(e) => setRagQuery(e.target.value)}
+                    className="flex-1 bg-[var(--ink)] border border-[var(--hairline)] px-2 py-1 text-[11px] text-[var(--bright)] focus:border-[#34F57E]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="px-2 py-1 bg-[#34F57E] text-[#041209] font-pixel text-[8.5px] cursor-pointer"
+                  >
+                    Ask
+                  </button>
+                </form>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void ingestDefuddleUrl();
+                  }}
+                  className="flex gap-1"
+                >
+                  <input
+                    type="url"
+                    aria-label="Ingest docs URL with Defuddle"
+                    placeholder="Defuddle URL -> RAG index..."
+                    value={ragUrl}
+                    onChange={(e) => setRagUrl(e.target.value)}
+                    className="flex-1 bg-[var(--ink)] border border-[var(--hairline)] px-2 py-1 text-[11px] text-[var(--bright)] focus:border-[#86FFAF]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="px-2 py-1 border border-[#86FFAF]/40 text-[#86FFAF] font-pixel text-[8.5px] cursor-pointer"
+                  >
+                    Defuddle
+                  </button>
+                </form>
+
+                {ragAnswer && (
+                  <div className="border border-[#34F57E]/45 bg-[#041209] p-2 space-y-1 text-[10.5px]">
+                    <div className="text-[var(--bright)] leading-snug">{ragAnswer.answer}</div>
+                    {ragAnswer.citations.slice(0, 2).map((c) => (
+                      <div key={c.ref} className="text-[9.5px] text-[#86FFAF] truncate">
+                        {c.ref} {c.title} ({c.source})
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <input
                   type="text"
                   aria-label="Search unified memory"
-                  placeholder="Search memory..."
+                  placeholder="Filter memory feed..."
                   value={memFilter}
                   onChange={(e) => setMemFilter(e.target.value)}
                   className="w-full bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[11px] text-[var(--bright)] focus:border-[#34F57E]"
@@ -1128,14 +1419,25 @@ export function LiveVoiceStudio({
                 e.preventDefault();
                 void addKanbanCard();
               }}
-              className="flex gap-2"
+              className="flex flex-wrap gap-2"
             >
+              <select
+                aria-label="Specialist agent role"
+                value={kanbanRole}
+                onChange={(e) => setKanbanRole(e.target.value as typeof kanbanRole)}
+                className="bg-[var(--ink)] border border-[var(--hairline)] px-2 py-1.5 text-[11px] text-[var(--bright)]"
+              >
+                <option value="architect">Architect</option>
+                <option value="market_analyst">Market Quant</option>
+                <option value="bot_engineer">Bot Engineer</option>
+                <option value="security_auditor">Security Guard</option>
+              </select>
               <input
                 type="text"
                 placeholder="Assign new Kanban job to agent team..."
                 value={newKanbanTitle}
                 onChange={(e) => setNewKanbanTitle(e.target.value)}
-                className="flex-1 bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
+                className="flex-1 min-w-[160px] bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
               />
               <button
                 type="submit"
@@ -1263,6 +1565,120 @@ export function LiveVoiceStudio({
             </div>
           </div>
         </div>
+      )}
+
+      {studioTab === 'market' && (
+        <div className="space-y-3.5 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--g2-phosphor)]">
+                AI MARKET RESEARCH &amp; PAPER BOT WATCHER
+              </span>
+              <p className="text-[11px] text-[var(--lightgray)]">
+                Research &amp; paper simulation only (zero auto-execution). Telegram alerts require explicit Hold-YES approval.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {(['BTC', 'ETH', 'SOL', 'TAO', 'FET'] as const).map((sym) => (
+                <button
+                  key={sym}
+                  type="button"
+                  onClick={() => setSelectedSymbol(sym)}
+                  className={`px-2.5 py-1 font-pixel text-[9px] cursor-pointer ${
+                    selectedSymbol === sym
+                      ? 'bg-[var(--g2-phosphor)] text-[#041209] font-bold'
+                      : 'retro-btn-glass text-[var(--bright)]'
+                  }`}
+                >
+                  {sym}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+            {marketSignals.map((sig) => (
+              <button
+                key={sig.symbol}
+                type="button"
+                onClick={() => setSelectedSymbol(sig.symbol as typeof selectedSymbol)}
+                className={`text-left border p-2.5 bg-black/55 space-y-1 cursor-pointer transition-colors ${
+                  selectedSymbol === sig.symbol ? 'border-[var(--g2-phosphor)]' : 'border-white/10 hover:border-white/30'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-pixel text-[10px] text-[var(--bright)]">{sig.symbol}</span>
+                  <span className={`font-pixel text-[8.5px] ${sig.change24hPct >= 0 ? 'text-[#34F57E]' : 'text-amber-300'}`}>
+                    {sig.change24hPct >= 0 ? '+' : ''}{sig.change24hPct}%
+                  </span>
+                </div>
+                <div className="font-mono text-sm text-[var(--lime)]">${sig.priceUsd.toLocaleString()}</div>
+                <div className="font-pixel text-[8px] text-[var(--lightgray)]">
+                  RSI {sig.rsiProxy} · {sig.suggestedAction}
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void runMarketPaperTrade(selectedSymbol)}
+              className="retro-btn-primary px-3.5 py-1.5 font-semibold cursor-pointer"
+            >
+              Simulate Paper Watch ($500 {selectedSymbol})
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void generateMarketBot(selectedSymbol)}
+              className="retro-btn-glass px-3.5 py-1.5 text-[var(--g2-phosphor)] font-semibold cursor-pointer"
+            >
+              Generate Python Bot ({selectedSymbol})
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void stageMarketTelegramAlert(selectedSymbol)}
+              className="retro-btn-glass px-3.5 py-1.5 text-[#86FFAF] font-semibold cursor-pointer"
+            >
+              Stage Telegram Alert (Default-NO)
+            </button>
+            {onLiveUiUpdate && (
+              <button
+                type="button"
+                onClick={() => {
+                  const sig = marketSignals.find((s) => s.symbol === selectedSymbol);
+                  onLiveUiUpdate(
+                    makeG2TextSurface('mkt_g2', `${selectedSymbol} Watch`, [
+                      sig?.g2Line ?? `${selectedSymbol} SIGNAL READY | PAPER ONLY`,
+                    ]),
+                  );
+                }}
+                className="retro-btn-glass px-3.5 py-1.5 text-[var(--bright)] cursor-pointer"
+              >
+                Push Ticker to G2 Lens
+              </button>
+            )}
+          </div>
+
+          {marketBotCode && (
+            <pre className="border border-dashed border-[var(--g2-phosphor)]/40 bg-black p-3 font-mono text-[10px] text-[#86FFAF] overflow-x-auto max-h-44">
+              {marketBotCode}
+            </pre>
+          )}
+        </div>
+      )}
+
+      {studioTab === 'explainer' && (
+        <ExplainerStudio
+          sessionToken={sessionToken}
+          activeLlmProvider={activeLlmProvider || 'Auto'}
+          onSyncToG2={(lines) =>
+            onLiveUiUpdate?.(makeG2TextSurface('explainer_g2', 'Explainer Beat', lines))
+          }
+        />
       )}
 
       {studioTab === 'notes' && (
