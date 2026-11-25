@@ -14,6 +14,9 @@ export type ActionIntent =
   | 'CREATE_ACTION_PACK'
   | 'REPLY_EMAIL'
   | 'COMPLETE_NOTION_TASK'
+  | 'PLAN_PROJECT'
+  | 'DELEGATE_COMPUTER_TASK'
+  | 'TELEGRAM_ACTION'
   | 'ASK_NOTES'
   | 'AMBIGUOUS'
   | 'UNKNOWN';
@@ -52,14 +55,17 @@ export interface CorridorCard {
 }
 
 export interface ActionOperation {
-  provider: 'GCAL' | 'GMAIL' | 'NOTION';
+  provider: 'GCAL' | 'GMAIL' | 'NOTION' | 'TELEGRAM' | 'COMPUTER';
   op:
     | 'MOVE_EVENT'
     | 'CREATE_HOLD'
     | 'SEND_REPLY'
     | 'SAVE_DRAFT'
     | 'CREATE_TASK'
-    | 'MARK_DONE';
+    | 'MARK_DONE'
+    | 'SEND_TELEGRAM'
+    | 'DELEGATE_AGENT'
+    | 'CREATE_SPEC';
   targetLabel: string;
   beforeValue?: string;
   afterValue: string;

@@ -26,6 +26,7 @@ export interface RunHarnessParams {
   sessionHash: string;
   mode: SourceMode;
   llmConfig?: LlmConfig;
+  voiceConnected?: boolean;
   nowFn?: () => number;
 }
 
@@ -85,10 +86,11 @@ export async function runOrchestrationHarness(params: RunHarnessParams): Promise
       modelAttempts: [],
     };
   }
+  const hasLiveVoice = params.voiceConnected ?? Boolean(process.env.ASSEMBLYAI_API_KEY);
   steps.push({
     step: 'VOICE_STREAM',
     status: 'PASS',
-    provider: process.env.ASSEMBLYAI_API_KEY ? 'AssemblyAI STT-3.7' : 'Local Whisper Fallback',
+    provider: hasLiveVoice ? 'AssemblyAI STT-3.7' : 'Local Whisper Fallback',
     durationMs: Math.max(1, Date.now() - t2),
     guardStatus: `RMS_PASS (${rms.toFixed(3)})`,
     detail: `Utterance admitted: "${params.utterance}"`,
@@ -259,7 +261,7 @@ export async function runOrchestrationHarness(params: RunHarnessParams): Promise
   steps.push({
     step: 'VOICE_REPLY',
     status: 'PASS',
-    provider: process.env.ASSEMBLYAI_API_KEY ? 'AssemblyAI TTS-1 (Earbuds)' : 'Local Timing Synthesis',
+    provider: params.voiceConnected ?? Boolean(process.env.ASSEMBLYAI_API_KEY) ? 'AssemblyAI TTS-1 (Earbuds)' : 'Local Timing Synthesis',
     durationMs: Math.max(1, Date.now() - t6),
     guardStatus: 'NO_G2_SPEAKER_VERIFIED',
     detail: replyText,

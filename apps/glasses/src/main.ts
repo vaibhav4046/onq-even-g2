@@ -16,6 +16,7 @@ import {
   clipLine42,
   createInitialHudState,
   encodeCountdownRingPng,
+  encodePixelAvatarPng,
   formatLensFrame,
   normalizeEvenEvent,
   OnQHudController,
@@ -46,6 +47,7 @@ let bridge: EvenAppBridge | null = null;
 let sessionToken: string | null = null;
 let containerMode: 'text-only' | 'detail-list' | 'ring-split' | null = null;
 let sseSource: EventSource | null = null;
+let avatarTick = 0;
 const paintQueue = new BlePaintQueue(250);
 const pcmBuffer = new PcmRingBuffer();
 
@@ -102,6 +104,21 @@ function renderLocalDom(state: HudState): void {
       ringImgEl.dataset.blobUrl = url;
       ringImgEl.src = url;
       ringImgEl.style.display = 'block';
+    } else if (state.phase === 'listening' || state.phase === 'meeting_live') {
+      avatarTick += 1;
+      const png = encodePixelAvatarPng('listening', {
+        tick: avatarTick,
+        rmsLevel: state.rmsLevel,
+        style: 'muse',
+        size: 76,
+      });
+      const blob = new Blob([new Uint8Array(png)], { type: 'image/png' });
+      const url = URL.createObjectURL(blob);
+      const prev = ringImgEl.dataset.blobUrl;
+      if (prev) URL.revokeObjectURL(prev);
+      ringImgEl.dataset.blobUrl = url;
+      ringImgEl.src = url;
+      ringImgEl.style.display = 'block';
     } else {
       ringImgEl.style.display = 'none';
     }
@@ -132,8 +149,10 @@ async function paintToGlasses(state: HudState): Promise<void> {
 
   const frame = formatLensFrame(state);
   const wantRing = state.phase === 'armed' && frame.ringProgress01 !== undefined;
+  const wantAvatar = state.phase === 'listening' || state.phase === 'meeting_live';
+  const wantImage = wantRing || wantAvatar;
   const wantList = state.phase === 'detail' && (state.cards[state.selectedCardIndex]?.quickActions.length ?? 0) > 0;
-  const desiredMode: 'text-only' | 'detail-list' | 'ring-split' = wantRing
+  const desiredMode: 'text-only' | 'detail-list' | 'ring-split' = wantImage
     ? 'ring-split'
     : wantList
       ? 'detail-list'
@@ -195,9 +214,9 @@ async function paintToGlasses(state: HudState): Promise<void> {
       }
 
       const textProp = new TextContainerProperty({
-        xPosition: wantRing ? 104 : 12,
+        xPosition: wantImage ? 104 : 12,
         yPosition: 10,
-        width: wantRing ? 460 : 552,
+        width: wantImage ? 460 : 552,
         height: 268,
         containerID: TEXT_CONTAINER_ID,
         containerName: 'main-hud',
@@ -208,7 +227,7 @@ async function paintToGlasses(state: HudState): Promise<void> {
         textColor: 4,
       });
 
-      const imageObject = wantRing
+      const imageObject = wantImage
         ? [
             new ImageContainerProperty({
               xPosition: 14,
@@ -222,7 +241,7 @@ async function paintToGlasses(state: HudState): Promise<void> {
         : undefined;
 
       const payload = {
-        containerTotalNum: wantRing ? 2 : 1,
+        containerTotalNum: wantImage ? 2 : 1,
         textObject: [textProp],
         ...(imageObject ? { imageObject } : {}),
       };
@@ -260,6 +279,24 @@ async function paintToGlasses(state: HudState): Promise<void> {
         }),
       );
     }, frame.ringProgress01 === 0);
+  } else if (wantAvatar) {
+    avatarTick += 1;
+    const png = encodePixelAvatarPng('listening', {
+      tick: avatarTick,
+      rmsLevel: state.rmsLevel,
+      style: 'muse',
+      size: 76,
+    });
+    await paintQueue.enqueueImage(async () => {
+      if (!bridge) return;
+      await bridge.updateImageRawData(
+        new ImageRawDataUpdate({
+          containerID: RING_CONTAINER_ID,
+          containerName: 'undo-ring',
+          imageData: Array.from(png),
+        }),
+      );
+    }, false);
   }
 }
 

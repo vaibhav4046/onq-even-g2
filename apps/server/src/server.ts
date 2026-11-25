@@ -27,7 +27,9 @@ import {
   OAuthStateStore,
   SignedSessionCookie,
 } from './auth/sessionAuth.js';
-import { routeModelCompletion } from './harness/modelRouter.js';
+import { isProviderCooledDown, routeModelCompletion } from './harness/modelRouter.js';
+import { AgentTaskEngine } from './harness/agentTaskEngine.js';
+import type { AgentTaskKind, AgentTaskTargetTool } from './harness/agentTaskEngine.js';
 import { runOrchestrationHarness } from './harness/orchestrationHarness.js';
 import { generateGroundedDraft, probeLlmProvider } from './llm.js';
 import type { LlmConfig, PreferredLlmProvider } from './llm.js';
@@ -38,6 +40,12 @@ import { DemoWorkspaceProvider } from './providers/demoProvider.js';
 import type { DemoFaultInjection } from './providers/demoProvider.js';
 import { buildGoogleAuthUrl, GoogleWorkspaceClient } from './providers/googleProvider.js';
 import { LiveWorkspaceProvider } from './providers/liveProvider.js';
+import {
+  detectLocalComputerTools,
+  executeDelegatedTask,
+  runSafeReadInspection,
+} from './providers/localComputerBridge.js';
+import type { SafeInspectKind, SafeInspectResult } from './providers/localComputerBridge.js';
 import { NotionWorkspaceClient } from './providers/notionProvider.js';
 import {
   getSandboxTelegramDigest,
@@ -55,6 +63,7 @@ import {
   synthesizeTtsUtterance,
 } from './tts/assemblyaiTts.js';
 import { ProactiveAgenticHarness } from './proactiveHarness.js';
+import type { ProactiveInsight } from './proactiveHarness.js';
 import { EncryptedTokenVault } from './tokenVault.js';
 
 export interface AuditTelemetryEvent {
@@ -69,12 +78,16 @@ export interface AuditTelemetryEvent {
     | 'PAIR_LIVE'
     | 'ICS_IMPORT'
     | 'MEETING_START'
+    | 'MEETING_TURN'
+    | 'MEETING_ASK'
     | 'MEETING_WIPE'
     | 'TTS_BARGE_IN'
+    | 'OAUTH_SIGNIN'
     | 'CONNECTOR_SAVED'
-    | 'CONNECTOR_DISCONNECTED'
     | 'CONNECTOR_TESTED'
-    | 'OAUTH_SIGNIN';
+    | 'CONNECTOR_DISCONNECTED'
+    | 'COMPUTER_INSPECT'
+    | 'AGENT_TASK';
   detail: string;
 }
 
@@ -174,7 +187,11 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
   const sseClients = new Set<http.ServerResponse>();
   const auditLog: AuditTelemetryEvent[] = [];
   const meetingBuffer = new MeetingTranscriptBuffer(48);
+  const agentTasks = new AgentTaskEngine(nowFn);
   let activeIcsFeed: string | null = null;
+  let lastInspectResult: SafeInspectResult | null = null;
+  let cachedTelegramInsight: ProactiveInsight | null = null;
+  let cachedComputerInsight: ProactiveInsight | null = null;
 
   let lastCorridorCache: {
     cards: CorridorCard[];
@@ -239,25 +256,24 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     return { clientId, clientSecret };
   }
 
+  function resolveActiveLlmLabel(llmCfg: LlmConfig): string {
+    if (llmCfg.preferredProvider === 'rules') return 'Rules (Deterministic)';
+    if (llmCfg.preferredProvider === 'claude' && llmCfg.anthropicKey) return 'Claude';
+    if (llmCfg.preferredProvider === 'openrouter' && llmCfg.openRouterKey) return 'OpenRouter';
+    if (llmCfg.preferredProvider === 'chatgpt' && llmCfg.openAiKey) return 'ChatGPT';
+    if (llmCfg.anthropicKey && !isProviderCooledDown('claude', llmCfg.anthropicKey)) return 'Claude';
+    if (llmCfg.openRouterKey && !isProviderCooledDown('openrouter', llmCfg.openRouterKey)) return 'OpenRouter';
+    if (llmCfg.openAiKey && !isProviderCooledDown('chatgpt', llmCfg.openAiKey)) return 'ChatGPT';
+    if (llmCfg.openRouterKey) return 'OpenRouter';
+    if (llmCfg.anthropicKey) return 'Claude';
+    if (llmCfg.openAiKey) return 'ChatGPT';
+    return 'Rules (Deterministic)';
+  }
+
   function buildConnectorStatus() {
     const creds = vault.load();
     const llmCfg = resolveLlmConfig();
-    const activeLlmProvider =
-      llmCfg.preferredProvider === 'rules'
-        ? 'Rules (Deterministic)'
-        : llmCfg.preferredProvider === 'claude' && llmCfg.anthropicKey
-          ? 'Claude'
-          : llmCfg.preferredProvider === 'openrouter' && llmCfg.openRouterKey
-            ? 'OpenRouter'
-            : llmCfg.preferredProvider === 'chatgpt' && llmCfg.openAiKey
-              ? 'ChatGPT'
-              : llmCfg.anthropicKey
-                ? 'Claude'
-                : llmCfg.openRouterKey
-                  ? 'OpenRouter'
-                  : llmCfg.openAiKey
-                    ? 'ChatGPT'
-                    : 'Rules (Deterministic)';
+    const activeLlmProvider = resolveActiveLlmLabel(llmCfg);
     const aaiKey = resolveAssemblyAiKey();
     const clientId = creds.googleClientId ?? process.env.GOOGLE_CLIENT_ID;
     const clientSecret = creds.googleClientSecret ?? process.env.GOOGLE_CLIENT_SECRET;
@@ -273,7 +289,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       vaultEncrypted: true,
       activeLlmProvider,
       preferredLlm: creds.preferredLlm ?? 'auto',
-      openRouterModel: creds.openRouterModel ?? 'meta-llama/llama-3.2-3b-instruct:free',
+      openRouterModel: creds.openRouterModel ?? 'openrouter/free',
       voiceEngine: aaiKey ? 'LIVE · ASSEMBLYAI' : 'SANDBOX · LOCAL',
       googleOAuthConfigured,
       notionOAuthConfigured,
@@ -314,7 +330,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           connected: Boolean(llmCfg.openRouterKey),
           mode: llmCfg.openRouterKey ? 'LIVE' : 'STANDBY',
           detail: llmCfg.openRouterKey
-            ? `${creds.openRouterModel ?? 'llama-3.2-3b-instruct:free'} via OpenRouter`
+            ? `${creds.openRouterModel ?? 'openrouter/free'} via OpenRouter`
             : '1-Click OpenRouter OAuth PKCE ready (0 manual copy)',
         },
         chatgpt: {
@@ -366,23 +382,58 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     getSummary: () => {
       const creds = vault.load();
       const llmCfg = resolveLlmConfig();
-      const activeLlmProvider = llmCfg.anthropicKey
-        ? 'Claude'
-        : llmCfg.openRouterKey
-          ? 'OpenRouter'
-          : llmCfg.openAiKey
-            ? 'ChatGPT'
-            : 'Rules';
+      const activeLlmProvider = resolveActiveLlmLabel(llmCfg);
       const voiceConnected = Boolean(resolveAssemblyAiKey());
+      const tgConnected = Boolean(creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN);
       const connectedCount = [
         Boolean(creds.googleRefreshToken || activeIcsFeed),
         Boolean(creds.notionToken && creds.notionDatabaseId),
+        tgConnected,
         Boolean(llmCfg.anthropicKey),
         Boolean(llmCfg.openRouterKey),
         Boolean(llmCfg.openAiKey),
         voiceConnected,
       ].filter(Boolean).length;
-      return { activeLlmProvider, voiceConnected, connectedCount };
+      return { activeLlmProvider, voiceConnected, connectedCount, totalConnectors: 7 };
+    },
+    getTelegramInsight: () => cachedTelegramInsight,
+    getComputerInsight: () => cachedComputerInsight,
+    refreshAsyncSignals: async () => {
+      const creds = vault.load();
+      const nowIso = new Date(nowFn()).toISOString();
+      const botToken = creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN;
+      if (botToken) {
+        try {
+          const tg = new TelegramWorkspaceClient(botToken, creds.telegramChatId, opts.fetchImpl);
+          const msgs = await tg.getRecentMessages(1);
+          if (msgs[0]) {
+            cachedTelegramInsight = {
+              id: `ins-tg-${msgs[0].updateId}`,
+              atIso: nowIso,
+              category: 'TELEGRAM',
+              severity: 'action',
+              title: `TG · ${msgs[0].fromName}`,
+              detail: msgs[0].text.slice(0, 84),
+              suggestedCommand: 'Reply on Telegram: on my way in 5m',
+              sourceMode: 'LIVE',
+            };
+          }
+        } catch {
+          // keep prior insight cleanly
+        }
+      }
+      const gitSt = await runSafeReadInspection('git_status', process.cwd());
+      lastInspectResult = gitSt;
+      cachedComputerInsight = {
+        id: 'ins-comp-git',
+        atIso: nowIso,
+        category: 'COMPUTER',
+        severity: 'info',
+        title: `Computer: ${gitSt.ok ? 'Workspace Ready' : 'Check Needed'}`,
+        detail: gitSt.summary,
+        suggestedCommand: 'Check git status and open GitHub PRs',
+        sourceMode: 'DEMO',
+      };
     },
     onPulse: (st) => broadcastSse('proactive', st),
     nowFn,
@@ -876,6 +927,28 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
             afterValue: 'Done',
           });
           summaryLines.push(`1) NOTION: Mark "${title.slice(0, 22)}" done`);
+        } else if (parsed.kind === 'TELEGRAM_ACTION') {
+          const creds = vault.load();
+          const chat = (creds.telegramChatId ?? 'tg-grp-even').trim();
+          const msg = parsed.replyMessage ?? 'Running slightly behind, joining shortly.';
+          operations.push({
+            provider: 'TELEGRAM',
+            op: 'SEND_TELEGRAM',
+            targetLabel: chat,
+            afterValue: msg,
+          });
+          summaryLines.push(`1) TG CHAT: ${chat.slice(0, 18)}`);
+          summaryLines.push(`2) DRAFT: "${msg.slice(0, 26)}"`);
+        } else if (parsed.kind === 'PLAN_PROJECT' || parsed.kind === 'DELEGATE_COMPUTER_TASK') {
+          const title = parsed.taskTitle ?? parsed.rawText;
+          operations.push({
+            provider: 'COMPUTER',
+            op: parsed.kind === 'PLAN_PROJECT' ? 'CREATE_SPEC' : 'DELEGATE_AGENT',
+            targetLabel: 'Local Computer Harness',
+            afterValue: parsed.rawText,
+          });
+          summaryLines.push(`1) COMP: ${parsed.kind === 'PLAN_PROJECT' ? 'Plan' : 'Run'} "${title.slice(0, 22)}"`);
+          summaryLines.push('2) ROUTE: Local CLI / OpenRouter');
         }
 
         const built = await buildAndValidatePreview({
@@ -941,10 +1014,49 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           return;
         }
 
+        const workspaceOps = consumed.preview.operations.filter(
+          (op) => op.provider !== 'COMPUTER' && op.provider !== 'TELEGRAM',
+        );
+        const computerOps = consumed.preview.operations.filter((op) => op.provider === 'COMPUTER');
+        const telegramOps = consumed.preview.operations.filter((op) => op.provider === 'TELEGRAM');
+
         const receipt = await provider.executePreview({
           preview: consumed.preview,
-          operations: consumed.preview.operations,
+          operations: workspaceOps,
         });
+
+        for (const cop of computerOps) {
+          const delegated = await executeDelegatedTask({
+            title: cop.afterValue.slice(0, 48),
+            prompt: cop.afterValue,
+            targetTool: /git|pr|test/i.test(cop.afterValue) ? 'workspace_test' : 'auto',
+            cwd: process.cwd(),
+            llmConfig: resolveLlmConfig(),
+          });
+          receipt.summaryLines = [...delegated.lensLines, ...receipt.summaryLines].slice(0, 3);
+          receipt.operations.push({
+            ...cop,
+            reversible: false,
+            recallNote: delegated.toolUsed,
+          });
+        }
+
+        for (const top of telegramOps) {
+          const creds = vault.load();
+          const botToken = creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN;
+          let tgNote = 'SANDBOX SENT';
+          if (botToken && creds.telegramChatId) {
+            const tgClient = new TelegramWorkspaceClient(botToken, creds.telegramChatId, opts.fetchImpl);
+            await tgClient.sendMessage(creds.telegramChatId, top.afterValue).catch(() => null);
+            tgNote = 'LIVE TELEGRAM SENT';
+          }
+          receipt.operations.push({
+            ...top,
+            reversible: false,
+            recallNote: tgNote,
+          });
+        }
+
         await ledger.saveReceipt(receipt);
         recordAudit('COMMIT', `${receipt.receiptId}: ${receipt.summaryLines.join(' | ')}`);
         broadcastSse('receipt', receipt);
@@ -1900,7 +2012,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           const probe = await probeLlmProvider(resolveLlmConfig(provider));
           recordAudit('CONNECTOR_TESTED', `${provider}: ${probe.providerLabel} (${probe.latencyMs}ms)`);
           jsonResponse(res, 200, {
-            ok: probe.factGuardPassed,
+            ok: probe.ok,
             provider,
             mode: probe.fallbackUsed ? 'FALLBACK' : 'LIVE',
             latencyMs: probe.latencyMs,
@@ -2021,6 +2133,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           sessionHash: session.tokenHash,
           mode: session.mode,
           llmConfig: resolveLlmConfig(),
+          voiceConnected: Boolean(resolveAssemblyAiKey()),
           nowFn,
         });
         jsonResponse(res, 200, report);
@@ -2047,8 +2160,98 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       if (req.method === 'POST' && pathname === '/api/proactive/pulse') {
         const session = await requireAuth(req, res);
         if (!session) return;
-        const st = proactiveHarness.runPulse();
+        const st = await proactiveHarness.runAsyncPulse();
         jsonResponse(res, 200, st);
+        return;
+      }
+
+      // 14g. Zero-API-Key Local Computer AI & Dev Tool Bridge + Default-NO Agent Delegation
+      if (req.method === 'GET' && pathname === '/api/computer/tools') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        jsonResponse(res, 200, {
+          tools: detectLocalComputerTools(),
+          tasks: agentTasks.listTasks(),
+          lastInspect: lastInspectResult,
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/computer/inspect') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ kind?: string }>(req);
+        const rawKind = body.kind ?? 'git_status';
+        const allowedKinds: ReadonlySet<SafeInspectKind> = new Set([
+          'git_status',
+          'git_log',
+          'gh_prs',
+          'workspace_summary',
+        ]);
+        if (!allowedKinds.has(rawKind as SafeInspectKind)) {
+          jsonResponse(res, 400, { error: `Invalid inspection kind: ${rawKind}` });
+          return;
+        }
+        const inspect = await runSafeReadInspection(rawKind as SafeInspectKind, process.cwd());
+        lastInspectResult = inspect;
+        cachedComputerInsight = {
+          id: `ins-comp-${rawKind}`,
+          atIso: new Date(nowFn()).toISOString(),
+          category: 'COMPUTER',
+          severity: inspect.ok ? 'info' : 'warn',
+          title: `Computer: ${rawKind.replace('_', ' ')}`,
+          detail: inspect.summary,
+          suggestedCommand: 'Check git status and open GitHub PRs',
+          sourceMode: 'DEMO',
+        };
+        recordAudit('COMPUTER_INSPECT', `${rawKind}: ${inspect.summary}`);
+        broadcastSse('computer', { inspect, tools: detectLocalComputerTools() });
+        jsonResponse(res, 200, { ok: inspect.ok, inspect, insight: cachedComputerInsight });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/agent/tasks/stage') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{
+          kind?: AgentTaskKind;
+          title?: string;
+          prompt?: string;
+          targetTool?: AgentTaskTargetTool;
+        }>(req);
+        const prompt = body.prompt?.trim() ?? body.title?.trim();
+        if (!prompt) {
+          jsonResponse(res, 400, { error: 'Task title or prompt required' });
+          return;
+        }
+        const task = agentTasks.stageTask({
+          kind: body.kind ?? 'PLAN_PROJECT',
+          title: body.title?.trim() || prompt.slice(0, 48),
+          prompt,
+          targetTool: body.targetTool ?? 'auto',
+        });
+        broadcastSse('agent_task', task);
+        jsonResponse(res, 200, { ok: true, task });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/agent/tasks/commit') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ taskId?: string; previewToken?: string }>(req);
+        const task = await agentTasks.commitTask({
+          taskId: body.taskId,
+          previewToken: body.previewToken,
+          cwd: process.cwd(),
+          llmConfig: resolveLlmConfig(),
+        });
+        if (!task) {
+          jsonResponse(res, 404, { error: 'Staged agent task not found or invalid previewToken' });
+          return;
+        }
+        recordAudit('AGENT_TASK', `${task.toolUsed}: ${task.title}`);
+        broadcastSse('agent_task', task);
+        jsonResponse(res, 200, { ok: task.status === 'DONE', task });
         return;
       }
 

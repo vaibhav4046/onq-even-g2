@@ -4,7 +4,7 @@ import type { WorkspaceSnapshot } from './providers/types.js';
 export interface ProactiveInsight {
   id: string;
   atIso: string;
-  category: 'MEETING' | 'INBOX' | 'NOTION' | 'HEALTH';
+  category: 'MEETING' | 'INBOX' | 'NOTION' | 'TELEGRAM' | 'COMPUTER' | 'HEALTH';
   severity: 'info' | 'action' | 'warn';
   title: string;
   detail: string;
@@ -22,7 +22,15 @@ export interface ProactiveHarnessStatus {
 
 export interface ProactiveHarnessDeps {
   getSnapshot: () => { snapshot: WorkspaceSnapshot; sourceMode: SourceMode };
-  getSummary: () => { activeLlmProvider: string; voiceConnected: boolean; connectedCount: number };
+  getSummary: () => {
+    activeLlmProvider: string;
+    voiceConnected: boolean;
+    connectedCount: number;
+    totalConnectors?: number;
+  };
+  getTelegramInsight?: () => ProactiveInsight | null;
+  getComputerInsight?: () => ProactiveInsight | null;
+  refreshAsyncSignals?: () => Promise<void>;
   onPulse?: (status: ProactiveHarnessStatus) => void;
   nowFn?: () => number;
   intervalMs?: number;
@@ -59,7 +67,7 @@ export class ProactiveAgenticHarness {
     this.running = true;
     this.runPulse();
     this.timer = setInterval(() => {
-      this.runPulse();
+      void this.runAsyncPulse();
     }, this.intervalMs);
     this.timer.unref?.();
     return this.getStatus();
@@ -155,24 +163,48 @@ export class ProactiveAgenticHarness {
       });
     }
 
-    // 4. Always report harness health & active routing
+    // 4. Optional live Telegram incoming ping watcher
+    const tgIns = this.deps.getTelegramInsight?.();
+    if (tgIns) {
+      nextInsights.push(tgIns);
+    }
+
+    // 5. Optional local Computer / Git / Delegated Agent task watcher
+    const compIns = this.deps.getComputerInsight?.();
+    if (compIns) {
+      nextInsights.push(compIns);
+    }
+
+    // 6. Always report harness health & active routing
+    const totalConnectors = summary.totalConnectors ?? 7;
     nextInsights.push({
       id: 'ins-health-router',
       atIso: nowIso,
       category: 'HEALTH',
       severity: 'info',
       title: `24/7 Watch: ${summary.activeLlmProvider}`,
-      detail: `${summary.connectedCount}/6 connectors ready · Voice ${summary.voiceConnected ? 'LIVE' : 'LOCAL'} · Default-NO locked`,
+      detail: `${summary.connectedCount}/${totalConnectors} connectors ready · Voice ${summary.voiceConnected ? 'LIVE' : 'LOCAL'} · Default-NO locked`,
       sourceMode,
     });
 
     this.pulseCount += 1;
     this.lastPulseAtIso = nowIso;
-    this.insights = nextInsights.slice(0, 4);
+    this.insights = nextInsights.slice(0, 6);
 
     const status = this.getStatus();
     this.deps.onPulse?.(status);
     return status;
+  }
+
+  async runAsyncPulse(): Promise<ProactiveHarnessStatus> {
+    if (this.deps.refreshAsyncSignals) {
+      try {
+        await this.deps.refreshAsyncSignals();
+      } catch {
+        // non-fatal background refresh failure
+      }
+    }
+    return this.runPulse();
   }
 
   getStatus(): ProactiveHarnessStatus {

@@ -26,6 +26,38 @@ export interface CompressReplyOutput {
 
 export type PreferredLlmProvider = 'auto' | 'claude' | 'openrouter' | 'chatgpt' | 'rules';
 
+const COOLDOWN_MS = 5 * 60_000;
+const providerCooldowns = new Map<string, number>();
+
+function cooldownKey(provider: 'claude' | 'openrouter' | 'chatgpt', key: string): string {
+  const tail = key.slice(-6);
+  return `${provider}:${tail}`;
+}
+
+export function clearProviderCooldowns(): void {
+  providerCooldowns.clear();
+}
+
+export function isProviderCooledDown(
+  provider: 'claude' | 'openrouter' | 'chatgpt',
+  key?: string,
+  nowMs = Date.now(),
+): boolean {
+  if (!key) return false;
+  const until = providerCooldowns.get(cooldownKey(provider, key));
+  if (!until) return false;
+  if (until <= nowMs) {
+    providerCooldowns.delete(cooldownKey(provider, key));
+    return false;
+  }
+  return true;
+}
+
+function markProviderCooldown(provider: 'claude' | 'openrouter' | 'chatgpt', key: string): void {
+  if (!key) return;
+  providerCooldowns.set(cooldownKey(provider, key), Date.now() + COOLDOWN_MS);
+}
+
 export interface LlmConfig {
   openRouterKey?: string;
   openRouterModel?: string;
@@ -84,28 +116,43 @@ async function invokeRemoteProvider(
 
   if (provider === 'openrouter') {
     const key = cfg.openRouterKey ?? process.env.OPENROUTER_API_KEY ?? '';
-    const model = cfg.openRouterModel ?? process.env.OPENROUTER_MODEL ?? 'meta-llama/llama-3.2-3b-instruct:free';
-    const res = await f('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const model = cfg.openRouterModel ?? process.env.OPENROUTER_MODEL ?? 'openrouter/free';
+    const invokeOpenRouter = async (useJsonFormat: boolean) => {
+      const payload: Record<string, unknown> = {
         model,
-        max_tokens: 140,
+        max_tokens: 320,
+        reasoning: { exclude: true },
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: prompt },
         ],
-      }),
-      signal,
-    });
-    if (!res.ok) {
-      throw Object.assign(new Error(`HTTP ${res.status}`), { httpStatus: res.status });
+      };
+      if (useJsonFormat) {
+        payload.response_format = { type: 'json_object' };
+      }
+      const res = await f('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${key}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        signal,
+      });
+      if (!res.ok) {
+        throw Object.assign(new Error(`HTTP ${res.status}`), { httpStatus: res.status });
+      }
+      const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+      return { raw: data.choices?.[0]?.message?.content ?? '', httpStatus: res.status };
+    };
+
+    const tOr = Date.now();
+    const first = await invokeOpenRouter(false);
+    // For OpenRouter auto-router, retry once with strict json_object hint only when initial reply was fast
+    if (model === 'openrouter/free' && !/\{[\s\S]*\}/.test(first.raw) && Date.now() - tOr < 1600) {
+      return await invokeOpenRouter(true).catch(() => first);
     }
-    const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    return { raw: data.choices?.[0]?.message?.content ?? '', httpStatus: res.status };
+    return first;
   }
 
   const key = cfg.openAiKey ?? process.env.OPENAI_API_KEY ?? '';
@@ -142,7 +189,7 @@ export async function routeModelCompletion(
 ): Promise<CompressReplyOutput & { attempts: ModelAttemptTrace[]; totalLatencyMs: number }> {
   const tStart = Date.now();
   const f = cfg.fetchImpl ?? fetch;
-  const timeoutMs = cfg.timeoutMs ?? 8000;
+  const timeoutMs = cfg.timeoutMs ?? 3200;
   const preferred = cfg.preferredProvider ?? 'auto';
   const anthropicKey = cfg.anthropicKey ?? process.env.ANTHROPIC_API_KEY;
   const openRouterKey = cfg.openRouterKey ?? process.env.OPENROUTER_API_KEY;
@@ -173,7 +220,7 @@ export async function routeModelCompletion(
     };
   }
 
-  const order: Array<'claude' | 'openrouter' | 'chatgpt'> =
+  const baseOrder: Array<'claude' | 'openrouter' | 'chatgpt'> =
     preferred === 'openrouter'
       ? ['openrouter', 'claude', 'chatgpt']
       : preferred === 'chatgpt'
@@ -186,6 +233,17 @@ export async function routeModelCompletion(
     chatgpt: openAiKey,
   };
 
+  // In live auto mode (without mocked fetchImpl), deprioritize providers recently cooled down by 400/401/402/429
+  const trackCooldowns = !cfg.fetchImpl;
+  const order: Array<'claude' | 'openrouter' | 'chatgpt'> =
+    preferred === 'auto' && trackCooldowns
+      ? [...baseOrder].sort((a, b) => {
+          const ac = isProviderCooledDown(a, configuredKeys[a]) ? 1 : 0;
+          const bc = isProviderCooledDown(b, configuredKeys[b]) ? 1 : 0;
+          return ac - bc;
+        })
+      : baseOrder;
+
   let allViolations: string[] = [];
 
   for (const provider of order) {
@@ -196,6 +254,16 @@ export async function routeModelCompletion(
         status: 'SKIPPED',
         latencyMs: 0,
         detail: 'No API key configured',
+      });
+      continue;
+    }
+
+    if (preferred === 'auto' && trackCooldowns && isProviderCooledDown(provider, key)) {
+      attempts.push({
+        provider,
+        status: 'SKIPPED',
+        latencyMs: 0,
+        detail: 'Provider in 5m cooldown after prior 400/401/402/429',
       });
       continue;
     }
@@ -221,14 +289,16 @@ export async function routeModelCompletion(
 
       let parsedDraft = '';
       try {
-        const json = JSON.parse(raw) as { draft?: unknown };
+        const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+        const jsonSlice = cleaned.match(/\{[\s\S]*\}/)?.[0] ?? cleaned;
+        const json = JSON.parse(jsonSlice) as { draft?: unknown };
         if (typeof json.draft === 'string') parsedDraft = json.draft.trim();
       } catch {
         parsedDraft = '';
       }
 
       if (!parsedDraft) {
-        allViolations.push(`${displayName(provider)}: Malformed JSON from LLM`);
+        // Parse failures cascade cleanly to next model or deterministic fallback without marking Code-Guard blocked
         attempts.push({
           provider,
           status: 'MALFORMED_JSON',
@@ -280,6 +350,9 @@ export async function routeModelCompletion(
         (err instanceof Error && err.name === 'AbortError') ||
         (err instanceof DOMException && err.name === 'AbortError');
       const httpStatus = (err as { httpStatus?: number }).httpStatus;
+      if (trackCooldowns && httpStatus && [400, 401, 402, 429].includes(httpStatus)) {
+        markProviderCooldown(provider, key);
+      }
       attempts.push({
         provider,
         status: isAbort ? 'TIMEOUT' : 'HTTP_ERROR',

@@ -157,4 +157,16 @@ describe('intentParser.ts (30-phrase voice evaluation matrix)', () => {
     const res = parseVoiceCommand('Push 15m and tell Priya', { now: NOW, cards: CARDS, activeCard: CARDS[0] });
     expect(res.targetStartIso).toBe('2026-11-24T14:15:00.000Z');
   });
+
+  it('classifies Telegram, Project Planning, and Computer Delegation commands from glasses', () => {
+    const tg = parseVoiceCommand('Reply on Telegram: running 5m late', { now: NOW, cards: CARDS });
+    expect(tg.kind).toBe('TELEGRAM_ACTION');
+    expect(tg.replyMessage).toBe('running 5m late');
+
+    const plan = parseVoiceCommand('Plan a project roadmap for OnQ Even G2', { now: NOW, cards: CARDS });
+    expect(plan.kind).toBe('PLAN_PROJECT');
+
+    const comp = parseVoiceCommand('Check git status and open GitHub PRs', { now: NOW, cards: CARDS });
+    expect(comp.kind).toBe('DELEGATE_COMPUTER_TASK');
+  });
 });

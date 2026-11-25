@@ -62,6 +62,15 @@ interface ConnectorTestResult {
   detail: string;
 }
 
+interface DetectedComputerTool {
+  id: string;
+  name: string;
+  binary: string;
+  accountMode: string;
+  installed: boolean;
+  installHint: string;
+}
+
 type ConnectorProviderId =
   | 'googleWorkspace'
   | 'notion'
@@ -130,7 +139,7 @@ export function ConnectorsHub({
   const [notionDbId, setNotionDbId] = useState('');
   const [claudeKey, setClaudeKey] = useState('');
   const [openRouterKey, setOpenRouterKey] = useState('');
-  const [openRouterModel, setOpenRouterModel] = useState('meta-llama/llama-3.2-3b-instruct:free');
+  const [openRouterModel, setOpenRouterModel] = useState('openrouter/free');
   const [openAiKey, setOpenAiKey] = useState('');
   const [aaiKey, setAaiKey] = useState('');
   const [telegramBotToken, setTelegramBotToken] = useState('');
@@ -138,6 +147,7 @@ export function ConnectorsHub({
 
   const [showPhysicalPair, setShowPhysicalPair] = useState(false);
   const [g2Code, setG2Code] = useState<string | null>(null);
+  const [computerTools, setComputerTools] = useState<DetectedComputerTool[]>([]);
 
   const authHeaders = useCallback((): Record<string, string> => {
     const h: Record<string, string> = {};
@@ -156,6 +166,14 @@ export function ConnectorsHub({
         const json = (await res.json()) as ConnectorStatusResponse;
         setStatus(json);
         if (json.openRouterModel) setOpenRouterModel(json.openRouterModel);
+      }
+      const compRes = await fetch('/api/computer/tools', {
+        headers: authHeaders(),
+        credentials: 'include',
+      });
+      if (compRes.ok) {
+        const compJson = (await compRes.json()) as { tools?: DetectedComputerTool[] };
+        setComputerTools(compJson.tools ?? []);
       }
     } catch {
       // keep silent offline
@@ -1008,7 +1026,7 @@ export function ConnectorsHub({
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                    CONNECT CLAUDE (ANTHROPIC)
+                    CONNECT CLAUDE (ACCOUNT CLI OR OPTIONAL API KEY)
                   </span>
                   <a
                     href="https://console.anthropic.com/settings/keys"
@@ -1016,9 +1034,12 @@ export function ConnectorsHub({
                     rel="noopener noreferrer"
                     className="text-[11px] text-[var(--lime)] underline decoration-dashed underline-offset-2"
                   >
-                    Get Anthropic Key -&gt;
+                    Anthropic Keys -&gt;
                   </a>
                 </div>
+                <p className="text-[11px] text-[var(--lightgray)]">
+                  No API billing needed: use 1-Click OpenRouter OAuth or Claude Code CLI (<code className="text-[var(--bright)]">claude login</code>) with your Claude Pro/Max account below.
+                </p>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="password"
@@ -1077,8 +1098,8 @@ export function ConnectorsHub({
                     aria-label="OpenRouter model"
                     className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
                   >
-                    <option value="meta-llama/llama-3.2-3b-instruct:free">meta-llama/llama-3.2-3b-instruct:free</option>
-                    <option value="google/gemini-2.0-flash-exp:free">google/gemini-2.0-flash-exp:free</option>
+                    <option value="openrouter/free">openrouter/free (Auto Best Free)</option>
+                    <option value="google/gemma-4-26b-a4b-it:free">google/gemma-4-26b-a4b-it:free</option>
                     <option value="anthropic/claude-3.5-haiku">anthropic/claude-3.5-haiku</option>
                   </select>
                 </div>
@@ -1102,7 +1123,7 @@ export function ConnectorsHub({
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                    CONNECT CHATGPT (OPENAI)
+                    CONNECT CHATGPT (ACCOUNT CLI OR OPTIONAL API KEY)
                   </span>
                   <a
                     href="https://platform.openai.com/api-keys"
@@ -1110,9 +1131,12 @@ export function ConnectorsHub({
                     rel="noopener noreferrer"
                     className="text-[11px] text-[var(--lime)] underline decoration-dashed underline-offset-2"
                   >
-                    Get OpenAI Key -&gt;
+                    OpenAI Keys -&gt;
                   </a>
                 </div>
+                <p className="text-[11px] text-[var(--lightgray)]">
+                  No API credits needed: OpenRouter 1-Click OAuth or OpenAI Codex CLI (<code className="text-[var(--bright)]">codex login</code>) uses your existing ChatGPT account.
+                </p>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="password"
@@ -1233,6 +1257,47 @@ export function ConnectorsHub({
           <p className="text-xs text-[var(--verified)] border border-dashed border-[var(--hairline)] bg-[var(--surface)] px-4 py-2.5" role="status">
             {feedback}
           </p>
+        )}
+
+        {/* Zero-API-Key Local Computer & Account-Authenticated AI Tools */}
+        {computerTools.length > 0 && (
+          <div className="retro-glass-panel p-4 sm:p-5 space-y-3 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--g2-phosphor)]">
+                COMPUTER &amp; ACCOUNT-AUTH AI TOOLS (ZERO API KEYS REQUIRED)
+              </span>
+              <span className="font-pixel text-[9px] text-[var(--lightgray)]">
+                {computerTools.filter((t) => t.installed).length}/{computerTools.length} DETECTED ON PATH
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+              {computerTools.map((tool) => (
+                <div
+                  key={tool.id}
+                  className={`border px-3 py-2 bg-black/50 space-y-1 ${
+                    tool.installed ? 'border-[var(--g2-phosphor)]/45' : 'border-white/10'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span className="font-semibold text-[var(--bright)] truncate">{tool.name}</span>
+                    <span
+                      className={`font-pixel text-[8px] px-1.5 py-0.5 rounded shrink-0 ${
+                        tool.installed
+                          ? 'bg-[var(--g2-phosphor)]/15 text-[var(--g2-phosphor)]'
+                          : 'bg-white/5 text-[var(--lightgray)]'
+                      }`}
+                    >
+                      {tool.installed ? 'DETECTED' : 'ACCOUNT CLI'}
+                    </span>
+                  </div>
+                  <div className="text-[10.5px] text-[var(--lightgray)] truncate">{tool.accountMode}</div>
+                  {!tool.installed && (
+                    <code className="block text-[9.5px] text-[var(--lime)]/90 truncate">{tool.installHint}</code>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         <div className="pt-1 text-xs text-[var(--lightgray)]">

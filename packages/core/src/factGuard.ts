@@ -78,12 +78,17 @@ export function verifyDraftAndPayload(input: FactGuardInput): FactGuardResult {
     }
   }
 
-  // 4. Check times/durations mentioned in draft against grounding corpus
+  // 4. Check times/durations mentioned in draft against grounding corpus (equivalences: 15m == 15 min == 15 minutes)
+  const canonicalDuration = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/\b(\d{1,3})\s*(?:minutes?|mins?|min|m)\b/g, '$1m')
+      .replace(/\s+/g, '');
   const draftTimes = input.draftText.match(TIME_RE) ?? [];
+  const corpusCanon = canonicalDuration(groundingCorpus);
   for (const tm of draftTimes) {
-    const norm = tm.toLowerCase().replace(/\s+/g, '');
-    const corpusNoSpace = groundingCorpus.replace(/\s+/g, '');
-    if (!corpusNoSpace.includes(norm)) {
+    const norm = canonicalDuration(tm);
+    if (!corpusCanon.includes(norm)) {
       violations.push(`Ungrounded time/duration in draft: ${tm}`);
     }
   }

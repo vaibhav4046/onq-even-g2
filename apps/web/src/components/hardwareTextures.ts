@@ -365,53 +365,73 @@ export function drawRightLensHudCanvas(
                   ? 'listening'
                   : 'idle'));
 
-  // 1. Stepped Bayer 4x4 circular pixel Voice Orb matrix inside the right lens
-  const grid = 11;
-  const pitch = 9;
-  const cell = 7;
-  const half = (grid - 1) / 2;
+  // 1. Hybrid Muse Pixel Face + Stepped Bayer Dot Matrix inside right G2 lens
   const amp = Math.max(idleReelStage === 1 ? 0.62 : 0, Math.min(1, Math.max(0, opts.rmsLevel * 6.5)));
   const breathe = 0.5 + 0.5 * Math.sin(opts.timeSec * (orbMode === 'speaking' ? 7 : 2.1));
+  const showMuseFace = orbMode === 'idle' || orbMode === 'listening' || orbMode === 'speaking' || orbMode === 'conflict';
 
-  for (let gy = 0; gy < grid; gy++) {
-    for (let gx = 0; gx < grid; gx++) {
-      const dx = gx - half;
-      const dy = gy - half;
-      const dist = Math.hypot(dx, dy);
-      if (dist > half + 0.25) continue;
+  if (showMuseFace) {
+    // Muse pixel eyes (soft periodic blink during idle)
+    const blink = orbMode === 'idle' && opts.timeSec % 4.2 > 3.95;
+    const eyeH = blink ? 3 : orbMode === 'listening' ? 20 : 15;
+    ctx.fillStyle = pal.primary;
+    ctx.fillRect(Math.round(cx - 26), Math.round(cy - 18 - eyeH / 2), 11, eyeH);
+    ctx.fillRect(Math.round(cx + 15), Math.round(cy - 18 - eyeH / 2), 11, eyeH);
 
-      const bayer = BAYER_4X4[gy % 4][gx % 4] / 16;
-      const normDist = dist / half;
-      const ang = Math.atan2(dy, dx);
-      let alpha = 0.25;
-
-      if (orbMode === 'listening') {
-        const wave = Math.sin(normDist * 6 - opts.timeSec * 8) * 0.25;
-        alpha = normDist < 0.42 + amp * 0.58 + wave ? 0.95 - normDist * 0.35 : 0.16;
-      } else if (orbMode === 'thinking') {
-        const scan = Math.cos(ang - opts.timeSec * 4.5);
-        alpha = scan > 0.35 ? 0.98 : 0.22 + (1 - normDist) * 0.35;
-      } else if (orbMode === 'speaking') {
-        alpha = normDist < 0.58 + breathe * 0.38 ? 1 - bayer * 0.22 : 0.2;
-      } else if (orbMode === 'conflict') {
-        alpha = bayer > 0.32 ? 0.92 : 0.18;
-      } else if (orbMode === 'armed') {
-        alpha = 0.78 - normDist * 0.28;
-      } else {
-        alpha = normDist < 0.72 + breathe * 0.18 ? 0.82 - bayer * 0.35 : 0.15;
+    // Muse reactive pixel mouth / voice bars
+    if (orbMode === 'conflict') {
+      ctx.fillRect(Math.round(cx - 22), Math.round(cy + 14), 44, 6);
+    } else if (orbMode === 'listening' || orbMode === 'speaking') {
+      for (let b = -2; b <= 2; b++) {
+        const wave = Math.abs(Math.sin(opts.timeSec * 8 + b * 0.9));
+        const mh = Math.max(5, Math.round(6 + (amp * 14 + breathe * 8) * wave));
+        ctx.fillStyle = b === 0 ? pal.secondary : pal.primary;
+        ctx.fillRect(Math.round(cx + b * 11 - 4), Math.round(cy + 14 - mh / 2), 8, mh);
       }
-
-      ctx.globalAlpha = Math.max(0.12, Math.min(1, alpha));
-      ctx.fillStyle = (gx + gy) % 3 === 0 ? pal.secondary : pal.primary;
-      ctx.fillRect(
-        Math.round(cx + dx * pitch - cell / 2),
-        Math.round(cy + dy * pitch - cell / 2),
-        cell,
-        cell,
-      );
+    } else {
+      ctx.fillStyle = pal.secondary;
+      ctx.fillRect(Math.round(cx - 20), Math.round(cy + 12), 6, 6);
+      ctx.fillRect(Math.round(cx - 14), Math.round(cy + 18), 28, 6);
+      ctx.fillRect(Math.round(cx + 14), Math.round(cy + 12), 6, 6);
     }
+  } else {
+    // Stepped Bayer 4x4 circular pixel constellation for thinking / armed
+    const grid = 11;
+    const pitch = 9;
+    const cell = 7;
+    const half = (grid - 1) / 2;
+
+    for (let gy = 0; gy < grid; gy++) {
+      for (let gx = 0; gx < grid; gx++) {
+        const dx = gx - half;
+        const dy = gy - half;
+        const dist = Math.hypot(dx, dy);
+        if (dist > half + 0.25) continue;
+
+        const bayer = BAYER_4X4[gy % 4][gx % 4] / 16;
+        const normDist = dist / half;
+        const ang = Math.atan2(dy, dx);
+        let alpha = 0.25;
+
+        if (orbMode === 'thinking') {
+          const scan = Math.cos(ang - opts.timeSec * 4.5);
+          alpha = scan > 0.35 ? 0.98 : 0.22 + (1 - normDist) * 0.35;
+        } else {
+          alpha = 0.78 - normDist * 0.28;
+        }
+
+        ctx.globalAlpha = Math.max(0.12, Math.min(1, alpha));
+        ctx.fillStyle = (gx + gy) % 3 === 0 ? pal.secondary : pal.primary;
+        ctx.fillRect(
+          Math.round(cx + dx * pitch - cell / 2),
+          Math.round(cy + dy * pitch - cell / 2),
+          cell,
+          cell,
+        );
+      }
+    }
+    ctx.globalAlpha = 1;
   }
-  ctx.globalAlpha = 1;
 
   // 2. Concentric 24-segment phosphor reticle / 2.0s Undo Countdown Ring around orb
   const segments = 24;

@@ -143,6 +143,45 @@ export function parseVoiceCommand(
     };
   }
 
+  // 1b. Telegram Bot read/send actions (Dual-Track Track 01 + Best Telegram Integration)
+  if (/\btelegram\b/i.test(lower)) {
+    const cleanedMsg = rawText
+      .replace(/^(?:check|read|reply(?:\s+on)?|send(?:\s+to)?|message|ping)\s+(?:on\s+)?telegram\s*:?\s*/i, '')
+      .trim();
+    return {
+      kind: 'TELEGRAM_ACTION',
+      rawText,
+      matchedCardId: activeCard?.id,
+      replyMessage: cleanedMsg || 'Running slightly behind, joining shortly.',
+    };
+  }
+
+  // 1c. Project planning & architecture breakdown from glasses
+  if (/^(?:plan|architect|design|spec)\s+(?:a\s+)?(?:project|app|feature|roadmap|sprint)\b/i.test(lower)) {
+    return {
+      kind: 'PLAN_PROJECT',
+      rawText,
+      taskTitle: rawText,
+      matchedCardId: activeCard?.id,
+      queryTopic: rawText,
+    };
+  }
+
+  // 1d. Delegate computer / git / PR / coding CLI task from glasses
+  if (
+    /\b(?:delegate|run tests|git status|github prs?|open prs?|claude code|codex|gemini cli|my computer|my workspace|code review)\b/i.test(
+      lower,
+    )
+  ) {
+    return {
+      kind: 'DELEGATE_COMPUTER_TASK',
+      rawText,
+      taskTitle: rawText,
+      matchedCardId: activeCard?.id,
+      queryTopic: rawText,
+    };
+  }
+
   // 2. Questions / Read-only Notes lookup
   if (/^(what|who|summarize|summary|read|check(?!\s+off)|tell me what)\b/.test(lower) || /\bwhat did\b/.test(lower)) {
     return {

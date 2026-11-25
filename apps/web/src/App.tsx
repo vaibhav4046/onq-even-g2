@@ -43,6 +43,7 @@ import {
   ScrollReveal,
 } from './components/MotionPrimitives';
 import { ArchitectureShowcase } from './components/ArchitectureShowcase';
+import { LiveVoiceStudio } from './components/LiveVoiceStudio';
 import { OnQLogo } from './components/OnQLogo';
 import { OnQVoiceOrb } from './components/OnQVoiceOrb';
 import { ResearchGraphsSection } from './components/ResearchGraphsSection';
@@ -1258,7 +1259,7 @@ export function App() {
             </div>
 
             {/* Clean Retro Smoked-Glass Product Workbench */}
-            <div className="retro-glass-panel p-1.5 sm:p-2">
+            <div className="retro-glass-panel p-1.5 sm:p-2 space-y-3">
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-3">
                 {/* Left: Clean Lens Preview, Contextual Write Action & Voice Prompt Bar */}
                 <div className="xl:col-span-7 retro-glass-well p-5 sm:p-6 space-y-5">
@@ -1521,7 +1522,7 @@ export function App() {
                         </div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                        {proactive.insights.slice(0, 2).map((ins) => (
+                        {proactive.insights.slice(0, 4).map((ins) => (
                           <button
                             key={ins.id}
                             type="button"
@@ -1754,6 +1755,24 @@ export function App() {
                   )}
                 </div>
               </div>
+
+              <LiveVoiceStudio
+                sessionToken={sessionToken}
+                orbState={orbState}
+                rmsLevel={hudState.rmsLevel ?? 0}
+                activeSpokenWord={activeSpokenWord}
+                armProgress01={armProgress01}
+                voiceEngineLabel={voiceEngineLabel}
+                micActive={micActive}
+                meetingState={meetingState}
+                onToggleMic={() => void toggleLiveMic()}
+                onRingEvent={(kind) => void ctrlRef.current?.handleEvent({ kind })}
+                onRunCommand={(cmd) => void runVoicePreset(cmd)}
+                onStartMeetingDemo={() => void runLiveMeetingDemo()}
+                onWrapUpMeeting={() => void runMeetingWrapUp()}
+                onAskMeeting={(q) => void askMeetingClaude(q)}
+                onWipeMeeting={() => void wipeMeetingScribe()}
+              />
             </div>
           </div>
         </section>
@@ -1905,10 +1924,10 @@ export function App() {
         </section>
 
         {/* Interactive System Architecture & Telemetry (#architecture) */}
-        <ArchitectureShowcase testCount={217} />
+        <ArchitectureShowcase testCount={225} />
 
         {/* Visual Survey Graphs, Curves & Field Benchmark (#research) */}
-        <ResearchGraphsSection testCount={217} />
+        <ResearchGraphsSection testCount={225} />
 
         {/* Sticky Scroll Safety Story (#safety) */}
         <StickySafetyStory />

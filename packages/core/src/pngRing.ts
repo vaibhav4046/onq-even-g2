@@ -91,6 +91,44 @@ export interface RingRenderStats {
   height: number;
 }
 
+export function encodeGray4Png(
+  raw: Uint8Array,
+  width: number,
+  height: number,
+  blackPixels: number,
+): RingRenderStats {
+  const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  const ihdr = new Uint8Array(13);
+  writeU32BE(ihdr, 0, width);
+  writeU32BE(ihdr, 4, height);
+  ihdr[8] = 4; // bit depth 4
+  ihdr[9] = 0; // grayscale
+  ihdr[10] = 0;
+  ihdr[11] = 0;
+  ihdr[12] = 0;
+
+  const idat = zlibStore(raw);
+  const ihdrChunk = makePngChunk('IHDR', ihdr);
+  const idatChunk = makePngChunk('IDAT', idat);
+  const iendChunk = makePngChunk('IEND', new Uint8Array(0));
+
+  const pngBytes = new Uint8Array(
+    signature.length + ihdrChunk.length + idatChunk.length + iendChunk.length,
+  );
+  let pos = 0;
+  for (const part of [signature, ihdrChunk, idatChunk, iendChunk]) {
+    pngBytes.set(part, pos);
+    pos += part.length;
+  }
+
+  return {
+    pngBytes,
+    blackPixelRatio: blackPixels / (width * height),
+    width,
+    height,
+  };
+}
+
 /**
  * Generates a 76x76 4-bit grayscale PNG countdown ring.
  * Pure black (0x0) background ensures >= 75% transparent waveguide budget.
@@ -143,36 +181,7 @@ export function renderCountdownRing(progress01: number, size = 76): RingRenderSt
     }
   }
 
-  const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
-  const ihdr = new Uint8Array(13);
-  writeU32BE(ihdr, 0, width);
-  writeU32BE(ihdr, 4, height);
-  ihdr[8] = 4; // bit depth 4
-  ihdr[9] = 0; // grayscale
-  ihdr[10] = 0;
-  ihdr[11] = 0;
-  ihdr[12] = 0;
-
-  const idat = zlibStore(raw);
-  const ihdrChunk = makePngChunk('IHDR', ihdr);
-  const idatChunk = makePngChunk('IDAT', idat);
-  const iendChunk = makePngChunk('IEND', new Uint8Array(0));
-
-  const pngBytes = new Uint8Array(
-    signature.length + ihdrChunk.length + idatChunk.length + iendChunk.length,
-  );
-  let pos = 0;
-  for (const part of [signature, ihdrChunk, idatChunk, iendChunk]) {
-    pngBytes.set(part, pos);
-    pos += part.length;
-  }
-
-  return {
-    pngBytes,
-    blackPixelRatio: blackPixels / (width * height),
-    width,
-    height,
-  };
+  return encodeGray4Png(raw, width, height, blackPixels);
 }
 
 export function encodeCountdownRingPng(progress01: number, size = 76): Uint8Array {

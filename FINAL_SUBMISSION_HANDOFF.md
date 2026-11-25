@@ -1,7 +1,7 @@
 # OnQ - Final Hackathon & Product Hunt Submission Handoff
 
 **Project Root:** `C:\Users\lalwa\.gemini\antigravity\scratch\oncue-even-g2`
-**Hard Safety Stop Enforced:** All local building, testing (`217/217` across 17 files), harness benchmarking (`npm run eval:harness`), `.ehpk` packaging (`45,135` bytes), simulator capture, security auditing (`10/10` across 89 files), dual-sided 3D WebGL crystal-lens optics (`Front` + `Wearer POV`), HydraDB-inspired `#architecture` showcase, Dual-Track Telegram Bot API integration (`/api/telegram/*`), TVM Ventures pitch deck (`docs/TVM_PITCH_DECK.md`), and launch film rendering are complete. External DoraHacks / Product Hunt submission and any paid hosting remain unsubmitted for your manual review and final click.
+**Hard Safety Stop Enforced:** All local building, testing (`225/225` across 19 files), harness benchmarking (`npm run eval:harness` `32/32`), `.ehpk` packaging (`45,961` bytes), simulator capture (`EvenHub Simulator 0.9.5`), security auditing (`10/10` across 93 files), dual-sided 3D WebGL crystal-lens optics (`Front` + `Wearer POV`), `76×76` 4-bit Muse/Duet/Dots Pixel Avatar PNG, Zero-API-Key Local Computer & Coding Delegation Bridge, Live AssemblyAI Duplex Studio, HydraDB-inspired `#architecture` showcase, Dual-Track Telegram Bot API integration (`/api/telegram/*`), TVM Ventures pitch deck (`docs/TVM_PITCH_DECK.md`), and launch film rendering are complete. External DoraHacks / Product Hunt submission and any paid hosting remain unsubmitted for your manual review and final click.
 
 ---
 
@@ -33,12 +33,12 @@ OnQ boots cold in labeled `DEMO` sandbox mode with zero env vars. To plug in rea
 
 | Artifact | Path | Observed Verification |
 | :--- | :--- | :--- |
-| **Monorepo Source** | `packages/core`, `apps/server`, `apps/glasses`, `apps/web` | `npm ci && npm test && npm run build` passed cold (**217 / 217 tests** across 17 files) |
+| **Monorepo Source** | `packages/core`, `apps/server`, `apps/glasses`, `apps/web` | `npm ci && npm test && npm run build` passed cold (**225 / 225 tests** across 19 files) |
 | **Orchestration & Safety Eval** | `docs/HARNESS_EVAL.json` (`npm run eval:harness`) | **32/32 intents (100%)**, **5/5 prompt injections blocked**, **3/3 409 locks**, **5/5 RMS silence rejections**, **4-tier failover matrix** |
-| **EvenHub G2 Package** | `dist/onq.ehpk` | Packed via `@evenrealities/evenhub-cli@0.2.0` (`45,135` bytes, SDK `0.0.16`, `min_app_version 2.2.10`, 0 warnings, 0 secrets) |
+| **EvenHub G2 Package** | `dist/onq.ehpk` | Packed via `@evenrealities/evenhub-cli@0.2.0` (`45,961` bytes, SDK `0.0.16`, `min_app_version 2.2.10`, 0 warnings, 0 secrets) |
 | **Official Simulator Captures** | `docs/screenshots/sim-01..07.png` | 7 real 576x288 RGBA captures from `@evenrealities/evenhub-simulator@0.9.5` (including native `ListContainer`) with 0 uncaught/unhandled errors |
 | **11-Check Geometry Gate** | `scripts/verify-geometry.mjs` + `docs/screenshots/geometry-*.png` | `11 / 11` PASS across all lens states (`97.2%-97.9%` black pixels, `<= 260` UTF-8 bytes) + Check 11 Negative Control |
-| **Security Audit Report** | `SECURITY_AUDIT.md` (`scripts/security-scan.mjs`) | `10 / 10` domains PASS (`0` High/Critical findings, `0` secrets across 89 scanned files + `.ehpk`, `npm audit --omit=dev: 0 vulnerabilities`) |
+| **Security Audit Report** | `SECURITY_AUDIT.md` (`scripts/security-scan.mjs`) | `10 / 10` domains PASS (`0` High/Critical findings, `0` secrets across 93 scanned files + `.ehpk`, `npm audit --omit=dev: 0 vulnerabilities`) |
 | **TVM Ventures Pitch Deck** | `docs/TVM_PITCH_DECK.md` | 10-slide Demo Day pitch deck mapped to judging weights + Dual-Track Track 04 / Telegram live script |
 | **Clean-Room Verification Log** | `docs/VERIFICATION_LOG.txt` | Fresh-clone verification transcript with zero env vars |
 | **Product Launch Film** | `media/out/onq-launch-demo.mp4` | `1920x1080`, `60 fps`, `120.83s` (`2:01 <= 2:45`), `8.73 MB` H.264 + 48 kHz AAC stereo (`-14 LUFS`, `AssemblyAI-TTS-1` VO + unified 3D G2 + EvenHub Simulator 0.9.5 footage) |
@@ -75,7 +75,7 @@ npm run dev
 Open http://127.0.0.1:5173 for the interactive 3D Even G2 hardware stage, 576x288 Browser Optical Simulator, Harness Eval Telemetry, and 1-Click Connectors Hub, or sideload dist/onq.ehpk in Even Hub.
 
 ## Verified, Not Claimed
-- 213 / 213 automated tests passing via npm test (core + PKCE OAuth, HttpOnly cookie, 4-tier failover, 25x concurrency races, WS/AssemblyAI, Postgres, fault-injection tests, 0 keys required)
+- 225 / 225 automated tests passing via npm test (core, 4-bit Muse/Duet Pixel Avatar, Local Computer Bridge & Task Engine, PKCE OAuth, Telegram Bot API, 4-tier failover, 25x concurrency races, WS/AssemblyAI, Postgres, fault-injection tests, 0 keys required)
 - Reproducible Harness Eval (npm run eval:harness -> docs/HARNESS_EVAL.json): 32/32 intents (100%), 5/5 prompt injections blocked, 3/3 HTTP 409 conflict locks, 5/5 RMS silence rejections, 4-tier cascading failover matrix
 - 11 / 11 Chromium 576x288 Geometry Gate passing across all lens states + Check 11 Negative Control
 - 7 real 576x288 captures in @evenrealities/evenhub-simulator@0.9.5 with 0 uncaught/unhandled errors
