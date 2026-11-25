@@ -1573,7 +1573,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const nowMs = nowFn();
         const dayKey = `day:${new Date(nowMs).toISOString().slice(0, 10)}`;
         const minKey = `min:${new Date(nowMs).toISOString().slice(0, 16)}`;
-        const quota = await ledger.checkAndConsumeRateLimit(dayKey, minKey, 20, 10);
+        const quota = await ledger.checkAndConsumeRateLimit(dayKey, minKey, 500, 10);
         if (!quota.allowed) {
           jsonResponse(res, 429, { error: quota.reason });
           return;
