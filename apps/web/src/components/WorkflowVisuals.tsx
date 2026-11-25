@@ -8,7 +8,7 @@ const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 export function CorridorBriefVisual() {
   const reduced = useReducedMotion();
   return (
-    <div className="relative h-24 w-full bg-[#060807] border border-[var(--hairline)]/60 overflow-hidden flex items-center justify-center px-3">
+    <div className="retro-glass-well relative h-24 w-full overflow-hidden flex items-center justify-center px-3">
       <svg viewBox="0 0 260 76" className="w-full h-full" aria-hidden="true">
         {/* Left incoming nodes */}
         {[
@@ -67,7 +67,7 @@ export function CorridorBriefVisual() {
 export function ShiftScheduleVisual() {
   const reduced = useReducedMotion();
   return (
-    <div className="relative h-24 w-full bg-[#060807] border border-[var(--hairline)]/60 overflow-hidden flex items-center justify-center px-3">
+    <div className="retro-glass-well relative h-24 w-full overflow-hidden flex items-center justify-center px-3">
       <svg viewBox="0 0 260 76" className="w-full h-full" aria-hidden="true">
         <line x1="16" y1="22" x2="244" y2="22" stroke="#222" strokeWidth="1" strokeDasharray="3 3" />
         <text x="16" y="15" fill="#777" fontSize="7" fontFamily="monospace">14:00</text>
@@ -113,7 +113,7 @@ export function InRoomScribeVisual() {
   const reduced = useReducedMotion();
   const heights = [10, 18, 13, 24, 15, 22, 11, 17];
   return (
-    <div className="relative h-24 w-full bg-[#060807] border border-[var(--hairline)]/60 overflow-hidden flex items-center justify-center px-3">
+    <div className="retro-glass-well relative h-24 w-full overflow-hidden flex items-center justify-center px-3">
       <svg viewBox="0 0 260 76" className="w-full h-full" aria-hidden="true">
         {/* Speaker A & B animated equalizer bars */}
         {heights.map((h, i) => (
@@ -160,7 +160,7 @@ export function InRoomScribeVisual() {
 export function EarbudsRecallVisual() {
   const reduced = useReducedMotion();
   return (
-    <div className="relative h-24 w-full bg-[#060807] border border-[var(--hairline)]/60 overflow-hidden flex items-center justify-center px-3">
+    <div className="retro-glass-well relative h-24 w-full overflow-hidden flex items-center justify-center px-3">
       <svg viewBox="0 0 260 76" className="w-full h-full" aria-hidden="true">
         <rect x="12" y="14" width="108" height="48" fill="#09110d" stroke="#34F57E" strokeOpacity="0.55" strokeWidth="1" />
         <text x="20" y="30" fill="#daff52" fontSize="7" fontFamily="monospace" fontWeight="700">
@@ -201,7 +201,7 @@ export function EarbudsRecallVisual() {
 export function WrapUpFanoutVisual() {
   const reduced = useReducedMotion();
   return (
-    <div className="relative h-24 w-full bg-[#060807] border border-[var(--hairline)]/60 overflow-hidden flex items-center justify-center px-3">
+    <div className="retro-glass-well relative h-24 w-full overflow-hidden flex items-center justify-center px-3">
       <svg viewBox="0 0 260 76" className="w-full h-full" aria-hidden="true">
         <rect x="12" y="20" width="76" height="36" fill="#0b1510" stroke="#daff52" strokeWidth="1.2" />
         <text x="50" y="36" textAnchor="middle" fill="#daff52" fontSize="7" fontFamily="monospace" fontWeight="700">
@@ -243,7 +243,7 @@ export function WrapUpFanoutVisual() {
 export function ConflictShieldVisual() {
   const reduced = useReducedMotion();
   return (
-    <div className="relative h-24 w-full bg-[#060807] border border-[var(--hairline)]/60 overflow-hidden flex items-center justify-center px-3">
+    <div className="retro-glass-well relative h-24 w-full overflow-hidden flex items-center justify-center px-3">
       <svg viewBox="0 0 260 76" className="w-full h-full" aria-hidden="true">
         {/* Blocked 14:45 collision box */}
         <rect x="14" y="16" width="96" height="44" fill="#1f1103" stroke="#ffb020" strokeWidth="1.3" />

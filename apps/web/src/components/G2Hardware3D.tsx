@@ -484,7 +484,7 @@ export function G2Hardware3D({
               exit={{ opacity: 0, scale: 0.94 }}
               transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
               onClick={() => setAutoTour(false)}
-              className="absolute inset-x-2 inset-y-4 sm:inset-x-4 sm:inset-y-8 flex flex-col justify-center items-center bg-black/78 backdrop-blur-[3px] px-3 py-3 z-10 pointer-events-auto"
+              className="retro-glass-panel absolute inset-x-2 inset-y-4 sm:inset-x-4 sm:inset-y-7 flex flex-col justify-center items-center px-4 py-3 z-10 pointer-events-auto"
             >
               <div className="w-full max-w-[600px] space-y-2.5">
                 <div className="flex items-center justify-between text-[10px] font-pixel uppercase tracking-[0.16em] text-[var(--g2-phosphor)] px-1">
@@ -583,10 +583,10 @@ export function G2Hardware3D({
           )}
         </AnimatePresence>
 
-        {/* Minimal floating pill bar (blends into black backdrop, zero bordered container box) */}
+        {/* Minimal Apple liquid-glass floating pill bar */}
         <div className="absolute bottom-1.5 left-0 right-0 flex flex-wrap items-center justify-between gap-2 px-2 pointer-events-none z-20">
           <div
-            className="pointer-events-auto inline-flex items-center gap-1 bg-black/70 backdrop-blur-sm px-1.5 py-1 rounded-full border border-white/10"
+            className="retro-glass-dock pointer-events-auto inline-flex items-center gap-1 px-1.5 py-1"
             role="group"
             aria-label="3D hardware view mode"
           >

@@ -17,6 +17,7 @@ import type {
   VoiceOrbState,
 } from '@onq/core';
 import {
+  ApplePixelTile,
   AssemblyAiPixelSvg,
   CalendarPixelSvg,
   ChatGptPixelSvg,
@@ -1053,8 +1054,8 @@ export function App() {
             aria-modal="true"
             aria-label="Inside OnQ Glasses Optical View"
           >
-            <div className="w-full max-w-4xl border border-[var(--g2-phosphor)]/60 bg-[#050806] p-5 sm:p-7 space-y-5">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-dashed border-[var(--hairline)] pb-4">
+            <div className="retro-glass-panel w-full max-w-4xl p-5 sm:p-7 space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-dashed border-white/10 pb-4">
                 <div className="flex items-center gap-3">
                   <OnQLogo showWordmark />
                   <span className="font-pixel text-[10px] uppercase tracking-[0.18em] text-[var(--g2-phosphor)]">
@@ -1150,8 +1151,8 @@ export function App() {
         )}
       </AnimatePresence>
 
-      {/* Minimal Sticky Navbar */}
-      <header className="sticky top-0 z-40 h-16 bg-[var(--ink)]/95 backdrop-blur-sm border-b border-[var(--hairline)]">
+      {/* Apple Smoked Liquid-Glass Navbar */}
+      <header className="retro-glass-nav sticky top-0 z-40 h-16">
         <div className="container-page h-full flex items-center justify-between gap-4">
           <a href="#top" className="flex items-center gap-3 group">
             <OnQLogo showWordmark />
@@ -1168,14 +1169,14 @@ export function App() {
           <div className="flex items-center gap-3 shrink-0">
             <a
               href="#connectors"
-              className="px-4 py-2 border border-[var(--hairline)] text-[var(--bright)] hover:border-[var(--lime)] hover:text-[var(--lime)] text-xs sm:text-sm transition-colors whitespace-nowrap shrink-0"
+              className="retro-btn-glass px-4 py-2 text-[var(--bright)] hover:text-[var(--lime)] text-xs sm:text-sm whitespace-nowrap shrink-0"
             >
               Connect Apps
             </a>
             <button
               type="button"
               onClick={() => void runVoicePreset('Push 15m and tell Priya')}
-              className="px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] hover:bg-[var(--bright)] text-xs sm:text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              className="retro-btn-primary px-4 py-2 text-xs sm:text-sm cursor-pointer whitespace-nowrap shrink-0"
             >
               Run Voice
             </button>
@@ -1211,14 +1212,14 @@ export function App() {
                   <button
                     type="button"
                     onClick={() => void runVoicePreset('Push 15m and tell Priya')}
-                    className="px-5 py-2.5 bg-[var(--lime)] text-[#0a0a0a] hover:bg-[var(--bright)] text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
+                    className="retro-btn-primary px-5 py-2.5 text-xs sm:text-sm cursor-pointer"
                   >
                     Run Voice
                   </button>
                   <button
                     type="button"
                     onClick={() => setLensPovOpen(true)}
-                    className="px-4 py-2.5 border border-[var(--g2-phosphor)] text-[var(--g2-phosphor)] hover:bg-[var(--g2-phosphor)] hover:text-[#0a0a0a] text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
+                    className="retro-btn-glass px-4 py-2.5 text-[var(--g2-phosphor)] hover:text-[var(--lime)] text-xs sm:text-sm font-semibold cursor-pointer"
                   >
                     Look Through G2
                   </button>
@@ -1253,18 +1254,20 @@ export function App() {
               </motion.div>
             </div>
 
-            {/* Clean Live Product Workbench (Zero Debug Button Clutter) */}
-            <div className="border border-dashed border-[var(--hairline)] bg-[var(--surface)]">
-              <div className="grid grid-cols-1 xl:grid-cols-12 gap-px bg-[var(--hairline)]">
+            {/* Clean Retro Smoked-Glass Product Workbench */}
+            <div className="retro-glass-panel p-1.5 sm:p-2">
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-3">
                 {/* Left: Clean Lens Preview, Contextual Write Action & Voice Prompt Bar */}
-                <div className="xl:col-span-7 bg-[var(--ink)] p-5 sm:p-6 space-y-5">
+                <div className="xl:col-span-7 retro-glass-well p-5 sm:p-6 space-y-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5">
-                      <EvenG2PixelSvg className="w-6 h-3.5" />
+                      <ApplePixelTile size="sm" tint="#34F57E">
+                        <EvenG2PixelSvg className="w-5 h-3" />
+                      </ApplePixelTile>
                       <span className="font-pixel text-[11px] uppercase tracking-[0.18em] text-[var(--bright)]">
                         LIVE GLASSES VIEW
                       </span>
-                      <span className="font-pixel text-[9px] uppercase px-2 py-0.5 border border-[var(--g2-phosphor)] text-[var(--g2-phosphor)]">
+                      <span className="font-pixel text-[9px] uppercase px-2.5 py-0.5 rounded-full border border-[var(--g2-phosphor)]/60 bg-[var(--g2-phosphor)]/10 text-[var(--g2-phosphor)]">
                         {hudState.phase.toUpperCase()}
                       </span>
                     </div>
@@ -1272,14 +1275,14 @@ export function App() {
                       <button
                         type="button"
                         onClick={() => setLensPovOpen(true)}
-                        className="px-3 py-1.5 border border-[var(--hairline)] text-xs text-[var(--bright)] hover:border-[var(--g2-phosphor)] hover:text-[var(--g2-phosphor)] cursor-pointer"
+                        className="retro-btn-glass px-3 py-1.5 text-xs text-[var(--bright)] hover:text-[var(--g2-phosphor)] cursor-pointer"
                       >
                         Full-Screen Lens
                       </button>
                       <button
                         type="button"
                         onClick={() => void resetSandbox()}
-                        className="px-3 py-1.5 border border-[var(--hairline)] text-xs text-[var(--lightgray)] hover:text-[var(--lime)] cursor-pointer"
+                        className="retro-btn-glass px-3 py-1.5 text-xs text-[var(--lightgray)] hover:text-[var(--lime)] cursor-pointer"
                       >
                         Reset
                       </button>
@@ -1438,8 +1441,8 @@ export function App() {
                   </div>
                 </div>
 
-                {/* Right: Clean Minimal Tabbed Workspace (Schedule · Inbox & Tasks · Notes · Activity) */}
-                <div className="xl:col-span-5 bg-[var(--surface)] p-5 sm:p-6 space-y-4">
+                {/* Right: Clean Smoked-Glass Tabbed Workspace (Schedule · Inbox & Tasks · Notes · Activity) */}
+                <div className="xl:col-span-5 retro-glass-well p-5 sm:p-6 space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-pixel text-[11px] uppercase tracking-[0.2em] text-[var(--bright)]">
                       WORKSPACE
@@ -1448,7 +1451,7 @@ export function App() {
                       <button
                         type="button"
                         onClick={() => setShowTestTools((v) => !v)}
-                        className="font-pixel text-[9px] uppercase tracking-[0.12em] px-2 py-0.5 border border-[var(--hairline)] text-[var(--lightgray)] hover:border-[var(--lime)] hover:text-[var(--lime)] cursor-pointer"
+                        className="retro-btn-glass font-pixel text-[9px] uppercase tracking-[0.12em] px-2.5 py-0.5 text-[var(--lightgray)] hover:text-[var(--lime)] cursor-pointer"
                       >
                         {showTestTools ? 'Hide Test Tools' : 'Test Scenarios'}
                       </button>
@@ -1458,12 +1461,12 @@ export function App() {
                     </div>
                   </div>
 
-                  {/* Minimal 4-Tab Bar */}
-                  <div className="grid grid-cols-4 gap-1 border border-[var(--hairline)] bg-[var(--ink)] p-1 text-[10px] font-pixel uppercase">
+                  {/* Minimal Smoked-Glass 4-Tab Bar */}
+                  <div className="grid grid-cols-4 gap-1 rounded-[10px] border border-white/10 bg-black/70 p-1 text-[10px] font-pixel uppercase">
                     {(
                       [
                         { id: 'schedule', label: 'Schedule' },
-                        { id: 'inbox', label: 'Inbox & Tasks' },
+                        { id: 'inbox', label: 'Inbox' },
                         { id: 'notes', label: 'Notes' },
                         { id: 'activity', label: `Activity (${receipts.length})` },
                       ] as const
@@ -1472,7 +1475,7 @@ export function App() {
                         key={t.id}
                         type="button"
                         onClick={() => setWorkspaceTab(t.id)}
-                        className={`py-1.5 px-1.5 truncate cursor-pointer transition-colors ${
+                        className={`py-1.5 px-1.5 rounded-[7px] truncate cursor-pointer transition-colors ${
                           workspaceTab === t.id
                             ? 'bg-[var(--lime)] text-[#0a0a0a] font-bold'
                             : 'text-[var(--lightgray)] hover:text-[var(--bright)]'
@@ -1765,7 +1768,7 @@ export function App() {
               </h2>
             </ScrollReveal>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px border border-dashed border-[var(--hairline)] bg-[var(--hairline)]">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
                 {
                   num: '01 · BEFORE',
@@ -1774,9 +1777,15 @@ export function App() {
                   visual: <CorridorBriefVisual />,
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
-                      <CalendarPixelSvg className="w-3.5 h-3.5" />
-                      <GmailPixelSvg className="w-3.5 h-3.5" />
-                      <DrivePixelSvg className="w-3.5 h-3.5" />
+                      <ApplePixelTile size="sm" tint="#4285F4">
+                        <CalendarPixelSvg className="w-3.5 h-3.5" />
+                      </ApplePixelTile>
+                      <ApplePixelTile size="sm" tint="#EA4335">
+                        <GmailPixelSvg className="w-3.5 h-3.5" />
+                      </ApplePixelTile>
+                      <ApplePixelTile size="sm" tint="#FBBC05">
+                        <DrivePixelSvg className="w-3.5 h-3.5" />
+                      </ApplePixelTile>
                     </span>
                   ),
                   cta: 'Inspect Inside Lens',
@@ -1789,8 +1798,12 @@ export function App() {
                   visual: <ShiftScheduleVisual />,
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
-                      <CalendarPixelSvg className="w-3.5 h-3.5" />
-                      <GmailPixelSvg className="w-3.5 h-3.5" />
+                      <ApplePixelTile size="sm" tint="#4285F4">
+                        <CalendarPixelSvg className="w-3.5 h-3.5" />
+                      </ApplePixelTile>
+                      <ApplePixelTile size="sm" tint="#EA4335">
+                        <GmailPixelSvg className="w-3.5 h-3.5" />
+                      </ApplePixelTile>
                     </span>
                   ),
                   cta: 'Run Shift + Reply',
@@ -1801,7 +1814,11 @@ export function App() {
                   title: 'Private In-Room Meeting Notes',
                   desc: 'Separates speakers in volatile RAM with zero audio files ever persisted to disk.',
                   visual: <InRoomScribeVisual />,
-                  icons: <AssemblyAiPixelSvg className="w-3.5 h-3.5" />,
+                  icons: (
+                    <ApplePixelTile size="sm" tint="#34F57E">
+                      <AssemblyAiPixelSvg className="w-3.5 h-3.5" />
+                    </ApplePixelTile>
+                  ),
                   cta: 'Start Live Meeting Scribe',
                   action: () => void runLiveMeetingDemo(),
                 },
@@ -1812,9 +1829,15 @@ export function App() {
                   visual: <EarbudsRecallVisual />,
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
-                      <ClaudePixelSvg className="w-3.5 h-3.5" />
-                      <ChatGptPixelSvg className="w-3.5 h-3.5" />
-                      <AssemblyAiPixelSvg className="w-3.5 h-3.5" />
+                      <ApplePixelTile size="sm" tint="#D97757">
+                        <ClaudePixelSvg className="w-3.5 h-3.5" />
+                      </ApplePixelTile>
+                      <ApplePixelTile size="sm" tint="#10A37F">
+                        <ChatGptPixelSvg className="w-3.5 h-3.5" />
+                      </ApplePixelTile>
+                      <ApplePixelTile size="sm" tint="#34F57E">
+                        <AssemblyAiPixelSvg className="w-3.5 h-3.5" />
+                      </ApplePixelTile>
                     </span>
                   ),
                   cta: 'Ask "OnQ, Q4?" (TTS-1)',
@@ -1827,8 +1850,12 @@ export function App() {
                   visual: <WrapUpFanoutVisual />,
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
-                      <NotionPixelSvg className="w-3.5 h-3.5" />
-                      <CalendarPixelSvg className="w-3.5 h-3.5" />
+                      <ApplePixelTile size="sm" tint="#f2f2f2">
+                        <NotionPixelSvg className="w-3.5 h-3.5" />
+                      </ApplePixelTile>
+                      <ApplePixelTile size="sm" tint="#4285F4">
+                        <CalendarPixelSvg className="w-3.5 h-3.5" />
+                      </ApplePixelTile>
                     </span>
                   ),
                   cta: 'Stage Wrap-Up Pack',
@@ -1839,12 +1866,16 @@ export function App() {
                   title: 'Double-Booking & Prompt Shield',
                   desc: 'Blocks overlapping holds and drifted threads with HTTP 409 and automatically surfaces the next free slot.',
                   visual: <ConflictShieldVisual />,
-                  icons: <ShieldPixelSvg className="w-3.5 h-3.5" />,
+                  icons: (
+                    <ApplePixelTile size="sm" tint="#daff52">
+                      <ShieldPixelSvg className="w-3.5 h-3.5" />
+                    </ApplePixelTile>
+                  ),
                   cta: 'Test 409 Conflict Lock',
                   action: () => void stageCommand('Move VC sync to 14:45'),
                 },
               ].map((uc) => (
-                <div key={uc.num} className="bg-[var(--ink)] hover:bg-[var(--surface)] p-6 flex flex-col justify-between space-y-4 transition-colors">
+                <div key={uc.num} className="retro-glass-card p-6 flex flex-col justify-between space-y-4">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
@@ -1859,7 +1890,7 @@ export function App() {
                   <button
                     type="button"
                     onClick={uc.action}
-                    className="w-full py-2 px-3 border border-[var(--hairline)] hover:border-[var(--lime)] hover:text-[var(--lime)] text-xs font-pixel uppercase tracking-[0.12em] text-left flex items-center justify-between cursor-pointer transition-colors"
+                    className="retro-btn-glass w-full py-2 px-3 hover:text-[var(--lime)] text-xs font-pixel uppercase tracking-[0.12em] text-left flex items-center justify-between cursor-pointer"
                   >
                     <span>{uc.cta}</span>
                     <span>-&gt;</span>
@@ -1922,7 +1953,7 @@ export function App() {
               </ul>
             </ScrollReveal>
 
-            <ScrollReveal delay={0.06} className="lg:col-span-7 divide-y divide-dashed divide-[var(--hairline)] border-t border-b border-dashed border-[var(--hairline)]">
+            <ScrollReveal delay={0.06} className="lg:col-span-7 retro-glass-panel px-6 divide-y divide-dashed divide-white/10">
               {[
                 {
                   q: 'How do accounts stay secure without leaking keys to the browser or glasses?',

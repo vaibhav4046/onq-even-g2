@@ -21,13 +21,6 @@
   --font-pixel: "Silkscreen", ui-monospace, monospace;
 }
 
-*,
-*::before,
-*::after {
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-
 html {
   scroll-behavior: smooth;
   background: var(--ink);
@@ -70,7 +63,127 @@ body {
 }
 
 .section-rule {
-  border-top: 1px dashed var(--hairline);
+  border-top: 1px dashed rgba(255, 255, 255, 0.11);
+}
+
+/* Apple Smoked Liquid-Glass x Retro 525nm Pixel Hardware System */
+.retro-glass-nav {
+  background: rgba(8, 10, 9, 0.72);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+.retro-glass-panel {
+  position: relative;
+  border-radius: 18px;
+  background: linear-gradient(165deg, rgba(22, 26, 24, 0.74) 0%, rgba(10, 12, 11, 0.88) 55%, rgba(6, 8, 7, 0.94) 100%);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.17),
+    inset 0 -1px 0 rgba(52, 245, 126, 0.08),
+    0 22px 54px rgba(0, 0, 0, 0.62);
+}
+
+.retro-glass-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 4px);
+}
+
+.retro-glass-card {
+  position: relative;
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(20, 24, 22, 0.72) 0%, rgba(10, 12, 11, 0.88) 100%);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    0 12px 32px rgba(0, 0, 0, 0.48);
+  transition:
+    border-color 180ms ease,
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 200ms ease;
+}
+
+.retro-glass-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(218, 255, 82, 0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(218, 255, 82, 0.25),
+    0 16px 38px rgba(0, 0, 0, 0.6);
+}
+
+.retro-glass-well {
+  border-radius: 10px;
+  background: rgba(5, 7, 6, 0.84);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.65);
+}
+
+.retro-glass-dock {
+  border-radius: 9999px;
+  background: rgba(14, 17, 16, 0.76);
+  backdrop-filter: blur(20px) saturate(165%);
+  -webkit-backdrop-filter: blur(20px) saturate(165%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 10px 28px rgba(0, 0, 0, 0.58);
+}
+
+.apple-pixel-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.13) 0%, rgba(24, 28, 26, 0.82) 48%, rgba(8, 10, 9, 0.96) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+    0 6px 16px rgba(0, 0, 0, 0.45);
+}
+
+.retro-btn-primary {
+  border-radius: 10px;
+  background: var(--lime);
+  color: #0a0a0a;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 8px 20px rgba(218, 255, 82, 0.16);
+  transition: transform 150ms ease, filter 150ms ease, background-color 150ms ease;
+}
+
+.retro-btn-primary:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+.retro-btn-glass {
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.retro-btn-glass:hover {
+  border-color: rgba(218, 255, 82, 0.45);
+  background: rgba(255, 255, 255, 0.095);
+  transform: translateY(-1px);
 }
 
 .dot-grid-backdrop {
@@ -80,7 +193,7 @@ body {
   -webkit-mask-image: radial-gradient(ellipse at center, black 25%, transparent 72%);
 }
 
-/* Pixel-exact Even Realities G2 576x288 Monochrome Waveguide Lens */
+/* Pixel-exact Even Realities G2 576x288 Monochrome Waveguide Lens (geometry-locked) */
 .g2-lens-canvas {
   width: 576px;
   height: 288px;
@@ -91,7 +204,9 @@ body {
   line-height: 1.5;
   padding: 16px 20px;
   box-sizing: border-box;
-  border: 1px solid var(--hairline);
+  border-radius: 0;
+  border: 1px solid rgba(52, 245, 126, 0.28);
+  box-shadow: none;
   overflow: hidden;
   display: flex;
   flex-direction: column;

@@ -255,28 +255,84 @@ export function ShieldPixelSvg({ className = 'w-4 h-4', theme = 'dark' }: Ecosys
   );
 }
 
+export interface ApplePixelTileProps {
+  children: ReactNode;
+  tint?: string;
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+}
+
+/**
+ * Apple Liquid-Glass dark squircle chassis infused with crisp 525nm retro pixel ticks.
+ */
+export function ApplePixelTile({
+  children,
+  tint = '#34F57E',
+  size = 'md',
+  className = '',
+}: ApplePixelTileProps) {
+  const dims =
+    size === 'sm'
+      ? 'w-7 h-7 rounded-[8px]'
+      : size === 'lg'
+        ? 'w-11 h-11 rounded-[13px]'
+        : 'w-9 h-9 rounded-[11px]';
+
+  return (
+    <span
+      className={`apple-pixel-tile shrink-0 ${dims} ${className}`}
+      style={{
+        backgroundImage: `radial-gradient(circle at 30% 20%, ${tint}30 0%, transparent 66%), linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(22,26,24,0.86) 50%, rgba(8,10,9,0.96) 100%)`,
+      }}
+    >
+      {/* Top specular glass glint */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-1 top-0.5 h-[36%] rounded-t-[6px] bg-gradient-to-b from-white/15 to-transparent"
+      />
+      {/* Micro retro pixel corner ticks */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute top-1 right-1 w-[2px] h-[2px] opacity-65"
+        style={{ backgroundColor: tint }}
+      />
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-1 left-1 w-[2px] h-[2px] opacity-40"
+        style={{ backgroundColor: tint }}
+      />
+      <span className="relative z-10 flex items-center justify-center">{children}</span>
+    </span>
+  );
+}
+
 export function EcosystemStrip() {
-  const items: Array<{ label: string; icon: ReactNode }> = [
-    { label: 'Google Calendar', icon: <CalendarPixelSvg className="w-3.5 h-3.5" /> },
-    { label: 'Gmail', icon: <GmailPixelSvg className="w-3.5 h-3.5" /> },
-    { label: 'Drive', icon: <DrivePixelSvg className="w-3.5 h-3.5" /> },
-    { label: 'Notion', icon: <NotionPixelSvg className="w-3.5 h-3.5" /> },
-    { label: 'Claude', icon: <ClaudePixelSvg className="w-3.5 h-3.5" /> },
-    { label: 'ChatGPT', icon: <ChatGptPixelSvg className="w-3.5 h-3.5" /> },
-    { label: 'OpenRouter', icon: <OpenRouterPixelSvg className="w-3.5 h-3.5" /> },
-    { label: 'AssemblyAI', icon: <AssemblyAiPixelSvg className="w-3.5 h-3.5" /> },
+  const items: Array<{ label: string; tint: string; icon: ReactNode }> = [
+    { label: 'Calendar', tint: '#4285F4', icon: <CalendarPixelSvg className="w-4 h-4" /> },
+    { label: 'Gmail', tint: '#EA4335', icon: <GmailPixelSvg className="w-4 h-4" /> },
+    { label: 'Drive', tint: '#FBBC05', icon: <DrivePixelSvg className="w-4 h-4" /> },
+    { label: 'Notion', tint: '#f2f2f2', icon: <NotionPixelSvg className="w-4 h-4" /> },
+    { label: 'Claude', tint: '#D97757', icon: <ClaudePixelSvg className="w-4 h-4" /> },
+    { label: 'ChatGPT', tint: '#10A37F', icon: <ChatGptPixelSvg className="w-4 h-4" /> },
+    { label: 'OpenRouter', tint: '#daff52', icon: <OpenRouterPixelSvg className="w-4 h-4" /> },
+    { label: 'AssemblyAI', tint: '#34F57E', icon: <AssemblyAiPixelSvg className="w-4 h-4" /> },
   ];
 
   return (
     <div
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 text-[11px] text-[var(--lightgray)]"
+      className="flex flex-wrap items-center gap-2 pt-1.5"
       aria-label="Supported integrations"
     >
       {items.map((item) => (
-        <span key={item.label} className="inline-flex items-center gap-1.5 hover:text-[var(--bright)] transition-colors">
-          {item.icon}
-          <span>{item.label}</span>
-        </span>
+        <div
+          key={item.label}
+          className="retro-glass-card rounded-[10px] pl-1.5 pr-2.5 py-1 inline-flex items-center gap-2 text-[11px] text-[var(--bright)]/90"
+        >
+          <ApplePixelTile size="sm" tint={item.tint}>
+            {item.icon}
+          </ApplePixelTile>
+          <span className="font-plex tracking-tight">{item.label}</span>
+        </div>
       ))}
     </div>
   );

@@ -87,7 +87,7 @@ export function StickySafetyStory() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
           {/* Sticky left waveguide stage */}
           <div className="lg:col-span-7 lg:sticky lg:top-24 space-y-4">
-            <div className="border border-dashed border-[var(--hairline)] bg-[var(--surface)] p-4 space-y-4">
+            <div className="retro-glass-panel p-5 space-y-4">
               <div className="flex items-center justify-between gap-2">
                 <span className="inline-flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.18em] text-[var(--bright)]">
                   <ShieldPixelSvg className="w-4 h-4" />

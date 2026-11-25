@@ -94,8 +94,8 @@ export function OnQVoiceOrb({
       : ringCircumference * 0.28;
 
   return (
-    <div className={`border border-dashed border-[var(--hairline)] bg-[var(--ink)] p-3 flex flex-col justify-between ${className}`}>
-      <div className="flex items-center justify-between gap-2 pb-2 border-b border-dashed border-[var(--hairline)]">
+    <div className={`retro-glass-well p-3 flex flex-col justify-between ${className}`}>
+      <div className="flex items-center justify-between gap-2 pb-2 border-b border-dashed border-white/10">
         <span className="font-pixel text-[9px] uppercase tracking-[0.14em]" style={{ color: palette.primary }}>
           {palette.badge}
         </span>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  ApplePixelTile,
   AssemblyAiPixelSvg,
   CalendarPixelSvg,
   ChatGptPixelSvg,
@@ -338,8 +339,12 @@ export function ConnectorsHub({
       name: 'Google Workspace',
       sub: 'Calendar · Gmail · Drive · .ics',
       icon: (
-        <span className="inline-flex items-center gap-1.5">
-          <GooglePixelSvg className="w-4 h-4" />
+        <ApplePixelTile size="lg" tint="#4285F4">
+          <GooglePixelSvg className="w-6 h-6" />
+        </ApplePixelTile>
+      ),
+      secondaryIcons: (
+        <span className="inline-flex items-center gap-1 opacity-80">
           <CalendarPixelSvg className="w-3.5 h-3.5" />
           <GmailPixelSvg className="w-3.5 h-3.5" />
           <DrivePixelSvg className="w-3.5 h-3.5" />
@@ -351,35 +356,60 @@ export function ConnectorsHub({
       id: 'notion' as const,
       name: 'Notion',
       sub: 'Tasks & Meeting Action Packs',
-      icon: <NotionPixelSvg className="w-4 h-4" />,
+      icon: (
+        <ApplePixelTile size="lg" tint="#f2f2f2">
+          <NotionPixelSvg className="w-6 h-6" />
+        </ApplePixelTile>
+      ),
+      secondaryIcons: null,
       state: status?.connectors.notion,
     },
     {
       id: 'claude' as const,
       name: 'Claude',
       sub: 'Grounded Meeting & Reply Drafting',
-      icon: <ClaudePixelSvg className="w-4 h-4" />,
+      icon: (
+        <ApplePixelTile size="lg" tint="#D97757">
+          <ClaudePixelSvg className="w-6 h-6" />
+        </ApplePixelTile>
+      ),
+      secondaryIcons: null,
       state: status?.connectors.claude,
     },
     {
       id: 'openrouter' as const,
       name: 'OpenRouter',
       sub: 'Multi-Model Free & Pro Failover',
-      icon: <OpenRouterPixelSvg className="w-4 h-4" />,
+      icon: (
+        <ApplePixelTile size="lg" tint="#daff52">
+          <OpenRouterPixelSvg className="w-6 h-6" />
+        </ApplePixelTile>
+      ),
+      secondaryIcons: null,
       state: status?.connectors.openrouter,
     },
     {
       id: 'chatgpt' as const,
       name: 'ChatGPT',
       sub: 'OpenAI GPT-4o-mini Backup Route',
-      icon: <ChatGptPixelSvg className="w-4 h-4" />,
+      icon: (
+        <ApplePixelTile size="lg" tint="#10A37F">
+          <ChatGptPixelSvg className="w-6 h-6" />
+        </ApplePixelTile>
+      ),
+      secondaryIcons: null,
       state: status?.connectors.chatgpt,
     },
     {
       id: 'assemblyai' as const,
       name: 'AssemblyAI Voice',
       sub: 'Speaker Scribe & Earbuds Audio Out',
-      icon: <AssemblyAiPixelSvg className="w-4 h-4" />,
+      icon: (
+        <ApplePixelTile size="lg" tint="#34F57E">
+          <AssemblyAiPixelSvg className="w-6 h-6" />
+        </ApplePixelTile>
+      ),
+      secondaryIcons: null,
       state: status?.connectors.assemblyai,
     },
   ];
@@ -398,8 +428,10 @@ export function ConnectorsHub({
             </h2>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 border border-dashed border-[var(--hairline)] bg-[var(--surface)] px-3.5 py-2.5 text-xs">
-            <ShieldPixelSvg className="w-4 h-4 shrink-0" />
+          <div className="retro-glass-panel flex flex-wrap items-center gap-2.5 px-4 py-3 text-xs">
+            <ApplePixelTile size="sm" tint="#34F57E">
+              <ShieldPixelSvg className="w-4 h-4" />
+            </ApplePixelTile>
             <div className="space-y-0.5 mr-2">
               <div className="text-[var(--bright)] font-medium">
                 {status?.accountName
@@ -413,14 +445,14 @@ export function ConnectorsHub({
             <button
               type="button"
               onClick={() => setOpenDrawer(openDrawer === 'bulk' ? null : 'bulk')}
-              className="px-3 py-1.5 bg-[var(--lime)] text-[#0a0a0a] font-semibold cursor-pointer hover:brightness-105"
+              className="retro-btn-primary px-3.5 py-1.5 cursor-pointer"
             >
               Configure All (Vault)
             </button>
             <button
               type="button"
               onClick={() => void startGoogleSignIn()}
-              className="px-3 py-1.5 border border-[var(--lime)] text-[var(--lime)] hover:bg-[var(--lime)] hover:text-[#0a0a0a] font-semibold cursor-pointer inline-flex items-center gap-1.5 transition-colors"
+              className="retro-btn-glass px-3 py-1.5 text-[var(--lime)] font-semibold cursor-pointer inline-flex items-center gap-1.5"
             >
               <GooglePixelSvg className="w-3.5 h-3.5" />
               <span>Sign in with Google</span>
@@ -428,7 +460,7 @@ export function ConnectorsHub({
             <button
               type="button"
               onClick={startOpenRouterOAuth}
-              className="px-3 py-1.5 border border-[var(--g2-phosphor)] text-[var(--g2-phosphor)] hover:bg-[var(--g2-phosphor)] hover:text-[#0a0a0a] font-semibold cursor-pointer inline-flex items-center gap-1.5 transition-colors"
+              className="retro-btn-glass px-3 py-1.5 text-[var(--g2-phosphor)] font-semibold cursor-pointer inline-flex items-center gap-1.5"
             >
               <OpenRouterPixelSvg className="w-3.5 h-3.5" />
               <span>1-Click OpenRouter</span>
@@ -436,7 +468,7 @@ export function ConnectorsHub({
             <button
               type="button"
               onClick={() => setOpenDrawer(openDrawer === 'account' ? null : 'account')}
-              className="px-2.5 py-1.5 border border-[var(--hairline)] text-[11px] hover:border-[var(--lime)] hover:text-[var(--lime)] cursor-pointer"
+              className="retro-btn-glass px-2.5 py-1.5 text-[11px] hover:text-[var(--lime)] cursor-pointer"
             >
               Router
             </button>
@@ -444,7 +476,7 @@ export function ConnectorsHub({
               type="button"
               disabled={busy}
               onClick={() => void handleSignOut()}
-              className="px-2.5 py-1.5 border border-[var(--hairline)] text-[11px] text-[var(--lightgray)] hover:border-[var(--danger)] hover:text-[var(--danger)] cursor-pointer"
+              className="retro-btn-glass px-2.5 py-1.5 text-[11px] text-[var(--lightgray)] hover:text-[var(--danger)] cursor-pointer"
             >
               Sign Out
             </button>
@@ -452,7 +484,7 @@ export function ConnectorsHub({
         </ScrollReveal>
 
         {openDrawer === 'bulk' && (
-          <div className="border border-[var(--lime)] bg-[var(--surface)] p-5 space-y-4 text-xs">
+          <div className="retro-glass-panel p-5 space-y-4 text-xs">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-dashed border-[var(--hairline)] pb-3">
               <div>
                 <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
@@ -633,7 +665,7 @@ export function ConnectorsHub({
         )}
 
         {openDrawer === 'account' && (
-          <div className="border border-[var(--lime)] bg-[var(--surface)] p-5 space-y-4 text-xs">
+          <div className="retro-glass-panel p-5 space-y-4 text-xs">
             <div className="flex items-center justify-between">
               <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
                 AI MODEL FAILOVER ROUTER &amp; WORKSPACE PROFILE
@@ -696,24 +728,27 @@ export function ConnectorsHub({
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px border border-dashed border-[var(--hairline)] bg-[var(--hairline)]">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {cards.map((c) => {
             const connected = Boolean(c.state?.connected);
             const active = openDrawer === c.id;
             const latestProbe = testResults[c.id];
             return (
-              <div key={c.id} className="bg-[var(--ink)] p-5 flex flex-col justify-between space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
+              <div key={c.id} className="retro-glass-card p-5 flex flex-col justify-between space-y-4">
+                <div className="space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
                       {c.icon}
-                      <span className="font-display text-lg font-bold text-[var(--bright)]">{c.name}</span>
+                      <div>
+                        <span className="font-display text-lg font-bold text-[var(--bright)] block leading-tight">{c.name}</span>
+                        {c.secondaryIcons && <div className="mt-1">{c.secondaryIcons}</div>}
+                      </div>
                     </div>
                     <span
-                      className={`font-pixel text-[9px] uppercase tracking-[0.14em] px-2 py-0.5 border ${
+                      className={`font-pixel text-[9px] uppercase tracking-[0.14em] px-2.5 py-0.5 rounded-full border ${
                         connected
-                          ? 'border-[var(--g2-phosphor)] text-[var(--g2-phosphor)]'
-                          : 'border-[var(--hairline)] text-[var(--lightgray)]'
+                          ? 'border-[var(--g2-phosphor)]/60 text-[var(--g2-phosphor)] bg-[var(--g2-phosphor)]/10'
+                          : 'border-white/15 text-[var(--lightgray)] bg-white/5'
                       }`}
                     >
                       {c.state?.mode ?? 'READY'}
@@ -723,10 +758,10 @@ export function ConnectorsHub({
                   <p className="text-[11px] text-[var(--bright)]/80">{c.state?.detail ?? 'Encrypted local relay ready.'}</p>
                   {latestProbe && (
                     <div
-                      className={`text-[10px] font-pixel uppercase tracking-[0.1em] px-2 py-1 border ${
+                      className={`text-[10px] font-pixel uppercase tracking-[0.1em] px-2.5 py-1 rounded-md border ${
                         latestProbe.ok
-                          ? 'border-[var(--verified)]/50 text-[var(--verified)] bg-[var(--surface)]'
-                          : 'border-[var(--danger)]/50 text-[var(--danger)] bg-[var(--surface)]'
+                          ? 'border-[var(--verified)]/50 text-[var(--verified)] bg-[var(--verified)]/10'
+                          : 'border-[var(--danger)]/50 text-[var(--danger)] bg-[var(--danger)]/10'
                       }`}
                     >
                       {latestProbe.ok ? 'VERIFIED' : 'FAILED'} · {latestProbe.mode} · {latestProbe.latencyMs}ms
@@ -734,7 +769,7 @@ export function ConnectorsHub({
                   )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-dashed border-[var(--hairline)]">
+                <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-dashed border-white/10">
                   <button
                     type="button"
                     onClick={() => {
@@ -744,19 +779,20 @@ export function ConnectorsHub({
                         setOpenDrawer(active ? null : c.id);
                       }
                     }}
-                    className={`px-3 py-1.5 text-xs font-semibold cursor-pointer transition-colors ${
+                    className={`px-3.5 py-1.5 text-xs font-semibold cursor-pointer ${
                       connected
-                        ? 'border border-[var(--hairline)] text-[var(--bright)] hover:border-[var(--lime)]'
-                        : 'bg-[var(--bright)] text-[#0a0a0a] hover:bg-[var(--lime)]'
+                        ? 'retro-btn-glass text-[var(--bright)]'
+                        : 'retro-btn-primary'
                     }`}
                   >
                     {active ? 'Close' : connected ? 'Configure' : c.id === 'googleWorkspace' ? 'Connect Google' : c.id === 'notion' ? 'Connect Notion' : 'Connect'}
                   </button>
                   <button
                     type="button"
+                    aria-label="Test Connection"
                     disabled={busy || testingId === c.id}
                     onClick={() => void runTestConnection(c.id)}
-                    className="px-2.5 py-1.5 border border-[var(--hairline)] text-[11px] text-[var(--lightgray)] hover:text-[var(--verified)] hover:border-[var(--verified)] cursor-pointer"
+                    className="retro-btn-glass px-2.5 py-1.5 text-[11px] text-[var(--lightgray)] hover:text-[var(--verified)] cursor-pointer"
                   >
                     {testingId === c.id ? 'Testing...' : 'Test Connection'}
                   </button>
@@ -776,8 +812,8 @@ export function ConnectorsHub({
           })}
         </div>
 
-        {openDrawer && openDrawer !== 'account' && (
-          <div className="border border-[var(--lime)] bg-[var(--surface)] p-5 space-y-3 text-xs">
+        {openDrawer && openDrawer !== 'account' && openDrawer !== 'bulk' && (
+          <div className="retro-glass-panel p-5 space-y-3 text-xs">
             {openDrawer === 'googleWorkspace' && (
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2">

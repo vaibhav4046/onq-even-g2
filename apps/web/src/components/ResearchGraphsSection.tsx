@@ -110,9 +110,9 @@ export function ResearchGraphsSection({ testCount = 213 }: { testCount?: number 
         </ScrollReveal>
 
         {/* Two Visual Telemetry Graphs: Microsoft WTI & UC Irvine CHI '08 */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-px border border-dashed border-[var(--hairline)] bg-[var(--hairline)]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* Graph 1: Microsoft Work Trend Index */}
-          <ScrollReveal className="lg:col-span-6 bg-[var(--ink)] p-6 space-y-5">
+          <ScrollReveal className="lg:col-span-6 retro-glass-card p-6 space-y-5">
             <div className="space-y-1">
               <div className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
                 MICROSOFT WORK TREND INDEX (2023 &amp; 2025)
@@ -191,7 +191,7 @@ export function ResearchGraphsSection({ testCount = 213 }: { testCount?: number 
           </ScrollReveal>
 
           {/* Graph 2: UC Irvine CHI '08 Interruption Curve */}
-          <ScrollReveal delay={0.06} className="lg:col-span-6 bg-[var(--ink)] p-6 flex flex-col justify-between space-y-5">
+          <ScrollReveal delay={0.06} className="lg:col-span-6 retro-glass-card p-6 flex flex-col justify-between space-y-5">
             <div className="space-y-1">
               <div className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--g2-phosphor)]">
                 UC IRVINE CHI &apos;08 · DOI:10.1145/1357054.1357072
@@ -267,7 +267,7 @@ export function ResearchGraphsSection({ testCount = 213 }: { testCount?: number 
         </div>
 
         {/* Live Reproducible Harness Eval & Multi-Provider Failover Matrix (from HARNESS_EVAL.json) */}
-        <ScrollReveal delay={0.07} className="border border-dashed border-[var(--hairline)] bg-[var(--ink)] p-6 space-y-6">
+        <ScrollReveal delay={0.07} className="retro-glass-panel p-6 space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <div className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--g2-phosphor)]">
@@ -328,7 +328,7 @@ export function ResearchGraphsSection({ testCount = 213 }: { testCount?: number 
         </ScrollReveal>
 
         {/* Field Benchmark Table */}
-        <ScrollReveal delay={0.08} className="border border-dashed border-[var(--hairline)] bg-[var(--ink)] p-6 space-y-5">
+        <ScrollReveal delay={0.08} className="retro-glass-panel p-6 space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <div className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
@@ -383,29 +383,29 @@ export function ResearchGraphsSection({ testCount = 213 }: { testCount?: number 
         </ScrollReveal>
 
         {/* Verified Proof Strip */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 border border-dashed border-[var(--hairline)] divide-y lg:divide-y-0 lg:divide-x divide-dashed divide-[var(--hairline)] bg-[var(--surface)]">
-          <div className="p-6 space-y-1.5">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="retro-glass-card p-6 space-y-1.5">
             <div className="font-dots text-4xl sm:text-5xl font-black text-[var(--lime)]">
               <KineticNumber value={testCount} />
             </div>
             <div className="font-display text-base font-bold text-[var(--bright)]">Passing Automated Tests</div>
             <p className="text-xs text-[var(--lightgray)]">Core + server, auth, failover &amp; voice integration suite</p>
           </div>
-          <div className="p-6 space-y-1.5">
+          <div className="retro-glass-card p-6 space-y-1.5">
             <div className="font-dots text-4xl sm:text-5xl font-black text-[var(--bright)]">
               <KineticNumber value={11} />/11
             </div>
             <div className="font-display text-base font-bold text-[var(--bright)]">Optical Geometry Gate</div>
             <p className="text-xs text-[var(--lightgray)]">Zero clipping across every lens state &amp; &gt;= 97% black optical field</p>
           </div>
-          <div className="p-6 space-y-1.5">
+          <div className="retro-glass-card p-6 space-y-1.5">
             <div className="font-dots text-4xl sm:text-5xl font-black text-[var(--g2-phosphor)]">
               <KineticNumber value={10} />/10
             </div>
             <div className="font-display text-base font-bold text-[var(--bright)]">Security Audit Domains</div>
             <p className="text-xs text-[var(--lightgray)]">AES-256-GCM 0600 vault, PKCE, 409 lock, zero secret or CDN leaks</p>
           </div>
-          <div className="p-6 space-y-1.5">
+          <div className="retro-glass-card p-6 space-y-1.5">
             <div className="font-dots text-4xl sm:text-5xl font-black text-[var(--bright)]">
               ~$0.001
             </div>
