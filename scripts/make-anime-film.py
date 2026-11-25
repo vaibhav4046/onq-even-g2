@@ -8,6 +8,7 @@ Usage:
   python scripts/make-anime-film.py --preview    # one still per scene into media/raw/anime/
   python scripts/make-anime-film.py              # full render -> media/out/onq-anime-film.mp4
 """
+import hashlib
 import json
 import math
 import os
@@ -39,58 +40,72 @@ SIM = os.path.join(ROOT, "media", "raw", "sim")
 
 # ---------------------------------------------------------------- scenes
 # hud: list of (png path, from_fraction, to_fraction). ring frames cycle for the undo ring beat.
+def _test_count():
+    """Single source of truth shared with the website (apps/web/src/verifiedCounts.ts)."""
+    import re
+    src = open(os.path.join(ROOT, "apps", "web", "src", "verifiedCounts.ts"), encoding="utf-8").read()
+    return int(re.search(r"VERIFIED_TEST_COUNT = ([0-9]+)", src).group(1))
+
+
+def _words(n):
+    ones = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split()
+    tens = "_ _ twenty thirty forty fifty sixty seventy eighty ninety".split()
+    if n < 20:
+        return ones[n]
+    if n < 100:
+        return tens[n // 10] + ("" if n % 10 == 0 else "-" + ones[n % 10])
+    rest = n % 100
+    return ones[n // 100] + " hundred" + ("" if rest == 0 else " " + _words(rest))
+
+
+TESTS = _test_count()
+
+# Order follows the official rubric: read-and-write first (inside 30 s), Telegram before 60 s.
 SCENES = [
-    dict(id="title", clock=None, title="", min_s=4.5, vo=None, hud=[]),
+    dict(id="title", clock=None, title="", min_s=3.5, vo=None, hud=[]),
     dict(
-        id="morning", clock="07:30", title="MORNING  /  CORRIDOR BRIEF", min_s=17,
-        vo="Seven thirty. Mika puts on her glasses. One glance shows who she meets, what they asked in Gmail, "
-           "and the doc that goes with it. All on a seven line lens.",
+        id="morning", clock="07:30", title="GLANCE  /  WHAT MATTERS NOW", min_s=9,
+        vo="One glance. Mika sees who she meets next, and the one email that needs her.",
         hud=[(f"{SHOTS}/sim-01-dossier.png", 0.0, 1.0)],
     ),
     dict(
-        id="hallway", clock="08:45", title="HALLWAY  /  RUNNING LATE", min_s=24,
-        vo="Running late? She just says it. OnQ stages the change and defaults to no. A two second ring counts down. "
-           "Tap to cancel, or let it finish, and Calendar and Gmail update with a receipt.",
+        id="hallway", clock="08:45", title="ACT  /  ONE PHRASE, ONE TAP", min_s=20,
+        vo="Running late? She says one phrase. The reply is already drafted, waiting on no. One tap, a two second "
+           "undo ring, and Calendar and Gmail update, with a receipt.",
         hud=[(f"{SHOTS}/sim-04-preview-no.png", 0.0, 0.36),
              ("RING", 0.36, 0.7),
              (f"{SHOTS}/sim-06-receipt-done.png", 0.7, 1.0)],
     ),
     dict(
-        id="meeting", clock="10:30", title="MEETING  /  PRIVATE SCRIBE", min_s=21,
-        vo="In the meeting, OnQ keeps notes in memory only. Say OnQ and it answers on the lens. "
-           "Say wrap up, and Notion tasks, a calendar hold and an email draft wait for approval.",
-        hud=[(f"{SHOTS}/sim-08-pixel-avatar.png", 0.0, 1.0)],
+        id="dusk", clock="09:05", title="TELEGRAM  /  CHATS YOU PICK", min_s=16,
+        vo="A message lands from a chat she picked. One tap brings an AI drafted reply, parked on no. "
+           "She says yes, and it is sent.",
+        hud=[(f"{SHOTS}/sim-10-telegram.png", 0.0, 1.0)],
     ),
     dict(
-        id="cafe", clock="13:00", title="LUNCH  /  DOUBLE-BOOKING LOCK", min_s=17,
-        vo="Someone asks for a slot that is already taken. OnQ blocks the double booking and offers the next free time. "
-           "Nothing is written.",
+        id="cafe", clock="13:00", title="SAFE  /  DOUBLE-BOOKING LOCK", min_s=15,
+        vo="Someone asks for a slot that is already taken. OnQ blocks it and offers the next free time. Nothing is written.",
         hud=[(f"{SHOTS}/sim-07-conflict-409.png", 0.0, 1.0)],
     ),
     dict(
-        id="dusk", clock="16:00", title="AFTERNOON  /  TELEGRAM + APPROVALS", min_s=20,
-        vo="Telegram pings land on the lens. Anything that sends becomes an approval, and the same approval shows up "
-           "in Telegram and the web app.",
-        hud=[(f"{SHOTS}/sim-10-telegram.png", 0.0, 0.5), (f"{SHOTS}/sim-12-unified-os.png", 0.5, 1.0)],
+        id="meeting", clock="15:30", title="MEETING  /  PRIVATE NOTES", min_s=18,
+        vo="In the meeting, notes stay in memory only. Say wrap up, and Notion tasks, a calendar hold and an email "
+           "draft wait for her yes.",
+        hud=[(f"{SHOTS}/sim-08-pixel-avatar.png", 0.0, 1.0)],
     ),
     dict(
-        id="crew", clock="18:30", title="EVENING  /  SPECIALIST CREW", min_s=17,
-        vo="A crew of specialist agents checks Calendar, mail and the repo, and an auditor signs off. "
-           "A global kill switch stops all of it.",
-        hud=[(f"{SHOTS}/sim-13-os-pipeline-live.png", 0.0, 1.0)],
-    ),
-    dict(
-        id="recording", clock=None, title="THE REAL APP  /  SCREEN RECORDING", min_s=15,
+        id="recording", clock=None, title="THE REAL APP  /  SCREEN RECORDING", min_s=14,
         vo="This is the real app, recorded. Same confirm step, same ring, same receipt.",
         hud=[],
     ),
     dict(
-        id="night", clock="22:00", title="NIGHT  /  VERIFIED, NOT CLAIMED", min_s=21,
-        vo="Verified in the simulator: two hundred fifty-five tests, thirty-two of thirty-two eval intents, eleven display "
-           "gates and a ten domain security audit. Physical glasses are the next test.",
+        id="night", clock="22:00", title="NIGHT  /  VERIFIED, NOT CLAIMED", min_s=20,
+        vo=f"Verified in the official simulator: {_words(TESTS)} tests, thirty-two of thirty-two eval intents, eleven "
+           "display gates and a ten domain security audit. Physical glasses are the next test.",
         hud=[],
     ),
 ]
+
 
 
 # ---------------------------------------------------------------- fonts / text
@@ -539,7 +554,7 @@ def compose(scene, t, dur, rec_frames):
         d.rectangle([rx - 18, ry + rec.height + 22, rx + rec.width + 18, ry + rec.height + 66], fill=(0, 0, 0, 220))
         d.text((rx, ry + rec.height + 30), "REAL SCREEN RECORDING OF THE ONQ WEB APP (DEMO SANDBOX)", font=F_SM, fill=(160, 255, 200))
     if sc == "night" and t > dur * 0.18:
-        cards = [("255", "TESTS PASS"), ("32/32", "EVAL INTENTS"), ("11/11", "DISPLAY GATES"), ("10/10", "SECURITY"), ("13", "SIM CAPTURES")]
+        cards = [(str(TESTS), "TESTS PASS"), ("32/32", "EVAL INTENTS"), ("11/11", "DISPLAY GATES"), ("10/10", "SECURITY"), ("13", "SIM CAPTURES")]
         for i, (big, small) in enumerate(cards):
             k = min(1.0, (t - dur * 0.18 - i * 0.35) * 2.2)
             if k <= 0:
@@ -634,7 +649,7 @@ def main():
         s["vo_path"] = None
         s["dur"] = s["min_s"]
         if s["vo"] and not preview:
-            p = os.path.join(WORK, f"vo_{s['id']}.wav")
+            p = os.path.join(WORK, f"vo_{s['id']}_{hashlib.sha1(s['vo'].encode()).hexdigest()[:10]}.wav")
             if not synth_vo(s["vo"], p):
                 raise SystemExit(f"TTS failed for scene {s['id']}")
             s["vo_path"] = p
