@@ -57,7 +57,7 @@ def make_opening_slate(path: str) -> None:
     d.text((130, 350), "between meetings.", fill=(242, 242, 242), font=f_h1)
     d.text(
         (130, 480),
-        "Calendar, Gmail, Drive, and Notion fused into 42 optical columns.",
+        "Calendar, Gmail, Drive, Notion, Telegram & Computer Agents on Even G2.",
         fill=(200, 200, 205),
         font=f_sub,
     )
@@ -97,7 +97,7 @@ def make_closing_slate(path: str) -> None:
     d.text((130, 195), "Ready to run cold with zero paid keys.", fill=(242, 242, 242), font=f_h1)
 
     cards = [
-        ("213 / 213", "Automated Tests", "Core, OAuth PKCE, 4-tier failover, 25x concurrency & voice tests"),
+        ("225 / 225", "Automated Tests", "Core, 4-bit Pixel Avatar, Telegram, Computer Bridge & concurrency tests"),
         ("11 / 11", "Geometry Gate", "11 lens checks <= 999B plus Negative Control gate"),
         ("10 / 10", "Security Audit", "Zero secrets in source, web bundle, or onq.ehpk"),
         ("32 / 32", "Harness Eval", "100% intent match, 5/5 injection block, 100% 409 lock"),
@@ -321,16 +321,30 @@ def main() -> None:
     render_video_segment(os.path.join(RAW_DIR, "clip2_live_walkthrough.webm"), s_3c, t3c, ov_3c, True, 0.78, 1.0)
     segs.append(s_3c)
 
-    ov_4 = os.path.join(temp_dir, "ov4.png")
+    t4a = round(c4_dur * 0.55, 3)
+    t4b = round(c4_dur - t4a, 3)
+
+    ov_4a = os.path.join(temp_dir, "ov4a.png")
     make_stage_frame(
-        ov_4, "04", chapters[3]["title"], chapters[3]["caption"],
+        ov_4a, "04", "4-Bit Muse Pixel Avatar + Live Scribe", "76x76 Gray4 pixel avatar streams over EvenHub SSE during STT-3.7 meetings",
+        os.path.join(SIM_DIR, "sim-live-avatar.png"),
+        "EVENHUB SIMULATOR 0.9.5 · AVATAR",
+        "State: MEETING_LIVE | 76x76 4-bit grayscale avatar >= 75% optical black field.",
+    )
+    s_4a = os.path.join(temp_dir, "seg_4a.mp4")
+    render_video_segment(os.path.join(RAW_DIR, "clip3_conflict_and_notion.webm"), s_4a, t4a, ov_4a, True, 0.0, 0.58)
+    segs.append(s_4a)
+
+    ov_4b = os.path.join(temp_dir, "ov4b.png")
+    make_stage_frame(
+        ov_4b, "04", chapters[3]["title"], chapters[3]["caption"],
         os.path.join(SIM_DIR, "sim-live-409.png"),
         "EVENHUB SIMULATOR 0.9.5 · DEMO",
         "State: HTTP 409 CONFLICT_CALENDAR_BUSY | Blocks double-booking and suggests 15:45 free slot.",
     )
-    s_4 = os.path.join(temp_dir, "seg_4.mp4")
-    render_video_segment(os.path.join(RAW_DIR, "clip3_conflict_and_notion.webm"), s_4, c4_dur, ov_4, True, 0.0, 1.0)
-    segs.append(s_4)
+    s_4b = os.path.join(temp_dir, "seg_4b.mp4")
+    render_video_segment(os.path.join(RAW_DIR, "clip3_conflict_and_notion.webm"), s_4b, t4b, ov_4b, True, 0.58, 1.0)
+    segs.append(s_4b)
 
     t5a = round(c5_dur * 0.58, 3)
     t5b = round(c5_dur - t5a, 3)

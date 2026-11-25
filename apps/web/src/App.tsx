@@ -60,7 +60,7 @@ import {
 interface ProactiveInsight {
   id: string;
   atIso: string;
-  category: 'MEETING' | 'INBOX' | 'NOTION' | 'HEALTH';
+  category: 'MEETING' | 'INBOX' | 'NOTION' | 'TELEGRAM' | 'COMPUTER' | 'HEALTH';
   severity: 'info' | 'action' | 'warn';
   title: string;
   detail: string;

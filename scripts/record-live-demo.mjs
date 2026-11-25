@@ -168,6 +168,33 @@ async function captureRealSimulatorSequence() {
     await sendSimInput(autoBase, 'down');
     await sendSimInput(autoBase, 'click');
     await captureSimPng(autoBase, 'sim-live-409.png');
+
+    const sessRes = await fetch('http://127.0.0.1:8787/api/demo/session', { method: 'POST' });
+    if (sessRes.ok) {
+      const { sessionToken } = await sessRes.json();
+      const hdrs = { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` };
+      await fetch('http://127.0.0.1:8787/api/meeting/start', {
+        method: 'POST',
+        headers: hdrs,
+        body: JSON.stringify({ attendees: ['Priya Nair', 'Alex Chen'] }),
+      });
+      await fetch('http://127.0.0.1:8787/api/meeting/turn', {
+        method: 'POST',
+        headers: hdrs,
+        body: JSON.stringify({
+          speakerLabel: 'Speaker A',
+          text: 'Ship OnQ G2 with 4-bit pixel avatar and Notion sync.',
+          isFinal: true,
+        }),
+      });
+      await new Promise((r) => setTimeout(r, 900));
+      await captureSimPng(autoBase, 'sim-live-avatar.png');
+      await fetch('http://127.0.0.1:8787/api/meeting/wipe', {
+        method: 'POST',
+        headers: hdrs,
+        body: '{}',
+      });
+    }
     console.log('[record] Captured real EvenHub Simulator 0.9.5 PNG sequence in media/raw/sim/');
   } finally {
     try {
@@ -234,6 +261,8 @@ async function main() {
         await page.waitForTimeout(1400);
         await page.mouse.move(1440, 260, { steps: 18 });
         await page.waitForTimeout(600);
+        await page.locator('#experience').getByRole('button', { name: 'Wearer POV', exact: true }).click();
+        await page.waitForTimeout(1600);
         await page.locator('#experience').getByRole('button', { name: 'Exploded', exact: true }).click();
         await page.waitForTimeout(1800);
         await page.locator('#experience').getByRole('button', { name: 'R1 Ring', exact: true }).click();
@@ -247,11 +276,11 @@ async function main() {
 
         await page.locator('#safety').scrollIntoViewIfNeeded();
         await page.waitForTimeout(1200);
-        await page.getByRole('tab', { name: '02' }).click();
+        await page.locator('#safety').getByRole('tab', { name: '02', exact: true }).click();
         await page.waitForTimeout(1300);
-        await page.getByRole('tab', { name: '03' }).click();
+        await page.locator('#safety').getByRole('tab', { name: '03', exact: true }).click();
         await page.waitForTimeout(1800);
-        await page.getByRole('tab', { name: '04' }).click();
+        await page.locator('#safety').getByRole('tab', { name: '04', exact: true }).click();
         await page.waitForTimeout(1500);
       });
 
@@ -272,34 +301,36 @@ async function main() {
         await page.locator('#use-cases').scrollIntoViewIfNeeded();
         await page.waitForTimeout(700);
 
-        await page.getByRole('button', { name: /Start Live Meeting Scribe/ }).click();
+        await page.getByRole('button', { name: /Start Live Meeting Scribe/ }).first().click();
         await scrollToLens(page);
         await page.waitForTimeout(2000);
 
-        await page.getByRole('button', { name: /Ask "OnQ, Q4\?"/ }).click();
+        await page.getByRole('button', { name: /Ask "OnQ, Q4\?"/ }).first().click();
         await page.waitForTimeout(2300);
 
-        await page.getByRole('button', { name: /Stage Wrap-Up Pack/ }).click();
+        await page.getByRole('button', { name: /Stage Wrap-Up Pack/ }).first().click();
         await scrollToLens(page);
         await page.waitForTimeout(1800);
-        await page.getByRole('button', { name: 'Confirm & Arm 2.0s Ring' }).click();
+        await page.getByRole('button', { name: 'Confirm & Arm 2.0s Ring' }).first().click();
         await page.waitForTimeout(3200);
 
-        await page.getByRole('button', { name: 'Reset', exact: true }).click();
+        await page.getByRole('button', { name: 'Reset', exact: true }).first().click();
         await page.waitForTimeout(600);
-        await page.getByRole('button', { name: /Test 409 Conflict Lock/ }).click();
+        await page.getByRole('button', { name: /Test 409 Conflict Lock/ }).first().click();
         await scrollToLens(page);
         await page.waitForTimeout(2400);
       });
 
-      // Clip 4: Visual Research Graphs, Harness Eval & 1-Click Connectors Hub
+      // Clip 4: Architecture Showcase, Research Graphs, Harness Eval & 1-Click Connectors Hub
       await recordClip(browser, webSrv.url, 'clip4_failures_and_proof.webm', async (page) => {
+        await page.locator('#architecture').scrollIntoViewIfNeeded();
+        await page.waitForTimeout(2400);
         await page.locator('#research').scrollIntoViewIfNeeded();
-        await page.waitForTimeout(3200);
+        await page.waitForTimeout(2600);
         await page.locator('#connectors').scrollIntoViewIfNeeded();
         await page.waitForTimeout(1000);
         await page.locator('#connectors').getByRole('button', { name: 'Test Connection', exact: true }).first().click();
-        await page.waitForTimeout(2400);
+        await page.waitForTimeout(2200);
       });
 
       // Refresh Product Hunt 1270x760 gallery captures from upgraded UI
@@ -311,7 +342,7 @@ async function main() {
       await phPage.waitForTimeout(900);
       await phPage.screenshot({ path: path.join(PH_DIR, 'gallery-01-hero.png') });
 
-      await phPage.getByRole('button', { name: /Test 409 Conflict Lock/ }).click();
+      await phPage.getByRole('button', { name: /Test 409 Conflict Lock/ }).first().click();
       await phPage.waitForTimeout(900);
       await phPage.locator('[data-testid="g2-lens"]').waitFor({ state: 'visible' });
       await phPage.evaluate(() => {
@@ -322,7 +353,7 @@ async function main() {
       await phPage.screenshot({ path: path.join(PH_DIR, 'gallery-02-conflict-lock.png') });
 
       await phPage.locator('#safety').scrollIntoViewIfNeeded();
-      await phPage.getByRole('tab', { name: '03' }).click();
+      await phPage.locator('#safety').getByRole('tab', { name: '03', exact: true }).click();
       await phPage.waitForTimeout(700);
       await phPage.screenshot({ path: path.join(PH_DIR, 'gallery-03-voice-pack.png') });
 

@@ -4,6 +4,7 @@
 OnQ fuses Google Calendar, Gmail, Google Drive, Notion (`2026-03-11` `data_sources`), **Telegram Bot API** (`/api/telegram/digest` & `/api/telegram/stage-reply`), **Zero-API-Key Local Computer Tools** (`claude`, `codex`, `gemini`, `ollama`, `gh`, `git`), and RFC 5545 `.ics` feeds into one 42-column monochrome waveguide card with a **76×76 4-bit Pixel Avatar** (`Muse / Duet / Dots`), **Default-NO Confirm Gate**, **Commit-Locked 2.0s Undo Ring**, **HTTP 409 Conflict Hard-Lock**, and deterministic **Code-Guard Fact Verifier**.
 
 - **Tracks:** Track 04 - AI Assistants & Work (Google Workspace + Notion + Multi-LLM) + Track 01 / Best Telegram Integration (`TelegramWorkspaceClient`)
+- **Live Docs & Privacy Policy:** https://vaibhav4046.github.io/onq-even-g2/ · [Privacy Policy](https://vaibhav4046.github.io/onq-even-g2/privacy.html) · [GitHub Repo](https://github.com/vaibhav4046/onq-even-g2)
 - **Demo Day Pitch:** See [TVM_PITCH_DECK.md](docs/TVM_PITCH_DECK.md)
 - **Built:** Nov 23-29, 2026 hackathon window (zero pre-Nov 23 proprietary code)
 - **Honest Limits:** Verified end-to-end in `@evenrealities/evenhub-simulator@0.9.5`, our 11-check Chromium Geometry Gate, and our automated unit/HTTP/WebSocket/OAuth/harness suite. Physical Even G2 + R1 ring hardware testing is pending. Audio responses route exclusively to Companion Phone / Bluetooth Earbuds (`AssemblyAI-TTS-1`) because Even G2 has no speaker.
@@ -44,9 +45,9 @@ Open `http://127.0.0.1:5173`. Boots immediately in labeled `DEMO` sandbox mode w
 | **Core + Server + Auth + Avatar + Computer Bridge Suite** | `npm test` | **225 tests passing** across 19 files (core, 4-bit Pixel Avatar PNG, Local Computer Bridge & Task Engine, PKCE OAuth, Telegram Bot API, 4-tier failover, 25x concurrency races, WS/AssemblyAI, fault injection) |
 | **Reproducible AI & Safety Harness Eval** | `npm run eval:harness` | **32/32 intents (100%)**, **5/5 prompt injections blocked**, **3/3 409 conflict locks**, **5/5 RMS silence rejections**, **4/4 failover matrix** (`docs/HARNESS_EVAL.json`) |
 | **11-Check 576x288 Geometry Gate + Negative Control** | `npm run verify:geometry` | **11 / 11 passing** across 11 checks (`MEETING_LIVE` & `WRAP_UP` included, `<= 42` cols, `<= 999` UTF-8 bytes, `>= 97.2%` black optical field) + Check 11 Negative Control |
-| **Official EvenHub Simulator 0.9.5 QA** | `npm run verify:sim` | **7 real 576x288 RGBA captures** (including native `ListContainer`, 76x76 4-bit PNG ring, `409` lock) with 0 uncaught errors |
-| **EvenHub `.ehpk` Packaging** | `npm run pack` | **`dist/onq.ehpk`** (45,961 bytes, SDK `0.0.16`, `min_app_version 2.2.10`, 0 warnings) |
-| **Security Audit & Negative HTTP Tests** | `npm run verify:security` | **10 / 10 domains PASS** (`SECURITY_AUDIT.md`, 0 High/Critical findings, 0 secrets in 93 scanned files or `.ehpk`) |
+| **Official EvenHub Simulator 0.9.5 QA** | `npm run verify:sim` | **8 real 576x288 RGBA captures** (`sim-01..08.png`: native `ListContainer`, 76x76 4-bit PNG ring, `409` lock, 76x76 4-bit Muse Pixel Avatar + live Meeting Scribe SSE) with 0 uncaught errors |
+| **EvenHub `.ehpk` Packaging** | `npm run pack` | **`dist/onq.ehpk`** (46,234 bytes, SDK `0.0.16`, `min_app_version 2.2.10`, 0 warnings) |
+| **Security Audit & Negative HTTP Tests** | `npm run verify:security` | **10 / 10 domains PASS** (`SECURITY_AUDIT.md`, 0 High/Critical findings, 0 secrets in 96 scanned files or `.ehpk`) |
 
 ---
 

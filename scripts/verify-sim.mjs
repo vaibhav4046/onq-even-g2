@@ -127,6 +127,38 @@ async function main() {
     await sendInput(autoBase, 'click');
     await captureGlasses(autoBase, 'sim-07-conflict-409.png');
 
+    // 5b. Live Meeting Scribe SSE -> 76x76 4-bit Pixel Avatar + Diarized Transcript HUD
+    const sessRes = await fetch('http://127.0.0.1:8787/api/demo/session', { method: 'POST' });
+    if (!sessRes.ok) throw new Error(`POST /api/demo/session failed: ${sessRes.status}`);
+    const { sessionToken } = await sessRes.json();
+    const authHeaders = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${sessionToken}`,
+    };
+    const startRes = await fetch('http://127.0.0.1:8787/api/meeting/start', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ attendees: ['Priya Nair', 'Alex Chen'] }),
+    });
+    if (!startRes.ok) throw new Error(`POST /api/meeting/start failed: ${startRes.status}`);
+    const turnRes = await fetch('http://127.0.0.1:8787/api/meeting/turn', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        speakerLabel: 'Speaker A',
+        text: 'Ship OnQ G2 with 4-bit pixel avatar and Notion sync.',
+        isFinal: true,
+      }),
+    });
+    if (!turnRes.ok) throw new Error(`POST /api/meeting/turn failed: ${turnRes.status}`);
+    await new Promise((r) => setTimeout(r, 900));
+    await captureGlasses(autoBase, 'sim-08-pixel-avatar.png');
+    await fetch('http://127.0.0.1:8787/api/meeting/wipe', {
+      method: 'POST',
+      headers: authHeaders,
+      body: '{}',
+    });
+
     // 6. Check simulator console logs for unexpected errors (allow the intentional 409 Conflict test fetch)
     const conRes = await fetch(`${autoBase}/api/console`);
     const conJson = await conRes.json();
@@ -145,7 +177,7 @@ async function main() {
     if (errors.length > 0) {
       throw new Error(`Simulator console errors detected:\n${JSON.stringify(errors, null, 2)}`);
     }
-    console.log(`[sim:PASS] Captured 7 real simulator screenshots with 0 console/uncaught errors.`);
+    console.log(`[sim:PASS] Captured 8 real simulator screenshots with 0 console/uncaught errors.`);
   } finally {
     try {
       if (process.platform === 'win32' && simProc.pid) {

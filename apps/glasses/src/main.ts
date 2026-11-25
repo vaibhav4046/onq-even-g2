@@ -29,6 +29,7 @@ import type {
   CorridorCard,
   HudPhase,
   HudState,
+  MeetingSessionState,
   SourceMode,
 } from '@onq/core';
 
@@ -106,9 +107,9 @@ function renderLocalDom(state: HudState): void {
       ringImgEl.style.display = 'block';
     } else if (state.phase === 'listening' || state.phase === 'meeting_live') {
       avatarTick += 1;
-      const png = encodePixelAvatarPng('listening', {
+      const png = encodePixelAvatarPng(state.phase === 'meeting_live' ? 'speaking' : 'listening', {
         tick: avatarTick,
-        rmsLevel: state.rmsLevel,
+        rmsLevel: Math.max(0.35, state.rmsLevel),
         style: 'muse',
         size: 76,
       });
@@ -281,9 +282,9 @@ async function paintToGlasses(state: HudState): Promise<void> {
     }, frame.ringProgress01 === 0);
   } else if (wantAvatar) {
     avatarTick += 1;
-    const png = encodePixelAvatarPng('listening', {
+    const png = encodePixelAvatarPng(state.phase === 'meeting_live' ? 'speaking' : 'listening', {
       tick: avatarTick,
-      rmsLevel: state.rmsLevel,
+      rmsLevel: Math.max(0.35, state.rmsLevel),
       style: 'muse',
       size: 76,
     });
@@ -463,6 +464,18 @@ function startSseSync(tok: string): void {
       }>('/api/corridor').then(({ data }) => {
         controller.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso);
       });
+    });
+    sseSource.addEventListener('meeting', (ev) => {
+      try {
+        const meeting = JSON.parse((ev as MessageEvent).data) as MeetingSessionState | null;
+        if (meeting && meeting.active) {
+          controller.setMeetingSession(meeting);
+        } else {
+          controller.setMeetingSession(null);
+        }
+      } catch {
+        // ignore malformed SSE meeting frame
+      }
     });
   } catch {
     // ignore SSE unavailability

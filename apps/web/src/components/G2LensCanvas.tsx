@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { encodeCountdownRingPng, formatLensFrame } from '@onq/core';
+import { encodeCountdownRingPng, encodePixelAvatarPng, formatLensFrame } from '@onq/core';
 import type { HudState } from '@onq/core';
 
 interface G2LensCanvasProps {
@@ -24,6 +24,26 @@ export function G2LensCanvas({
     }
     return `data:image/png;base64,${btoa(bin)}`;
   }, [hudState.phase, frame.ringProgress01]);
+
+  const avatarDataUrl = useMemo(() => {
+    if (hudState.phase !== 'listening' && hudState.phase !== 'meeting_live') return null;
+    const pngBytes = encodePixelAvatarPng(
+      hudState.phase === 'meeting_live' ? 'speaking' : 'listening',
+      {
+        tick: hudState.meeting?.turns.length ?? 2,
+        rmsLevel: Math.max(0.35, hudState.rmsLevel),
+        style: 'muse',
+        size: 76,
+      },
+    );
+    let bin = '';
+    for (let i = 0; i < pngBytes.length; i++) {
+      bin += String.fromCharCode(pngBytes[i]);
+    }
+    return `data:image/png;base64,${btoa(bin)}`;
+  }, [hudState.phase, hudState.rmsLevel, hudState.meeting?.turns.length]);
+
+  const sideImgUrl = ringDataUrl ?? avatarDataUrl;
 
   if (negativeControlOverflow) {
     // Deliberate defect injection mode used ONLY by Check 11 of verify-geometry.mjs
@@ -53,13 +73,13 @@ export function G2LensCanvas({
       data-utf8-bytes={frame.utf8Bytes}
       className={`g2-lens-canvas ${opticsMode === 'waveguide' ? 'g2-lens-waveguide' : 'g2-lens-raw'}`}
     >
-      <div className="flex items-start gap-4 min-w-0">
-        {ringDataUrl && (
+      <div className="flex items-start gap-3 min-w-0">
+        {sideImgUrl && (
           <img
-            src={ringDataUrl}
+            src={sideImgUrl}
             width={76}
             height={76}
-            alt="2.0 second countdown undo ring"
+            alt={ringDataUrl ? '2.0 second countdown undo ring' : 'OnQ 4-bit Muse pixel avatar'}
             className="shrink-0 mt-4"
             style={{ imageRendering: 'pixelated' }}
           />
