@@ -216,7 +216,7 @@ async function invokeRemoteProvider(
       !cfg.fetchImpl && (primaryModel === 'openrouter/free' || primaryModel.endsWith(':free'))
         ? [
             primaryModel,
-            ...OPENROUTER_FREE_FALLBACK_MODELS.filter((m) => m !== primaryModel).slice(0, 2),
+            ...OPENROUTER_FREE_FALLBACK_MODELS.filter((m) => m !== primaryModel).slice(0, 1),
           ]
         : [primaryModel];
 

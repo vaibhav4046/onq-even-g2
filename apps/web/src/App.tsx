@@ -714,8 +714,12 @@ export function App() {
     es.addEventListener('liveui', (ev) => {
       try {
         const payload = JSON.parse((ev as MessageEvent).data) as { g2?: { lines?: string[] } };
-        if (payload?.g2?.lines && payload.g2.lines.length > 0) {
-          ctrlRef.current?.showAnswer(payload.g2.lines);
+        if (
+          ctrlRef.current?.getState().phase === 'idle' &&
+          payload?.g2?.lines &&
+          payload.g2.lines.length > 0
+        ) {
+          ctrlRef.current.showAnswer(payload.g2.lines);
         }
       } catch {
         // ignore
@@ -989,24 +993,27 @@ export function App() {
         body: JSON.stringify({ commandText: cmd, cardId: card?.id }),
       });
       const data = await res.json();
-      await refreshWorkspaceInspector(tok);
       if (res.status === 409) {
         ctrlRef.current?.showConflict(data as ConflictLockDetail);
         setVoiceFeedback(`409 CONFLICT LOCKED: ${(data as ConflictLockDetail).message}`);
+        void refreshWorkspaceInspector(tok);
         return;
       }
       if (!res.ok) {
         ctrlRef.current?.showError((data as { error?: string }).error ?? `HTTP ${res.status}`);
         setVoiceFeedback((data as { error?: string }).error ?? `HTTP ${res.status}`);
+        void refreshWorkspaceInspector(tok);
         return;
       }
       if (data.readOnlyAnswer && data.lines) {
         ctrlRef.current?.showAnswer(data.lines as string[]);
         setVoiceFeedback(`Read-only answer: ${(data.lines as string[]).join(' | ')}`);
+        void refreshWorkspaceInspector(tok);
         return;
       }
       ctrlRef.current?.stagePreview(data as ActionPreview);
       setVoiceFeedback('Staged Default-NO preview. Swipe to YES and tap to arm 2.0s Undo Ring.');
+      void refreshWorkspaceInspector(tok);
     } finally {
       setThinkingNow(false);
     }
@@ -1156,14 +1163,15 @@ export function App() {
       sttEngine: string;
     };
     setVoiceLatencyMs(Math.round(performance.now() - t0));
-    await refreshWorkspaceInspector(tok);
     if (stt.rejectedSilent) {
       ctrlRef.current?.showError('QUIET CLIP IGNORED');
       setVoiceFeedback('Quiet press ignored locally before sending.');
+      void refreshWorkspaceInspector(tok);
       return;
     }
     setVoiceFeedback(`Heard (${Math.round(performance.now() - t0)}ms): "${stt.transcript}"`);
     await stageCommand(stt.transcript);
+    void refreshWorkspaceInspector(tok);
   };
 
   const toggleFaultOffline = async () => {
@@ -1427,7 +1435,7 @@ export function App() {
               {accountEmail && (
                 <span className="inline-block w-2 h-2 rounded-full bg-[var(--g2-phosphor)]" aria-hidden="true" />
               )}
-              <span>{accountEmail ? accountEmail.split('@')[0] : 'Sign in'}</span>
+              <span className="max-w-[104px] truncate">{accountEmail ? accountEmail.split('@')[0] : 'Sign in'}</span>
             </a>
             <button
               type="button"
