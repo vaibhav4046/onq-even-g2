@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — OnQ (Even Realities G2 Copilot)</title>
+  <style>
+    :root {
+      --bg: #070908;
+      --panel: #0e1310;
+      --border: #1b2820;
+      --text: #e6efe8;
+      --muted: #a2b5a7;
+      --green: #39ff14;
+      --green-soft: #22c55e;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.65;
+    }
+    a { color: var(--green-soft); text-decoration: none; }
+    a:hover { color: var(--green); text-decoration: underline; }
+    .wrap { max-width: 820px; margin: 0 auto; padding: 48px 20px 72px; }
+    h1 { font-size: 2rem; margin: 0 0 8px; }
+    .meta { font-family: var(--mono); font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+    h2 {
+      font-size: 1.18rem;
+      margin: 30px 0 10px;
+      color: #ffffff;
+      border-left: 3px solid var(--green-soft);
+      padding-left: 12px;
+    }
+    p, li { color: var(--muted); }
+    strong { color: var(--text); }
+    .callout {
+      background: var(--panel);
+      border: 1px solid rgba(57, 255, 20, 0.35);
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin: 18px 0;
+    }
+    .nav { margin-bottom: 24px; font-family: var(--mono); font-size: 13px; }
+    footer {
+      margin-top: 44px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="nav">
+      <a href="./">&larr; OnQ Homepage</a> &middot; <a href="./terms.html">Terms of Service</a>
+    </div>
+    <h1>Privacy Policy for OnQ</h1>
+    <div class="meta">Application Name: OnQ &bull; Effective Date: November 25, 2026</div>
+
+    <p>
+      This Privacy Policy describes how <strong>OnQ</strong> handles user information when you connect your personal
+      accounts and run the OnQ copilot for Even Realities G2 smart glasses and the R1 smart ring.
+    </p>
+
+    <h2>1. Local-First Architecture &amp; Zero Central Storage</h2>
+    <p>
+      <strong>OnQ</strong> operates locally on your own computer over loopback (<code>http://127.0.0.1:8787</code>).
+      OnQ does not operate a central cloud database storing your Google tokens, emails, calendar events, files, or API keys.
+      All OAuth tokens and connector credentials are encrypted on your local disk inside an
+      <strong>AES-256-GCM encrypted vault</strong> protected with <code>0600</code> file permissions.
+    </p>
+
+    <h2>2. Google Workspace Data Accessed</h2>
+    <p>When you authorize Google Sign-In, OnQ requests permission only for the features you connect:</p>
+    <ul>
+      <li><strong>Google Calendar:</strong> Reading upcoming events to prepare pre-meeting HUD briefs and creating or updating events only after explicit confirmation.</li>
+      <li><strong>Gmail:</strong> Reading message threads for priority inbox digests and creating drafts or sending replies strictly after explicit user/R1 ring confirmation (Default-NO safety lock).</li>
+      <li><strong>Google Drive:</strong> Reading document metadata/contents requested by you during active briefings or note creation.</li>
+    </ul>
+    <p>
+      Every write or external communication in OnQ is <strong>Default-NO gated</strong>: actions are staged first and executed
+      only when you explicitly confirm via the UI or R1 ring double-tap.
+    </p>
+
+    <h2>3. Google API Services User Data Policy (Limited Use)</h2>
+    <div class="callout">
+      <p style="margin: 0;">
+        <strong>OnQ's</strong> use and transfer to any other app of information received from Google APIs will adhere to the
+        <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>,
+        including the <strong>Limited Use</strong> requirements. Specifically:
+      </p>
+      <ul style="margin-bottom: 0;">
+        <li>Google user data is used solely to provide user-facing OnQ copilot features initiated by you.</li>
+        <li>Google user data is <strong>never sold</strong>, never used for personalized advertising, and never shared with data brokers.</li>
+        <li>Google user data is <strong>never used to train</strong> generalized artificial intelligence or machine learning models.</li>
+      </ul>
+    </div>
+
+    <h2>4. Third-Party Connectors You Configure</h2>
+    <p>
+      If you optionally connect Notion, Telegram, AssemblyAI, OpenRouter, Anthropic, or OpenAI, OnQ sends only the
+      specific prompt, audio stream, or action payload required to fulfill your request directly from your local machine
+      to those providers under your own configured credentials.
+    </p>
+
+    <h2>5. User Control, Data Deletion &amp; Revocation</h2>
+    <p>You stay in complete control of your data at all times:</p>
+    <ul>
+      <li>You may disconnect Google Workspace or delete credentials anytime inside the OnQ Connectors Hub (which deletes the local encrypted vault entry).</li>
+      <li>You may revoke OnQ's Google access at any time from your Google Account permissions page at <a href="https://myaccount.google.com/permissions">https://myaccount.google.com/permissions</a>.</li>
+    </ul>
+
+    <h2>6. Developer Contact</h2>
+    <p>
+      For privacy questions, support, or data deletion inquiries regarding OnQ, contact the developer at:
+      <a href="mailto:vaibhavlalwani26969@gmail.com">vaibhavlalwani26969@gmail.com</a>.
+    </p>
+
+    <footer>
+      <a href="./">Home</a> &middot;
+      <a href="./terms.html">Terms of Service</a> &middot;
+      <a href="https://github.com/vaibhav4046/onq-even-g2">Source Code on GitHub</a>
+    </footer>
+  </div>
+</body>
+</html>
