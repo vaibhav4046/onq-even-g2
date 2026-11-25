@@ -888,7 +888,37 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     nowFn,
   });
 
+  /** Chats the owner picked to read and reply to (vault + TELEGRAM_WATCH_CHATS). */
+  function watchedTelegramChats(): string[] {
+    const env = (process.env.TELEGRAM_WATCH_CHATS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    return [...new Set([...(vault.load().telegramWatchChats ?? []), ...env])];
+  }
+  /** OnQ only ever sends to the owner chat or a chat the owner picked. */
+  function isSendableTelegramChat(chatId: string | undefined): boolean {
+    if (!chatId) return false;
+    const owner = vault.load().telegramChatId ?? process.env.TELEGRAM_CHAT_ID;
+    return chatId === owner || watchedTelegramChats().includes(chatId);
+  }
+
+  /** Default-NO preview that sends one Telegram message when committed (ring / tap / Approve). */
+  async function stageTelegramReply(targetChat: string, text: string, tokenHash: string, label: 'DRAFT' | 'AI DRAFT'): Promise<ActionPreview> {
+    const canonical = JSON.stringify({ intent: 'TELEGRAM_REPLY', chatId: targetChat, text });
+    const preview: ActionPreview = {
+      previewToken: `pt_${crypto.randomBytes(12).toString('hex')}`,
+      idempotencyKey: crypto.createHash('sha256').update(canonical).digest('hex'),
+      expiresAtIso: new Date(nowFn() + 45_000).toISOString(),
+      intent: 'RESCHEDULE_AND_NOTIFY',
+      defaultSelection: 'NO',
+      summaryLines: [`1) TG CHAT: ${targetChat.slice(0, 18)}`, `2) ${label}: "${text.slice(0, 26)}"`, '3) TAP YES TO SEND'],
+      operations: [{ provider: 'TELEGRAM', op: 'SEND_TELEGRAM', targetLabel: targetChat, afterValue: text }],
+      safetyChecks: { calendarConflictFree: true, threadFresh: true, recipientVerified: true, factGuardPassed: true },
+    };
+    await ledger.savePreview(preview, tokenHash);
+    return preview;
+  }
+
   telegramCentre = new TelegramCommandCentre({
+    getWatchedChats: watchedTelegramChats,
     osHarness,
     getCredentials: () => {
       const creds = vault.load();
@@ -1677,10 +1707,12 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           const creds = vault.load();
           const botToken = creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN;
           let tgNote = 'SANDBOX SENT';
-          if (botToken && creds.telegramChatId) {
-            const tgClient = new TelegramWorkspaceClient(botToken, creds.telegramChatId, opts.fetchImpl);
+          // Reply into the chosen chat when it is the owner chat or a watched chat; otherwise the owner chat.
+          const targetChat = isSendableTelegramChat(top.targetLabel) ? top.targetLabel : creds.telegramChatId;
+          if (botToken && targetChat) {
+            const tgClient = new TelegramWorkspaceClient(botToken, targetChat, opts.fetchImpl);
             try {
-              const sent = await tgClient.sendMessage(top.afterValue, creds.telegramChatId);
+              const sent = await tgClient.sendMessage(top.afterValue, targetChat);
               tgNote = `LIVE TELEGRAM SENT (#${sent.messageId})`;
             } catch (err) {
               tgNote = err instanceof Error ? `TG ERR: ${err.message.slice(0, 60)}` : 'TELEGRAM SEND ERR';
@@ -3252,10 +3284,19 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         if (!session) return;
         const creds = vault.load();
         const botToken = creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN;
+        if (botToken && telegramCentre.isPolling()) {
+          // The live poller owns getUpdates; read what it kept from the owner chat and the chats you picked.
+          jsonResponse(res, 200, { mode: 'LIVE', messages: telegramCentre.getRecentMessages(6), watchedChats: watchedTelegramChats() });
+          return;
+        }
         if (botToken) {
           try {
             const tg = new TelegramWorkspaceClient(botToken, creds.telegramChatId, opts.fetchImpl);
-            const messages = await tg.getRecentMessages(6);
+            const watched = watchedTelegramChats();
+            const owner = creds.telegramChatId;
+            const messages = (await tg.getRecentMessages(20))
+              .filter((m) => !owner || m.chatId === owner || watched.includes(m.chatId))
+              .slice(0, 6);
             if (!creds.telegramChatId && messages[0]?.chatId) {
               vault.save({ ...creds, telegramChatId: messages[0].chatId });
             }
@@ -3285,30 +3326,61 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         }
         const creds = vault.load();
         const targetChat = (body.chatId ?? creds.telegramChatId ?? 'tg-grp-even').trim();
-        const nowMs = nowFn();
-        const canonical = JSON.stringify({ intent: 'TELEGRAM_REPLY', chatId: targetChat, text: replyText });
-        const idempotencyKey = crypto.createHash('sha256').update(canonical).digest('hex');
-        const preview: ActionPreview = {
-          previewToken: `pt_${crypto.randomBytes(12).toString('hex')}`,
-          idempotencyKey,
-          expiresAtIso: new Date(nowMs + 45_000).toISOString(),
-          intent: 'RESCHEDULE_AND_NOTIFY',
-          defaultSelection: 'NO',
-          summaryLines: [
-            `1) TG CHAT: ${targetChat.slice(0, 18)}`,
-            `2) DRAFT: "${replyText.slice(0, 28)}"`,
-            '3) GATE: Default-NO · 2.0s Ring',
-          ],
-          operations: [],
-          safetyChecks: {
-            calendarConflictFree: true,
-            threadFresh: true,
-            recipientVerified: true,
-            factGuardPassed: true,
-          },
-        };
-        await ledger.savePreview(preview, session.tokenHash);
+        if (body.chatId && !isSendableTelegramChat(targetChat)) {
+          jsonResponse(res, 403, { error: 'OnQ only replies in your own chat or chats you picked to watch.' });
+          return;
+        }
+        const preview = await stageTelegramReply(targetChat, replyText, session.tokenHash, 'DRAFT');
         jsonResponse(res, 200, { ok: true, preview });
+        return;
+      }
+
+      // Pick which chats OnQ may read and reply to (owner chat is always included).
+      if (pathname === '/api/telegram/watch' && (req.method === 'GET' || req.method === 'POST')) {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        if (req.method === 'POST') {
+          const body = await readJsonBody<{ chatIds?: unknown }>(req);
+          const ids = Array.isArray(body.chatIds)
+            ? body.chatIds.map((v) => String(v).trim()).filter((v) => /^-?\d{1,20}$/.test(v)).slice(0, 25)
+            : [];
+          vault.save({ ...vault.load(), telegramWatchChats: ids });
+          recordAudit('OS_COMMAND', `Telegram watched chats set (${ids.length})`);
+        }
+        jsonResponse(res, 200, { ok: true, watchedChats: watchedTelegramChats() });
+        return;
+      }
+
+      // AI-drafted reply to a message from a watched chat, staged Default-NO for one tap / ring confirm.
+      if (req.method === 'POST' && pathname === '/api/telegram/draft-reply') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ chatId?: string; messageText?: string; fromName?: string; hint?: string }>(req);
+        const creds = vault.load();
+        const targetChat = (body.chatId ?? creds.telegramChatId ?? 'tg-grp-even').trim();
+        const incoming = (body.messageText ?? '').trim().slice(0, 600);
+        if (!incoming) {
+          jsonResponse(res, 400, { error: 'messageText required' });
+          return;
+        }
+        if (body.chatId && !isSendableTelegramChat(targetChat)) {
+          jsonResponse(res, 403, { error: 'OnQ only replies in your own chat or chats you picked to watch.' });
+          return;
+        }
+        const ai = await routeModelCompletion(
+          {
+            recipientName: (body.fromName ?? 'there').slice(0, 40),
+            recipientEmail: 'telegram@onq.local',
+            allowedRecipients: ['telegram@onq.local'],
+            sourceEmailText: `Telegram message: ${incoming}`,
+            userUtterance: (body.hint ?? 'Reply briefly and politely').slice(0, 200),
+            computedFacts: [],
+            fallbackDraft: 'Thanks, I saw this. I will get back to you shortly.',
+          },
+          resolveLlmConfig(),
+        );
+        const preview = await stageTelegramReply(targetChat, ai.draft, session.tokenHash, 'AI DRAFT');
+        jsonResponse(res, 200, { ok: true, draft: ai.draft, providerLabel: ai.providerLabel, preview });
         return;
       }
 

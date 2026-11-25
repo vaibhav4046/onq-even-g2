@@ -14,6 +14,8 @@ export interface StoredCredentials {
   notionDatabaseId?: string;
   telegramBotToken?: string;
   telegramChatId?: string;
+  /** Chats (groups/channels/DMs) whose new messages OnQ may read and reply to. Empty = only the owner chat. */
+  telegramWatchChats?: string[];
   preferredLlm?: 'auto' | 'claude' | 'openrouter' | 'chatgpt' | 'grok' | 'omniroute' | 'rules';
   anthropicKey?: string;
   openRouterKey?: string;

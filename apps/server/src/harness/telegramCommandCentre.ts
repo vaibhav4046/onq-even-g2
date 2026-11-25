@@ -1,5 +1,5 @@
 import { TelegramConflictError, TelegramWorkspaceClient } from '../providers/telegramProvider.js';
-import type { TelegramUpdateEnvelope } from '../providers/telegramProvider.js';
+import type { TelegramDigestMessage, TelegramUpdateEnvelope } from '../providers/telegramProvider.js';
 import type { OsApprovalItem, UnifiedOsHarness } from './unifiedOsHarness.js';
 
 const CONFLICT_BACKOFF_MS = 5 * 60_000;
@@ -7,6 +7,8 @@ const CONFLICT_BACKOFF_MS = 5 * 60_000;
 export interface TelegramCommandCentreDeps {
   osHarness: UnifiedOsHarness;
   getCredentials: () => { botToken?: string; chatId?: string };
+  /** Chats the owner picked; only their new messages (plus the owner chat) are kept for the digest. */
+  getWatchedChats?: () => string[];
   fetchImpl?: typeof fetch;
   onLog?: (msg: string) => void;
   onError?: (msg: string) => void;
@@ -23,6 +25,13 @@ export class TelegramCommandCentre {
   private active = false;
   private lastError: string | null = null;
   private processedCount = 0;
+  private recentMessages: TelegramDigestMessage[] = [];
+
+  /** Newest first; only watched chats and the owner chat are ever stored. */
+  getRecentMessages(limit = 6): TelegramDigestMessage[] {
+    return this.recentMessages.slice(0, limit).map((m) => ({ ...m }));
+  }
+
   /** After a 409 (webhook conflict) we stop hammering Telegram until this timestamp. */
   private conflictBackoffUntilMs = 0;
 
@@ -120,6 +129,16 @@ export class TelegramCommandCentre {
       // /myid works anywhere so pairing is one paste; everything else from other chats gets a generic refusal.
       const owner = this.deps.getCredentials().chatId?.trim();
       const word = (msg.text.trim().split(/\s+/)[0] ?? '').toLowerCase().split('@')[0];
+      const isCommand = word.startsWith('/');
+      const watched = this.deps.getWatchedChats?.() ?? [];
+      // Read side: remember new messages only from chats the owner picked (and the owner chat) for the digest.
+      if (!isCommand && msg.chatId && (msg.chatId === owner || watched.includes(msg.chatId))) {
+        this.recentMessages = [{ ...msg }, ...this.recentMessages].slice(0, 50);
+      }
+      // Ordinary chatter in other chats is never answered; the bot stays quiet in groups.
+      if (!isCommand && (!owner || msg.chatId !== owner)) {
+        return { handled: false };
+      }
       if (word === '/myid' || word === '/start') {
         const reply = `Your chat ID is ${msg.chatId}. In OnQ, open Connectors, Telegram, and paste it as the owner chat.`;
         if (client && msg.chatId) await client.sendMessage(reply, msg.chatId).catch(() => null);
