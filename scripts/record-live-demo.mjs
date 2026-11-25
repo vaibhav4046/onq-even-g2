@@ -291,7 +291,7 @@ async function main() {
         await page.waitForTimeout(1800);
         await page.locator('#experience').getByRole('button', { name: '3D Optics', exact: true }).click();
         await page.waitForTimeout(900);
-        await page.locator('#experience').getByRole('button', { name: 'Look Through G2', exact: true }).first().click();
+        await page.locator('#experience').getByRole('button', { name: 'POV', exact: true }).first().click();
         await page.waitForTimeout(1800);
         await page.keyboard.press('Escape');
         await page.waitForTimeout(700);
@@ -306,17 +306,17 @@ async function main() {
         await page.waitForTimeout(1500);
       });
 
-      // Clip 2: Continuous Live Walkthrough (Run Voice -> Confirm & Arm 2.0s Ring -> Live Receipt)
+      // Clip 2: Continuous Live Walkthrough (Talk Now -> Confirm & Arm 2.0s Ring -> Live Receipt)
       await recordClip(browser, webSrv.url, 'clip2_live_walkthrough.webm', async (page) => {
         await scrollToLens(page);
         await page.waitForTimeout(1600);
-        await page.getByRole('button', { name: 'Run Voice' }).first().click();
+        await page.getByRole('button', { name: 'Talk Now' }).first().click();
         await page.waitForTimeout(2400);
         await page.getByRole('button', { name: 'Confirm & Arm 2.0s Ring' }).click();
         await page.waitForTimeout(4200);
       });
 
-      // Clip 3: During & After Meeting (STT-3.7 Live Diarization + Ask OnQ + Wrap-Up + 409 Lock)
+      // Clip 3: Live Meeting Notes -> Ask -> Wrap-Up -> 409 Conflict Lock -> Autonomous AI Video Scout
       await recordClip(browser, webSrv.url, 'clip3_conflict_and_notion.webm', async (page) => {
         await page.getByRole('button', { name: 'Reset', exact: true }).click();
         await page.waitForTimeout(700);
@@ -325,20 +325,19 @@ async function main() {
 
         await page.getByRole('button', { name: /Start Live Meeting Scribe/ }).first().click();
         await scrollToLens(page);
-        await page.waitForTimeout(2000);
+        await page.waitForTimeout(1800);
 
-        await page.getByRole('button', { name: /Ask "OnQ, Q4\?"/ }).first().click();
-        await page.waitForTimeout(2300);
-
-        await page.getByRole('button', { name: /Stage Wrap-Up Pack/ }).first().click();
+        await page.getByRole('button', { name: 'Meeting Notes', exact: true }).first().click();
+        await page.waitForTimeout(600);
+        await page.getByRole('button', { name: /Wrap Up/ }).first().click();
         await scrollToLens(page);
         await page.waitForTimeout(1800);
         await page.getByRole('button', { name: 'Confirm & Arm 2.0s Ring' }).first().click();
-        await page.waitForTimeout(3200);
+        await page.waitForTimeout(3000);
 
         await page.getByRole('button', { name: 'Reset', exact: true }).first().click();
         await page.waitForTimeout(600);
-        await page.getByRole('button', { name: /Test 409 Conflict Lock/ }).first().click();
+        await page.getByRole('button', { name: /Test Conflict Lock/ }).first().click();
         await scrollToLens(page);
         await page.waitForTimeout(2400);
       });
@@ -364,7 +363,7 @@ async function main() {
       await phPage.waitForTimeout(900);
       await phPage.screenshot({ path: path.join(PH_DIR, 'gallery-01-hero.png') });
 
-      await phPage.getByRole('button', { name: /Test 409 Conflict Lock/ }).first().click();
+      await phPage.getByRole('button', { name: /Test Conflict Lock/ }).first().click();
       await phPage.waitForTimeout(900);
       await phPage.locator('[data-testid="g2-lens"]').last().waitFor({ state: 'visible' });
       await phPage.evaluate(() => {

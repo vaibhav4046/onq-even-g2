@@ -9,5 +9,6 @@ export * from './conflictEngine.js';
 export * from './stateMachine.js';
 export * from './icsParser.js';
 export * from './meetingLifecycle.js';
+export * from './liveUi.js';
 export * from './orchestrator/types.js';
 

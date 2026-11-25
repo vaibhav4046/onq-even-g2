@@ -379,124 +379,149 @@ export function drawRightLensHudCanvas(
   };
 
   if (showAnimeFace) {
-    // Twinkling 4-point dot sparkles
-    const sPulse = 0.45 + 0.55 * Math.sin(opts.timeSec * 3.1);
-    for (const [sx, sy, a] of [
-      [cx - 48, cy - 30, 0.35 + sPulse * 0.6],
-      [cx + 48, cy - 22, 0.95 - sPulse * 0.55],
-    ] as const) {
-      drawDot(sx, sy, 2.3, pal.bright, a);
-      drawDot(sx - 4, sy, 1.1, pal.primary, a * 0.8);
-      drawDot(sx + 4, sy, 1.1, pal.primary, a * 0.8);
-      drawDot(sx, sy - 4, 1.1, pal.primary, a * 0.8);
-      drawDot(sx, sy + 4, 1.1, pal.primary, a * 0.8);
+    // Subtle Matrix vertical dot rain columns framing character
+    for (const [colIdx, mx] of [-52, -44, 44, 52].entries()) {
+      const yHead = -30 + ((opts.timeSec * 36 + colIdx * 19) % 62);
+      drawDot(cx + mx, cy + yHead, 1.5, pal.bright, 0.72);
+      drawDot(cx + mx, cy + yHead - 8, 1.2, pal.primary, 0.35);
+      drawDot(cx + mx, cy + yHead - 16, 1.0, pal.secondary, 0.16);
     }
 
-    // Swept anime crown, parted bangs, cheek side-locks & chin whisper dots
-    for (let deg = -156; deg <= -24; deg += 12) {
+    // Spiky Jujutsu Kaisen dot-matrix hair spikes + jagged bangs + high-collar outline
+    for (const [deg, outerR, a] of [
+      [-150, 44, 0.56],
+      [-132, 52, 0.72],
+      [-115, 45, 0.55],
+      [-98, 54, 0.78],
+      [-82, 46, 0.6],
+      [-66, 52, 0.72],
+      [-48, 44, 0.55],
+      [-32, 48, 0.62],
+    ] as const) {
       const rad = (deg * Math.PI) / 180;
-      drawDot(cx + Math.cos(rad) * 44, cy + 2 + Math.sin(rad) * 40, 2.1, pal.primary, 0.58);
+      const bx = cx + Math.cos(rad) * 37;
+      const by = cy - 2 + Math.sin(rad) * 34;
+      const tx = cx + Math.cos(rad) * outerR;
+      const ty = cy - 2 + Math.sin(rad) * outerR;
+      drawDot(bx, by, 2.0, pal.primary, a * 0.7);
+      drawDot((bx + tx) / 2, (by + ty) / 2, 1.8, pal.primary, a * 0.85);
+      drawDot(tx, ty, 1.6, pal.bright, a);
     }
     for (const [bx, by, br, ba] of [
-      [-21, -30, 1.9, 0.55], [-18, -24, 1.6, 0.42],
-      [-4, -33, 2.1, 0.62], [-2, -26, 1.8, 0.48], [0, -20, 1.5, 0.34],
-      [17, -30, 1.9, 0.55], [19, -24, 1.6, 0.42],
+      [-23, -29, 1.9, 0.58], [-19, -22, 1.5, 0.42],
+      [-8, -32, 2.0, 0.65], [-6, -24, 1.6, 0.48],
+      [6, -32, 2.0, 0.68], [8, -24, 1.6, 0.48],
+      [21, -29, 1.9, 0.58], [23, -22, 1.5, 0.42],
     ] as const) {
       drawDot(cx + bx, cy + by, br, pal.primary, ba);
     }
+    // JJK sorcerer high-collar uniform V-line under chin
     for (const side of [-1, 1] as const) {
-      for (const [dy, xOff, ba] of [
-        [-12, 39, 0.52],
-        [-2, 40, 0.46],
-        [8, 38, 0.4],
-        [18, 35, 0.32],
-      ] as const) {
-        drawDot(cx + side * xOff, cy + dy, 1.8, pal.primary, ba);
-      }
-    }
-    drawDot(cx + 22, cy - 34, 2.2, pal.bright, 0.92);
-
-    // Sculpted anime dot-matrix eyes + upper lash wings + gleaming catchlights
-    const blink = orbMode === 'idle' && opts.timeSec % 4.2 > 3.95;
-    for (const side of [-1, 1] as const) {
-      const eyeCx = cx + side * 19;
-      const eyeCy = cy - 4;
-      if (blink) {
-        ctx.globalAlpha = 0.95;
-        ctx.strokeStyle = pal.bright;
-        ctx.lineWidth = 2.6;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(eyeCx - 9, eyeCy - 1);
-        ctx.quadraticCurveTo(eyeCx, eyeCy + 4, eyeCx + 9, eyeCy - 1);
-        ctx.stroke();
-      } else if (orbMode === 'conflict') {
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = pal.bright;
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(eyeCx - 9, eyeCy - 11 - side * 3);
-        ctx.lineTo(eyeCx + 9, eyeCy - 11 + side * 3);
-        ctx.stroke();
-        drawDot(eyeCx, eyeCy, 6.5, pal.primary, 0.92);
-        drawDot(eyeCx, eyeCy, 2.5, '#000000', 1);
-        drawDot(eyeCx - 2, eyeCy - 2, 1.8, pal.bright, 1);
-      } else {
-        ctx.globalAlpha = 0.96;
-        ctx.strokeStyle = pal.bright;
-        ctx.lineWidth = 2.8;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(eyeCx - 9, eyeCy - 5);
-        ctx.quadraticCurveTo(eyeCx, eyeCy - 12, eyeCx + 9, eyeCy - 5);
-        ctx.stroke();
-        drawDot(eyeCx + side * 10.5, eyeCy - 7, 1.5, pal.primary, 0.9);
-        // Iris halo + deep pupil void + dual catchlights
-        ctx.strokeStyle = pal.primary;
-        ctx.lineWidth = 1.9;
-        ctx.beginPath();
-        ctx.ellipse(eyeCx, eyeCy + 1, 7.6, 8.6, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        drawDot(eyeCx, eyeCy + 1, 3.6, '#000000', 1);
-        drawDot(eyeCx - 3, eyeCy - 2.5, 2.4, pal.bright, 1);
-        drawDot(eyeCx + 3, eyeCy + 3.5, 1.2, pal.bright, 0.95);
-      }
-      // Subtle cheek blush micro-dots
-      drawDot(cx + side * 26, cy + 10, 1.3, pal.primary, 0.45);
-      drawDot(cx + side * 30, cy + 9, 1.2, pal.primary, 0.42);
+      drawDot(cx + side * 32, cy + 8, 1.5, pal.primary, 0.38);
+      drawDot(cx + side * 26, cy + 20, 1.7, pal.primary, 0.42);
+      drawDot(cx + side * 22, cy + 32, 2.0, pal.primary, 0.65);
+      drawDot(cx + side * 14, cy + 36, 1.9, pal.primary, 0.58);
+      drawDot(cx + side * 6, cy + 40, 1.7, pal.primary, 0.46);
     }
 
-    // Expressive anime mouth: lock chevron, reactive dot equalizer, or 'w' smile
+    // Blindfold when idle -> radiant JJK Six Eyes reveal when listening / speaking / conflict
+    const blink = orbMode === 'listening' && opts.timeSec % 4.4 > 4.22;
+    const blindfolded = orbMode === 'idle';
+    if (blindfolded) {
+      ctx.globalAlpha = 0.86;
+      ctx.fillStyle = '#031208';
+      ctx.strokeStyle = pal.primary;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.roundRect(cx - 33, cy - 13, 66, 17, 5);
+      ctx.fill();
+      ctx.stroke();
+      const pulse = 0.45 + 0.55 * Math.sin(opts.timeSec * 3.4);
+      drawDot(cx - 17, cy - 5, 2.3, pal.bright, pulse);
+      drawDot(cx + 17, cy - 5, 2.3, pal.bright, pulse);
+    } else {
+      for (const side of [-1, 1] as const) {
+        const eyeCx = cx + side * 18;
+        const eyeCy = cy - 4;
+        if (blink) {
+          ctx.globalAlpha = 0.95;
+          ctx.strokeStyle = pal.bright;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(eyeCx - 9, eyeCy);
+          ctx.lineTo(eyeCx + 9, eyeCy);
+          ctx.stroke();
+        } else if (orbMode === 'conflict') {
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = pal.bright;
+          ctx.lineWidth = 2.6;
+          ctx.beginPath();
+          ctx.moveTo(eyeCx - 9, eyeCy - 10 - side * 3);
+          ctx.lineTo(eyeCx + 9, eyeCy - 10 + side * 3);
+          ctx.stroke();
+          drawDot(eyeCx, eyeCy, 6.2, pal.primary, 0.94);
+          drawDot(eyeCx, eyeCy, 2.4, '#000000', 1);
+          drawDot(eyeCx - 2, eyeCy - 2, 1.8, pal.bright, 1);
+        } else {
+          ctx.globalAlpha = 0.98;
+          ctx.strokeStyle = pal.bright;
+          ctx.lineWidth = 2.8;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(eyeCx - 9.5, eyeCy - 5);
+          ctx.quadraticCurveTo(eyeCx, eyeCy - 11.5, eyeCx + 9.5, eyeCy - 5);
+          ctx.stroke();
+          drawDot(eyeCx + side * 11, eyeCy - 6.5, 1.5, pal.primary, 0.92);
+          ctx.strokeStyle = pal.primary;
+          ctx.lineWidth = 2.0;
+          ctx.beginPath();
+          ctx.ellipse(eyeCx, eyeCy, 7.6, 6.4, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          drawDot(eyeCx, eyeCy, 3.3, '#000000', 1);
+          drawDot(eyeCx - 2.6, eyeCy - 2, 2.2, pal.bright, 1);
+          drawDot(eyeCx + 2.6, eyeCy + 2.2, 1.2, pal.bright, 0.95);
+        }
+      }
+    }
+
+    // Real-time JJK lip-sync mouth driven by activeWord / speech wave / RMS
     if (orbMode === 'conflict') {
       ctx.globalAlpha = 1;
       ctx.strokeStyle = pal.bright;
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.moveTo(cx - 15, cy + 23);
-      ctx.lineTo(cx, cy + 15);
-      ctx.lineTo(cx + 15, cy + 23);
+      ctx.moveTo(cx - 14, cy + 22);
+      ctx.lineTo(cx, cy + 14);
+      ctx.lineTo(cx + 14, cy + 22);
       ctx.stroke();
     } else if (orbMode === 'listening' || orbMode === 'speaking') {
-      for (let b = -2; b <= 2; b++) {
-        const wave = Math.abs(Math.sin(opts.timeSec * 8 + b * 0.9));
-        const dotRows = Math.max(1, Math.min(3, Math.round(1 + (amp * 1.4 + breathe * 1.1) * wave)));
-        for (let r = 0; r < dotRows; r++) {
-          const offset = (r - (dotRows - 1) / 2) * 4.8;
-          drawDot(cx + b * 7.5, cy + 20 + offset, 2.1, b === 0 ? pal.bright : pal.primary, 0.95);
-        }
-      }
+      const w = (opts.activeWord ?? '').toLowerCase();
+      const openH =
+        orbMode === 'speaking'
+          ? /[ao]/.test(w)
+            ? 6.5
+            : /[u]/.test(w)
+              ? 5.0
+              : 2.5 + 3.8 * Math.abs(Math.sin(opts.timeSec * 12))
+          : 1.8 + amp * 5.2;
+      const openW = /[u]/.test(w) ? 5.5 : 8.5 + breathe * 1.8;
+      ctx.globalAlpha = 0.96;
+      ctx.strokeStyle = pal.bright;
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + 18, openW, Math.max(1.5, openH), 0, 0, Math.PI * 2);
+      ctx.stroke();
+      drawDot(cx, cy + 18, Math.max(1, openH * 0.45), pal.primary, 0.55);
     } else {
-      for (const [mx, my, mr] of [
-        [-8, 18, 1.5],
-        [-5, 21, 1.8],
-        [-2, 21.5, 1.8],
-        [0, 19, 1.9],
-        [2, 21.5, 1.8],
-        [5, 21, 1.8],
-        [8, 18, 1.5],
-      ] as const) {
-        drawDot(cx + mx, cy + my, mr, pal.bright, 0.92);
-      }
+      // Cool subtle smirk
+      ctx.globalAlpha = 0.9;
+      ctx.strokeStyle = pal.bright;
+      ctx.lineWidth = 2.2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx - 8, cy + 18);
+      ctx.quadraticCurveTo(cx + 1, cy + 21, cx + 9, cy + 16);
+      ctx.stroke();
     }
     ctx.globalAlpha = 1;
   } else {

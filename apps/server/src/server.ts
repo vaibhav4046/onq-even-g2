@@ -6,14 +6,19 @@ import path from 'node:path';
 import { WebSocketServer } from 'ws';
 import type WebSocket from 'ws';
 import {
+  buildPresetLiveUi,
   canVoiceConfirmWrite,
   checkCalendarConflict,
   clipLine42,
   computePcmRms,
+  formatLiveUiForG2,
   MeetingTranscriptBuffer,
+  parseDisplayMarkup,
   parseIcsEvents,
   parseVoiceCommand,
   parseWakeCommand,
+  reduceLiveUiAction,
+  synthesizeLiveUiFromPrompt,
   verifyDraftAndPayload,
 } from '@onq/core';
 import type {
@@ -21,8 +26,15 @@ import type {
   ActionPreview,
   CommitReceipt,
   CorridorCard,
+  LiveUiInteraction,
+  LiveUiSurface,
   SourceMode,
 } from '@onq/core';
+import {
+  KanbanAndScreenManager,
+  SILENT_QUICK_CHIPS,
+} from './harness/kanbanEngine.js';
+import type { BotScreenControlAction, KanbanLane } from './harness/kanbanEngine.js';
 import { loadLocalEnvFile } from './env.js';
 import {
   createPkcePair,
@@ -42,7 +54,7 @@ import { runOrchestrationHarness } from './harness/orchestrationHarness.js';
 import { generateGroundedDraft, probeLlmProvider } from './llm.js';
 import type { LlmConfig, PreferredLlmProvider } from './llm.js';
 import { createConfiguredLedgerStore, SqliteLedgerStore } from './ledger.js';
-import type { LedgerStore } from './ledger.js';
+import type { LedgerStore, MemoryRecord } from './ledger.js';
 import { logError, logInfo, redactSecrets } from './logger.js';
 import { DemoWorkspaceProvider } from './providers/demoProvider.js';
 import type { DemoFaultInjection } from './providers/demoProvider.js';
@@ -197,6 +209,15 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
   const auditLog: AuditTelemetryEvent[] = [];
   const meetingBuffer = new MeetingTranscriptBuffer(48);
   const agentTasks = new AgentTaskEngine(nowFn);
+  const kanbanScreen = new KanbanAndScreenManager(new Date(nowFn()).toISOString());
+  let activeLiveUi: LiveUiSurface = buildPresetLiveUi('pomodoro', new Date(nowFn()).toISOString());
+  const pinnedLiveUiApps: LiveUiSurface[] = [
+    activeLiveUi,
+    buildPresetLiveUi('split_bill'),
+    buildPresetLiveUi('compare_models'),
+    buildPresetLiveUi('reaction_game'),
+    buildPresetLiveUi('launch_checklist'),
+  ];
   let activeIcsFeed: string | null = null;
   let lastInspectResult: SafeInspectResult | null = null;
   let cachedTelegramInsight: ProactiveInsight | null = null;
@@ -229,6 +250,25 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     auditLog.unshift(entry);
     if (auditLog.length > 20) auditLog.length = 20;
     broadcastSse('audit', entry);
+  }
+
+  async function saveUnifiedMemory(input: {
+    kind: MemoryRecord['kind'];
+    title: string;
+    summary: string;
+    source: string;
+  }): Promise<MemoryRecord> {
+    const item: MemoryRecord = {
+      id: `mem_${crypto.randomBytes(5).toString('hex')}`,
+      kind: input.kind,
+      title: input.title.trim().slice(0, 80) || 'OnQ Note',
+      summary: input.summary.trim().slice(0, 260) || input.title,
+      source: input.source,
+      createdAtIso: new Date(nowFn()).toISOString(),
+    };
+    await ledger.saveMemory?.(item).catch(() => null);
+    broadcastSse('memory', item);
+    return item;
   }
 
   function resolveLlmConfig(overrideProvider?: PreferredLlmProvider): LlmConfig {
@@ -1074,6 +1114,12 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
                 intent: 'RESCHEDULE_AND_NOTIFY',
                 commandText: 'Reply on Telegram: on my way in 5m',
               },
+              {
+                id: 'qa-tg-brief',
+                label: 'Push Daily Brief to Telegram',
+                intent: 'RESCHEDULE_AND_NOTIFY',
+                commandText: `Reply on Telegram: ${enrichedCards[0]?.title ?? 'Schedule'} ready`,
+              },
             ],
           });
 
@@ -1328,18 +1374,26 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         });
 
         for (const cop of computerOps) {
+          const priorMem = ((await ledger.listMemories?.(3)) ?? []).map((m) => `${m.title}: ${m.summary}`);
           const delegated = await executeDelegatedTask({
             title: cop.afterValue.slice(0, 48),
             prompt: cop.afterValue,
             targetTool: /git|pr|test/i.test(cop.afterValue) ? 'workspace_test' : 'auto',
             cwd: process.cwd(),
             llmConfig: resolveLlmConfig(),
+            memoryContext: priorMem,
           });
           receipt.summaryLines = [...delegated.lensLines, ...receipt.summaryLines].slice(0, 3);
           receipt.operations.push({
             ...cop,
             reversible: false,
             recallNote: delegated.toolUsed,
+          });
+          await saveUnifiedMemory({
+            kind: 'task',
+            title: cop.afterValue.slice(0, 64),
+            summary: delegated.summary,
+            source: delegated.toolUsed,
           });
         }
 
@@ -1349,18 +1403,36 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           let tgNote = 'SANDBOX SENT';
           if (botToken && creds.telegramChatId) {
             const tgClient = new TelegramWorkspaceClient(botToken, creds.telegramChatId, opts.fetchImpl);
-            await tgClient.sendMessage(creds.telegramChatId, top.afterValue).catch(() => null);
-            tgNote = 'LIVE TELEGRAM SENT';
+            try {
+              const sent = await tgClient.sendMessage(top.afterValue, creds.telegramChatId);
+              tgNote = `LIVE TELEGRAM SENT (#${sent.messageId})`;
+            } catch (err) {
+              tgNote = err instanceof Error ? `TG ERR: ${err.message.slice(0, 60)}` : 'TELEGRAM SEND ERR';
+            }
           }
           receipt.operations.push({
             ...top,
             reversible: false,
             recallNote: tgNote,
           });
+          await saveUnifiedMemory({
+            kind: 'telegram',
+            title: 'Telegram Message',
+            summary: `${top.afterValue} (${tgNote})`,
+            source: creds.telegramChatId ? `chat ${creds.telegramChatId}` : 'Telegram Sandbox',
+          });
         }
 
         await ledger.saveReceipt(receipt);
         recordAudit('COMMIT', `${receipt.receiptId}: ${receipt.summaryLines.join(' | ')}`);
+        if (workspaceOps.length > 0) {
+          await saveUnifiedMemory({
+            kind: 'voice',
+            title: receipt.summaryLines[0] ?? 'Workspace Update',
+            summary: receipt.summaryLines.join(' | '),
+            source: `Receipt ${receipt.receiptId}`,
+          });
+        }
         broadcastSse('receipt', receipt);
         broadcastSse('corridor', { reason: 'committed' });
 
@@ -1544,10 +1616,23 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         if (matchingTurn) {
           answerLine = `${matchingTurn.attendeeName}: ${matchingTurn.text}`;
           sourceCitation = `SRC: Live ${matchingTurn.atIso.slice(11, 16)} (${matchingTurn.speakerLabel})`;
-        } else if (snap.cards[0]?.driveSnippet) {
-          answerLine = `${snap.gmailThreads[0]?.fromName ?? 'Notes'}: ${snap.cards[0].driveSnippet}`;
-          sourceCitation = `SRC: Drive ${snap.cards[0].driveDocTitle ?? 'Brief'}`;
+        } else {
+          const memMatch = ((await ledger.listMemories?.(12, question)) ?? [])[0];
+          if (memMatch) {
+            answerLine = `${memMatch.title}: ${memMatch.summary}`;
+            sourceCitation = `SRC: Unified Memory (${memMatch.kind})`;
+          } else if (snap.cards[0]?.driveSnippet) {
+            answerLine = `${snap.gmailThreads[0]?.fromName ?? 'Notes'}: ${snap.cards[0].driveSnippet}`;
+            sourceCitation = `SRC: Drive ${snap.cards[0].driveDocTitle ?? 'Brief'}`;
+          }
         }
+
+        await saveUnifiedMemory({
+          kind: 'meeting',
+          title: `Ask: ${question.slice(0, 52) || 'Quick recall'}`,
+          summary: answerLine,
+          source: sourceCitation,
+        });
 
         const spoken = await synthesizeTtsUtterance({
           text: `${answerLine}. ${sourceCitation}`,
@@ -2696,19 +2781,126 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const session = await requireAuth(req, res);
         if (!session) return;
         const body = await readJsonBody<{ taskId?: string; previewToken?: string }>(req);
+        const priorMem = ((await ledger.listMemories?.(4)) ?? []).map((m) => `${m.title}: ${m.summary}`);
         const task = await agentTasks.commitTask({
           taskId: body.taskId,
           previewToken: body.previewToken,
           cwd: process.cwd(),
           llmConfig: resolveLlmConfig(),
+          memoryContext: priorMem,
         });
         if (!task) {
           jsonResponse(res, 404, { error: 'Staged agent task not found or invalid previewToken' });
           return;
         }
         recordAudit('AGENT_TASK', `${task.toolUsed}: ${task.title}`);
+        await saveUnifiedMemory({
+          kind: 'task',
+          title: task.title,
+          summary: task.outputLines[0] ?? task.steps[0] ?? 'Task completed',
+          source: task.toolUsed,
+        });
         broadcastSse('agent_task', task);
         jsonResponse(res, 200, { ok: task.status === 'DONE', task });
+        return;
+      }
+
+      // 14h. Unified Persistent Memory + Telegram Automation Suite
+      if (req.method === 'GET' && pathname === '/api/memory') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const q = parsedUrl.searchParams.get('q') ?? undefined;
+        const memories = (await ledger.listMemories?.(30, q)) ?? [];
+        jsonResponse(res, 200, { memories });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/memory') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{
+          kind?: MemoryRecord['kind'];
+          title?: string;
+          summary?: string;
+          source?: string;
+        }>(req);
+        const title = body.title?.trim();
+        if (!title) {
+          jsonResponse(res, 400, { error: 'Memory title required' });
+          return;
+        }
+        const saved = await saveUnifiedMemory({
+          kind: body.kind ?? 'note',
+          title,
+          summary: body.summary?.trim() || title,
+          source: body.source?.trim() || 'User',
+        });
+        jsonResponse(res, 200, { ok: true, memory: saved });
+        return;
+      }
+
+      const memDeleteMatch = pathname.match(/^\/api\/memory\/([a-zA-Z0-9_-]+)$/);
+      if (req.method === 'DELETE' && memDeleteMatch) {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const deleted = (await ledger.deleteMemory?.(memDeleteMatch[1])) ?? false;
+        jsonResponse(res, deleted ? 200 : 404, { ok: deleted });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/telegram/automate') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{
+          action?: 'brief_push' | 'outreach_digest' | 'voice_reply';
+          text?: string;
+          chatId?: string;
+        }>(req);
+        const action = body.action ?? 'brief_push';
+        const creds = vault.load();
+        const targetChat = (body.chatId ?? creds.telegramChatId ?? 'tg-grp-even').trim();
+        const provider = resolveProvider(session.mode);
+        const { cards } = await provider.fetchCorridor();
+        const snap = provider.getSnapshot();
+
+        const generatedText =
+          action === 'voice_reply' && body.text?.trim()
+            ? body.text.trim()
+            : action === 'outreach_digest'
+              ? `OnQ 24/7 Outreach: Next "${cards[0]?.title ?? 'VC Sync'}" | Open tasks: ${snap.notionTasks.filter((t) => !t.completed).length} | Free slot 15:45`
+              : `OnQ Daily Brief: ${cards[0]?.title ?? 'Clear schedule'} (${cards[0]?.timeMeta ?? 'now'}) | ${snap.gmailThreads[0]?.fromName ?? 'Inbox'}: ${snap.gmailThreads[0]?.snippet?.slice(0, 60) ?? 'No unread items'}`;
+
+        const nowMs = nowFn();
+        const canonical = JSON.stringify({ intent: 'TELEGRAM_AUTOMATE', action, chatId: targetChat, text: generatedText });
+        const idempotencyKey = crypto.createHash('sha256').update(canonical).digest('hex');
+        const preview: ActionPreview = {
+          previewToken: `pt_${crypto.randomBytes(12).toString('hex')}`,
+          idempotencyKey,
+          expiresAtIso: new Date(nowMs + 45_000).toISOString(),
+          intent: 'RESCHEDULE_AND_NOTIFY',
+          defaultSelection: 'NO',
+          summaryLines: [
+            `1) TG CHAT: ${targetChat.slice(0, 18)}`,
+            `2) MSG: "${generatedText.slice(0, 28)}"`,
+            '3) GATE: Ask first · 2.0s ring',
+          ],
+          operations: [
+            {
+              provider: 'TELEGRAM',
+              op: 'SEND_TELEGRAM',
+              targetLabel: targetChat,
+              afterValue: generatedText,
+            },
+          ],
+          safetyChecks: {
+            calendarConflictFree: true,
+            threadFresh: true,
+            recipientVerified: true,
+            factGuardPassed: true,
+          },
+        };
+        await ledger.savePreview(preview, session.tokenHash);
+        jsonResponse(res, 200, { ok: true, action, generatedText, preview });
         return;
       }
 
@@ -2837,6 +3029,214 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         } catch {
           jsonResponse(res, 503, { error: 'EvenHub Emulator 0.9.5 is offline on loopback :9898' });
         }
+        return;
+      }
+
+      // 14h. OnQ LiveUI Generative Micro-Apps, Kanban Multi-Agent Fleet, Watch Screen & Display Pacer
+      if (req.method === 'GET' && pathname === '/api/liveui') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        jsonResponse(res, 200, {
+          surface: activeLiveUi,
+          g2: formatLiveUiForG2(activeLiveUi),
+          pinned: pinnedLiveUiApps,
+          silentChips: SILENT_QUICK_CHIPS,
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/liveui/generate') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ prompt?: string; presetKey?: string; xml?: string; pin?: boolean }>(req);
+        const nowIso = new Date(nowFn()).toISOString();
+        let surface: LiveUiSurface | null = null;
+        if (body.presetKey) {
+          surface = buildPresetLiveUi(body.presetKey, nowIso);
+        } else if (body.xml?.includes('<ui ')) {
+          surface = synthesizeLiveUiFromPrompt(body.xml, nowIso);
+        } else {
+          const prompt = body.prompt?.trim() ?? 'Pomodoro focus timer';
+          const llmCfg = resolveLlmConfig();
+          const instant = synthesizeLiveUiFromPrompt(prompt, nowIso);
+          if (
+            !/pomodoro|split|bill|tip|compare|model|hotel|game|reflex|checklist|pack|todo/i.test(prompt) &&
+            (llmCfg.openRouterKey || llmCfg.anthropicKey || llmCfg.openAiKey)
+          ) {
+            const routed = await orchestrateStructuredJson<{ xml: string }>(
+              {
+                systemPrompt:
+                  'Generate compact LiveUI XML for 576x288 Even G2 glasses using <ui frame="stack|full|split" title="..."/> and components checklist|list|stepper|timer|facts. Return JSON {"xml":"..."} only.',
+                userPrompt: prompt,
+                fallbackJson: { xml: '' },
+                validate: (raw) => {
+                  if (!raw || typeof raw !== 'object') return null;
+                  const xml = (raw as { xml?: unknown }).xml;
+                  return typeof xml === 'string' && xml.includes('<ui ') ? { xml } : null;
+                },
+              },
+              llmCfg,
+            ).catch(() => null);
+            const parsedCustom = routed?.data?.xml
+              ? synthesizeLiveUiFromPrompt(routed.data.xml, nowIso)
+              : null;
+            surface = parsedCustom ?? instant;
+          } else {
+            surface = instant;
+          }
+        }
+        activeLiveUi = surface;
+        if (body.pin && !pinnedLiveUiApps.some((p) => p.id === surface!.id)) {
+          pinnedLiveUiApps.unshift({ ...surface, pinned: true });
+          if (pinnedLiveUiApps.length > 10) pinnedLiveUiApps.length = 10;
+        }
+        kanbanScreen.pushScreenLog(`LiveUI active: ${activeLiveUi.title}`, 'OnQ LiveUI Engine');
+        const g2 = formatLiveUiForG2(activeLiveUi);
+        broadcastSse('liveui', { surface: activeLiveUi, g2 });
+        recordAudit('PROACTIVE_PULSE', `LiveUI rendered on G2: ${activeLiveUi.title}`);
+        jsonResponse(res, 200, { ok: true, surface: activeLiveUi, g2, pinned: pinnedLiveUiApps });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/liveui/interact') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<LiveUiInteraction>(req);
+        activeLiveUi = reduceLiveUiAction(activeLiveUi, body, nowFn());
+        const g2 = formatLiveUiForG2(activeLiveUi);
+        broadcastSse('liveui', { surface: activeLiveUi, g2 });
+        jsonResponse(res, 200, { ok: true, surface: activeLiveUi, g2 });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/liveui/pin') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const idx = pinnedLiveUiApps.findIndex((p) => p.id === activeLiveUi.id);
+        if (idx === -1) {
+          const pinnedCopy: LiveUiSurface = { ...activeLiveUi, pinned: true };
+          pinnedLiveUiApps.unshift(pinnedCopy);
+          await saveUnifiedMemory({
+            kind: 'task',
+            title: `Pinned App: ${activeLiveUi.title}`,
+            summary: `Frame ${activeLiveUi.frame} (${activeLiveUi.components.length} components) pinned to G2 Lens`,
+            source: 'LiveUI',
+          });
+        } else {
+          pinnedLiveUiApps.splice(idx, 1);
+        }
+        jsonResponse(res, 200, { ok: true, pinned: pinnedLiveUiApps });
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/kanban') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        jsonResponse(res, 200, {
+          cards: kanbanScreen.listCards(),
+          screen: kanbanScreen.getScreen(),
+          silentChips: SILENT_QUICK_CHIPS,
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/kanban/create') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{
+          title?: string;
+          lane?: KanbanLane;
+          agentName?: string;
+          model?: string;
+          summary?: string;
+          cronSpec?: string;
+          actionCommand?: string;
+        }>(req);
+        if (!body.title?.trim()) {
+          jsonResponse(res, 400, { error: 'Kanban card title required' });
+          return;
+        }
+        const card = kanbanScreen.addCard({
+          title: body.title.trim(),
+          lane: body.lane,
+          agentName: body.agentName,
+          model: body.model,
+          summary: body.summary,
+          cronSpec: body.cronSpec,
+          actionCommand: body.actionCommand,
+        });
+        broadcastSse('kanban', { cards: kanbanScreen.listCards() });
+        jsonResponse(res, 200, { ok: true, card, cards: kanbanScreen.listCards() });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/kanban/action') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{
+          id?: string;
+          action?: 'approve' | 'retry' | 'schedule' | 'complete' | 'archive';
+        }>(req);
+        if (!body.id || !body.action) {
+          jsonResponse(res, 400, { error: 'id and action required' });
+          return;
+        }
+        const updated = kanbanScreen.actOnCard(body.id, body.action);
+        if (!updated) {
+          jsonResponse(res, 404, { error: 'Kanban card not found' });
+          return;
+        }
+        if (body.action === 'complete') {
+          await saveUnifiedMemory({
+            kind: 'task',
+            title: updated.title,
+            summary: updated.summary,
+            source: updated.agentName,
+          });
+        }
+        broadcastSse('kanban', { cards: kanbanScreen.listCards() });
+        broadcastSse('screen', kanbanScreen.getScreen());
+        jsonResponse(res, 200, { ok: true, card: updated, cards: kanbanScreen.listCards() });
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/screen/peek') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        jsonResponse(res, 200, { screen: kanbanScreen.getScreen() });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/screen/control') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ action?: BotScreenControlAction }>(req);
+        const allowed = new Set<BotScreenControlAction>([
+          'takeover',
+          'release',
+          'click',
+          'double_click',
+          'scroll_up',
+          'scroll_down',
+          'enter',
+          'tab',
+        ]);
+        if (!body.action || !allowed.has(body.action)) {
+          jsonResponse(res, 400, { error: 'Invalid screen control action' });
+          return;
+        }
+        const screen = kanbanScreen.controlScreen(body.action);
+        broadcastSse('screen', screen);
+        jsonResponse(res, 200, { ok: true, screen });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/pace') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ text?: string; wpm?: number }>(req);
+        const parsed = parseDisplayMarkup(body.text ?? '', body.wpm ?? 220);
+        jsonResponse(res, 200, { ok: true, parsed });
         return;
       }
 

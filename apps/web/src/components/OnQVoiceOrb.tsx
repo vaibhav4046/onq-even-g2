@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import type { PixelAvatarStyle, VoiceOrbState } from '@onq/core';
+import type { AliveMood, PixelAvatarStyle, VoiceOrbState } from '@onq/core';
 
 interface OnQVoiceOrbProps {
   state: VoiceOrbState;
@@ -8,6 +8,9 @@ interface OnQVoiceOrbProps {
   activeWord?: string;
   armProgress01?: number;
   engineLabel?: string;
+  latencyMs?: number | null;
+  backchannelText?: string | null;
+  aliveMood?: AliveMood;
   avatarStyle?: PixelAvatarStyle;
   onChangeAvatarStyle?: (style: PixelAvatarStyle) => void;
   className?: string;
@@ -28,15 +31,18 @@ const BAYER_4X4 = [
 ];
 
 /**
- * Monochrome 525nm phosphor-green Anime Dots / Claude Duet / ChatGPT Dots SVG Avatar synced live
- * to AssemblyAI STT-3.7 RMS, AI thinking scan, TTS-1 WordBoundaries, 2.0s Countdown Ring & 409 Lock.
+ * Jujutsu Kaisen (JJK) Monochrome Matrix-Green Sorcerer / Claude Duet / ChatGPT Dots SVG Avatar
+ * with word-synced viseme lip-sync, blindfold -> Six Eyes reveal, Matrix dot rain, and duplex status.
  */
 export function OnQVoiceOrb({
   state,
   rmsLevel = 0,
   activeWord = '',
   armProgress01 = 0,
-  engineLabel = 'SANDBOX · LOCAL',
+  engineLabel = 'LOCAL VOICE',
+  latencyMs,
+  backchannelText,
+  aliveMood = 'neutral',
   avatarStyle,
   onChangeAvatarStyle,
   className = '',
@@ -72,29 +78,29 @@ export function OnQVoiceOrb({
     return out;
   }, []);
 
-  // Pure 525nm monochrome phosphor-green optical hierarchy
+  // Pure 525nm Matrix-green optical hierarchy
   const palette =
     state === 'conflict'
-      ? { primary: '#D4FFE4', secondary: '#34F57E', bright: '#FFFFFF', dim: '#1A7A3F', badge: '409 CONFLICT LOCK' }
+      ? { primary: '#D4FFE4', secondary: '#34F57E', bright: '#FFFFFF', dim: '#1A7A3F', badge: 'BLOCKED' }
       : state === 'armed'
-        ? { primary: '#9BFFBE', secondary: '#34F57E', bright: '#E2FFEC', dim: '#156634', badge: 'ARMED · TAP TO CANCEL' }
+        ? { primary: '#9BFFBE', secondary: '#34F57E', bright: '#E2FFEC', dim: '#156634', badge: 'TAP TO CANCEL' }
         : state === 'speaking'
-          ? { primary: '#7EFFAD', secondary: '#34F57E', bright: '#E2FFEC', dim: '#156634', badge: 'SPEAKING · TTS-1' }
+          ? { primary: '#7EFFAD', secondary: '#34F57E', bright: '#E2FFEC', dim: '#156634', badge: 'SPEAKING' }
           : state === 'thinking'
-            ? { primary: '#34F57E', secondary: '#86FFAF', bright: '#D4FFE4', dim: '#0F4D28', badge: 'ROUTER THINKING' }
+            ? { primary: '#34F57E', secondary: '#86FFAF', bright: '#D4FFE4', dim: '#0F4D28', badge: 'THINKING' }
             : state === 'listening'
-              ? { primary: '#5CFF9A', secondary: '#34F57E', bright: '#C8FFDC', dim: '#12592E', badge: 'LISTENING · 16KHZ' }
-              : { primary: '#34F57E', secondary: '#1EA352', bright: '#9BFFBE', dim: '#0D4A26', badge: 'IDLE · READY' };
+              ? { primary: '#5CFF9A', secondary: '#34F57E', bright: '#C8FFDC', dim: '#12592E', badge: 'LISTENING' }
+              : { primary: '#34F57E', secondary: '#1EA352', bright: '#9BFFBE', dim: '#0D4A26', badge: 'READY' };
 
   const rmsBoost = Math.min(1, Math.max(0, rmsLevel * 7));
   const scaleOrb =
     reduced
       ? 1
       : state === 'listening'
-        ? 1 + rmsBoost * 0.08
+        ? 1 + rmsBoost * 0.07
         : state === 'speaking'
           ? activeWord
-            ? 1.05
+            ? 1.04
             : 1.02
           : 1;
 
@@ -107,58 +113,81 @@ export function OnQVoiceOrb({
       ? ringCircumference * (1 - Math.max(0.06, Math.min(1, armProgress01)))
       : ringCircumference * 0.24;
 
-  // Curated circular dot coordinates for swept anime hair crown, bangs, side locks & chin whisper
-  const hairDots = useMemo(() => {
-    const pts: Array<{ dx: number; dy: number; r: number; o: number }> = [];
-    for (let deg = -156; deg <= -24; deg += 11) {
+  // Spiky JJK Gojo/Megumi dot-matrix hair spikes + jagged bangs + high-collar coat dots
+  const jjkDots = useMemo(() => {
+    const pts: Array<{ dx: number; dy: number; r: number; o: number; bright?: boolean }> = [];
+    const spikes: Array<[number, number, number]> = [
+      [-152, 54, 0.56],
+      [-132, 65, 0.72],
+      [-114, 56, 0.6],
+      [-98, 67, 0.82],
+      [-82, 57, 0.64],
+      [-66, 65, 0.76],
+      [-48, 55, 0.6],
+      [-31, 61, 0.68],
+    ];
+    for (const [deg, outerR, o] of spikes) {
       const rad = (deg * Math.PI) / 180;
-      pts.push({ dx: Math.cos(rad) * 53, dy: 2 + Math.sin(rad) * 48, r: 2.3, o: 0.62 });
+      for (const frac of [0.68, 0.84, 1.0]) {
+        pts.push({
+          dx: Math.cos(rad) * (outerR * frac),
+          dy: -2 + Math.sin(rad) * (outerR * frac * 0.92),
+          r: frac === 1.0 ? 1.8 : 2.3,
+          o: frac === 1.0 ? o : o * 0.78,
+          bright: frac === 1.0,
+        });
+      }
     }
-    for (let deg = -138; deg <= -42; deg += 18) {
-      const rad = (deg * Math.PI) / 180;
-      pts.push({ dx: Math.cos(rad) * 45, dy: 2 + Math.sin(rad) * 40, r: 1.8, o: 0.38 });
-    }
-    // Swept anime bangs dipping gently above eyes
+    // Jagged bangs falling over forehead
     for (const [dx, dy, r, o] of [
-      [-26, -37, 2.2, 0.58], [-22, -31, 2.0, 0.48], [-18, -25, 1.6, 0.34],
-      [-5, -40, 2.4, 0.66], [-3, -33, 2.1, 0.56], [-1, -26, 1.8, 0.44], [1, -20, 1.5, 0.32],
-      [20, -37, 2.2, 0.58], [22, -31, 2.0, 0.48], [24, -25, 1.6, 0.34],
+      [-28, -36, 2.2, 0.6], [-24, -27, 1.8, 0.45],
+      [-10, -40, 2.4, 0.68], [-8, -30, 2.0, 0.52], [-6, -21, 1.6, 0.36],
+      [7, -40, 2.4, 0.7], [9, -30, 2.0, 0.52], [11, -21, 1.6, 0.36],
+      [25, -36, 2.2, 0.6], [27, -27, 1.8, 0.45],
     ] as const) {
       pts.push({ dx, dy, r, o });
     }
-    // Framing cheek side-locks
+    // High-collar Jujutsu uniform silhouette at bottom
     for (const side of [-1, 1] as const) {
-      for (const [dy, xOff, r, o] of [
-        [-16, 47, 2.2, 0.55],
-        [-6, 48, 2.1, 0.5],
-        [4, 46, 2.0, 0.46],
-        [15, 43, 1.8, 0.4],
-        [25, 39, 1.6, 0.32],
+      for (const [xOff, dy, r, o] of [
+        [39, 9, 1.8, 0.42],
+        [33, 22, 1.9, 0.46],
+        [27, 36, 2.3, 0.68],
+        [18, 42, 2.1, 0.6],
+        [8, 46, 1.9, 0.5],
       ] as const) {
         pts.push({ dx: side * xOff, dy, r, o });
       }
     }
-    // Delicate chin contour dots
-    for (const [dx, dy, o] of [
-      [-26, 38, 0.34],
-      [-14, 46, 0.38],
-      [0, 48, 0.44],
-      [14, 46, 0.38],
-      [26, 38, 0.34],
-    ] as const) {
-      pts.push({ dx, dy, r: 1.7, o });
-    }
     return pts;
   }, []);
 
-  const voiceEqRows = [
-    [1, Math.max(1, Math.round(1 + rmsBoost * 2))],
-    [2, Math.max(1, Math.round(2 + rmsBoost * 2 + (activeWord ? 1 : 0)))],
-    [3, Math.max(2, Math.round(2 + rmsBoost * 2 + (state === 'speaking' ? 1 : 0)))],
-    [2, Math.max(1, Math.round(2 + rmsBoost * 2 + (activeWord ? 1 : 0)))],
-    [1, Math.max(1, Math.round(1 + rmsBoost * 2))],
-  ];
+  // Compute live mouth viseme dimensions synced to active TTS word + mic RMS
+  const wLower = activeWord.toLowerCase();
+  const mouthRx =
+    state === 'speaking'
+      ? /[uow]/.test(wLower)
+        ? 6.5
+        : /[aei]/.test(wLower)
+          ? 11
+          : 8.5
+      : state === 'listening'
+        ? 7 + rmsBoost * 5
+        : 8;
+  const mouthRy =
+    state === 'speaking'
+      ? /^[mbp]$/.test(wLower.slice(0, 1))
+        ? 1.5
+        : /[ao]/.test(wLower)
+          ? 8.5
+          : /[u]/.test(wLower)
+            ? 6.5
+            : 5
+      : state === 'listening'
+        ? Math.max(2, 2 + rmsBoost * 7.5)
+        : 2;
 
+  const blindfolded = state === 'idle';
   const gazeX = state === 'thinking' ? 2.5 : 0;
   const gazeY = state === 'thinking' ? -2 : 0;
 
@@ -167,6 +196,7 @@ export function OnQVoiceOrb({
       <div className="flex items-center justify-between gap-2 pb-2 border-b border-dashed border-[#34f57e]/20">
         <span className="font-pixel text-[9px] uppercase tracking-[0.14em]" style={{ color: palette.primary }}>
           {palette.badge}
+          {latencyMs && latencyMs > 0 ? ` · ${Math.round(latencyMs)}ms` : ''}
         </span>
         <span className="font-pixel text-[9px] uppercase tracking-[0.12em] text-[var(--lightgray)]">
           {engineLabel}
@@ -178,12 +208,12 @@ export function OnQVoiceOrb({
           width={sizePx}
           height={sizePx}
           viewBox={`0 0 ${sizePx} ${sizePx}`}
-          aria-label={`OnQ ${style} monochrome green anime dots avatar in ${state} state`}
+          aria-label={`OnQ ${style} monochrome green avatar in ${state} state`}
           animate={{ scale: scaleOrb }}
-          transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
           className="w-36 h-36 sm:w-40 sm:h-40"
         >
-          {/* Outer monochrome green dotted waveguide reticle / 2.0s countdown ring */}
+          {/* Outer Matrix dotted waveguide reticle / 2.0s countdown ring */}
           <motion.circle
             cx={cx}
             cy={cy}
@@ -201,200 +231,204 @@ export function OnQVoiceOrb({
                   ? { rotate: 360 }
                   : state === 'idle'
                     ? { opacity: [0.42, 0.85, 0.42] }
-                    : { opacity: 0.92 }
+                    : { opacity: 0.94 }
             }
             transition={
               state === 'thinking'
-                ? { repeat: Infinity, duration: 2.8, ease: 'linear' }
-                : { repeat: Infinity, duration: 3.2, ease: 'easeInOut' }
+                ? { repeat: Infinity, duration: 2.6, ease: 'linear' }
+                : { repeat: Infinity, duration: 3.0, ease: 'easeInOut' }
             }
             style={{ transformOrigin: `${cx}px ${cy}px` }}
           />
 
           {style === 'muse' ? (
             <g>
-              {/* Soft obsidian radial core glow */}
-              <circle cx={cx} cy={cy} r={54} fill={palette.dim} fillOpacity={0.14} />
+              <circle cx={cx} cy={cy} r={56} fill={palette.dim} fillOpacity={0.14} />
 
-              {/* Twinkling 4-point dot sparkles framing anime silhouette */}
-              {[
-                { sx: cx - 56, sy: cy - 38, delay: 0 },
-                { sx: cx + 56, sy: cy - 30, delay: 0.9 },
-              ].map((sp, i) => (
+              {/* Subtle Matrix vertical dot rain inside reticle */}
+              {[-62, -52, 52, 62].map((mx, ci) => (
                 <motion.g
-                  key={i}
-                  animate={reduced ? undefined : { opacity: [0.35, 1, 0.35], scale: [0.9, 1.15, 0.9] }}
-                  transition={{ repeat: Infinity, duration: 2.2, delay: sp.delay }}
-                  style={{ transformOrigin: `${sp.sx}px ${sp.sy}px` }}
+                  key={mx}
+                  animate={reduced ? undefined : { y: [-14, 18, -14], opacity: [0.25, 0.72, 0.25] }}
+                  transition={{ repeat: Infinity, duration: 2.4 + ci * 0.35, delay: ci * 0.28 }}
                 >
-                  <circle cx={sp.sx} cy={sp.sy} r={2.2} fill={palette.bright} />
-                  <circle cx={sp.sx - 4} cy={sp.sy} r={1.2} fill={palette.primary} />
-                  <circle cx={sp.sx + 4} cy={sp.sy} r={1.2} fill={palette.primary} />
-                  <circle cx={sp.sx} cy={sp.sy - 4} r={1.2} fill={palette.primary} />
-                  <circle cx={sp.sx} cy={sp.sy + 4} r={1.2} fill={palette.primary} />
+                  <circle cx={cx + mx} cy={cy - 18} r={1.8} fill={palette.bright} />
+                  <circle cx={cx + mx} cy={cy - 10} r={1.3} fill={palette.primary} opacity={0.55} />
+                  <circle cx={cx + mx} cy={cy - 3} r={1.0} fill={palette.secondary} opacity={0.3} />
                 </motion.g>
               ))}
 
-              {/* Swept dot-matrix anime hair & cyber hairpin dots */}
-              {hairDots.map((d, i) => (
+              {/* Spiky JJK hair crown, jagged bangs & sorcerer collar dots */}
+              {jjkDots.map((d, i) => (
                 <circle
                   key={i}
                   cx={cx + d.dx}
                   cy={cy + d.dy}
                   r={d.r}
-                  fill={palette.primary}
+                  fill={d.bright ? palette.bright : palette.primary}
                   opacity={d.o}
                 />
               ))}
-              <circle cx={cx + 28} cy={cy - 42} r={2.4} fill={palette.bright} opacity={0.95} />
-              <circle cx={cx + 34} cy={cy - 39} r={1.8} fill={palette.primary} opacity={0.85} />
 
-              {/* Sculpted Monochrome Anime Dot Eyes + Upper Lash Wing + Gleaming Catchlights */}
-              {[-22, 22].map((ex, ei) => {
-                const side = ei === 0 ? -1 : 1;
-                const eyeCx = cx + ex;
-                const eyeCy = cy - 4;
-                if (state === 'conflict') {
+              {/* Blindfold when idle -> radiant Six Eyes reveal when listening / speaking / thinking */}
+              {blindfolded ? (
+                <g>
+                  <rect
+                    x={cx - 42}
+                    y={cy - 17}
+                    width={84}
+                    height={21}
+                    rx={6}
+                    fill="#04150a"
+                    stroke={palette.primary}
+                    strokeWidth={1.8}
+                    strokeOpacity={0.82}
+                  />
+                  <line
+                    x1={cx - 38}
+                    y1={cy - 12}
+                    x2={cx + 38}
+                    y2={cy - 12}
+                    stroke={palette.secondary}
+                    strokeWidth={1}
+                    strokeDasharray="3 4"
+                  />
+                  {[-20, 20].map((ex) => (
+                    <motion.circle
+                      key={ex}
+                      cx={cx + ex}
+                      cy={cy - 6.5}
+                      r={2.8}
+                      fill={palette.bright}
+                      animate={reduced ? undefined : { opacity: [0.35, 0.95, 0.35] }}
+                      transition={{ repeat: Infinity, duration: 2.2 }}
+                    />
+                  ))}
+                </g>
+              ) : (
+                [-21, 21].map((ex, ei) => {
+                  const side = ei === 0 ? -1 : 1;
+                  const eyeCx = cx + ex;
+                  const eyeCy = cy - 5;
+                  if (state === 'conflict') {
+                    return (
+                      <g key={ei}>
+                        <line
+                          x1={eyeCx - 10}
+                          y1={eyeCy - 12 - side * 3}
+                          x2={eyeCx + 10}
+                          y2={eyeCy - 12 + side * 3}
+                          stroke={palette.bright}
+                          strokeWidth={2.8}
+                          strokeLinecap="round"
+                        />
+                        <rect x={eyeCx - 9} y={eyeCy - 3} width={18} height={7} rx={3.5} fill={palette.primary} />
+                        <circle cx={eyeCx} cy={eyeCy + 0.5} r={2.4} fill="#000000" />
+                        <circle cx={eyeCx - 3} cy={eyeCy - 1} r={1.6} fill={palette.bright} />
+                      </g>
+                    );
+                  }
                   return (
-                    <g key={ei}>
-                      <line
-                        x1={eyeCx - 10}
-                        y1={eyeCy - 14 - side * 3}
-                        x2={eyeCx + 10}
-                        y2={eyeCy - 14 + side * 3}
+                    <motion.g
+                      key={ei}
+                      animate={
+                        reduced || state !== 'listening'
+                          ? { scaleY: 1 }
+                          : { scaleY: [1, 1, 0.12, 1, 1] }
+                      }
+                      transition={{ repeat: Infinity, duration: 4.5, times: [0, 0.91, 0.94, 0.97, 1] }}
+                      style={{ transformOrigin: `${eyeCx}px ${eyeCy}px` }}
+                    >
+                      {/* Sharp JJK slanted upper lash */}
+                      <path
+                        d={`M ${eyeCx - 11} ${eyeCy - 6} Q ${eyeCx} ${eyeCy - 14} ${eyeCx + 11} ${eyeCy - 6}`}
+                        fill="none"
                         stroke={palette.bright}
-                        strokeWidth={2.8}
+                        strokeWidth={3.1}
                         strokeLinecap="round"
                       />
-                      <rect
-                        x={eyeCx - 9}
-                        y={eyeCy - 4}
-                        width={18}
-                        height={8}
-                        rx={4}
-                        fill={palette.primary}
+                      <circle cx={eyeCx + side * 12.5} cy={eyeCy - 8} r={1.6} fill={palette.primary} />
+                      {/* Six-Eyes glowing concentric iris */}
+                      <ellipse
+                        cx={eyeCx}
+                        cy={eyeCy}
+                        rx={9}
+                        ry={7.6}
+                        fill={palette.dim}
+                        stroke={palette.primary}
+                        strokeWidth={2}
                       />
-                      <circle cx={eyeCx} cy={eyeCy} r={2.5} fill="#000000" />
-                      <circle cx={eyeCx - 3} cy={eyeCy - 1.5} r={1.8} fill={palette.bright} />
-                    </g>
+                      <ellipse cx={eyeCx + gazeX} cy={eyeCy + gazeY} rx={4} ry={4.4} fill="#000000" />
+                      <circle cx={eyeCx - 3.2 + gazeX} cy={eyeCy - 2.6 + gazeY} r={2.5} fill={palette.bright} />
+                      <circle cx={eyeCx + 3.2 + gazeX} cy={eyeCy + 2.6 + gazeY} r={1.3} fill={palette.bright} />
+                    </motion.g>
                   );
-                }
+                })
+              )}
 
-                return (
-                  <motion.g
-                    key={ei}
-                    animate={
-                      reduced || state !== 'idle'
-                        ? { scaleY: 1 }
-                        : { scaleY: [1, 1, 0.08, 1, 1] }
-                    }
-                    transition={{ repeat: Infinity, duration: 4.4, times: [0, 0.9, 0.93, 0.96, 1] }}
-                    style={{ transformOrigin: `${eyeCx}px ${eyeCy}px` }}
-                  >
-                    {/* Upper glowing curved anime eyelash + wing tip */}
-                    <path
-                      d={`M ${eyeCx - 11} ${eyeCy - 7} Q ${eyeCx} ${eyeCy - 15} ${eyeCx + 11} ${eyeCy - 7}`}
-                      fill="none"
-                      stroke={palette.bright}
-                      strokeWidth={3}
-                      strokeLinecap="round"
-                    />
-                    <circle cx={eyeCx + side * 12.5} cy={eyeCy - 9} r={1.6} fill={palette.primary} />
-                    {/* Luminous anime iris ring + bottom crescent dot reflection */}
-                    <ellipse
-                      cx={eyeCx}
-                      cy={eyeCy + 1}
-                      rx={9}
-                      ry={10.5}
-                      fill={palette.dim}
-                      stroke={palette.primary}
-                      strokeWidth={2}
-                    />
-                    <path
-                      d={`M ${eyeCx - 5.5} ${eyeCy + 6} Q ${eyeCx} ${eyeCy + 10} ${eyeCx + 5.5} ${eyeCy + 6}`}
-                      fill="none"
-                      stroke={palette.secondary}
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                    />
-                    {/* Deep obsidian pupil void */}
-                    <ellipse cx={eyeCx + gazeX} cy={eyeCy + gazeY + 0.5} rx={4.2} ry={5} fill="#000000" />
-                    {/* Dual anime catchlight dots */}
-                    <circle cx={eyeCx - 3.5 + gazeX} cy={eyeCy - 3.5 + gazeY} r={2.8} fill={palette.bright} />
-                    <circle cx={eyeCx + 3.5 + gazeX} cy={eyeCy + 4.5 + gazeY} r={1.4} fill={palette.bright} />
-                  </motion.g>
-                );
-              })}
-
-              {/* Delicate cheek blush micro-dots */}
-              {[-1, 1].map((side) => (
-                <g key={`blush-${side}`} opacity={0.48}>
-                  <circle cx={cx + side * 31} cy={cy + 12} r={1.5} fill={palette.primary} />
-                  <circle cx={cx + side * 35} cy={cy + 10} r={1.3} fill={palette.primary} />
-                  <circle cx={cx + side * 38} cy={cy + 12.5} r={1.2} fill={palette.secondary} />
-                </g>
-              ))}
-
-              {/* Expressive anime dot-matrix mouth / reactive voice dot columns */}
+              {/* Live Syllable Viseme Lip-Sync Mouth */}
               {state === 'conflict' ? (
                 <path
-                  d={`M ${cx - 18} ${cy + 27} L ${cx} ${cy + 17} L ${cx + 18} ${cy + 27}`}
+                  d={`M ${cx - 16} ${cy + 26} L ${cx} ${cy + 16} L ${cx + 16} ${cy + 26}`}
                   fill="none"
                   stroke={palette.bright}
-                  strokeWidth={3.5}
+                  strokeWidth={3.2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
               ) : state === 'listening' || state === 'speaking' ? (
-                voiceEqRows.map(([baseCount], colIdx) => {
-                  const bx = cx - 18 + colIdx * 9;
-                  const dotsCount = Math.max(1, Math.min(4, baseCount + (state === 'speaking' || rmsBoost > 0.25 ? 1 : 0)));
-                  return (
-                    <motion.g
-                      key={colIdx}
-                      animate={reduced ? undefined : { y: [-1.5, 1.5, -1.5] }}
-                      transition={{ repeat: Infinity, duration: 0.42, delay: colIdx * 0.07 }}
-                    >
-                      {Array.from({ length: dotsCount }).map((_, di) => {
-                        const offset = (di - (dotsCount - 1) / 2) * 5.2;
-                        return (
-                          <circle
-                            key={di}
-                            cx={bx}
-                            cy={cy + 24 + offset}
-                            r={2.2}
-                            fill={di === Math.floor(dotsCount / 2) ? palette.bright : palette.primary}
-                          />
-                        );
-                      })}
-                    </motion.g>
-                  );
-                })
+                <motion.g
+                  animate={
+                    reduced
+                      ? undefined
+                      : state === 'speaking'
+                        ? { scaleY: [0.85, 1.18, 0.92, 1.12, 0.85] }
+                        : undefined
+                  }
+                  transition={{ repeat: Infinity, duration: 0.34 }}
+                  style={{ transformOrigin: `${cx}px ${cy + 22}px` }}
+                >
+                  <ellipse
+                    cx={cx}
+                    cy={cy + 22}
+                    rx={mouthRx}
+                    ry={mouthRy}
+                    fill={palette.dim}
+                    fillOpacity={0.7}
+                    stroke={palette.bright}
+                    strokeWidth={2.3}
+                  />
+                  <line
+                    x1={cx - mouthRx * 0.6}
+                    y1={cy + 22}
+                    x2={cx + mouthRx * 0.6}
+                    y2={cy + 22}
+                    stroke={palette.bright}
+                    strokeWidth={1.2}
+                    strokeOpacity={0.55}
+                  />
+                </motion.g>
               ) : state === 'thinking' ? (
-                [-12, 0, 12].map((dx, idx) => (
+                [-11, 0, 11].map((dx, idx) => (
                   <motion.circle
                     key={idx}
                     cx={cx + dx}
-                    cy={cy + 24}
-                    r={2.6}
+                    cy={cy + 22}
+                    r={2.4}
                     fill={palette.bright}
-                    animate={reduced ? undefined : { opacity: [0.25, 1, 0.25], cy: [cy + 24, cy + 19, cy + 24] }}
-                    transition={{ repeat: Infinity, duration: 0.9, delay: idx * 0.18 }}
+                    animate={reduced ? undefined : { opacity: [0.25, 1, 0.25], cy: [cy + 22, cy + 17, cy + 22] }}
+                    transition={{ repeat: Infinity, duration: 0.85, delay: idx * 0.16 }}
                   />
                 ))
               ) : (
-                /* Cute anime 'w' cat smile in glowing dots */
-                [
-                  [-9, 22, 1.7],
-                  [-6, 25, 2.0],
-                  [-3, 25.5, 2.0],
-                  [0, 23, 2.1],
-                  [3, 25.5, 2.0],
-                  [6, 25, 2.0],
-                  [9, 22, 1.7],
-                ].map(([mx, my, mr], idx) => (
-                  <circle key={idx} cx={cx + mx} cy={cy + my} r={mr} fill={palette.bright} opacity={0.9} />
-                ))
+                /* Calm Sorcerer smirk in crisp phosphor curve */
+                <path
+                  d={`M ${cx - 10} ${cy + 22} Q ${cx + 1} ${cy + 25} ${cx + 11} ${cy + 19}`}
+                  fill="none"
+                  stroke={palette.bright}
+                  strokeWidth={2.4}
+                  strokeLinecap="round"
+                />
               )}
             </g>
           ) : (
@@ -450,15 +484,23 @@ export function OnQVoiceOrb({
           )}
         </motion.svg>
 
-        <div className="min-h-[18px] mt-1 font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--bright)] text-center">
-          {activeWord ? `"${activeWord}"` : state === 'idle' ? 'SAY "ONQ, ..."' : state.toUpperCase()}
+        <div className="min-h-[18px] mt-1 font-pixel text-[10px] uppercase tracking-[0.14em] text-[var(--bright)] text-center truncate max-w-full">
+          {activeWord
+            ? `"${activeWord}"`
+            : backchannelText
+              ? backchannelText
+              : aliveMood !== 'neutral'
+                ? `${palette.badge} · ${aliveMood.toUpperCase()}`
+                : state === 'idle'
+                  ? 'SAY "ONQ, ..."'
+                  : palette.badge}
         </div>
 
-        {/* Crisp 3-Style Monochrome Green Avatar Switcher (Anime Dots / Claude Duet / ChatGPT Dots) */}
+        {/* Crisp 3-Style Monochrome Green Avatar Switcher (JJK / Claude Duet / ChatGPT Dots) */}
         <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-[#34f57e]/20 bg-black/75 p-0.5 text-[8.5px] font-pixel uppercase">
           {(
             [
-              ['muse', 'Anime'],
+              ['muse', 'JJK'],
               ['duet', 'Duet'],
               ['dots', 'Dots'],
             ] as const

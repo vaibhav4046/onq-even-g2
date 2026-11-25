@@ -256,35 +256,35 @@ function StudioScene({
 
   return (
     <>
-      {/* Pure transparent void canvas: inherits seamless #0a0a0a page background with zero hard border */}
+      {/* Pure black void backdrop + crisp rim studio lights so sculpted matte-black G2 silhouette pops cleanly */}
       <Environment resolution={256} frames={1}>
         <Lightformer
           form="rect"
-          intensity={2.9}
-          color="#ffd49e"
+          intensity={3.6}
+          color="#d9ffe8"
           position={[-4.5, 2.2, 3.6]}
           scale={[5, 2.6, 1]}
           target={[0, 0, 0]}
         />
         <Lightformer
           form="rect"
-          intensity={3.6}
-          color="#edf5ff"
+          intensity={4.3}
+          color="#f2fff7"
           position={[3.8, 4.2, 2.8]}
           scale={[6, 1.4, 1]}
           target={[0, 0, -0.5]}
         />
         <Lightformer
           form="rect"
-          intensity={1.1}
-          color="#b5c2be"
+          intensity={1.7}
+          color="#c8d8d0"
           position={[0, -2.5, 4.5]}
           scale={[7, 2.2, 1]}
           target={[0, 0, 0]}
         />
         <Lightformer
           form="rect"
-          intensity={1.25}
+          intensity={1.9}
           color="#34F57E"
           position={[-3.2, 1.8, -3.5]}
           scale={[4.2, 1.3, 1]}
@@ -292,15 +292,15 @@ function StudioScene({
         />
       </Environment>
 
-      <ambientLight intensity={0.42} />
+      <ambientLight intensity={0.5} />
       <directionalLight
         position={[3.2, 4.5, 3.8]}
-        intensity={1.55}
-        color="#fff9f0"
+        intensity={1.78}
+        color="#f8fff9"
         castShadow
         shadow-mapSize={[1024, 1024]}
       />
-      <directionalLight position={[-3.5, 2.0, 2.4]} intensity={0.8} color="#ffd9ad" />
+      <directionalLight position={[-3.5, 2.0, 2.4]} intensity={1.05} color="#9BFFBE" />
 
       <group ref={rigRef}>
         <group visible={mode !== 'ring'}>
@@ -475,7 +475,7 @@ export function G2Hardware3D({
               }}
               onCreated={({ gl }) => {
                 gl.toneMapping = THREE.ACESFilmicToneMapping;
-                gl.toneMappingExposure = 1.18;
+                gl.toneMappingExposure = 1.24;
                 gl.outputColorSpace = THREE.SRGBColorSpace;
               }}
             >
@@ -685,9 +685,9 @@ export function G2Hardware3D({
                   setAutoTour(false);
                   onEnterLensView();
                 }}
-                className="px-3 py-1 rounded-full bg-black/75 border border-[var(--g2-phosphor)]/70 text-[var(--g2-phosphor)] hover:bg-[var(--g2-phosphor)] hover:text-[#0a0a0a] font-pixel text-[9px] uppercase tracking-[0.13em] cursor-pointer transition-colors"
+                className="px-3 py-1 rounded-full bg-black/75 border border-[var(--g2-phosphor)]/70 text-[var(--g2-phosphor)] hover:bg-[var(--g2-phosphor)] hover:text-[#041209] font-pixel text-[9px] uppercase tracking-[0.13em] cursor-pointer transition-colors"
               >
-                Look Through G2
+                POV
               </button>
             )}
           </div>

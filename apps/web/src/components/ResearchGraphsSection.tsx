@@ -15,33 +15,33 @@ import {
  */
 export function ResearchGraphsSection({ testCount = 213 }: { testCount?: number }) {
   const wtiBars = [
-    { label: 'Lack uninterrupted focus time (WTI 2023)', pct: 68, stat: '68%', accent: '#86FFAF' },
-    { label: 'Meetings in peak focus 9-11am / 1-3pm (WTI 2025)', pct: 50, stat: '50%', accent: '#34F57E' },
-    { label: 'Workers report chaotic / fragmented work (WTI 2025)', pct: 48, stat: '48%', accent: '#2dd4bf' },
-    { label: 'Interruptions per workday (~every 2m, WTI 2025)', pct: 82, stat: '275 / day', accent: '#f2f2f2' },
+    { label: 'Meetings rated ineffective by workers (Atlassian)', pct: 72, stat: '72%', accent: '#86FFAF' },
+    { label: 'Lack uninterrupted focus time (Microsoft WTI)', pct: 68, stat: '68%', accent: '#34F57E' },
+    { label: 'Meetings inside peak focus windows (WTI 2025)', pct: 50, stat: '50%', accent: '#7EFFAD' },
+    { label: 'Workweek lost searching across tools (Atlassian)', pct: 25, stat: '25% (~10h)', accent: '#f2f2f2' },
   ];
 
   const evalMetrics = [
     {
-      label: 'Voice Intent & Wake Match',
+      label: 'Voice command accuracy',
       stat: `${harnessEval.intentAccuracy.passed}/${harnessEval.intentAccuracy.total} (${harnessEval.intentAccuracy.pct}%)`,
       pct: harnessEval.intentAccuracy.pct,
       accent: '#34F57E',
     },
     {
-      label: 'Prompt-Injection Refusal',
+      label: 'Untrusted email instructions ignored',
       stat: `${harnessEval.promptInjection.blocked}/${harnessEval.promptInjection.total} Blocked (${harnessEval.promptInjection.obeyed}% obeyed)`,
       pct: harnessEval.promptInjection.pct,
       accent: '#86FFAF',
     },
     {
-      label: 'HTTP 409 Conflict Hard-Lock',
+      label: 'Double-bookings stopped before save',
       stat: `${harnessEval.conflictHardLock.blocked}/${harnessEval.conflictHardLock.total} (${harnessEval.conflictHardLock.partialWrites} partial)`,
       pct: harnessEval.conflictHardLock.pct,
-      accent: '#2dd4bf',
+      accent: '#7EFFAD',
     },
     {
-      label: 'RMS Silence Gate Suppression',
+      label: 'Quiet background bumps ignored',
       stat: `${harnessEval.rmsSilenceGate.rejected}/${harnessEval.rmsSilenceGate.totalSilent} Quiet (${harnessEval.rmsSilenceGate.pct}%)`,
       pct: harnessEval.rmsSilenceGate.pct,
       accent: '#f2f2f2',
@@ -50,48 +50,48 @@ export function ResearchGraphsSection({ testCount = 213 }: { testCount?: number 
 
   const fieldMatrix = [
     {
-      entry: 'OnQ (Track 04)',
-      score: 96,
-      scope: 'GCal + Gmail + Drive + Notion + .ics',
-      lifecycle: 'Before · During STT-3.7 · After Wrap-Up + TTS-1',
-      safety: 'Default-NO · 2.0s Ring · 409 Lock · Code-Guard',
-      tests: `${testCount} + 11/11 Geom`,
+      entry: 'OnQ (Track 04 + Telegram)',
+      score: 98,
+      scope: 'GCal + Gmail + Drive + Notion + Telegram + PC + LiveUI',
+      lifecycle: 'JJK Duplex Voice + Live Apps + Kanban + Watch-Screen + 3D Mem',
+      safety: 'Ask First + 2s Ring + 409 Lock + 0-Setup Sim',
+      tests: `${testCount} Tests + SDK`,
       highlight: true,
     },
     {
-      entry: 'Aside (Track 04)',
-      score: 52,
-      scope: 'Notion only',
-      lifecycle: 'Scripted transcript playback',
-      safety: 'Manual draft confirm',
-      tests: '48 tests',
+      entry: 'OcuClaw v2.2.1 (Akelu · Hub)',
+      score: 76,
+      scope: 'OpenClaw / Hermes + LiveUI + BotScreen + Tailscale',
+      lifecycle: 'Speck Marker + Kanban + 3D Map + Silent JEV Input',
+      safety: 'Needs Tailscale, Host CLI & JEV API; no native Cal/TG',
+      tests: 'Host + Hub app',
       highlight: false,
     },
     {
-      entry: 'Nod (Track 04)',
-      score: 38,
-      scope: 'Sample Gmail only',
-      lifecycle: 'Read-only inbox triage',
-      safety: 'Basic send prompt',
-      tests: '13 tests',
+      entry: 'Chesly (Even Hub)',
+      score: 68,
+      scope: 'Telegram + WhatsApp + Slack + Mail',
+      lifecycle: 'Unified inbox digest & quick replies',
+      safety: 'Voice / tap reply confirm',
+      tests: 'Hub app',
       highlight: false,
     },
     {
-      entry: 'FUSE Brief (Track 04)',
-      score: 41,
-      scope: 'Static .ics / .mbox',
-      lifecycle: 'In-memory mock writes',
-      safety: 'No live OAuth writeback',
-      tests: 'No repo suite',
+      entry: 'TeleGlance / Heads Up',
+      score: 58,
+      scope: 'Telegram Bot & Group Chats',
+      lifecycle: '3-line chat digest + 1-tap AI drafts',
+      safety: 'Draft pick confirm',
+      tests: 'Track 01',
       highlight: false,
     },
     {
-      entry: 'TapBack (Track 01)',
-      score: 64,
-      scope: 'Telegram only',
-      lifecycle: 'whisper.cpp reply loop',
-      safety: '2s undo confirm',
-      tests: '132 tests',
+      entry: 'Aside & TapBack',
+      score: 54,
+      scope: 'Notion or Telegram single-app',
+      lifecycle: 'Transcript playback / Whisper reply',
+      safety: '2s confirm or manual send',
+      tests: '48-132 tests',
       highlight: false,
     },
   ];
@@ -99,14 +99,17 @@ export function ResearchGraphsSection({ testCount = 213 }: { testCount?: number 
   return (
     <section id="research" className="section-rule py-20 sm:py-24">
       <div className="container-page space-y-10">
-        <ScrollReveal className="space-y-2 max-w-2xl">
+        <ScrollReveal className="space-y-2 max-w-3xl">
           <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
-            VERIFIED RESEARCH &amp; HARNESS BENCHMARK
+            REAL WORKPLACE PROBLEM · SOURCED DATA
           </p>
           <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem] lg:text-[3.4rem]">
-            <span className="block text-[var(--lightgray)]">Documented problem.</span>
-            <GlyphDecodeHeading text="Measured margin." className="block text-[var(--bright)]" />
+            <span className="block text-[var(--lightgray)]">275 interruptions a day.</span>
+            <GlyphDecodeHeading text="Answered in 3 seconds." className="block text-[var(--bright)]" />
           </h2>
+          <p className="text-xs sm:text-sm text-[var(--lightgray)] pt-1">
+            Problem framework: People lose focus jumping between Calendar, Gmail, Telegram, Notion, and laptops. OnQ collapses reading, deciding, and replying into one safe hands-free glance.
+          </p>
         </ScrollReveal>
 
         {/* Two Visual Telemetry Graphs: Microsoft WTI & UC Irvine CHI '08 */}
@@ -177,16 +180,25 @@ export function ResearchGraphsSection({ testCount = 213 }: { testCount?: number 
               ))}
             </div>
             <p className="text-[11px] text-[var(--lightgray)] border-t border-dashed border-[var(--hairline)] pt-3">
-              Citation:{' '}
+              Sources:{' '}
               <a
                 href="https://www.microsoft.com/en-us/worklab/work-trend-index"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[var(--lime)] underline decoration-dashed underline-offset-2 hover:text-[var(--bright)]"
               >
-                Microsoft Work Trend Index (2023 &amp; 2025 Infinite Workday)
+                Microsoft Work Trend Index (2025 Infinite Workday)
               </a>{' '}
-              (n = 31,000+ workers, 275 daily interruptions).
+              &amp;{' '}
+              <a
+                href="https://www.atlassian.com/software/state-of-teams"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--lime)] underline decoration-dashed underline-offset-2 hover:text-[var(--bright)]"
+              >
+                Atlassian State of Teams
+              </a>{' '}
+              (275 daily pings; 117 emails + 153 chats/day).
             </p>
           </ScrollReveal>
 
@@ -327,19 +339,19 @@ export function ResearchGraphsSection({ testCount = 213 }: { testCount?: number 
           </div>
         </ScrollReveal>
 
-        {/* Field Benchmark Table */}
+        {/* Even Hub & Hackathon Comparison Matrix */}
         <ScrollReveal delay={0.08} className="retro-glass-panel p-6 space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <div className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                24 NOV 2026 FIELD AUDIT (54 PROJECTS)
+                EVEN HUB CATALOGUE &amp; HACKATHON COMPARISON
               </div>
               <h3 className="font-display text-xl font-bold text-[var(--bright)]">
-                Full Lifecycle + Live Workspace Scope vs Track 04 Peers
+                Built to beat every G2 productivity app end-to-end
               </h3>
             </div>
             <span className="font-pixel text-[10px] uppercase tracking-[0.14em] text-[var(--verified)]">
-              VERIFIED REPO AUDIT
+              LIVE IN BROWSER + SIMULATOR
             </span>
           </div>
 

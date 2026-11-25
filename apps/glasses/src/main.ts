@@ -15,9 +15,11 @@ import {
   BlePaintQueue,
   clipLine42,
   createInitialHudState,
+  encodeCornerMarkerPng,
   encodeCountdownRingPng,
   encodePixelAvatarPng,
   formatLensFrame,
+  formatLiveUiForG2,
   normalizeEvenEvent,
   OnQHudController,
   PcmRingBuffer,
@@ -29,6 +31,7 @@ import type {
   CorridorCard,
   HudPhase,
   HudState,
+  LiveUiSurface,
   MeetingSessionState,
   SourceMode,
 } from '@onq/core';
@@ -48,6 +51,7 @@ let bridge: EvenAppBridge | null = null;
 let sessionToken: string | null = null;
 let containerMode: 'text-only' | 'detail-list' | 'ring-split' | null = null;
 let sseSource: EventSource | null = null;
+let activeLiveUi: LiveUiSurface | null = null;
 let avatarTick = 0;
 const paintQueue = new BlePaintQueue(250);
 const pcmBuffer = new PcmRingBuffer();
@@ -556,6 +560,42 @@ function startSseSync(tok: string): void {
         // ignore malformed SSE proactive frame
       }
     });
+    sseSource.addEventListener('liveui', (ev) => {
+      try {
+        const parsed = JSON.parse((ev as MessageEvent).data) as { surface?: LiveUiSurface | null };
+        if (parsed?.surface) {
+          activeLiveUi = parsed.surface;
+          const formatted = formatLiveUiForG2(activeLiveUi);
+          if (lensEl) lensEl.textContent = formatted.bodyText;
+          if (ringImgEl) {
+            avatarTick += 1;
+            const png = encodeCornerMarkerPng('focused', avatarTick);
+            const blob = new Blob([new Uint8Array(png)], { type: 'image/png' });
+            const url = URL.createObjectURL(blob);
+            const prev = ringImgEl.dataset.blobUrl;
+            if (prev) URL.revokeObjectURL(prev);
+            ringImgEl.dataset.blobUrl = url;
+            ringImgEl.src = url;
+            ringImgEl.style.display = 'block';
+          }
+          if (bridge) {
+            void paintQueue.enqueueOp(async () => {
+              if (!bridge) return;
+              await bridge.textContainerUpgrade(
+                new TextContainerUpgrade({
+                  containerID: TEXT_CONTAINER_ID,
+                  contentOffset: 0,
+                  contentLength: 1000,
+                  content: formatted.bodyText,
+                }),
+              );
+            });
+          }
+        }
+      } catch {
+        // ignore malformed SSE liveui frame
+      }
+    });
   } catch {
     // ignore SSE unavailability
   }
@@ -585,6 +625,28 @@ async function bootstrap(): Promise<void> {
       }
       if (ev.kind === 'FOREGROUND_EXIT') {
         void persistSnapshot();
+      }
+      if (activeLiveUi) {
+        if (ev.kind === 'DOUBLE_CLICK') {
+          activeLiveUi = null;
+          void paintToGlasses(controller.getState());
+          return;
+        }
+        const actionType =
+          ev.kind === 'CLICK'
+            ? 'tap'
+            : ev.kind === 'SCROLL_DOWN'
+              ? 'next_row'
+              : ev.kind === 'SCROLL_UP'
+                ? 'prev_row'
+                : null;
+        if (actionType) {
+          void apiJson<{ surface?: LiveUiSurface }>('/api/liveui/interact', {
+            method: 'POST',
+            body: JSON.stringify({ type: actionType }),
+          });
+          return;
+        }
       }
       void controller.handleEvent(ev);
     });

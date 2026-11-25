@@ -17,21 +17,23 @@ This analysis evaluates **OnQ** directly against the official **Heads Up: Even R
 
 ## 2. Head-to-Head Matrix vs Field Entries
 
-| Metric / Capability | **OnQ (Track 04)** | *Aside (Track 04)* | *Nod (Track 04)* | *FUSE Brief (Track 04)* | *TapBack (Track 01)* |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Live Integrations** | **GCal + Gmail + Drive + Notion (`2026-03-11`) + `.ics`** | Notion only | Sample Gmail only | Static `.ics` / `.mbox` | Telegram only |
-| **AI Model Coverage** | **Claude + OpenRouter + ChatGPT + Rules (8s failover)** | Single LLM | Single LLM | Summarizer mock | Local Whisper only |
-| **Meeting Lifecycle** | **Before (Brief) + During (RAM Scribe + TTS-1) + After (Wrap-Up)** | Transcript playback | Read-only inbox triage | Pre-meeting brief | Reply loop |
-| **Write Safety Locks** | **4 Layers (RMS Gate, Default-NO, 2.0s Ring, 409 Hard-Lock, Code-Guard)** | Manual draft prompt | Basic send prompt | In-memory mock | 2s undo confirm |
-| **Automated Tests** | **213 / 213 passing** (`npm test`) | 48 tests | 13 tests | None | 132 tests |
-| **Reproducible Eval Harness** | **32/32 intents, 5/5 injection block, 3/3 409 lock** (`npm run eval:harness`) | None | None | None | None |
-| **Optical Geometry & Sim** | **11/11 Chromium Gate + 7 EvenHub Simulator 0.9.5 captures** | Simulator screenshots | Basic render | UI mockup | Simulator verified |
-| **Security Verification** | **10/10 Audit PASS (`0` secrets across 83 files & `.ehpk`)** | Standard env | Standard env | Client keys | Local storage |
+| Metric / Capability | **OnQ (Track 04 + Track 01)** | *OcuClaw v2.2.1 (Akelu · Hub)* | *Chesly / TeleGlance* | *Aside & TapBack* |
+| :--- | :--- | :--- | :--- | :--- |
+| **Zero-Friction Instant Start** | **1-click Browser 3D Lens + EvenHub 0.9.5 Sim** | Requires Tailscale + Host OpenClaw/Hermes + Hub | Even Hub mobile install only | Hub app / local setup |
+| **Live Integrations** | **GCal + Gmail + Drive + Notion (`2026-03-11`) + Telegram + `.ics`** | OpenClaw / Hermes external skills only | Telegram / Slack / Mail digest | Notion / Telegram only |
+| **Generative Glasses Apps** | **LiveUI Micro-Apps (Timers, Split Bill, Tables, Games, Safe Formulas)** | LiveUI v3 (depends on TypeSafe JEV API) | Static 3-line cards | Static note / reply cards |
+| **Alive Companion & Voice** | **JJK Six Eyes Viseme Lip-Sync + AssemblyAI <1s Duplex + `<dwell>`/`<beat/>` Pacing** | Speck 22x37 marker + Soniox turn STT/TTS | None | None |
+| **Multi-Agent + Remote Screen** | **4-Lane Kanban + Watch Agent Screen w/ Human Lease + Quiet Chips + 3D Memory Galaxy** | Hermes Kanban + RFB Bot Screen + 3D Map + JEV | Single thread view | Basic approval prompt |
+| **Write Safety Locks** | **4 Layers (RMS Gate, Default-NO, 2.0s Ring, 409 Hard-Lock, Code-Guard)** | Explicit approval prompts (no 409 etag lock) | Confirm prompt | 2s undo confirm |
+| **AI Model Coverage** | **Claude + OpenRouter Free Cascade + ChatGPT + Local CLIs + Rules** | Host agent model routing | Single cloud LLM | Single LLM / Whisper |
+| **Security Verification** | **10/10 Audit PASS (`0` secrets, AES-256-GCM 0600 Vault, zero `eval`)** | Host relay + Tailscale ACL | Standard env | Local storage |
+
+*OcuClaw v2.2.1 comparison grounded in shipped package analysis via REA (`ev_c80bd92...` / `ev_f364f504...`) and public `ocuclaw/ocuclaw` & `ocuclaw-openclaw-plugin` repositories.*
 
 ---
 
 ## 3. Why OnQ Wins Track 04 & Product Hunt
 
-1. **Zero Broken Live Flows Under Judging:** Unlike entries that crash without API keys or double-book Calendar slots on repeated voice commands, OnQ boots cold with `213/213` verified behaviors in Sandbox mode and upgrades cleanly to live OAuth / Notion / `.ics` / `AssemblyAI` / multi-model AI via a single Connectors Hub.
+1. **Zero Broken Live Flows Under Judging:** Unlike entries that crash without API keys or double-book Calendar slots on repeated voice commands, OnQ boots cold with `236/236` verified behaviors in Sandbox mode and upgrades cleanly to live OAuth / Notion / `.ics` / `AssemblyAI` / multi-model AI via a single Connectors Hub.
 2. **True Multi-Model Failover Harness:** If Claude hits `429` or times out at `8000ms`, OnQ cascades in-flight to OpenRouter, then ChatGPT, then deterministic Rules, verifying every output through `Code-Guard` (`5/5` prompt injections blocked).
 3. **Production Hardware Fidelity:** Real photorealistic 3D camera-free G2 + R1 Ring hero with click-to-expand `576x288` optical POV, verified on official `@evenrealities/evenhub-simulator@0.9.5`. Physical Even G2 + R1 hardware testing remains honestly disclosed as pending.

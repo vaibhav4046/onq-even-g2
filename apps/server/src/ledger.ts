@@ -20,6 +20,15 @@ export interface SessionRecord {
   expiresAtMs: number;
 }
 
+export interface MemoryRecord {
+  id: string;
+  kind: 'task' | 'voice' | 'meeting' | 'telegram' | 'note';
+  title: string;
+  summary: string;
+  source: string;
+  createdAtIso: string;
+}
+
 export interface StagedPreviewRecord {
   preview: ActionPreview;
   sessionHash: string;
@@ -44,6 +53,9 @@ export interface LedgerStore {
   checkAndConsumeRateLimit(dayKey: string, minuteKey: string, maxPerDay?: number, maxPerMin?: number): Promise<{ allowed: boolean; reason?: string }>;
   saveEncryptedConnectorEnvelope?(userKey: string, envelopeJson: string): Promise<void>;
   loadEncryptedConnectorEnvelope?(userKey: string): Promise<string | null>;
+  saveMemory?(item: MemoryRecord): Promise<void>;
+  listMemories?(limit?: number, query?: string): Promise<MemoryRecord[]>;
+  deleteMemory?(id: string): Promise<boolean>;
   close(): Promise<void>;
 }
 
@@ -101,6 +113,15 @@ export class SqliteLedgerStore implements LedgerStore {
         user_key TEXT PRIMARY KEY,
         encrypted_envelope TEXT NOT NULL,
         updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS memories (
+        id TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        title TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        source TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        created_at_ms INTEGER NOT NULL
       );
     `);
   }
@@ -318,6 +339,55 @@ export class SqliteLedgerStore implements LedgerStore {
     return row?.encrypted_envelope ?? null;
   }
 
+  async saveMemory(item: MemoryRecord): Promise<void> {
+    const ms = Date.parse(item.createdAtIso) || this.nowFn();
+    this.db
+      .prepare(
+        `INSERT OR REPLACE INTO memories (id, kind, title, summary, source, created_at, created_at_ms) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(item.id, item.kind, item.title, item.summary, item.source, item.createdAtIso, ms);
+  }
+
+  async listMemories(limit = 30, query?: string): Promise<MemoryRecord[]> {
+    const cleanQ = query?.trim().toLowerCase();
+    const rows = cleanQ
+      ? (this.db
+          .prepare(
+            `SELECT id, kind, title, summary, source, created_at FROM memories WHERE lower(title) LIKE ? OR lower(summary) LIKE ? ORDER BY created_at_ms DESC LIMIT ?`,
+          )
+          .all(`%${cleanQ}%`, `%${cleanQ}%`, limit) as Array<{
+          id: string;
+          kind: MemoryRecord['kind'];
+          title: string;
+          summary: string;
+          source: string;
+          created_at: string;
+        }>)
+      : (this.db
+          .prepare(`SELECT id, kind, title, summary, source, created_at FROM memories ORDER BY created_at_ms DESC LIMIT ?`)
+          .all(limit) as Array<{
+          id: string;
+          kind: MemoryRecord['kind'];
+          title: string;
+          summary: string;
+          source: string;
+          created_at: string;
+        }>);
+    return rows.map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      title: r.title,
+      summary: r.summary,
+      source: r.source,
+      createdAtIso: r.created_at,
+    }));
+  }
+
+  async deleteMemory(id: string): Promise<boolean> {
+    const res = this.db.prepare(`DELETE FROM memories WHERE id = ?`).run(id);
+    return Number(res.changes ?? 0) > 0;
+  }
+
   async close(): Promise<void> {
     this.db.close();
   }
@@ -378,6 +448,15 @@ export class PostgresLedgerStore implements LedgerStore {
         user_key TEXT PRIMARY KEY,
         encrypted_envelope TEXT NOT NULL,
         updated_at BIGINT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS memories (
+        id TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        title TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        source TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        created_at_ms BIGINT NOT NULL
       );
     `);
     this.initialized = true;
@@ -601,6 +680,45 @@ export class PostgresLedgerStore implements LedgerStore {
     );
     const row = res.rows[0] as { encrypted_envelope: string } | undefined;
     return row?.encrypted_envelope ?? null;
+  }
+
+  async saveMemory(item: MemoryRecord): Promise<void> {
+    await this.ensureSchema();
+    const ms = Date.parse(item.createdAtIso) || this.nowFn();
+    await this.pool.query(
+      `INSERT INTO memories (id, kind, title, summary, source, created_at, created_at_ms)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (id) DO UPDATE SET kind = $2, title = $3, summary = $4, source = $5, created_at = $6, created_at_ms = $7`,
+      [item.id, item.kind, item.title, item.summary, item.source, item.createdAtIso, ms],
+    );
+  }
+
+  async listMemories(limit = 30, query?: string): Promise<MemoryRecord[]> {
+    await this.ensureSchema();
+    const cleanQ = query?.trim().toLowerCase();
+    const res = cleanQ
+      ? await this.pool.query(
+          `SELECT id, kind, title, summary, source, created_at FROM memories WHERE lower(title) LIKE $1 OR lower(summary) LIKE $1 ORDER BY created_at_ms DESC LIMIT $2`,
+          [`%${cleanQ}%`, limit],
+        )
+      : await this.pool.query(
+          `SELECT id, kind, title, summary, source, created_at FROM memories ORDER BY created_at_ms DESC LIMIT $1`,
+          [limit],
+        );
+    return res.rows.map((r) => ({
+      id: String(r.id),
+      kind: String(r.kind) as MemoryRecord['kind'],
+      title: String(r.title),
+      summary: String(r.summary),
+      source: String(r.source),
+      createdAtIso: String(r.created_at),
+    }));
+  }
+
+  async deleteMemory(id: string): Promise<boolean> {
+    await this.ensureSchema();
+    const res = await this.pool.query(`DELETE FROM memories WHERE id = $1`, [id]);
+    return Number(res.rowCount ?? 0) > 0;
   }
 
   async close(): Promise<void> {

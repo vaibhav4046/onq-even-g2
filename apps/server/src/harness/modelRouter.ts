@@ -26,6 +26,14 @@ export interface CompressReplyOutput {
 
 export type PreferredLlmProvider = 'auto' | 'claude' | 'openrouter' | 'chatgpt' | 'rules';
 
+export const OPENROUTER_FREE_FALLBACK_MODELS = [
+  'openrouter/free',
+  'google/gemma-3-27b-it:free',
+  'meta-llama/llama-3.3-70b-instruct:free',
+  'mistralai/mistral-small-3.1-24b-instruct:free',
+  'qwen/qwen3-8b:free',
+] as const;
+
 const COOLDOWN_MS = 5 * 60_000;
 const providerCooldowns = new Map<string, number>();
 
@@ -174,10 +182,10 @@ async function invokeRemoteProvider(
 
   if (provider === 'openrouter') {
     const key = cfg.openRouterKey ?? process.env.OPENROUTER_API_KEY ?? '';
-    const model = cfg.openRouterModel ?? process.env.OPENROUTER_MODEL ?? 'openrouter/free';
-    const invokeOpenRouter = async (useJsonFormat: boolean) => {
+    const primaryModel = cfg.openRouterModel ?? process.env.OPENROUTER_MODEL ?? 'openrouter/free';
+    const invokeOpenRouter = async (modelId: string, useJsonFormat: boolean) => {
       const payload: Record<string, unknown> = {
-        model,
+        model: modelId,
         max_tokens: maxTokens ?? 320,
         reasoning: { exclude: true },
         messages: [
@@ -204,13 +212,34 @@ async function invokeRemoteProvider(
       return { raw: data.choices?.[0]?.message?.content ?? '', httpStatus: res.status };
     };
 
-    const tOr = Date.now();
-    const first = await invokeOpenRouter(false);
-    // For OpenRouter auto-router, retry once with strict json_object hint only when initial reply was fast
-    if (model === 'openrouter/free' && !/\{[\s\S]*\}/.test(first.raw) && Date.now() - tOr < 1600) {
-      return await invokeOpenRouter(true).catch(() => first);
+    const candidateModels =
+      !cfg.fetchImpl && (primaryModel === 'openrouter/free' || primaryModel.endsWith(':free'))
+        ? [
+            primaryModel,
+            ...OPENROUTER_FREE_FALLBACK_MODELS.filter((m) => m !== primaryModel).slice(0, 2),
+          ]
+        : [primaryModel];
+
+    let lastErr: unknown;
+    for (let idx = 0; idx < candidateModels.length; idx++) {
+      const modelId = candidateModels[idx];
+      const tOr = Date.now();
+      try {
+        const first = await invokeOpenRouter(modelId, false);
+        if (modelId === 'openrouter/free' && !/\{[\s\S]*\}/.test(first.raw) && Date.now() - tOr < 1600) {
+          return await invokeOpenRouter(modelId, true).catch(() => first);
+        }
+        return first;
+      } catch (err) {
+        lastErr = err;
+        const st = (err as { httpStatus?: number }).httpStatus;
+        if ((st === 429 || st === 404) && idx < candidateModels.length - 1) {
+          continue;
+        }
+        throw err;
+      }
     }
-    return first;
+    throw lastErr;
   }
 
   const key = cfg.openAiKey ?? process.env.OPENAI_API_KEY ?? '';

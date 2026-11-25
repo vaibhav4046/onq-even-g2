@@ -18,8 +18,8 @@ interface FlowGraphSpec {
 const FLOW_TABS: FlowGraphSpec[] = [
   {
     id: 'reschedule',
-    title: 'Corridor Reschedule',
-    sub: 'GCal Free/Busy check + grounded Gmail reply under Default-NO',
+    title: 'Move a meeting',
+    sub: 'Checks free calendar slots + prepares Gmail reply',
     ask: '"OnQ, push VC Sync 15m and tell Priya"',
     steps: [
       { num: '01', label: 'Parse + Free/Busy', detail: 'Chrono + deterministic parser resolves +15m and queries Free/Busy etag.' },
@@ -41,8 +41,8 @@ const FLOW_TABS: FlowGraphSpec[] = [
   },
   {
     id: 'telegram',
-    title: 'Telegram Voice Reply',
-    sub: 'Filter chosen chats + voice reply staged safely via Bot API',
+    title: 'Telegram reply',
+    sub: 'Reads pinned group/DM updates and asks before sending',
     ask: '"OnQ, reply in Even G2 Builders that .ehpk is live"',
     steps: [
       { num: '01', label: 'Select Chat Digest', detail: 'Pulls pinned group/DM updates through encrypted relay; zero unpicked noise.' },
@@ -64,8 +64,8 @@ const FLOW_TABS: FlowGraphSpec[] = [
   },
   {
     id: 'scribe',
-    title: 'RAM Meeting Scribe',
-    sub: 'Volatile memory speaker diarization with zero disk audio persistence',
+    title: 'Meeting notes',
+    sub: 'Live speaker notes in RAM with nothing saved to disk',
     ask: '"OnQ, what did Priya ask about Q4?"',
     steps: [
       { num: '01', label: 'In-RAM Diarize', detail: 'Live 16kHz PCM chunks stream over WSS to AssemblyAI STT-3.7 in memory only.' },
@@ -87,8 +87,8 @@ const FLOW_TABS: FlowGraphSpec[] = [
   },
   {
     id: 'wrapup',
-    title: 'Post-Meeting Wrap-Up',
-    sub: 'One-tap fanout into Notion 2026-03-11, Calendar & Gmail draft',
+    title: 'After-meeting tasks',
+    sub: 'Creates Notion tasks, follow-up hold, and email draft in one tap',
     ask: '"OnQ, wrap up and log action items"',
     steps: [
       { num: '01', label: 'Extract Decisions', detail: 'Pulls concrete decisions + owners directly from volatile meeting transcript buffer.' },
@@ -110,8 +110,8 @@ const FLOW_TABS: FlowGraphSpec[] = [
   },
   {
     id: 'shield',
-    title: '409 Conflict Shield',
-    sub: 'Hard-locks overlaps & stale email drift with zero partial writes',
+    title: 'Double-booking guard',
+    sub: 'Stops conflicting slots and surfaces the next free time',
     ask: '"OnQ, move VC Sync to 14:45"',
     steps: [
       { num: '01', label: 'Pre-Commit Re-Check', detail: 'Re-fetches Free/Busy + Gmail historyId + Notion last_edited_time at 0.0s boundary.' },
@@ -148,20 +148,17 @@ export function ArchitectureShowcase({ testCount = 220 }: { testCount?: number }
   return (
     <section id="architecture" className="section-rule py-20 sm:py-24">
       <div className="container-page space-y-12">
-        {/* 1. Split Editorial Header + 01-04 Hairline Primitives (HydraDB-inspired) */}
+        {/* 1. Split Editorial Header + 01-04 Plain-English Highlights */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
           <ScrollReveal className="lg:col-span-6 space-y-4">
             <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lime)]">
-              SYSTEM ARCHITECTURE · HEADS UP HACKATHON
+              HOW IT WORKS
             </p>
             <h2 className="font-display font-bold leading-[1.02] tracking-[-0.02em] text-[2.2rem] sm:text-[3rem] lg:text-[3.35rem] text-[var(--bright)]">
-              <span className="inline-block border-l-2 border-r-2 border-[var(--lime)] px-2.5 mr-2 font-pixel text-[1.45rem] sm:text-[1.8rem] text-[var(--lime)] align-middle">
-                READ &amp; WRITE
-              </span>
-              runtime for Even G2 context.
+              Speak naturally. Get real actions done.
             </h2>
             <p className="text-sm sm:text-base leading-relaxed text-[var(--lightgray)] max-w-xl">
-              Other glasses apps stop at read-only prompts. OnQ unifies live Calendar, Gmail, Drive, Telegram, and Notion into deterministic write-safe flows built specifically for 576x288 monochrome optics and the R1 smart ring.
+              Most smart-glasses apps only show passive text. OnQ reads your Calendar, Gmail, Drive, Telegram, and Notion, runs PC automations, and lets you confirm real replies with one ring tap.
             </p>
           </ScrollReveal>
 
@@ -169,19 +166,19 @@ export function ArchitectureShowcase({ testCount = 220 }: { testCount?: number }
             {[
               {
                 num: '01',
-                title: 'LVGL 576x288 monochrome formatter with <= 999B byte cap',
+                title: 'Clean green display built to read in under 3 seconds',
               },
               {
                 num: '02',
-                title: 'AssemblyAI STT-3.7 + TTS-1 RAM-only scribe & local Whisper',
+                title: 'Fast sub-second voice with private in-memory meeting notes',
               },
               {
                 num: '03',
-                title: '4-tier AI failover (Claude -> OpenRouter -> ChatGPT -> Rules)',
+                title: 'Uses your own Claude, OpenRouter, ChatGPT, or PC tools',
               },
               {
                 num: '04',
-                title: 'AES-256-GCM 0600 vault, PKCE OAuth & 409 hard-lock ledger',
+                title: 'Zero keys stored in glasses — everything asks before sending',
               },
             ].map((row) => (
               <div key={row.num} className="py-4 flex items-baseline gap-4">

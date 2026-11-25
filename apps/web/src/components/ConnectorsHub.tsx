@@ -505,11 +505,11 @@ export function ConnectorsHub({
         <ScrollReveal className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div className="space-y-2 max-w-2xl">
             <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
-              ACCOUNT &amp; CLOUD CONNECTORS
+              CONNECT ONCE · USE IN BROWSER &amp; GLASSES
             </p>
             <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem] lg:text-[3.4rem]">
-              <span className="block text-[var(--lightgray)]">Connect once.</span>
-              <GlyphDecodeHeading text="Runs across G2." className="block text-[var(--bright)]" />
+              <span className="block text-[var(--lightgray)]">Sign in once.</span>
+              <GlyphDecodeHeading text="Everything links automatically." className="block text-[var(--bright)]" />
             </h2>
           </div>
 
@@ -622,7 +622,9 @@ export function ConnectorsHub({
               }}
               className="bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[11px] text-[var(--bright)] max-w-full"
             >
-              <option value="openrouter/free">openrouter/free</option>
+              <option value="openrouter/free">openrouter/free (Auto)</option>
+              <option value="google/gemma-3-27b-it:free">google/gemma-3-27b-it:free</option>
+              <option value="meta-llama/llama-3.3-70b-instruct:free">meta-llama/llama-3.3-70b-instruct:free</option>
               <option value="anthropic/claude-3.5-haiku">anthropic/claude-3.5-haiku</option>
               <option value="openai/gpt-4o-mini">openai/gpt-4o-mini</option>
               <option value="google/gemini-2.0-flash-001">google/gemini-2.0-flash-001</option>

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { encodePixelAvatarPng, renderPixelAvatar } from '../src/index.js';
+import { encodeCornerMarkerPng, encodePixelAvatarPng, renderPixelAvatar } from '../src/index.js';
 
-describe('4-bit Pixelated Voice Avatar PNG (Anime Dots / Duet / Dots)', () => {
+describe('4-bit Pixelated Voice Avatar PNG (JJK Alive / Duet / Dots)', () => {
   it('generates valid 76x76 4-bit grayscale PNG across all avatar styles, states, and animation ticks with >= 75% optical black transparency', () => {
     const styles = ['muse', 'duet', 'dots'] as const;
     const states = ['idle', 'listening', 'thinking', 'speaking', 'armed', 'conflict'] as const;
-    const ticks = [0, 5, 11] as const;
+    const ticks = [0, 2, 5, 8, 11] as const;
 
     for (const style of styles) {
       for (const state of states) {
@@ -28,10 +28,14 @@ describe('4-bit Pixelated Voice Avatar PNG (Anime Dots / Duet / Dots)', () => {
     }
   });
 
-  it('encodePixelAvatarPng returns crisp Uint8Array identical to renderPixelAvatar', () => {
-    const a = encodePixelAvatarPng('speaking', { style: 'muse', tick: 2, rmsLevel: 0.6 });
-    const b = renderPixelAvatar('speaking', { style: 'muse', tick: 2, rmsLevel: 0.6 }).pngBytes;
+  it('encodePixelAvatarPng and encodeCornerMarkerPng support Alive moods crisply', () => {
+    const a = encodePixelAvatarPng('speaking', { style: 'muse', mood: 'determined', tick: 2, rmsLevel: 0.6 });
+    const b = renderPixelAvatar('speaking', { style: 'muse', mood: 'determined', tick: 2, rmsLevel: 0.6 }).pngBytes;
     expect(a.byteLength).toBe(b.byteLength);
     expect(a.byteLength).toBeGreaterThan(200);
+
+    const marker = encodeCornerMarkerPng('excited', 2);
+    expect(Array.from(marker.slice(0, 8))).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+    expect(marker.byteLength).toBeGreaterThan(60);
   });
 });

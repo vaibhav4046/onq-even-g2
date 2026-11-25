@@ -82,35 +82,35 @@ async function main() {
     report.browser.navHeights = navRect;
     await page.screenshot({ path: OUT_SHOT });
 
-    // 3D mode buttons + Look Through G2 modal
+    // 3D mode buttons + POV modal
     await page.locator('#experience').getByRole('button', { name: 'Exploded', exact: true }).click();
     await page.locator('#experience').getByRole('button', { name: 'R1 Ring', exact: true }).click();
     await page.locator('#experience').getByRole('button', { name: '3D Optics', exact: true }).click();
-    await page.locator('#experience').getByRole('button', { name: 'Look Through G2', exact: true }).first().click();
+    await page.locator('#experience').getByRole('button', { name: 'POV', exact: true }).first().click();
     await page.waitForTimeout(400);
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
 
     // Full voice commit + undo + reset
-    await page.getByRole('button', { name: 'Run Voice' }).first().click();
+    await page.getByRole('button', { name: 'Talk Now' }).first().click();
     await page.getByRole('button', { name: 'Confirm & Arm 2.0s Ring' }).waitFor({ state: 'visible', timeout: 10000 });
     await page.getByRole('button', { name: 'Confirm & Arm 2.0s Ring' }).click();
     await page.waitForTimeout(3200);
     await page.getByRole('button', { name: 'Reset', exact: true }).click();
     await page.waitForTimeout(500);
 
-    // Live Meeting Scribe -> Ask Q4 -> Stage Wrap-Up Pack
+    // Live Meeting Scribe -> Meeting Notes tab -> Wrap Up
     await page.getByRole('button', { name: /Start Live Meeting Scribe/ }).click();
     await page.waitForTimeout(400);
-    await page.getByRole('button', { name: /Ask "OnQ, Q4\?"/ }).click();
-    await page.waitForTimeout(800);
-    await page.getByRole('button', { name: /Stage Wrap-Up Pack/ }).click();
+    await page.getByRole('button', { name: 'Meeting Notes', exact: true }).first().click();
+    await page.waitForTimeout(400);
+    await page.getByRole('button', { name: /Wrap Up/ }).first().click();
     await page.getByRole('button', { name: 'Confirm & Arm 2.0s Ring' }).waitFor({ state: 'visible', timeout: 10000 });
 
     // 409 Conflict Lock check (note: browser logs intentional HTTP 409 response to console)
     await page.getByRole('button', { name: 'Reset', exact: true }).click();
     await page.waitForTimeout(500);
-    await page.getByRole('button', { name: /Test 409 Conflict Lock/ }).click();
+    await page.getByRole('button', { name: /Test Conflict Lock/ }).first().click();
     await page.locator('[data-testid="g2-lens"]').getByText(/409|LOCKED|14:45/i).first().waitFor({ state: 'visible', timeout: 8000 });
     const lensText409 = await page.locator('[data-testid="g2-lens"]').innerText();
     report.browser.conflict409Shown = lensText409.includes('409') || lensText409.includes('14:45');

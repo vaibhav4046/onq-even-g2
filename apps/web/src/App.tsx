@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   createInitialHudState,
   encodePcm16ToWav,
@@ -44,6 +44,7 @@ import {
 } from './components/MotionPrimitives';
 import { ArchitectureShowcase } from './components/ArchitectureShowcase';
 import { LiveVoiceStudio } from './components/LiveVoiceStudio';
+import type { AgentTaskDto, UnifiedMemoryDto } from './components/LiveVoiceStudio';
 import { OnQLogo } from './components/OnQLogo';
 import { OnQVoiceOrb } from './components/OnQVoiceOrb';
 import { ResearchGraphsSection } from './components/ResearchGraphsSection';
@@ -289,35 +290,44 @@ function makeSynthesizedWav(silent: boolean): Blob {
   return new Blob([new Uint8Array(encodePcm16ToWav(pcm, 16000))], { type: 'audio/wav' });
 }
 
+const HERO_WORDS = ['reply.', 'schedule.', 'build.', 'remember.', 'ship.'] as const;
+
 export function App() {
+  const reducedMotion = useReducedMotion();
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const geometryMode = params.get('geometry') === '1';
   const geometryStateName = params.get('state') ?? 'DOSSIER';
 
+  const [heroWordIdx, setHeroWordIdx] = useState(0);
   const [opticsMode, setOpticsMode] = useState<'waveguide' | 'raw'>('waveguide');
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [sessionMode, setSessionMode] = useState<'LIVE' | 'DEMO' | 'STALE'>('DEMO');
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [hudState, setHudState] = useState<HudState>(() =>
     geometryMode ? buildGeometryState(geometryStateName) : createInitialHudState([GEOMETRY_SAMPLE_CARD], 'DEMO'),
   );
   const [workspace, setWorkspace] = useState<SnapshotState | null>(null);
   const [receipts, setReceipts] = useState<CommitReceipt[]>([]);
   const [auditLog, setAuditLog] = useState<AuditEventItem[]>([]);
+  const [unifiedMemories, setUnifiedMemories] = useState<UnifiedMemoryDto[]>([]);
+  const [externalTaskSeq, setExternalTaskSeq] = useState(0);
   const [commandInput, setCommandInput] = useState('Shift next meeting +15m and update thread');
-  const [voiceFeedback, setVoiceFeedback] = useState<string>('Ready. Speak with Live Mic or run a workflow.');
+  const [voiceFeedback, setVoiceFeedback] = useState<string>('Ready. Tap Talk Hands-Free or click any workflow.');
   const [simLoading, setSimLoading] = useState(false);
   const [micActive, setMicActive] = useState(false);
   const [lensPovOpen, setLensPovOpen] = useState(false);
-  const [voiceEngineLabel, setVoiceEngineLabel] = useState('SANDBOX · LOCAL');
+  const [voiceEngineLabel, setVoiceEngineLabel] = useState('LOCAL VOICE');
   const [ttsVoiceId, setTtsVoiceId] = useState('aai-kyla');
   const [speakingNow, setSpeakingNow] = useState(false);
   const [activeSpokenWord, setActiveSpokenWord] = useState('');
+  const [voiceLatencyMs, setVoiceLatencyMs] = useState<number | null>(null);
+  const [backchannelText, setBackchannelText] = useState<string | null>(null);
   const [meetingState, setMeetingState] = useState<MeetingSessionState | null>(null);
   const [thinkingNow, setThinkingNow] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState<'schedule' | 'inbox' | 'notes' | 'activity'>('schedule');
   const [showTestTools, setShowTestTools] = useState(false);
   const [proactive, setProactive] = useState<ProactiveHarnessStatus | null>(null);
-  const [activeLlmProvider, setActiveLlmProvider] = useState<string>('OpenRouter / ChatGPT / Claude auto-failover');
+  const [activeLlmProvider, setActiveLlmProvider] = useState<string>('Auto');
   const [buildingHarness, setBuildingHarness] = useState(false);
   const [lensViewMode, setLensViewMode] = useState<'web' | 'sdk'>('web');
   const [emulatorRunning, setEmulatorRunning] = useState(false);
@@ -336,6 +346,19 @@ export function App() {
   const voiceWsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const ttsTimersRef = useRef<number[]>([]);
+  const speakingNowRef = useRef(false);
+  speakingNowRef.current = speakingNow;
+  const vadTimerRef = useRef<number | null>(null);
+  const lastTranscriptRef = useRef('');
+  const speechEndAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (geometryMode || reducedMotion) return;
+    const id = window.setInterval(() => {
+      setHeroWordIdx((i) => (i + 1) % HERO_WORDS.length);
+    }, 1600);
+    return () => window.clearInterval(id);
+  }, [geometryMode, reducedMotion]);
 
   useEffect(() => {
     let alive = true;
@@ -388,7 +411,7 @@ export function App() {
 
   const refreshWorkspaceInspector = useCallback(async (tok: string) => {
     try {
-      const [res, proRes, connRes] = await Promise.all([
+      const [res, proRes, connRes, memRes] = await Promise.all([
         fetch('/api/workspace/state', {
           headers: { Authorization: `Bearer ${tok}` },
         }),
@@ -396,6 +419,9 @@ export function App() {
           headers: { Authorization: `Bearer ${tok}` },
         }),
         fetch('/api/connectors/status', {
+          headers: { Authorization: `Bearer ${tok}` },
+        }),
+        fetch('/api/memory', {
           headers: { Authorization: `Bearer ${tok}` },
         }),
       ]);
@@ -413,8 +439,13 @@ export function App() {
         setProactive((await proRes.json()) as ProactiveHarnessStatus);
       }
       if (connRes.ok) {
-        const connJson = (await connRes.json()) as { activeLlmProvider?: string };
+        const connJson = (await connRes.json()) as { activeLlmProvider?: string; accountEmail?: string | null };
         if (connJson.activeLlmProvider) setActiveLlmProvider(connJson.activeLlmProvider);
+        setAccountEmail(connJson.accountEmail ?? null);
+      }
+      if (memRes.ok) {
+        const memJson = (await memRes.json()) as { memories?: UnifiedMemoryDto[] };
+        if (memJson.memories) setUnifiedMemories(memJson.memories);
       }
     } catch {
       // keep existing inspector state
@@ -672,6 +703,24 @@ export function App() {
         // ignore
       }
     });
+    es.addEventListener('memory', (ev) => {
+      try {
+        const mem = JSON.parse((ev as MessageEvent).data) as UnifiedMemoryDto;
+        setUnifiedMemories((prev) => [mem, ...prev.filter((m) => m.id !== mem.id)].slice(0, 30));
+      } catch {
+        // ignore
+      }
+    });
+    es.addEventListener('liveui', (ev) => {
+      try {
+        const payload = JSON.parse((ev as MessageEvent).data) as { g2?: { lines?: string[] } };
+        if (payload?.g2?.lines && payload.g2.lines.length > 0) {
+          ctrlRef.current?.showAnswer(payload.g2.lines);
+        }
+      } catch {
+        // ignore
+      }
+    });
     return () => es.close();
   }, [geometryMode, sessionToken, refreshCorridor, refreshWorkspaceInspector]);
 
@@ -796,6 +845,8 @@ export function App() {
     const tok = tokenRef.current;
     if (!tok) return;
     setThinkingNow(true);
+    setBackchannelText('Mm, checking...');
+    const t0 = performance.now();
     try {
       const res = await fetch('/api/meeting/ask', {
         method: 'POST',
@@ -812,12 +863,71 @@ export function App() {
           engine?: string;
         };
       };
+      setVoiceLatencyMs(Math.round(performance.now() - t0));
+      setBackchannelText(null);
       if (data.lines) {
         ctrlRef.current?.showAnswer(data.lines);
-        setVoiceFeedback(`Claude + RAM Scribe (${data.speech?.engine ?? 'TTS'}): ${data.lines.join(' | ')}`);
+        setVoiceFeedback(data.lines.join(' | '));
       }
       if (data.speech) {
         await playSpeechOutput(data.speech);
+      }
+      await refreshWorkspaceInspector(tok);
+    } finally {
+      setThinkingNow(false);
+    }
+  };
+
+  const runAutonomousWorkflowTask = async (
+    kind: AgentTaskDto['kind'],
+    prompt: string,
+  ) => {
+    const tok = tokenRef.current;
+    if (!tok) return;
+    setThinkingNow(true);
+    setBackchannelText('On it...');
+    const t0 = performance.now();
+    try {
+      const stRes = await fetch('/api/agent/tasks/stage', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, title: prompt.slice(0, 48), prompt, targetTool: 'auto' }),
+      });
+      const sj = (await stRes.json()) as { task?: AgentTaskDto };
+      if (!sj.task) return;
+      const cmRes = await fetch('/api/agent/tasks/commit', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: sj.task.id, previewToken: sj.task.previewToken }),
+      });
+      const cj = (await cmRes.json()) as { task?: AgentTaskDto };
+      setVoiceLatencyMs(Math.round(performance.now() - t0));
+      setBackchannelText(null);
+      if (cj.task) {
+        ctrlRef.current?.showAnswer(cj.task.lensLines);
+        setVoiceFeedback(`${cj.task.toolUsed}: ${cj.task.outputLines[0] ?? 'Done'}`);
+        setExternalTaskSeq((s) => s + 1);
+        await refreshWorkspaceInspector(tok);
+      }
+    } finally {
+      setThinkingNow(false);
+    }
+  };
+
+  const stageTelegramBrief = async () => {
+    const tok = tokenRef.current;
+    if (!tok) return;
+    setThinkingNow(true);
+    try {
+      const res = await fetch('/api/telegram/automate', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'brief_push' }),
+      });
+      const data = (await res.json()) as { preview?: ActionPreview; generatedText?: string };
+      if (data.preview) {
+        ctrlRef.current?.stagePreview(data.preview);
+        setVoiceFeedback(`Telegram draft ready: "${data.generatedText?.slice(0, 60) ?? 'Brief'}". Confirm to send.`);
       }
     } finally {
       setThinkingNow(false);
@@ -929,6 +1039,7 @@ export function App() {
                 setMeetingState(msg.state);
                 ctrlRef.current?.setMeetingSession(msg.state);
               } else if (msg.transcript) {
+                lastTranscriptRef.current = msg.transcript;
                 ctrlRef.current?.setListening(0.32, msg.transcript);
               }
             } catch {
@@ -939,9 +1050,29 @@ export function App() {
           voiceWsRef.current = null;
         }
 
+        lastTranscriptRef.current = '';
         micHandleRef.current = await startBrowserMicCapture(
           (rms) => {
-            ctrlRef.current?.setListening(rms, '');
+            // Instant human-like barge-in if wearer speaks while avatar is talking
+            if (rms > 0.08 && speakingNowRef.current) {
+              clearTtsPlayback();
+            }
+            if (rms > 0.05) {
+              speechEndAtRef.current = performance.now();
+              if (vadTimerRef.current) {
+                window.clearTimeout(vadTimerRef.current);
+                vadTimerRef.current = null;
+              }
+            } else if (lastTranscriptRef.current.trim().length > 2 && !vadTimerRef.current) {
+              vadTimerRef.current = window.setTimeout(() => {
+                vadTimerRef.current = null;
+                if (speechEndAtRef.current) {
+                  setVoiceLatencyMs(Math.round(performance.now() - speechEndAtRef.current));
+                }
+                setBackchannelText('Mm, got it.');
+              }, 650);
+            }
+            ctrlRef.current?.setListening(rms, lastTranscriptRef.current);
           },
           (pcm16) => {
             if (voiceWsRef.current && voiceWsRef.current.readyState === WebSocket.OPEN) {
@@ -960,6 +1091,11 @@ export function App() {
       return;
     }
 
+    if (vadTimerRef.current) {
+      window.clearTimeout(vadTimerRef.current);
+      vadTimerRef.current = null;
+    }
+    setBackchannelText(null);
     setMicActive(false);
     if (voiceWsRef.current) {
       voiceWsRef.current.close();
@@ -968,8 +1104,9 @@ export function App() {
     const handle = micHandleRef.current;
     micHandleRef.current = null;
     if (!handle) return;
+    const t0 = performance.now();
     const { wavBlob } = await handle.stop();
-    setVoiceFeedback('Running RMS silence gate + AssemblyAI / Whisper STT...');
+    setVoiceFeedback('Listening finished — processing voice...');
     const res = await fetch('/api/stt', {
       method: 'POST',
       headers: { Authorization: `Bearer ${tok}` },
@@ -982,6 +1119,7 @@ export function App() {
       sttEngine?: string;
       error?: string;
     };
+    setVoiceLatencyMs(Math.round(performance.now() - t0));
     await refreshWorkspaceInspector(tok);
     if (!res.ok) {
       ctrlRef.current?.showError(stt.error ?? `STT HTTP ${res.status}`);
@@ -989,17 +1127,18 @@ export function App() {
       return;
     }
     if (stt.rejectedSilent || !stt.transcript) {
-      ctrlRef.current?.showError('SILENT PRESS - NO AUDIO SENT');
-      setVoiceFeedback(`RMS Gate blocked silent audio (RMS=${(stt.rms ?? 0).toFixed(4)} < 0.012).`);
+      ctrlRef.current?.showError('NO SPEECH DETECTED');
+      setVoiceFeedback('No clear speech detected — tap Talk Hands-Free and try again.');
       return;
     }
-    setVoiceFeedback(`Transcribed via ${stt.sttEngine}: "${stt.transcript}"`);
+    setVoiceFeedback(`Heard (${Math.round(performance.now() - t0)}ms): "${stt.transcript}"`);
     await stageCommand(stt.transcript);
   };
 
   const runVoicePreset = async (presetText: string, silent = false) => {
     const tok = tokenRef.current;
     if (!tok) return;
+    const t0 = performance.now();
     ctrlRef.current?.setListening(silent ? 0.002 : 0.72, silent ? '' : presetText);
     const wavBlob = makeSynthesizedWav(silent);
     const res = await fetch('/api/stt', {
@@ -1016,13 +1155,14 @@ export function App() {
       rms: number;
       sttEngine: string;
     };
+    setVoiceLatencyMs(Math.round(performance.now() - t0));
     await refreshWorkspaceInspector(tok);
     if (stt.rejectedSilent) {
-      ctrlRef.current?.showError('SILENT PRESS - NO AUDIO SENT');
-      setVoiceFeedback(`RMS Gate blocked silent WAV (RMS=${stt.rms.toFixed(4)} < 0.012). 0 STT calls.`);
+      ctrlRef.current?.showError('QUIET CLIP IGNORED');
+      setVoiceFeedback('Quiet press ignored locally before sending.');
       return;
     }
-    setVoiceFeedback(`Transcribed via ${stt.sttEngine} (RMS=${stt.rms.toFixed(2)}): "${stt.transcript}"`);
+    setVoiceFeedback(`Heard (${Math.round(performance.now() - t0)}ms): "${stt.transcript}"`);
     await stageCommand(stt.transcript);
   };
 
@@ -1271,33 +1411,36 @@ export function App() {
           </a>
 
           <nav aria-label="Primary navigation" className="hidden md:flex items-center gap-5 text-sm text-[var(--lightgray)] whitespace-nowrap">
-            <a href="#experience" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Experience</a>
-            <a href="#use-cases" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Use Cases</a>
-            <a href="#architecture" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Architecture</a>
+            <a href="#experience" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Lens</a>
+            <a href="#use-cases" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Workflows</a>
+            <a href="#architecture" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">How it works</a>
             <a href="#research" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Research</a>
             <a href="#safety" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Safety</a>
-            <a href="#connectors" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Connectors</a>
+            <a href="#connectors" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Connect</a>
           </nav>
 
           <div className="flex items-center gap-3 shrink-0">
             <a
               href="#connectors"
-              className="retro-btn-glass px-4 py-2 text-[var(--bright)] hover:text-[var(--lime)] text-xs sm:text-sm whitespace-nowrap shrink-0"
+              className="retro-btn-glass px-3.5 py-2 text-[var(--bright)] hover:text-[var(--lime)] text-xs sm:text-sm whitespace-nowrap shrink-0 inline-flex items-center gap-1.5"
             >
-              Connect Apps
+              {accountEmail && (
+                <span className="inline-block w-2 h-2 rounded-full bg-[var(--g2-phosphor)]" aria-hidden="true" />
+              )}
+              <span>{accountEmail ? accountEmail.split('@')[0] : 'Sign in'}</span>
             </a>
             <button
               type="button"
               onClick={() => void runVoicePreset('Push 15m and tell Priya')}
               className="retro-btn-primary px-4 py-2 text-xs sm:text-sm cursor-pointer whitespace-nowrap shrink-0"
             >
-              Run Voice
+              Talk Now
             </button>
           </div>
         </div>
       </header>
 
-      {/* Hero: Full-Size 360° 3D Glasses Artifact with Inside-Lens Voice Orb + Live Workbench */}
+      {/* Hero: Full-Size 360° 3D Glasses Artifact + HydraDB-inspired Rotating-Word Tagline */}
       <main id="top">
         <section id="experience" className="py-10 sm:py-14 relative overflow-hidden">
           <div className="container-page relative space-y-10">
@@ -1308,15 +1451,27 @@ export function App() {
                 transition={{ duration: 0.45, ease: MOTION_EASE }}
                 className="lg:col-span-5 space-y-5"
               >
-                <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
-                  EVEN REALITIES G2 · TRACK 04
+                <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--g2-phosphor)]">
+                  EVEN REALITIES G2
                 </p>
-                <h1 className="font-dots font-black leading-[0.94] tracking-[-0.02em] text-[2.3rem] sm:text-[3.05rem] lg:text-[3.35rem]">
-                  <span className="block text-[var(--lightgray)]">Own the room, before,</span>
-                  <span className="block text-[var(--bright)]">during, and after.</span>
+                <h1 className="font-dots font-black leading-[0.96] tracking-[-0.02em] text-[2.35rem] sm:text-[3.05rem] lg:text-[3.4rem]">
+                  <span className="block text-[var(--bright)]">Your glasses that</span>
+                  <span className="inline-flex min-h-[1.08em] items-center text-[var(--g2-phosphor)]">
+                    <AnimatePresence mode="wait">
+                      <motion.span
+                        key={HERO_WORDS[heroWordIdx]}
+                        initial={reducedMotion ? undefined : { opacity: 0, y: 10 }}
+                        animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}
+                        exit={reducedMotion ? undefined : { opacity: 0, y: -10 }}
+                        transition={{ duration: 0.22, ease: MOTION_EASE }}
+                      >
+                        {HERO_WORDS[heroWordIdx]}
+                      </motion.span>
+                    </AnimatePresence>
+                  </span>
                 </h1>
                 <p className="text-sm md:text-base leading-relaxed text-[var(--lightgray)]">
-                  Calendar, Gmail, Drive, Notion, and multi-model AI on Even G2, with a live inside-lens Voice Orb, double-booking lock, and 2-second undo ring.
+                  Talk hands-free. OnQ reads your inbox and Telegram, runs tasks on your PC, and asks before it sends.
                 </p>
 
                 <EcosystemStrip />
@@ -1327,14 +1482,14 @@ export function App() {
                     onClick={() => void runVoicePreset('Push 15m and tell Priya')}
                     className="retro-btn-primary px-5 py-2.5 text-xs sm:text-sm cursor-pointer"
                   >
-                    Run Voice
+                    Talk Now
                   </button>
                   <button
                     type="button"
                     onClick={() => setLensPovOpen(true)}
                     className="retro-btn-glass px-4 py-2.5 text-[var(--g2-phosphor)] hover:text-[var(--lime)] text-xs sm:text-sm font-semibold cursor-pointer"
                   >
-                    Look Through G2
+                    POV
                   </button>
                 </div>
               </motion.div>
@@ -1377,11 +1532,9 @@ export function App() {
                       <ApplePixelTile size="sm" tint="#34F57E">
                         <EvenG2PixelSvg className="w-5 h-3" />
                       </ApplePixelTile>
-                      <span className="font-pixel text-[11px] uppercase tracking-[0.18em] text-[var(--bright)]">
-                        LIVE GLASSES VIEW
-                      </span>
-                      <span className="font-pixel text-[9px] uppercase px-2.5 py-0.5 rounded-full border border-[var(--g2-phosphor)]/60 bg-[var(--g2-phosphor)]/10 text-[var(--g2-phosphor)]">
-                        {hudState.phase.toUpperCase()}
+                      <span className="inline-flex items-center gap-1.5 text-xs text-[var(--lightgray)]">
+                        <span className="w-2 h-2 rounded-full bg-[var(--g2-phosphor)] animate-pulse" aria-hidden="true" />
+                        <span>Even G2</span>
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -1391,11 +1544,11 @@ export function App() {
                           onClick={() => setLensViewMode('web')}
                           className={`px-2 py-1 cursor-pointer transition-colors ${
                             lensViewMode === 'web'
-                              ? 'bg-[var(--g2-phosphor)] text-[#0a0a0a]'
+                              ? 'bg-[var(--g2-phosphor)] text-[#041209]'
                               : 'text-[var(--lightgray)] hover:text-[var(--bright)]'
                           }`}
                         >
-                          Web Optical Sim
+                          Lens
                         </button>
                         <button
                           type="button"
@@ -1405,11 +1558,11 @@ export function App() {
                           }}
                           className={`px-2 py-1 cursor-pointer transition-colors ${
                             lensViewMode === 'sdk'
-                              ? 'bg-[var(--lime)] text-[#0a0a0a]'
+                              ? 'bg-[var(--lime)] text-[#041209]'
                               : 'text-[var(--lightgray)] hover:text-[var(--bright)]'
                           }`}
                         >
-                          EvenHub SDK 0.9.5 Live
+                          SDK Live
                         </button>
                       </div>
                       <button
@@ -1417,7 +1570,7 @@ export function App() {
                         onClick={() => setLensPovOpen(true)}
                         className="retro-btn-glass px-3 py-1.5 text-xs text-[var(--bright)] hover:text-[var(--g2-phosphor)] cursor-pointer"
                       >
-                        Full-Screen Lens
+                        Full Screen
                       </button>
                       <button
                         type="button"
@@ -1622,6 +1775,13 @@ export function App() {
                         className="px-4 py-2.5 bg-[var(--bright)] text-[#0a0a0a] hover:bg-[var(--lime)] text-xs font-semibold cursor-pointer"
                       >
                         Send
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void stageCommand('Move VC sync to 14:45')}
+                        className="px-3 py-2.5 border border-[var(--hairline)] text-[11px] text-[var(--lightgray)] hover:border-[var(--lime)] hover:text-[var(--lime)] cursor-pointer"
+                      >
+                        Test Conflict Lock
                       </button>
                     </form>
 
@@ -2021,7 +2181,14 @@ export function App() {
                 voiceEngineLabel={voiceEngineLabel}
                 activeLlmProvider={activeLlmProvider}
                 micActive={micActive}
+                voiceLatencyMs={voiceLatencyMs}
+                backchannelText={backchannelText}
                 meetingState={meetingState}
+                memories={unifiedMemories}
+                externalTaskSeq={externalTaskSeq}
+                onRefreshMemories={() => {
+                  if (tokenRef.current) void refreshWorkspaceInspector(tokenRef.current);
+                }}
                 onToggleMic={() => void toggleLiveMic()}
                 onRingEvent={(kind) => void ctrlRef.current?.handleEvent({ kind })}
                 onRunCommand={(cmd) => void runVoicePreset(cmd)}
@@ -2029,30 +2196,46 @@ export function App() {
                 onWrapUpMeeting={() => void runMeetingWrapUp()}
                 onAskMeeting={(q) => void askMeetingClaude(q)}
                 onWipeMeeting={() => void wipeMeetingScribe()}
+                onLiveUiUpdate={async (surface) => {
+                  const tok = tokenRef.current;
+                  if (!tok) return;
+                  const res = await fetch('/api/liveui', {
+                    headers: { Authorization: `Bearer ${tok}` },
+                    credentials: 'include',
+                  }).catch(() => null);
+                  if (res?.ok) {
+                    const j = (await res.json()) as { g2?: { lines?: string[] } };
+                    if (j.g2?.lines) {
+                      ctrlRef.current?.showAnswer(j.g2.lines);
+                      return;
+                    }
+                  }
+                  ctrlRef.current?.showAnswer([`LIVEUI | ${surface.title.toUpperCase()}`, 'Interactive surface synced to G2']);
+                }}
               />
             </div>
           </div>
         </section>
 
-        {/* 6 Live-Runnable Product Use Cases (#use-cases) */}
+        {/* 6 Live-Runnable Plain-English Workflows (#use-cases) */}
         <section id="use-cases" className="section-rule py-20 sm:py-24">
           <div className="container-page space-y-8">
             <ScrollReveal className="space-y-2 max-w-2xl">
               <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
-                FULL MEETING LIFECYCLE · USP
+                EVERYDAY WORKFLOWS
               </p>
               <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem] lg:text-[3.4rem]">
-                <span className="block text-[var(--lightgray)]">Six everyday workflows.</span>
-                <GlyphDecodeHeading text="Click any to run live." className="block text-[var(--bright)]" />
+                <span className="block text-[var(--lightgray)]">Built for real days.</span>
+                <GlyphDecodeHeading text="Try any flow right now." className="block text-[var(--bright)]" />
               </h2>
             </ScrollReveal>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
                 {
-                  num: '01 · BEFORE',
-                  title: 'Hallway Corridor Brief',
-                  desc: 'Calendar countdown, active thread snippet, and linked Drive deck streamed in 42 crisp columns.',
+                  tag: 'GLASSES',
+                  title: 'One-glance meeting brief',
+                  desc: 'See your next meeting, latest email question, and shared doc cleanly in 42 columns.',
                   visual: <CorridorBriefVisual />,
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
@@ -2071,9 +2254,9 @@ export function App() {
                   action: () => setLensPovOpen(true),
                 },
                 {
-                  num: '02 · BEFORE',
-                  title: 'One-Line Reschedule & Reply',
-                  desc: 'Say "OnQ, move my next meeting 15 minutes and update the thread." Verifies Free/Busy and arms 2.0s Undo Ring.',
+                  tag: 'VOICE',
+                  title: 'Move meeting & reply',
+                  desc: 'Say "Push 15m and tell Priya." Checks open calendar slots and waits for your ring tap.',
                   visual: <ShiftScheduleVisual />,
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
@@ -2089,76 +2272,76 @@ export function App() {
                   action: () => void runVoicePreset('Push 15m and tell Priya'),
                 },
                 {
-                  num: '03 · DURING',
-                  title: 'Private In-Room Meeting Notes',
-                  desc: 'Separates speakers in volatile RAM with zero audio files ever persisted to disk.',
-                  visual: <InRoomScribeVisual />,
+                  tag: 'TELEGRAM',
+                  title: 'Instant Telegram copilot',
+                  desc: 'Reads pinned chats and pushes daily briefings or voice replies right through your bot.',
+                  visual: <ConflictShieldVisual />,
+                  icons: (
+                    <ApplePixelTile size="sm" tint="#26A5E4">
+                      <TelegramPixelSvg className="w-3.5 h-3.5" />
+                    </ApplePixelTile>
+                  ),
+                  cta: 'Stage Telegram Brief',
+                  action: () => void stageTelegramBrief(),
+                },
+                {
+                  tag: 'SCOUT',
+                  title: '24/7 AI YouTube scout',
+                  desc: 'Pulls top AI engineering videos into your glasses lens and saves them to Unified Memory.',
+                  visual: <EarbudsRecallVisual />,
                   icons: (
                     <ApplePixelTile size="sm" tint="#34F57E">
                       <AssemblyAiPixelSvg className="w-3.5 h-3.5" />
                     </ApplePixelTile>
                   ),
+                  cta: 'Find AI Videos Live',
+                  action: () =>
+                    void runAutonomousWorkflowTask(
+                      'YOUTUBE_SCOUT',
+                      'Find top AI engineering videos to watch on YouTube',
+                    ),
+                },
+                {
+                  tag: 'NOTES',
+                  title: 'Private in-room scribe',
+                  desc: 'Separates speakers in volatile RAM with zero audio saved to disk, ready for Q&A and wrap-up.',
+                  visual: <InRoomScribeVisual />,
+                  icons: (
+                    <span className="inline-flex items-center gap-1.5">
+                      <ApplePixelTile size="sm" tint="#34F57E">
+                        <AssemblyAiPixelSvg className="w-3.5 h-3.5" />
+                      </ApplePixelTile>
+                      <ApplePixelTile size="sm" tint="#f2f2f2">
+                        <NotionPixelSvg className="w-3.5 h-3.5" />
+                      </ApplePixelTile>
+                    </span>
+                  ),
                   cta: 'Start Live Meeting Scribe',
                   action: () => void runLiveMeetingDemo(),
                 },
                 {
-                  num: '04 · DURING',
-                  title: 'Quiet Earbuds Recall',
-                  desc: 'Ask "OnQ, what changed on Q4 metrics?" for a silent lens summary plus word-synced earbuds audio.',
-                  visual: <EarbudsRecallVisual />,
-                  icons: (
-                    <span className="inline-flex items-center gap-1.5">
-                      <ApplePixelTile size="sm" tint="#D97757">
-                        <ClaudePixelSvg className="w-3.5 h-3.5" />
-                      </ApplePixelTile>
-                      <ApplePixelTile size="sm" tint="#10A37F">
-                        <ChatGptPixelSvg className="w-3.5 h-3.5" />
-                      </ApplePixelTile>
-                      <ApplePixelTile size="sm" tint="#34F57E">
-                        <AssemblyAiPixelSvg className="w-3.5 h-3.5" />
-                      </ApplePixelTile>
-                    </span>
-                  ),
-                  cta: 'Ask "OnQ, Q4?" (TTS-1)',
-                  action: () => void askMeetingClaude('What did Priya ask about Q4?'),
-                },
-                {
-                  num: '05 · AFTER',
-                  title: 'Instant Post-Meeting Wrap-Up',
-                  desc: 'Turns spoken decisions into Notion tasks, a Calendar follow-up hold, and a Gmail draft under Default-NO.',
+                  tag: 'PC AGENT',
+                  title: 'Build 24/7 automation bots',
+                  desc: 'Tell your glasses what script to build. OnQ writes runnable Python automation and saves it locally.',
                   visual: <WrapUpFanoutVisual />,
                   icons: (
-                    <span className="inline-flex items-center gap-1.5">
-                      <ApplePixelTile size="sm" tint="#f2f2f2">
-                        <NotionPixelSvg className="w-3.5 h-3.5" />
-                      </ApplePixelTile>
-                      <ApplePixelTile size="sm" tint="#4285F4">
-                        <CalendarPixelSvg className="w-3.5 h-3.5" />
-                      </ApplePixelTile>
-                    </span>
-                  ),
-                  cta: 'Stage Wrap-Up Pack',
-                  action: () => void runMeetingWrapUp(),
-                },
-                {
-                  num: '06 · GUARD',
-                  title: 'Double-Booking & Prompt Shield',
-                  desc: 'Blocks overlapping holds and drifted threads with HTTP 409 and automatically surfaces the next free slot.',
-                  visual: <ConflictShieldVisual />,
-                  icons: (
-                    <ApplePixelTile size="sm" tint="#daff52">
+                    <ApplePixelTile size="sm" tint="#86FFAF">
                       <ShieldPixelSvg className="w-3.5 h-3.5" />
                     </ApplePixelTile>
                   ),
-                  cta: 'Test 409 Conflict Lock',
-                  action: () => void stageCommand('Move VC sync to 14:45'),
+                  cta: 'Build 24/7 Bot Live',
+                  action: () =>
+                    void runAutonomousWorkflowTask(
+                      'WRITE_CODE_BOT',
+                      'Write a 24/7 Python bot to scout top AI YouTube videos',
+                    ),
                 },
               ].map((uc) => (
-                <div key={uc.num} className="retro-glass-card p-6 flex flex-col justify-between space-y-4">
+                <div key={uc.title} className="retro-glass-card p-6 flex flex-col justify-between space-y-4">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                        {uc.num}
+                        {uc.tag}
                       </span>
                       {uc.icons}
                     </div>
@@ -2181,10 +2364,10 @@ export function App() {
         </section>
 
         {/* Interactive System Architecture & Telemetry (#architecture) */}
-        <ArchitectureShowcase testCount={225} />
+        <ArchitectureShowcase testCount={236} />
 
         {/* Visual Survey Graphs, Curves & Field Benchmark (#research) */}
-        <ResearchGraphsSection testCount={225} />
+        <ResearchGraphsSection testCount={236} />
 
         {/* Sticky Scroll Safety Story (#safety) */}
         <StickySafetyStory />

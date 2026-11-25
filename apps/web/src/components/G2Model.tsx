@@ -464,8 +464,8 @@ export function G2Model({
     rightHudTex.needsUpdate = true;
   }, [rightHudCanvas, rightHudTex, phase, orbState, activeWord, ringProgress, rmsLevel]);
 
-  const frameColor = theme === 'light' ? '#171a19' : '#141716';
-  const hingeColor = theme === 'light' ? '#3f4547' : '#2d3233';
+  const frameColor = theme === 'light' ? '#171a19' : '#1d2321';
+  const hingeColor = theme === 'light' ? '#3f4547' : '#434c4e';
 
   return (
     <group>
@@ -477,14 +477,14 @@ export function G2Model({
             color={frameColor}
             transparent
             opacity={1}
-            roughness={0.42}
-            metalness={0.12}
-            clearcoat={0.18}
-            clearcoatRoughness={0.35}
+            roughness={0.34}
+            metalness={0.16}
+            clearcoat={0.36}
+            clearcoatRoughness={0.2}
             bumpMap={acetateMaps.bumpMap}
-            bumpScale={0.003}
+            bumpScale={0.0025}
             roughnessMap={acetateMaps.roughnessMap}
-            envMapIntensity={1.25}
+            envMapIntensity={1.65}
           />
         </mesh>
         <points geometry={frameDotGeom}>
@@ -730,11 +730,13 @@ export function G2Model({
             color={frameColor}
             transparent
             opacity={1}
-            roughness={0.4}
-            metalness={0.14}
-            clearcoat={0.2}
+            roughness={0.33}
+            metalness={0.18}
+            clearcoat={0.35}
+            clearcoatRoughness={0.22}
+            envMapIntensity={1.6}
             bumpMap={acetateMaps.bumpMap}
-            bumpScale={0.0025}
+            bumpScale={0.0022}
           />
         </mesh>
         <mesh geometry={rightTempleGeom} castShadow receiveShadow>
@@ -743,11 +745,13 @@ export function G2Model({
             color={frameColor}
             transparent
             opacity={1}
-            roughness={0.4}
-            metalness={0.14}
-            clearcoat={0.2}
+            roughness={0.33}
+            metalness={0.18}
+            clearcoat={0.35}
+            clearcoatRoughness={0.22}
+            envMapIntensity={1.6}
             bumpMap={acetateMaps.bumpMap}
-            bumpScale={0.0025}
+            bumpScale={0.0022}
           />
         </mesh>
         <points geometry={templeDotGeom}>

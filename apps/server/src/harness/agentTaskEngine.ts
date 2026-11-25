@@ -2,7 +2,14 @@ import crypto from 'node:crypto';
 import type { LlmConfig } from './modelRouter.js';
 import { executeDelegatedTask } from '../providers/localComputerBridge.js';
 
-export type AgentTaskKind = 'PLAN_PROJECT' | 'CODE_DELEGATE' | 'COMPUTER_CHECK' | 'TELEGRAM_SYNC';
+export type AgentTaskKind =
+  | 'PLAN_PROJECT'
+  | 'CODE_DELEGATE'
+  | 'COMPUTER_CHECK'
+  | 'TELEGRAM_SYNC'
+  | 'YOUTUBE_SCOUT'
+  | 'WRITE_CODE_BOT'
+  | 'OUTREACH_SCHEDULER';
 export type AgentTaskTargetTool =
   | 'auto'
   | 'claude_cli'
@@ -24,6 +31,9 @@ export interface AgentTaskRecord {
   steps: string[];
   outputLines: string[];
   lensLines: string[];
+  artifactPath?: string;
+  codeSnippet?: string;
+  links?: Array<{ label: string; url: string }>;
   createdAtIso: string;
   updatedAtIso: string;
 }
@@ -75,6 +85,7 @@ export class AgentTaskEngine {
     previewToken?: string;
     cwd?: string;
     llmConfig?: LlmConfig;
+    memoryContext?: string[];
   }): Promise<AgentTaskRecord | null> {
     let target: AgentTaskRecord | undefined;
     if (params.taskId) {
@@ -89,11 +100,13 @@ export class AgentTaskEngine {
     target.updatedAtIso = new Date(this.nowFn()).toISOString();
 
     const result = await executeDelegatedTask({
+      kind: target.kind,
       title: target.title,
       prompt: target.prompt,
       targetTool: target.targetTool,
       cwd: params.cwd,
       llmConfig: params.llmConfig,
+      memoryContext: params.memoryContext,
     });
 
     target.status = result.status;
@@ -101,6 +114,9 @@ export class AgentTaskEngine {
     target.steps = result.steps;
     target.outputLines = result.outputLines;
     target.lensLines = result.lensLines;
+    target.artifactPath = result.artifactPath;
+    target.codeSnippet = result.codeSnippet;
+    target.links = result.links;
     target.updatedAtIso = new Date(this.nowFn()).toISOString();
     return { ...target };
   }

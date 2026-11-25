@@ -6,61 +6,61 @@ import { ShieldPixelSvg } from './EcosystemIcons';
 const SAFETY_BEATS = [
   {
     id: '01',
-    title: 'RMS Silence Gate',
-    summary: 'Accidental corridor taps below 350ms or RMS 0.012 abort on-device with zero Whisper or LLM calls.',
-    header: 'VOICE | RMS SILENCE GATE BLOCKED',
+    title: 'Ignores pocket noise',
+    summary: 'Accidental bumps or short rustles are dropped on-device before any speech call runs.',
+    header: 'VOICE | NOISE FILTERED',
     lines: [
-      '0.21s clip · RMS 0.003 < 0.012',
-      'Dropped locally before STT queue',
-      '0 Whisper calls · 0 API tokens spent',
+      '0.21s clip - too quiet to wake',
+      'Dropped locally before voice queue',
+      '0 wasted calls - 0 accidental replies',
     ],
     footer: 'TAP: RETRY VOICE | 2xTAP: BACK',
-    statusTag: 'ON-DEVICE AUDIO FILTER',
+    statusTag: 'NOISE GUARD',
     accent: 'text-[var(--verified)] border-[var(--verified)]',
     ringProgress: 0,
   },
   {
     id: '02',
-    title: 'Default-NO Staging',
-    summary: 'Speech never fires a mutation. Voice only stages a 45s single-use preview defaulting to [NO - CANCEL].',
-    header: 'LIVE | CONFIRM ACTION (43s TTL)',
+    title: 'Always asks first',
+    summary: 'Voice drafts the plan, never sends blindly. You pick YES on the preview before anything leaves.',
+    header: 'ASK FIRST | CONFIRM SEND',
     lines: [
-      '1) GCAL: VC Sync 14:00 -> 14:15',
+      '1) CALENDAR: VC Sync 14:00 -> 14:15',
       '2) GMAIL: Reply Priya Nair (Thread)',
       '> [NO - CANCEL]   [YES - ARM 2.0s]',
     ],
-    footer: 'SWIPE: TOGGLE | TAP: SELECT',
-    statusTag: 'CURSOR LOCKED ON NO',
+    footer: 'SWIPE: SWITCH | TAP: CONFIRM',
+    statusTag: 'DEFAULTS TO NO',
     accent: 'text-[var(--bright)] border-[var(--bright)]',
     ringProgress: 0,
   },
   {
     id: '03',
-    title: '2.0s 4-Bit PNG Ring',
-    summary: 'Selecting YES sweeps a 76x76 waveguide countdown ring. Any tap cancels clean; 0.0s locks inputs synchronously.',
-    header: 'LIVE | ARMED · TAP TO CANCEL 1.0s',
+    title: '2-second cancel ring',
+    summary: 'Confirming sweeps a 2-second ring in your lens. Tap once anywhere to stop with zero messages sent.',
+    header: 'SENDING IN 1.0s | TAP TO CANCEL',
     lines: [
-      '76x76 4-bit Gray8 ring sweeping',
-      'IDEMP #efcb36 · ANY TAP = 0 WRITES',
-      '0.0s locks buttons before network I/O',
+      '2-second ring counting down on lens',
+      'ID #efcb36 - any tap aborts cleanly',
+      'Zero edits sent until 0.0s',
     ],
-    footer: 'SYNCHRONOUS STATE LOCK ACTIVE',
-    statusTag: 'CANCELABLE COMMIT WINDOW',
+    footer: 'SAFE CANCEL WINDOW ACTIVE',
+    statusTag: 'TAP TO CANCEL',
     accent: 'text-[var(--lime)] border-[var(--lime)]',
     ringProgress: 0.62,
   },
   {
     id: '04',
-    title: 'HTTP 409 Conflict Hard-Lock',
-    summary: 'Before writing, the relay re-checks Free/Busy and thread historyId. Overlaps or drift abort with 409 and surface the next free slot.',
-    header: 'LIVE | !! LOCKED (409) BLOCKED',
+    title: 'Blocks double-bookings',
+    summary: 'Right before saving, OnQ checks if that slot was just taken. If busy, it stops and offers the next open time.',
+    header: 'BLOCKED | 14:45 SLOT BUSY',
     lines: [
-      '14:45 occupied (Design Review)',
-      'NO CALENDAR EDIT · NO EMAIL SENT',
-      'NEXT VERIFIED SLOT: 15:45 (30m)',
+      '14:45 busy (Design Review)',
+      '0 calendar edits - 0 emails sent',
+      'NEXT OPEN SLOT: 15:45 (30m)',
     ],
-    footer: 'TAP: STAGE 15:45 | 2xTAP: DISMISS',
-    statusTag: 'ZERO DOUBLE-BOOKINGS',
+    footer: 'TAP: BOOK 15:45 | 2xTAP: DISMISS',
+    statusTag: 'NO OVERWRITES',
     accent: 'text-[var(--warning)] border-[var(--warning)]',
     ringProgress: 0,
   },
@@ -76,11 +76,11 @@ export function StickySafetyStory() {
       <div className="container-page space-y-12">
         <div className="space-y-3 max-w-2xl">
           <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
-            WRITE SAFETY ARCHITECTURE
+            BUILT-IN SAFETY
           </p>
           <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem] lg:text-[3.5rem]">
-            <span className="block text-[var(--lightgray)]">Voice stages.</span>
-            <GlyphDecodeHeading text="Four deterministic locks." className="block text-[var(--bright)]" />
+            <span className="block text-[var(--lightgray)]">Nothing sends blindly.</span>
+            <GlyphDecodeHeading text="You always confirm first." className="block text-[var(--bright)]" />
           </h2>
         </div>
 

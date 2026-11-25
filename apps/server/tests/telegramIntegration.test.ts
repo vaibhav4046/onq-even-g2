@@ -117,6 +117,34 @@ describe('Dual-Track Telegram Bot Integration (Track 01 + Best Telegram Prize)',
       };
       expect(stageJson.preview.defaultSelection).toBe('NO');
       expect(sentPayloads.length).toBe(0);
+
+      // Automate + Commit: verify exact (chat_id, text) argument order on Bot API!
+      const autoRes = await fetch(`${srv.url}/api/telegram/automate`, {
+        method: 'POST',
+        headers: auth,
+        body: JSON.stringify({ action: 'voice_reply', text: 'Build is live on Even G2!' }),
+      });
+      expect(autoRes.status).toBe(200);
+      const autoJson = (await autoRes.json()) as {
+        preview: { previewToken: string; idempotencyKey: string };
+      };
+      expect(sentPayloads.length).toBe(0);
+
+      const commitRes = await fetch(`${srv.url}/api/actions/commit`, {
+        method: 'POST',
+        headers: auth,
+        body: JSON.stringify({
+          previewToken: autoJson.preview.previewToken,
+          idempotencyKey: autoJson.preview.idempotencyKey,
+        }),
+      });
+      expect(commitRes.status).toBe(200);
+      expect(sentPayloads.length).toBe(1);
+      expect(sentPayloads[0]).toEqual({
+        chat_id: '-100777888',
+        text: 'Build is live on Even G2!',
+        disable_notification: false,
+      });
     } finally {
       await srv.close();
     }
