@@ -44,17 +44,19 @@ Even Realities judges **Read + Write** first:
 - **Zero-Trust Relay & Encrypted Vault:**
   - OAuth tokens & provider API keys encrypted at rest with **AES-256-GCM** (`apps/server/src/tokenVault.ts`) with automatic log redaction.
   - Even G2 WebView Compliant Pairing: external browser OAuth handshake (`Link Even G2 Glasses`) exchanges a short-lived code (`G2_WEBVIEW_OAUTH_BYPASS` guard) because Google OAuth blocks embedded WebViews.
-- **Deterministic Resilience:**
-  - Multi-LLM routing across **Claude, OpenRouter, ChatGPT** + **AssemblyAI** speech-to-text, with honest `LIVE` / `SANDBOX` / `STALE` status pills directly in the lens header.
+- **Universal User AI Orchestrator & Self-Harnessing 24/7 Proactive Agent:**
+  - 1-click **Universal AI Orchestrator (`Auto Smart Failover`, `OpenRouter`, `ChatGPT`, `Claude`, `Local CLIs`, `Rules`)** via `POST /api/connectors/orchestrator` with automatic 5-minute upstream quota/credit cooldown bypass + **AssemblyAI** speech-to-text, and honest `LIVE` / `SANDBOX` / `STALE` status pills in the lens header.
+  - **Self-Harnessing 24/7 Proactive Agent (`ProactiveAgenticHarness.synthesizeHarness()`):** continuously scans Calendar, Gmail, Notion, Telegram, and Local Computer signals, synthesizes Code-Guard-verified 42-column action plans (`POST /api/proactive/synthesize`), pushes live `proactive` SSE updates to G2 while `idle`, and stages only behind `Default-NO` (`POST /api/proactive/stage-harness`).
 - **Even Hub Pack Ready:**
-  - Ships cleanly as `.ehpk` (`npm run pack`) targeting authentic **576×288 1-bit phosphor green** waveguide geometry (`npm run verify:geometry`).
+  - Ships cleanly as `.ehpk` (`npm run pack`) targeting authentic **576×288 4-bit Gray4 monochrome phosphor green** waveguide geometry (`npm run verify:geometry`) with **76×76 4-bit Muse/Duet/Dots Pixel Avatars** (`>= 75%` black optical field) and a **2.0s 4-bit Gray4 countdown ring**.
 
 ---
 
 ## Slide 6 — UX, Display & Voice Craft (15% Judging Weight)
-- **Real Hardware Constraints First:** Every lens card strictly honors `42-column` monospace legibility on `576×288` optics—no clipped labels, no wall-of-text paragraphs.
+- **Real Hardware Constraints First:** Every lens card strictly honors `42-column` monospace legibility on `576×288` 4-bit Gray4 optics—no clipped labels, no wall-of-text paragraphs.
+- **4-Bit Muse/Duet/Dots Pixel Avatar:** Dynamic `76×76` 4-bit grayscale pixel avatar (`encodePixelAvatarPng`) animates across listening, thinking, speaking, and conflict states while preserving `>= 75%` transparent optical black field.
 - **3D Retro-Realism Showcase:** Live interactive WebGL G2 + R1 hardware twin with transparent crystal lenses, animated 525nm waveguide reel, `Front` / `Wearer POV (Back)` / `Exploded` / `R1 Ring` inspection modes.
-- **1-Click Connectors Hub:** Unified 7-provider setup (**Google Workspace, Notion, Telegram, Claude, OpenRouter, ChatGPT, AssemblyAI**) with real upstream `Test Connection` checks.
+- **1-Click Connectors Hub & Universal AI Orchestrator:** Unified setup for **Google Workspace, Notion, Telegram, Claude, OpenRouter, ChatGPT, AssemblyAI** plus **Universal AI Orchestrator (`OpenRouter / ChatGPT / Claude`)** failover and real upstream `Test Connection` checks.
 
 ---
 
@@ -80,7 +82,7 @@ Even Realities judges **Read + Write** first:
 ---
 
 ## Slide 10 — 3-Minute Demo Day Script
-1. **0:00–0:35 (Hook + 3D Twin):** Show OnQ landing WebGL G2 glasses (`3D Optics` + `Wearer POV`), explain camera-free 525nm glance UX.
-2. **0:35–1:15 (7/7 Connectors):** Scroll to `#connectors`, click `Test Connection` showing `Google Workspace`, `Notion`, `Telegram`, `Claude`, `OpenRouter`, `ChatGPT`, `AssemblyAI` verified.
-3. **1:15–2:20 (Dual-Track Read & Write):** Trigger voice brief -> inspect Calendar + Notion context -> read incoming **Telegram** message -> speak reply -> watch **45s Default-NO preview** -> confirm to emit receipt.
+1. **0:00–0:35 (Hook + 3D Twin):** Show OnQ landing WebGL G2 glasses (`3D Optics` + `Wearer POV`), explain camera-free 525nm 4-bit Gray4 glance UX & Muse/Duet/Dots pixel avatar.
+2. **0:35–1:15 (7/7 Connectors + Universal AI Orchestrator):** Scroll to `#connectors`, toggle the **Universal AI Orchestrator (`OpenRouter / ChatGPT / Claude`)** and click `Test Connection` showing `Google Workspace`, `Notion`, `Telegram`, `Claude`, `OpenRouter`, `ChatGPT`, `AssemblyAI` verified.
+3. **1:15–2:20 (Dual-Track Read & Write + Self-Harnessing Proactive Agent):** Trigger `Build Harness` / voice brief -> inspect Calendar + Notion context -> read incoming **Telegram** message -> speak reply -> watch **45s Default-NO preview** -> confirm to emit receipt.
 4. **2:20–3:00 (Architecture & Ask):** Briefly walk `#architecture` Hydra-grade pipeline + `$7/mo` SaaS unit economics; open Q&A for TVM Ventures & Even Realities judges.

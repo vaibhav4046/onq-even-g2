@@ -67,12 +67,37 @@ interface ProactiveInsight {
   suggestedCommand?: string;
 }
 
+interface ProactiveHarnessStep {
+  id: string;
+  phase: string;
+  tool: string;
+  detail: string;
+  status: string;
+}
+
+interface SelfGeneratedHarness {
+  harnessId: string;
+  generatedAtIso?: string;
+  triggerCategory?: string;
+  goal: string;
+  rationale: string;
+  orchestratorUsed: string;
+  fallbackUsed: boolean;
+  suggestedCommand: string;
+  opticalCardLines: string[];
+  steps: ProactiveHarnessStep[];
+  defaultNoRequired: boolean;
+  codeGuardPassed: boolean;
+}
+
 interface ProactiveHarnessStatus {
   running: boolean;
   intervalMs: number;
   pulseCount: number;
   lastPulseAtIso: string | null;
   insights: ProactiveInsight[];
+  activeHarness?: SelfGeneratedHarness | null;
+  harnessCount?: number;
 }
 
 interface SnapshotState {
@@ -292,6 +317,8 @@ export function App() {
   const [workspaceTab, setWorkspaceTab] = useState<'schedule' | 'inbox' | 'notes' | 'activity'>('schedule');
   const [showTestTools, setShowTestTools] = useState(false);
   const [proactive, setProactive] = useState<ProactiveHarnessStatus | null>(null);
+  const [activeLlmProvider, setActiveLlmProvider] = useState<string>('OpenRouter / ChatGPT / Claude auto-failover');
+  const [buildingHarness, setBuildingHarness] = useState(false);
 
   // Live workspace mutation inputs
   const [newBusyTitle, setNewBusyTitle] = useState('');
@@ -308,11 +335,14 @@ export function App() {
 
   const refreshWorkspaceInspector = useCallback(async (tok: string) => {
     try {
-      const [res, proRes] = await Promise.all([
+      const [res, proRes, connRes] = await Promise.all([
         fetch('/api/workspace/state', {
           headers: { Authorization: `Bearer ${tok}` },
         }),
         fetch('/api/proactive/status', {
+          headers: { Authorization: `Bearer ${tok}` },
+        }),
+        fetch('/api/connectors/status', {
           headers: { Authorization: `Bearer ${tok}` },
         }),
       ]);
@@ -328,6 +358,10 @@ export function App() {
       }
       if (proRes.ok) {
         setProactive((await proRes.json()) as ProactiveHarnessStatus);
+      }
+      if (connRes.ok) {
+        const connJson = (await connRes.json()) as { activeLlmProvider?: string };
+        if (connJson.activeLlmProvider) setActiveLlmProvider(connJson.activeLlmProvider);
       }
     } catch {
       // keep existing inspector state
@@ -354,6 +388,28 @@ export function App() {
       body: '{}',
     });
     if (res.ok) setProactive((await res.json()) as ProactiveHarnessStatus);
+  };
+
+  const buildProactiveHarness = async () => {
+    const tok = tokenRef.current;
+    if (!tok) return;
+    setBuildingHarness(true);
+    try {
+      const res = await fetch('/api/proactive/synthesize', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      if (res.ok) {
+        const status = (await res.json()) as ProactiveHarnessStatus;
+        setProactive(status);
+        if (status.activeHarness?.goal) {
+          setVoiceFeedback(`Proactive harness ready (${status.activeHarness.orchestratorUsed}): ${status.activeHarness.goal}`);
+        }
+      }
+    } finally {
+      setBuildingHarness(false);
+    }
   };
 
   const refreshCorridor = useCallback(async (tok: string) => {
@@ -1504,7 +1560,15 @@ export function App() {
                             24/7 PROACTIVE AGENT · {proactive.running ? 'WATCHING' : 'PAUSED'} · {proactive.pulseCount} SCANS
                           </span>
                         </span>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={buildingHarness}
+                            onClick={() => void buildProactiveHarness()}
+                            className="px-2 py-0.5 border border-[var(--lime)]/70 text-[10px] text-[var(--lime)] hover:bg-[var(--lime)] hover:text-[#0a0a0a] cursor-pointer"
+                          >
+                            {buildingHarness ? 'Building...' : 'Build Harness'}
+                          </button>
                           <button
                             type="button"
                             onClick={() => void scanProactiveNow()}
@@ -1521,6 +1585,46 @@ export function App() {
                           </button>
                         </div>
                       </div>
+                      {proactive.activeHarness && (
+                        <div className="border border-[var(--g2-phosphor)]/45 bg-[var(--surface)]/80 p-2.5 space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-1.5">
+                            <span className="font-pixel text-[9px] uppercase tracking-[0.12em] text-[var(--lime)]">
+                              SELF-GENERATED PROACTIVE HARNESS
+                            </span>
+                            <span className="font-pixel text-[8.5px] uppercase px-2 py-0.5 rounded-full border border-[var(--g2-phosphor)]/50 text-[var(--g2-phosphor)]">
+                              {proactive.activeHarness.orchestratorUsed}
+                            </span>
+                          </div>
+                          <div className="text-xs font-semibold text-[var(--bright)]">
+                            {proactive.activeHarness.goal}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1 text-[9.5px] font-pixel uppercase text-[var(--lightgray)]">
+                            {(proactive.activeHarness.steps.length > 0
+                              ? proactive.activeHarness.steps.map((s) => s.phase)
+                              : ['OBSERVE', 'VERIFY', 'STAGE', 'GUARD']
+                            ).map((phase, idx, arr) => (
+                              <span key={`${phase}-${idx}`} className="inline-flex items-center gap-1">
+                                <span className="px-1.5 py-0.5 border border-white/15 bg-black/50 text-[var(--bright)]">
+                                  {phase}
+                                </span>
+                                {idx < arr.length - 1 && <span className="text-[var(--g2-phosphor)]">-&gt;</span>}
+                              </span>
+                            ))}
+                          </div>
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                            <span className="text-[10px] text-[var(--lightgray)] truncate">
+                              {proactive.activeHarness.rationale}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => void stageCommand(proactive.activeHarness!.suggestedCommand)}
+                              className="px-2.5 py-1 bg-[var(--lime)] text-[#0a0a0a] font-pixel text-[9px] uppercase cursor-pointer shrink-0"
+                            >
+                              Stage Default-NO
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                         {proactive.insights.slice(0, 4).map((ins) => (
                           <button
@@ -1763,6 +1867,7 @@ export function App() {
                 activeSpokenWord={activeSpokenWord}
                 armProgress01={armProgress01}
                 voiceEngineLabel={voiceEngineLabel}
+                activeLlmProvider={activeLlmProvider}
                 micActive={micActive}
                 meetingState={meetingState}
                 onToggleMic={() => void toggleLiveMic()}

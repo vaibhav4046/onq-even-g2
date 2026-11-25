@@ -333,7 +333,7 @@ async function hydrateFromCache(): Promise<void> {
   }
 }
 
-const controller = new OnQHudController(createInitialHudState([], 'DEMO'), {
+const controller: OnQHudController = new OnQHudController(createInitialHudState([], 'DEMO'), {
   onStateChange: (state) => {
     void paintToGlasses(state);
   },
@@ -475,6 +475,59 @@ function startSseSync(tok: string): void {
         }
       } catch {
         // ignore malformed SSE meeting frame
+      }
+    });
+    sseSource.addEventListener('proactive', (ev) => {
+      try {
+        const parsed = JSON.parse((ev as MessageEvent).data) as {
+          activeHarness?: {
+            goal?: string;
+            rationale?: string;
+            orchestratorUsed?: string;
+            suggestedCommand?: string;
+            opticalCardLines?: string[];
+          } | null;
+        };
+        const activeHarness = parsed?.activeHarness;
+        const state = controller.getState();
+        if (!activeHarness || state.phase !== 'idle') return;
+        const nowIso = new Date().toISOString();
+        const sourceMode: SourceMode = state.sourceMode === 'STALE' ? 'DEMO' : state.sourceMode;
+        const proactiveCard: CorridorCard = {
+          id: 'card-proactive-harness',
+          sourceMode,
+          syncedAtIso: nowIso,
+          provenanceLabel: 'PROACTIVE HARNESS',
+          kind: 'MEETING',
+          title: clipLine42('AI: ' + (activeHarness.goal ?? 'Proactive Plan'), 42),
+          timeMeta: 'PROACTIVE',
+          startIso: nowIso,
+          endIso: new Date(Date.now() + 30 * 60000).toISOString(),
+          contextLine1: clipLine42(activeHarness.opticalCardLines?.[0] ?? activeHarness.rationale ?? '', 42),
+          contextLine2: clipLine42(
+            activeHarness.opticalCardLines?.[1] ?? ('ORCH: ' + (activeHarness.orchestratorUsed ?? 'Rules')),
+            42,
+          ),
+          triageRule: 'IMMINENT_MTG',
+          etag: `proactive-${Date.now()}`,
+          quickActions: [
+            {
+              id: 'qa-proactive-stage',
+              label: 'Stage Proactive Harness',
+              intent: 'RESCHEDULE_AND_NOTIFY',
+              commandText: activeHarness.suggestedCommand ?? 'Push 15m and tell Priya',
+            },
+          ],
+        };
+        const existingWithoutProactive = state.cards.filter((c) => c.id !== 'card-proactive-harness');
+        controller.setCorridor(
+          [proactiveCard, ...existingWithoutProactive],
+          sourceMode,
+          state.provenanceLabel || 'PROACTIVE HARNESS',
+          nowIso,
+        );
+      } catch {
+        // ignore malformed SSE proactive frame
       }
     });
   } catch {

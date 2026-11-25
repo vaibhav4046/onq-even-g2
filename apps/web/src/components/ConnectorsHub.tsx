@@ -283,6 +283,49 @@ export function ConnectorsHub({
     }
   };
 
+  const switchOrchestrator = async (
+    nextPreferred: ConnectorStatusResponse['preferredLlm'],
+    nextModel = openRouterModel,
+  ) => {
+    setBusy(true);
+    setFeedback(`Switching AI orchestrator to ${nextPreferred.toUpperCase()}...`);
+    try {
+      const res = await fetch('/api/connectors/orchestrator', {
+        method: 'POST',
+        headers: {
+          ...authHeaders(),
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          preferredLlm: nextPreferred,
+          openRouterModel: nextModel,
+        }),
+      });
+      const json = (await res.json()) as ConnectorStatusResponse & {
+        status?: ConnectorStatusResponse;
+        error?: string;
+      };
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      const nextStatus = json.status ?? json;
+      if (nextStatus?.connectors) {
+        setStatus(nextStatus);
+        if (nextStatus.openRouterModel) setOpenRouterModel(nextStatus.openRouterModel);
+      }
+      setFeedback(
+        `Active AI orchestrator set to ${nextStatus.activeLlmProvider ?? nextPreferred.toUpperCase()} (${nextModel}).`,
+      );
+      await loadStatus();
+      if (sessionToken) {
+        onSessionUpdated(sessionToken, mode === 'LIVE' ? 'LIVE' : 'DEMO');
+      }
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Orchestrator switch failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const startGoogleSignIn = async () => {
     if (status?.googleOAuthConfigured) {
       window.location.href = '/api/auth/google/start';
@@ -517,6 +560,68 @@ export function ConnectorsHub({
             </button>
           </div>
         </ScrollReveal>
+
+        {/* Active AI Orchestrator 1-Click Switcher Bar */}
+        <div className="retro-glass-panel p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs overflow-hidden">
+          <div className="space-y-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--g2-phosphor)]">
+                ACTIVE AI ORCHESTRATOR
+              </span>
+              <span className="font-pixel text-[9px] uppercase px-2 py-0.5 rounded-full border border-[var(--lime)]/50 bg-[var(--lime)]/10 text-[var(--lime)]">
+                {status?.activeLlmProvider ?? 'Rules (Deterministic)'}
+              </span>
+            </div>
+            <p className="text-[11px] text-[var(--lightgray)]">
+              1-click failover across OpenRouter, ChatGPT, Claude, or deterministic Rules with automatic quota cooldowns.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+            {(
+              [
+                ['auto', 'Auto (Smart Failover)'],
+                ['openrouter', 'OpenRouter'],
+                ['chatgpt', 'ChatGPT'],
+                ['claude', 'Claude'],
+                ['rules', 'Rules'],
+              ] as const
+            ).map(([id, label]) => {
+              const isActive = (status?.preferredLlm ?? 'auto') === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void switchOrchestrator(id)}
+                  className={`px-2.5 py-1.5 text-[11px] font-semibold cursor-pointer transition-colors ${
+                    isActive
+                      ? 'bg-[var(--lime)] text-[#0a0a0a]'
+                      : 'retro-btn-glass text-[var(--bright)] hover:text-[var(--lime)]'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+            <select
+              aria-label="Active OpenRouter model"
+              disabled={busy}
+              value={openRouterModel}
+              onChange={(e) => {
+                const nextModel = e.target.value;
+                setOpenRouterModel(nextModel);
+                void switchOrchestrator(status?.preferredLlm ?? 'auto', nextModel);
+              }}
+              className="bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[11px] text-[var(--bright)] max-w-full"
+            >
+              <option value="openrouter/free">openrouter/free</option>
+              <option value="anthropic/claude-3.5-haiku">anthropic/claude-3.5-haiku</option>
+              <option value="openai/gpt-4o-mini">openai/gpt-4o-mini</option>
+              <option value="google/gemini-2.0-flash-001">google/gemini-2.0-flash-001</option>
+            </select>
+          </div>
+        </div>
 
         {openDrawer === 'bulk' && (
           <div className="retro-glass-panel p-5 space-y-4 text-xs">

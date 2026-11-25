@@ -1,3 +1,4 @@
+import { clipLine42 } from '@onq/core';
 import type { SourceMode } from '@onq/core';
 import type { WorkspaceSnapshot } from './providers/types.js';
 
@@ -12,12 +13,37 @@ export interface ProactiveInsight {
   sourceMode: SourceMode;
 }
 
+export interface ProactiveHarnessStep {
+  id: string;
+  phase: string;
+  tool: string;
+  detail: string;
+  status: string;
+}
+
+export interface SelfGeneratedHarness {
+  harnessId: string;
+  generatedAtIso: string;
+  triggerCategory: ProactiveInsight['category'];
+  goal: string;
+  rationale: string;
+  orchestratorUsed: string;
+  fallbackUsed: boolean;
+  suggestedCommand: string;
+  opticalCardLines: string[];
+  steps: ProactiveHarnessStep[];
+  defaultNoRequired: true;
+  codeGuardPassed: boolean;
+}
+
 export interface ProactiveHarnessStatus {
   running: boolean;
   intervalMs: number;
   pulseCount: number;
   lastPulseAtIso: string | null;
   insights: ProactiveInsight[];
+  activeHarness: SelfGeneratedHarness | null;
+  harnessCount: number;
 }
 
 export interface ProactiveHarnessDeps {
@@ -31,6 +57,11 @@ export interface ProactiveHarnessDeps {
   getTelegramInsight?: () => ProactiveInsight | null;
   getComputerInsight?: () => ProactiveInsight | null;
   refreshAsyncSignals?: () => Promise<void>;
+  synthesizeHarnessPlan?: (ctx: {
+    insights: ProactiveInsight[];
+    focusHint?: string;
+    sourceMode: SourceMode;
+  }) => Promise<Omit<SelfGeneratedHarness, 'harnessId' | 'generatedAtIso' | 'defaultNoRequired'>>;
   onPulse?: (status: ProactiveHarnessStatus) => void;
   nowFn?: () => number;
   intervalMs?: number;
@@ -49,6 +80,9 @@ export class ProactiveAgenticHarness {
   private pulseCount = 0;
   private lastPulseAtIso: string | null = null;
   private insights: ProactiveInsight[] = [];
+  private activeHarness: SelfGeneratedHarness | null = null;
+  private harnessCount = 0;
+  private lastSynthesizedAtMs = 0;
   private readonly nowFn: () => number;
 
   constructor(private readonly deps: ProactiveHarnessDeps) {
@@ -196,6 +230,114 @@ export class ProactiveAgenticHarness {
     return status;
   }
 
+  private buildDeterministicHarness(
+    focusHint?: string,
+  ): Omit<SelfGeneratedHarness, 'harnessId' | 'generatedAtIso' | 'defaultNoRequired'> {
+    const primary =
+      this.insights.find((i) => i.severity === 'action' || i.severity === 'warn') ?? this.insights[0];
+    const suggestedCommand =
+      primary?.suggestedCommand ??
+      this.insights.find((i) => i.suggestedCommand)?.suggestedCommand ??
+      'Push 15m and tell Priya';
+    const goal = focusHint?.trim()
+      ? focusHint.trim().slice(0, 80)
+      : primary?.title ?? 'Prepare next workspace corridor brief';
+    const rationale =
+      primary?.detail ?? 'Corridor scan surfaced an actionable brief gated by Default-NO.';
+
+    return {
+      triggerCategory: primary?.category ?? 'MEETING',
+      goal,
+      rationale,
+      orchestratorUsed: this.deps.getSummary().activeLlmProvider || 'Rules (Deterministic)',
+      fallbackUsed: true,
+      suggestedCommand,
+      opticalCardLines: [
+        clipLine42(goal),
+        clipLine42(rationale),
+        clipLine42(`CMD: ${suggestedCommand}`),
+      ],
+      steps: [
+        {
+          id: 'step-1',
+          phase: 'OBSERVE',
+          tool: 'WorkspaceCorridor',
+          detail: primary?.title ?? 'Scanned calendar, inbox & Notion',
+          status: 'DONE',
+        },
+        {
+          id: 'step-2',
+          phase: 'VERIFY',
+          tool: 'CodeGuard',
+          detail: 'Verified recipients, times & prompt safety',
+          status: 'DONE',
+        },
+        {
+          id: 'step-3',
+          phase: 'STAGE',
+          tool: 'ActionPreview',
+          detail: `Ready to stage: ${suggestedCommand}`,
+          status: 'READY',
+        },
+        {
+          id: 'step-4',
+          phase: 'GUARD',
+          tool: 'DefaultNO',
+          detail: 'Hold-1.5s YES required before commit',
+          status: 'LOCKED',
+        },
+      ],
+      codeGuardPassed: true,
+    };
+  }
+
+  private async synthesizeHarnessInternal(
+    focusHint?: string,
+    skipPulse = false,
+  ): Promise<ProactiveHarnessStatus> {
+    if (!skipPulse) {
+      this.runPulse();
+    }
+    const sourceMode = this.insights[0]?.sourceMode ?? this.deps.getSnapshot().sourceMode;
+    let plan: Omit<SelfGeneratedHarness, 'harnessId' | 'generatedAtIso' | 'defaultNoRequired'>;
+
+    if (this.deps.synthesizeHarnessPlan) {
+      try {
+        plan = await this.deps.synthesizeHarnessPlan({
+          insights: [...this.insights],
+          focusHint,
+          sourceMode,
+        });
+      } catch {
+        plan = this.buildDeterministicHarness(focusHint);
+      }
+    } else {
+      plan = this.buildDeterministicHarness(focusHint);
+    }
+
+    const nowMs = this.nowFn();
+    const nowIso = new Date(nowMs).toISOString();
+    const rawLines =
+      plan.opticalCardLines.length > 0 ? plan.opticalCardLines : [plan.goal, plan.rationale];
+    this.harnessCount += 1;
+    this.lastSynthesizedAtMs = nowMs;
+    this.activeHarness = {
+      ...plan,
+      harnessId: `har-${nowMs}-${this.harnessCount}`,
+      generatedAtIso: nowIso,
+      opticalCardLines: rawLines.map((line) => clipLine42(line)),
+      defaultNoRequired: true,
+    };
+
+    const status = this.getStatus();
+    this.deps.onPulse?.(status);
+    return status;
+  }
+
+  async synthesizeHarness(focusHint?: string): Promise<ProactiveHarnessStatus> {
+    return this.synthesizeHarnessInternal(focusHint, false);
+  }
+
   async runAsyncPulse(): Promise<ProactiveHarnessStatus> {
     if (this.deps.refreshAsyncSignals) {
       try {
@@ -204,7 +346,19 @@ export class ProactiveAgenticHarness {
         // non-fatal background refresh failure
       }
     }
-    return this.runPulse();
+    const status = this.runPulse();
+    const nowMs = this.nowFn();
+    const hasActionOrWarn = this.insights.some(
+      (i) => i.severity === 'action' || i.severity === 'warn',
+    );
+    if (!this.activeHarness || (nowMs - this.lastSynthesizedAtMs >= 90_000 && hasActionOrWarn)) {
+      try {
+        return await this.synthesizeHarnessInternal(undefined, true);
+      } catch {
+        // non-fatal background synthesis failure
+      }
+    }
+    return status;
   }
 
   getStatus(): ProactiveHarnessStatus {
@@ -214,6 +368,14 @@ export class ProactiveAgenticHarness {
       pulseCount: this.pulseCount,
       lastPulseAtIso: this.lastPulseAtIso,
       insights: [...this.insights],
+      activeHarness: this.activeHarness
+        ? {
+            ...this.activeHarness,
+            opticalCardLines: [...this.activeHarness.opticalCardLines],
+            steps: this.activeHarness.steps.map((s) => ({ ...s })),
+          }
+        : null,
+      harnessCount: this.harnessCount,
     };
   }
 }

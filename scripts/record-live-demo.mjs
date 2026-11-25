@@ -194,6 +194,14 @@ async function captureRealSimulatorSequence() {
         headers: hdrs,
         body: '{}',
       });
+      await new Promise((r) => setTimeout(r, 350));
+      await fetch('http://127.0.0.1:8787/api/proactive/synthesize', {
+        method: 'POST',
+        headers: hdrs,
+        body: JSON.stringify({ focusHint: 'Prepare next VC meeting brief and reply' }),
+      });
+      await new Promise((r) => setTimeout(r, 900));
+      await captureSimPng(autoBase, 'sim-live-proactive.png');
     }
     console.log('[record] Captured real EvenHub Simulator 0.9.5 PNG sequence in media/raw/sim/');
   } finally {
@@ -208,9 +216,10 @@ async function captureRealSimulatorSequence() {
 
 async function scrollToLens(page) {
   await page.waitForTimeout(400);
-  await page.locator('[data-testid="g2-lens"]').waitFor({ state: 'visible', timeout: 10000 });
+  await page.locator('[data-testid="g2-lens"]').last().waitFor({ state: 'visible', timeout: 10000 });
   await page.evaluate(() => {
-    const el = document.querySelector('[data-testid="g2-lens"]');
+    const els = document.querySelectorAll('[data-testid="g2-lens"]');
+    const el = els[els.length - 1];
     if (el) el.scrollIntoView({ block: 'center' });
   });
 }
@@ -225,6 +234,19 @@ async function recordClip(browser, url, outName, runnerFn) {
   const video = page.video();
   await page.goto(url, { waitUntil: 'load' });
   await page.locator('#experience').waitFor({ state: 'visible', timeout: 15000 });
+  try {
+    await page.waitForFunction(
+      () => {
+        const els = document.querySelectorAll('[data-testid="g2-lens"]');
+        const el = els[els.length - 1];
+        return Boolean(el && !el.textContent?.includes('SYNCING WORKSPACE'));
+      },
+      null,
+      { timeout: 8000 },
+    );
+  } catch {
+    // non-fatal fallback if sandbox takes longer
+  }
   await page.waitForTimeout(900);
   await runnerFn(page);
   await context.close();
@@ -338,15 +360,16 @@ async function main() {
       const phPage = await phCtx.newPage();
       await phPage.goto(webSrv.url, { waitUntil: 'load' });
       await phPage.locator('#experience').waitFor({ state: 'visible', timeout: 15000 });
-      await phPage.locator('[data-testid="g2-lens"]').getByText(/VC Sync/i).first().waitFor({ state: 'visible', timeout: 15000 });
+      await phPage.locator('[data-testid="g2-lens"]').last().getByText(/VC Sync/i).first().waitFor({ state: 'visible', timeout: 15000 });
       await phPage.waitForTimeout(900);
       await phPage.screenshot({ path: path.join(PH_DIR, 'gallery-01-hero.png') });
 
       await phPage.getByRole('button', { name: /Test 409 Conflict Lock/ }).first().click();
       await phPage.waitForTimeout(900);
-      await phPage.locator('[data-testid="g2-lens"]').waitFor({ state: 'visible' });
+      await phPage.locator('[data-testid="g2-lens"]').last().waitFor({ state: 'visible' });
       await phPage.evaluate(() => {
-        const el = document.querySelector('[data-testid="g2-lens"]');
+        const els = document.querySelectorAll('[data-testid="g2-lens"]');
+        const el = els[els.length - 1];
         if (el) el.scrollIntoView({ block: 'center' });
       });
       await phPage.waitForTimeout(500);

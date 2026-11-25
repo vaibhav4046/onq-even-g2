@@ -55,6 +55,7 @@ interface LiveVoiceStudioProps {
   activeSpokenWord: string;
   armProgress01: number;
   voiceEngineLabel: string;
+  activeLlmProvider?: string;
   micActive: boolean;
   meetingState: MeetingStateDto | null;
   onToggleMic: () => void;
@@ -79,6 +80,7 @@ export function LiveVoiceStudio({
   activeSpokenWord,
   armProgress01,
   voiceEngineLabel,
+  activeLlmProvider,
   micActive,
   meetingState,
   onToggleMic,
@@ -214,6 +216,9 @@ export function LiveVoiceStudio({
           </span>
           <span className="font-pixel text-[9px] uppercase px-2 py-0.5 rounded-full border border-white/15 text-[var(--lightgray)]">
             {tools.filter((t) => t.installed).length}/{tools.length || 8} LOCAL TOOLS DETECTED
+          </span>
+          <span className="font-pixel text-[9px] uppercase px-2 py-0.5 rounded-full border border-[var(--g2-phosphor)]/40 text-[var(--g2-phosphor)] bg-[var(--g2-phosphor)]/5">
+            Orchestrator: {activeLlmProvider || 'OpenRouter / ChatGPT / Claude auto-failover'}
           </span>
         </div>
 

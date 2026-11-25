@@ -158,6 +158,17 @@ async function main() {
       headers: authHeaders,
       body: '{}',
     });
+    await new Promise((r) => setTimeout(r, 350));
+
+    // 5c. Self-Harnessing 24/7 Proactive Agent SSE -> G2 Proactive Corridor Card
+    const synthRes = await fetch('http://127.0.0.1:8787/api/proactive/synthesize', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ focusHint: 'Prepare next VC meeting brief and reply' }),
+    });
+    if (!synthRes.ok) throw new Error(`POST /api/proactive/synthesize failed: ${synthRes.status}`);
+    await new Promise((r) => setTimeout(r, 900));
+    await captureGlasses(autoBase, 'sim-09-proactive-harness.png');
 
     // 6. Check simulator console logs for unexpected errors (allow the intentional 409 Conflict test fetch)
     const conRes = await fetch(`${autoBase}/api/console`);
@@ -177,7 +188,7 @@ async function main() {
     if (errors.length > 0) {
       throw new Error(`Simulator console errors detected:\n${JSON.stringify(errors, null, 2)}`);
     }
-    console.log(`[sim:PASS] Captured 8 real simulator screenshots with 0 console/uncaught errors.`);
+    console.log(`[sim:PASS] Captured 9 real simulator screenshots with 0 console/uncaught errors.`);
   } finally {
     try {
       if (process.platform === 'win32' && simProc.pid) {

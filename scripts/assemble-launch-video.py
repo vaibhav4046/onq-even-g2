@@ -97,7 +97,7 @@ def make_closing_slate(path: str) -> None:
     d.text((130, 195), "Ready to run cold with zero paid keys.", fill=(242, 242, 242), font=f_h1)
 
     cards = [
-        ("225 / 225", "Automated Tests", "Core, 4-bit Pixel Avatar, Telegram, Computer Bridge & concurrency tests"),
+        ("228 / 228", "Automated Tests", "20 suites: 4-bit Pixel Avatar, Proactive Harness, Orchestrator & concurrency"),
         ("11 / 11", "Geometry Gate", "11 lens checks <= 999B plus Negative Control gate"),
         ("10 / 10", "Security Audit", "Zero secrets in source, web bundle, or onq.ehpk"),
         ("32 / 32", "Harness Eval", "100% intent match, 5/5 injection block, 100% 409 lock"),
@@ -115,6 +115,13 @@ def make_closing_slate(path: str) -> None:
         wrapped = textwrap.wrap(desc, width=29)
         for li, line in enumerate(wrapped[:3]):
             d.text((x0 + 26, y0 + 162 + li * 30), line, fill=(165, 168, 176), font=f_desc)
+
+    d.text(
+        (130, 648),
+        "Self-Harnessing Proactive AI · OpenRouter / ChatGPT / Claude · Even G2",
+        fill=(52, 245, 126),
+        font=f_body,
+    )
 
     d.rectangle([130, 695, W - 130, 840], fill=(16, 22, 6), outline=(218, 255, 82), width=2)
     d.text((165, 727), "CLONE, VERIFY & SIDELOAD", fill=(218, 255, 82), font=f_eyebrow)
@@ -326,10 +333,10 @@ def main() -> None:
 
     ov_4a = os.path.join(temp_dir, "ov4a.png")
     make_stage_frame(
-        ov_4a, "04", "4-Bit Muse Pixel Avatar + Live Scribe", "76x76 Gray4 pixel avatar streams over EvenHub SSE during STT-3.7 meetings",
+        ov_4a, "04", "4-Bit Muse/Duet/Dots Pixel Avatar + Live Scribe", "76x76 Gray4 pixel avatar streams over EvenHub SSE during STT-3.7 meetings",
         os.path.join(SIM_DIR, "sim-live-avatar.png"),
         "EVENHUB SIMULATOR 0.9.5 · AVATAR",
-        "State: MEETING_LIVE | 76x76 4-bit grayscale avatar >= 75% optical black field.",
+        "State: MEETING_LIVE | 76x76 4-bit Gray4 avatar >= 75% optical black field.",
     )
     s_4a = os.path.join(temp_dir, "seg_4a.mp4")
     render_video_segment(os.path.join(RAW_DIR, "clip3_conflict_and_notion.webm"), s_4a, t4a, ov_4a, True, 0.0, 0.58)
@@ -348,12 +355,33 @@ def main() -> None:
 
     t5a = round(c5_dur * 0.58, 3)
     t5b = round(c5_dur - t5a, 3)
+    t5a_1 = round(t5a * 0.52, 3)
+    t5a_2 = round(t5a - t5a_1, 3)
 
-    ov_5a = os.path.join(temp_dir, "ov5a.png")
-    make_stage_frame(ov_5a, "05", chapters[4]["title"], "RMS silence gate drops false taps (0 STT calls) · Honest STALE offline badge · 54-entry audit matrix")
-    s_5a = os.path.join(temp_dir, "seg_5a.mp4")
-    render_video_segment(os.path.join(RAW_DIR, "clip4_failures_and_proof.webm"), s_5a, t5a, ov_5a, False, 0.0, 1.0)
-    segs.append(s_5a)
+    ov_5a_1 = os.path.join(temp_dir, "ov5a_1.png")
+    make_stage_frame(
+        ov_5a_1,
+        "05",
+        "Self-Harnessing 24/7 Proactive Agent",
+        "Synthesizes 42-col briefs via OpenRouter / ChatGPT / Claude behind Default-NO",
+        os.path.join(SIM_DIR, "sim-live-proactive.png"),
+        "EVENHUB SIMULATOR 0.9.5 · PROACTIVE",
+        "State: PROACTIVE HARNESS | Code-Guard verified 42-col plan pushed via SSE while idle.",
+    )
+    s_5a_1 = os.path.join(temp_dir, "seg_5a_1.mp4")
+    render_video_segment(os.path.join(RAW_DIR, "clip4_failures_and_proof.webm"), s_5a_1, t5a_1, ov_5a_1, True, 0.0, 0.52)
+    segs.append(s_5a_1)
+
+    ov_5a_2 = os.path.join(temp_dir, "ov5a_2.png")
+    make_stage_frame(
+        ov_5a_2,
+        "05",
+        chapters[4]["title"],
+        "Self-Harnessing Proactive AI · OpenRouter / ChatGPT / Claude · Even G2",
+    )
+    s_5a_2 = os.path.join(temp_dir, "seg_5a_2.mp4")
+    render_video_segment(os.path.join(RAW_DIR, "clip4_failures_and_proof.webm"), s_5a_2, t5a_2, ov_5a_2, False, 0.52, 1.0)
+    segs.append(s_5a_2)
 
     s_5b = os.path.join(temp_dir, "seg_5b.mp4")
     render_image_segment(close_slate, s_5b, t5b)

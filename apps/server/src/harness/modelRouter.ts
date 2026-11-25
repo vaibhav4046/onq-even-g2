@@ -66,6 +66,7 @@ export interface LlmConfig {
   preferredProvider?: PreferredLlmProvider;
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
+  trackCooldowns?: boolean;
 }
 
 const SYSTEM_PROMPT = [
@@ -83,12 +84,69 @@ function displayName(p: ModelProviderId): string {
   return 'Rules (Deterministic)';
 }
 
+export function getProviderHealthStatus(
+  provider: 'claude' | 'openrouter' | 'chatgpt',
+  key?: string,
+): 'READY' | 'COOLDOWN' | 'UNCONFIGURED' {
+  if (!key) return 'UNCONFIGURED';
+  return isProviderCooledDown(provider, key) ? 'COOLDOWN' : 'READY';
+}
+
+function resolveConfiguredKeys(
+  cfg: LlmConfig,
+): Record<'claude' | 'openrouter' | 'chatgpt', string | undefined> {
+  return {
+    claude: cfg.anthropicKey ?? process.env.ANTHROPIC_API_KEY,
+    openrouter: cfg.openRouterKey ?? process.env.OPENROUTER_API_KEY,
+    chatgpt: cfg.openAiKey ?? process.env.OPENAI_API_KEY,
+  };
+}
+
+function getProviderOrder(
+  preferred: PreferredLlmProvider,
+): Array<'claude' | 'openrouter' | 'chatgpt'> {
+  if (preferred === 'openrouter') return ['openrouter', 'claude', 'chatgpt'];
+  if (preferred === 'chatgpt') return ['chatgpt', 'claude', 'openrouter'];
+  return ['claude', 'openrouter', 'chatgpt'];
+}
+
+export function resolveHealthyLlmLabel(cfg: LlmConfig = {}): string {
+  const preferred = cfg.preferredProvider ?? 'auto';
+  if (preferred === 'rules') return 'Rules (Deterministic)';
+  const keys = resolveConfiguredKeys(cfg);
+  for (const provider of getProviderOrder(preferred)) {
+    if (getProviderHealthStatus(provider, keys[provider]) === 'READY') {
+      return displayName(provider);
+    }
+  }
+  return 'Rules (Deterministic)';
+}
+
+function extractJsonPayload(raw: string): unknown {
+  const trimmed = raw.trim();
+  const unfenced = trimmed
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+  try {
+    return JSON.parse(unfenced);
+  } catch {
+    const jsonSlice = unfenced.match(/\{[\s\S]*\}/)?.[0];
+    if (jsonSlice) {
+      return JSON.parse(jsonSlice);
+    }
+    throw new Error('Malformed JSON payload');
+  }
+}
+
 async function invokeRemoteProvider(
   provider: 'claude' | 'openrouter' | 'chatgpt',
   prompt: string,
   cfg: LlmConfig,
   f: typeof fetch,
   signal: AbortSignal,
+  systemPrompt = SYSTEM_PROMPT,
+  maxTokens?: number,
 ): Promise<{ raw: string; httpStatus: number }> {
   if (provider === 'claude') {
     const key = cfg.anthropicKey ?? process.env.ANTHROPIC_API_KEY ?? '';
@@ -101,8 +159,8 @@ async function invokeRemoteProvider(
       },
       body: JSON.stringify({
         model: 'claude-3-5-haiku-latest',
-        max_tokens: 140,
-        system: SYSTEM_PROMPT,
+        max_tokens: maxTokens ?? 140,
+        system: systemPrompt,
         messages: [{ role: 'user', content: prompt }],
       }),
       signal,
@@ -120,10 +178,10 @@ async function invokeRemoteProvider(
     const invokeOpenRouter = async (useJsonFormat: boolean) => {
       const payload: Record<string, unknown> = {
         model,
-        max_tokens: 320,
+        max_tokens: maxTokens ?? 320,
         reasoning: { exclude: true },
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: prompt },
         ],
       };
@@ -164,9 +222,9 @@ async function invokeRemoteProvider(
     },
     body: JSON.stringify({
       model: 'gpt-4o-mini',
-      max_tokens: 140,
+      max_tokens: maxTokens ?? 140,
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt },
       ],
     }),
@@ -179,62 +237,58 @@ async function invokeRemoteProvider(
   return { raw: data.choices?.[0]?.message?.content ?? '', httpStatus: res.status };
 }
 
-/**
- * Multi-model router with per-provider AbortController timeout, strict JSON + Code-Guard
- * validation, and automatic cascading failover across Claude -> OpenRouter -> ChatGPT -> Rules.
- */
-export async function routeModelCompletion(
-  input: CompressReplyInput,
-  cfg: LlmConfig = {},
-): Promise<CompressReplyOutput & { attempts: ModelAttemptTrace[]; totalLatencyMs: number }> {
+type ValidationOutcome<T> =
+  | { ok: true; value: T }
+  | { ok: false; status: 'MALFORMED_JSON' | 'CODE_GUARD_REJECTED'; detail: string; violations?: string[] };
+
+async function runCascadingJsonProviders<T>(params: {
+  systemPrompt: string;
+  userPrompt: string;
+  maxTokens?: number;
+  cfg: LlmConfig;
+  validateParsed: (parsed: unknown) => ValidationOutcome<T>;
+}): Promise<
+  | {
+      ok: true;
+      value: T;
+      providerLabel: string;
+      attempts: ModelAttemptTrace[];
+      totalLatencyMs: number;
+    }
+  | {
+      ok: false;
+      explicitRules: boolean;
+      attempts: ModelAttemptTrace[];
+      allViolations: string[];
+      totalLatencyMs: number;
+    }
+> {
   const tStart = Date.now();
-  const f = cfg.fetchImpl ?? fetch;
-  const timeoutMs = cfg.timeoutMs ?? 3200;
-  const preferred = cfg.preferredProvider ?? 'auto';
-  const anthropicKey = cfg.anthropicKey ?? process.env.ANTHROPIC_API_KEY;
-  const openRouterKey = cfg.openRouterKey ?? process.env.OPENROUTER_API_KEY;
-  const openAiKey = cfg.openAiKey ?? process.env.OPENAI_API_KEY;
+  const f = params.cfg.fetchImpl ?? fetch;
+  const timeoutMs = params.cfg.timeoutMs ?? 3200;
+  const preferred = params.cfg.preferredProvider ?? 'auto';
+  const configuredKeys = resolveConfiguredKeys(params.cfg);
 
-  if (anthropicKey) registerSecretForRedaction(anthropicKey);
-  if (openRouterKey) registerSecretForRedaction(openRouterKey);
-  if (openAiKey) registerSecretForRedaction(openAiKey);
-
-  const userPrompt = [
-    `User command: ${input.userUtterance}`,
-    `Recipient: ${input.recipientName} <${input.recipientEmail}>`,
-    `Computed facts: ${input.computedFacts.join(', ')}`,
-    wrapUntrustedWorkspaceData('gmail_thread', input.sourceEmailText),
-  ].join('\n');
+  if (configuredKeys.claude) registerSecretForRedaction(configuredKeys.claude);
+  if (configuredKeys.openrouter) registerSecretForRedaction(configuredKeys.openrouter);
+  if (configuredKeys.chatgpt) registerSecretForRedaction(configuredKeys.chatgpt);
 
   const attempts: ModelAttemptTrace[] = [];
 
   if (preferred === 'rules') {
     attempts.push({ provider: 'rules', status: 'OK', latencyMs: 1, detail: 'Explicit rules mode' });
     return {
-      draft: input.fallbackDraft,
-      providerLabel: 'Rules (Deterministic)',
-      fallbackUsed: true,
-      factGuardViolations: [],
+      ok: false,
+      explicitRules: true,
       attempts,
+      allViolations: [],
       totalLatencyMs: Math.max(1, Date.now() - tStart),
     };
   }
 
-  const baseOrder: Array<'claude' | 'openrouter' | 'chatgpt'> =
-    preferred === 'openrouter'
-      ? ['openrouter', 'claude', 'chatgpt']
-      : preferred === 'chatgpt'
-        ? ['chatgpt', 'claude', 'openrouter']
-        : ['claude', 'openrouter', 'chatgpt'];
-
-  const configuredKeys: Record<'claude' | 'openrouter' | 'chatgpt', string | undefined> = {
-    claude: anthropicKey,
-    openrouter: openRouterKey,
-    chatgpt: openAiKey,
-  };
-
-  // In live auto mode (without mocked fetchImpl), deprioritize providers recently cooled down by 400/401/402/429
-  const trackCooldowns = !cfg.fetchImpl;
+  const baseOrder = getProviderOrder(preferred);
+  // In live auto mode (without mocked fetchImpl unless explicitly requested), deprioritize cooled-down providers
+  const trackCooldowns = params.cfg.trackCooldowns ?? !params.cfg.fetchImpl;
   const order: Array<'claude' | 'openrouter' | 'chatgpt'> =
     preferred === 'auto' && trackCooldowns
       ? [...baseOrder].sort((a, b) => {
@@ -275,56 +329,43 @@ export async function routeModelCompletion(
     try {
       const { raw } = await invokeRemoteProvider(
         provider,
-        userPrompt,
+        params.userPrompt,
         {
-          ...cfg,
-          anthropicKey,
-          openRouterKey,
-          openAiKey,
+          ...params.cfg,
+          anthropicKey: configuredKeys.claude,
+          openRouterKey: configuredKeys.openrouter,
+          openAiKey: configuredKeys.chatgpt,
         },
         f,
         controller.signal,
+        params.systemPrompt,
+        params.maxTokens,
       );
       const latencyMs = Math.max(1, Date.now() - tAttempt);
 
-      let parsedDraft = '';
+      let parsed: unknown;
       try {
-        const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
-        const jsonSlice = cleaned.match(/\{[\s\S]*\}/)?.[0] ?? cleaned;
-        const json = JSON.parse(jsonSlice) as { draft?: unknown };
-        if (typeof json.draft === 'string') parsedDraft = json.draft.trim();
+        parsed = extractJsonPayload(raw);
       } catch {
-        parsedDraft = '';
-      }
-
-      if (!parsedDraft) {
-        // Parse failures cascade cleanly to next model or deterministic fallback without marking Code-Guard blocked
         attempts.push({
           provider,
           status: 'MALFORMED_JSON',
           latencyMs,
-          detail: 'Missing or invalid {"draft"} JSON',
+          detail: 'Missing or invalid JSON payload',
         });
         continue;
       }
 
-      const guard = verifyDraftAndPayload({
-        draftText: parsedDraft,
-        recipientEmail: input.recipientEmail,
-        allowedRecipients: input.allowedRecipients,
-        sourceCorpus: input.sourceEmailText,
-        userUtterance: input.userUtterance,
-        computedFacts: input.computedFacts,
-        fallbackTemplate: input.fallbackDraft,
-      });
-
-      if (!guard.passed) {
-        allViolations = [...allViolations, ...guard.violations];
+      const checked = params.validateParsed(parsed);
+      if (!checked.ok) {
+        if (checked.violations?.length) {
+          allViolations = [...allViolations, ...checked.violations];
+        }
         attempts.push({
           provider,
-          status: 'CODE_GUARD_REJECTED',
+          status: checked.status,
           latencyMs,
-          detail: guard.violations.join('; '),
+          detail: checked.detail,
         });
         continue;
       }
@@ -337,10 +378,9 @@ export async function routeModelCompletion(
       });
 
       return {
-        draft: guard.safeText,
+        ok: true,
+        value: checked.value,
         providerLabel: displayName(provider),
-        fallbackUsed: false,
-        factGuardViolations: [],
         attempts,
         totalLatencyMs: Math.max(1, Date.now() - tStart),
       };
@@ -365,31 +405,198 @@ export async function routeModelCompletion(
     }
   }
 
+  return {
+    ok: false,
+    explicitRules: false,
+    attempts,
+    allViolations,
+    totalLatencyMs: Math.max(1, Date.now() - tStart),
+  };
+}
+
+function buildFallbackLabels(attempts: ModelAttemptTrace[]): {
+  providerLabel: string;
+  detail: string;
+} {
   const sawCodeGuard = attempts.some((a) => a.status === 'CODE_GUARD_REJECTED');
   const sawRemoteFailure = attempts.some(
     (a) => a.status === 'HTTP_ERROR' || a.status === 'TIMEOUT' || a.status === 'MALFORMED_JSON',
   );
-  attempts.push({
-    provider: 'rules',
-    status: 'OK',
-    latencyMs: 1,
-    detail: sawCodeGuard
-      ? 'Code-Guard blocked remote violation; deterministic draft used'
-      : sawRemoteFailure
-        ? 'Cascaded to deterministic fallback after remote failure'
-        : 'Zero-key deterministic draft engine',
-  });
-
   return {
-    draft: input.fallbackDraft,
     providerLabel: sawCodeGuard
       ? 'Rules (Code-Guard Fallback)'
       : sawRemoteFailure
         ? 'Rules (Fallback)'
         : 'Rules (Deterministic)',
+    detail: sawCodeGuard
+      ? 'Code-Guard blocked remote violation; deterministic fallback used'
+      : sawRemoteFailure
+        ? 'Cascaded to deterministic fallback after remote failure'
+        : 'Zero-key deterministic draft engine',
+  };
+}
+
+/**
+ * Multi-model structured JSON orchestrator sharing provider priority, per-provider
+ * AbortController timeout, 5m cooldown tracking, and deterministic fallback.
+ */
+export async function orchestrateStructuredJson<T>(
+  input: {
+    systemPrompt: string;
+    userPrompt: string;
+    fallbackJson: T;
+    validate?: (raw: unknown) => T | null;
+  },
+  cfg: LlmConfig = {},
+): Promise<{
+  data: T;
+  providerLabel: string;
+  fallbackUsed: boolean;
+  latencyMs: number;
+  attempts: ModelAttemptTrace[];
+}> {
+  const res = await runCascadingJsonProviders<T>({
+    systemPrompt: input.systemPrompt,
+    userPrompt: input.userPrompt,
+    maxTokens: 700,
+    cfg,
+    validateParsed: (parsed) => {
+      if (!input.validate) return { ok: true, value: parsed as T };
+      const validated = input.validate(parsed);
+      if (validated === null) {
+        return {
+          ok: false,
+          status: 'CODE_GUARD_REJECTED',
+          detail: 'Structured JSON failed schema or Code-Guard validation',
+        };
+      }
+      return { ok: true, value: validated };
+    },
+  });
+
+  if (res.ok) {
+    return {
+      data: res.value,
+      providerLabel: res.providerLabel,
+      fallbackUsed: false,
+      latencyMs: res.totalLatencyMs,
+      attempts: res.attempts,
+    };
+  }
+
+  if (res.explicitRules) {
+    return {
+      data: input.fallbackJson,
+      providerLabel: 'Rules (Deterministic)',
+      fallbackUsed: true,
+      latencyMs: res.totalLatencyMs,
+      attempts: res.attempts,
+    };
+  }
+
+  const fb = buildFallbackLabels(res.attempts);
+  res.attempts.push({
+    provider: 'rules',
+    status: 'OK',
+    latencyMs: 1,
+    detail: fb.detail,
+  });
+
+  return {
+    data: input.fallbackJson,
+    providerLabel: fb.providerLabel,
     fallbackUsed: true,
-    factGuardViolations: allViolations,
-    attempts,
-    totalLatencyMs: Math.max(1, Date.now() - tStart),
+    latencyMs: res.totalLatencyMs,
+    attempts: res.attempts,
+  };
+}
+
+/**
+ * Multi-model router with per-provider AbortController timeout, strict JSON + Code-Guard
+ * validation, and automatic cascading failover across Claude -> OpenRouter -> ChatGPT -> Rules.
+ */
+export async function routeModelCompletion(
+  input: CompressReplyInput,
+  cfg: LlmConfig = {},
+): Promise<CompressReplyOutput & { attempts: ModelAttemptTrace[]; totalLatencyMs: number }> {
+  const userPrompt = [
+    `User command: ${input.userUtterance}`,
+    `Recipient: ${input.recipientName} <${input.recipientEmail}>`,
+    `Computed facts: ${input.computedFacts.join(', ')}`,
+    wrapUntrustedWorkspaceData('gmail_thread', input.sourceEmailText),
+  ].join('\n');
+
+  const res = await runCascadingJsonProviders<string>({
+    systemPrompt: SYSTEM_PROMPT,
+    userPrompt,
+    cfg,
+    validateParsed: (parsed) => {
+      const json = parsed as { draft?: unknown } | null;
+      const parsedDraft = json && typeof json.draft === 'string' ? json.draft.trim() : '';
+      if (!parsedDraft) {
+        return {
+          ok: false,
+          status: 'MALFORMED_JSON',
+          detail: 'Missing or invalid {"draft"} JSON',
+        };
+      }
+      const guard = verifyDraftAndPayload({
+        draftText: parsedDraft,
+        recipientEmail: input.recipientEmail,
+        allowedRecipients: input.allowedRecipients,
+        sourceCorpus: input.sourceEmailText,
+        userUtterance: input.userUtterance,
+        computedFacts: input.computedFacts,
+        fallbackTemplate: input.fallbackDraft,
+      });
+      if (!guard.passed) {
+        return {
+          ok: false,
+          status: 'CODE_GUARD_REJECTED',
+          detail: guard.violations.join('; '),
+          violations: guard.violations,
+        };
+      }
+      return { ok: true, value: guard.safeText };
+    },
+  });
+
+  if (res.ok) {
+    return {
+      draft: res.value,
+      providerLabel: res.providerLabel,
+      fallbackUsed: false,
+      factGuardViolations: [],
+      attempts: res.attempts,
+      totalLatencyMs: res.totalLatencyMs,
+    };
+  }
+
+  if (res.explicitRules) {
+    return {
+      draft: input.fallbackDraft,
+      providerLabel: 'Rules (Deterministic)',
+      fallbackUsed: true,
+      factGuardViolations: [],
+      attempts: res.attempts,
+      totalLatencyMs: res.totalLatencyMs,
+    };
+  }
+
+  const fb = buildFallbackLabels(res.attempts);
+  res.attempts.push({
+    provider: 'rules',
+    status: 'OK',
+    latencyMs: 1,
+    detail: fb.detail,
+  });
+
+  return {
+    draft: input.fallbackDraft,
+    providerLabel: fb.providerLabel,
+    fallbackUsed: true,
+    factGuardViolations: res.allViolations,
+    attempts: res.attempts,
+    totalLatencyMs: res.totalLatencyMs,
   };
 }

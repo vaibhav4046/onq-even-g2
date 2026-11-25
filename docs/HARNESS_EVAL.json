@@ -1,6 +1,6 @@
 {
-  "generatedAtIso": "2026-11-25T09:07:43.268Z",
-  "commitHash": "bf575c3",
+  "generatedAtIso": "2026-11-25T09:42:32.922Z",
+  "commitHash": "0a3316a",
   "intentAccuracy": {
     "passed": 32,
     "total": 32,
@@ -43,7 +43,7 @@
       "scenario": "Claude 429 -> OpenRouter",
       "providerUsed": "OpenRouter",
       "hops": 2,
-      "latencyMs": 3,
+      "latencyMs": 1,
       "fallbackUsed": false,
       "factGuardPassed": true
     },
@@ -51,7 +51,7 @@
       "scenario": "Claude 401 + OR 503 -> ChatGPT",
       "providerUsed": "ChatGPT",
       "hops": 3,
-      "latencyMs": 3,
+      "latencyMs": 2,
       "fallbackUsed": false,
       "factGuardPassed": true
     },
@@ -59,7 +59,7 @@
       "scenario": "All Remote Fail -> Rules Engine",
       "providerUsed": "Rules (Fallback)",
       "hops": 4,
-      "latencyMs": 28,
+      "latencyMs": 31,
       "fallbackUsed": true,
       "factGuardPassed": true
     }
