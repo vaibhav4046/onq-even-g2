@@ -19,12 +19,14 @@ import type {
 import {
   AssemblyAiPixelSvg,
   CalendarPixelSvg,
+  ChatGptPixelSvg,
   ClaudePixelSvg,
   DrivePixelSvg,
   EcosystemStrip,
   EvenG2PixelSvg,
   GmailPixelSvg,
   NotionPixelSvg,
+  OpenRouterPixelSvg,
   ShieldPixelSvg,
 } from './components/EcosystemIcons';
 import { ConnectorsHub } from './components/ConnectorsHub';
@@ -257,6 +259,8 @@ export function App() {
   const [activeSpokenWord, setActiveSpokenWord] = useState('');
   const [meetingState, setMeetingState] = useState<MeetingSessionState | null>(null);
   const [thinkingNow, setThinkingNow] = useState(false);
+  const [workspaceTab, setWorkspaceTab] = useState<'schedule' | 'inbox' | 'notes' | 'activity'>('schedule');
+  const [showTestTools, setShowTestTools] = useState(false);
 
   // Live workspace mutation inputs
   const [newBusyTitle, setNewBusyTitle] = useState('');
@@ -1133,7 +1137,7 @@ export function App() {
                   <span className="block text-[var(--bright)]">during, and after.</span>
                 </h1>
                 <p className="text-sm md:text-base leading-relaxed text-[var(--lightgray)]">
-                  Calendar, Gmail, Drive, Notion, and multi-model AI projected onto Even G2 with an inside-lens Voice Orb, Default-NO gate, and 409 conflict hard-lock.
+                  Calendar, Gmail, Drive, Notion, and multi-model AI on Even G2, with a live inside-lens Voice Orb, double-booking lock, and 2-second undo ring.
                 </p>
 
                 <EcosystemStrip />
@@ -1198,7 +1202,7 @@ export function App() {
                         onClick={() => setLensPovOpen(true)}
                         className="px-3 py-1.5 border border-[var(--hairline)] text-xs text-[var(--bright)] hover:border-[var(--g2-phosphor)] hover:text-[var(--g2-phosphor)] cursor-pointer"
                       >
-                        Expand Glasses POV
+                        Full-Screen Lens
                       </button>
                       <button
                         type="button"
@@ -1362,15 +1366,49 @@ export function App() {
                   </div>
                 </div>
 
-                {/* Right: Live Workspace Control Center */}
+                {/* Right: Clean Minimal Tabbed Workspace (Schedule · Inbox & Tasks · Notes · Activity) */}
                 <div className="xl:col-span-5 bg-[var(--surface)] p-5 sm:p-6 space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-pixel text-[11px] uppercase tracking-[0.2em] text-[var(--bright)]">
-                      LIVE WORKSPACE
+                      WORKSPACE
                     </span>
-                    <span className="font-pixel text-[10px] uppercase tracking-[0.15em] text-[var(--verified)]">
-                      {sessionMode} SYNC
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowTestTools((v) => !v)}
+                        className="font-pixel text-[9px] uppercase tracking-[0.12em] px-2 py-0.5 border border-[var(--hairline)] text-[var(--lightgray)] hover:border-[var(--lime)] hover:text-[var(--lime)] cursor-pointer"
+                      >
+                        {showTestTools ? 'Hide Test Tools' : 'Test Scenarios'}
+                      </button>
+                      <span className="font-pixel text-[10px] uppercase tracking-[0.15em] text-[var(--verified)]">
+                        {sessionMode === 'DEMO' ? 'SANDBOX' : sessionMode}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Minimal 4-Tab Bar */}
+                  <div className="grid grid-cols-4 gap-1 border border-[var(--hairline)] bg-[var(--ink)] p-1 text-[10px] font-pixel uppercase">
+                    {(
+                      [
+                        { id: 'schedule', label: 'Schedule' },
+                        { id: 'inbox', label: 'Inbox & Tasks' },
+                        { id: 'notes', label: 'Notes' },
+                        { id: 'activity', label: `Activity (${receipts.length})` },
+                      ] as const
+                    ).map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setWorkspaceTab(t.id)}
+                        className={`py-1.5 px-1.5 truncate cursor-pointer transition-colors ${
+                          workspaceTab === t.id
+                            ? 'bg-[var(--lime)] text-[#0a0a0a] font-bold'
+                            : 'text-[var(--lightgray)] hover:text-[var(--bright)]'
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
                   </div>
 
                   {!workspace ? (
@@ -1379,188 +1417,202 @@ export function App() {
                     </div>
                   ) : (
                     <div className="space-y-3 text-xs">
-                      {/* RAM-Only Live Meeting Scribe */}
-                      <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="inline-flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--verified)]">
-                            <AssemblyAiPixelSvg className="w-4 h-4" />
-                            <span>LIVE MEETING SCRIBE (RAM-ONLY)</span>
-                          </span>
-                          {meetingState?.active && (
-                            <button
-                              type="button"
-                              onClick={() => void wipeMeetingScribe()}
-                              className="font-pixel text-[9px] px-2 py-0.5 border border-[var(--hairline)] text-[var(--lightgray)] hover:border-[var(--danger)] hover:text-[var(--danger)] cursor-pointer"
-                            >
-                              Wipe RAM
-                            </button>
+                      {workspaceTab === 'schedule' && (
+                        <div className="border border-[var(--hairline)] bg-[var(--ink)] p-4 space-y-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="inline-flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
+                              <CalendarPixelSvg className="w-4 h-4" />
+                              <span>UPCOMING CALENDAR</span>
+                            </span>
+                            <span className="text-[11px] text-[var(--lightgray)]">{workspace.calendarEvents.length} events</span>
+                          </div>
+                          {workspace.calendarEvents.map((ev) => (
+                            <div key={ev.eventId} className="flex justify-between gap-2 border-t border-dashed border-[var(--hairline)] pt-2">
+                              <span className="text-[var(--bright)] truncate">{ev.title}</span>
+                              <span className="text-[var(--lightgray)] shrink-0">
+                                {ev.startIso.slice(11, 16)} - {ev.endIso.slice(11, 16)}
+                              </span>
+                            </div>
+                          ))}
+                          {showTestTools && (
+                            <form onSubmit={handleAddBusySlot} className="flex gap-1.5 pt-2 border-t border-dashed border-[var(--hairline)]">
+                              <input
+                                type="text"
+                                aria-label="New busy calendar event title"
+                                placeholder="Add busy block..."
+                                value={newBusyTitle}
+                                onChange={(e) => setNewBusyTitle(e.target.value)}
+                                className="flex-1 bg-[var(--surface)] border border-[var(--hairline)] px-2 py-1 text-[11px] text-[var(--bright)]"
+                              />
+                              <input
+                                type="text"
+                                aria-label="Busy block UTC start HH:MM"
+                                value={newBusyTime}
+                                onChange={(e) => setNewBusyTime(e.target.value)}
+                                className="w-14 bg-[var(--surface)] border border-[var(--hairline)] px-2 py-1 text-[11px] text-[var(--bright)]"
+                              />
+                              <button
+                                type="submit"
+                                className="px-2 py-1 border border-[var(--hairline)] text-[11px] hover:border-[var(--lime)] hover:text-[var(--lime)] cursor-pointer"
+                              >
+                                +Busy
+                              </button>
+                            </form>
                           )}
                         </div>
-                        {!meetingState || meetingState.turns.length === 0 ? (
-                          <p className="text-[var(--lightgray)]">
-                            Ready for in-room speaker diarization with zero audio stored to disk.
-                          </p>
-                        ) : (
-                          <div className="space-y-1 border-t border-dashed border-[var(--hairline)] pt-1.5">
-                            {meetingState.turns.slice(-3).map((t, idx) => (
-                              <div key={idx} className="text-[11px] text-[var(--bright)] truncate">
-                                <span className="text-[var(--lime)]">[{t.attendeeName}]</span> {t.text}
-                              </div>
-                            ))}
-                            {meetingState.actions.slice(0, 2).map((act) => (
-                              <div key={act.id} className="text-[11px] text-[var(--verified)] truncate">
-                                + {act.title} ({act.owner})
+                      )}
+
+                      {workspaceTab === 'inbox' && (
+                        <>
+                          <div className="border border-[var(--hairline)] bg-[var(--ink)] p-4 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="inline-flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
+                                <GmailPixelSvg className="w-4 h-4" />
+                                <span>RECENT GMAIL THREADS</span>
+                              </span>
+                              {showTestTools && (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleSimulateIncomingReply()}
+                                  className="font-pixel text-[9px] px-2 py-0.5 border border-[var(--warning)] text-[var(--warning)] hover:bg-[var(--warning)] hover:text-[var(--ink)] cursor-pointer"
+                                >
+                                  Simulate New Reply
+                                </button>
+                              )}
+                            </div>
+                            {workspace.gmailThreads.map((t) => (
+                              <div key={t.threadId} className="border-t border-dashed border-[var(--hairline)] pt-2 space-y-1">
+                                <div className="flex justify-between">
+                                  <span className="text-[var(--bright)] font-medium">{t.fromName}</span>
+                                  <span className="text-[var(--lightgray)]">{t.sentMessages.length} sent</span>
+                                </div>
+                                <p className="text-[var(--lightgray)]">{t.snippet}</p>
+                                {t.sentMessages.map((m, idx) => (
+                                  <div key={idx} className="text-[var(--verified)]">
+                                    [{m.mode}] {m.body}
+                                  </div>
+                                ))}
                               </div>
                             ))}
                           </div>
-                        )}
-                      </div>
 
-                      {/* Calendar + Add Busy Slot */}
-                      <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-2">
-                        <div className="flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
-                          <CalendarPixelSvg className="w-4 h-4" />
-                          <span>GOOGLE CALENDAR</span>
-                        </div>
-                        {workspace.calendarEvents.map((ev) => (
-                          <div key={ev.eventId} className="flex justify-between gap-2 border-t border-dashed border-[var(--hairline)] pt-1.5">
-                            <span className="text-[var(--bright)] truncate">{ev.title}</span>
-                            <span className="text-[var(--lightgray)] shrink-0">
-                              {ev.startIso.slice(11, 16)} - {ev.endIso.slice(11, 16)}
+                          <div className="border border-[var(--hairline)] bg-[var(--ink)] p-4 space-y-2">
+                            <div className="flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
+                              <NotionPixelSvg className="w-4 h-4" />
+                              <span>NOTION TASKS</span>
+                            </div>
+                            {workspace.notionTasks.slice(0, 4).map((task) => (
+                              <div key={task.pageId} className="flex justify-between gap-2 border-t border-dashed border-[var(--hairline)] pt-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => void handleToggleTask(task.pageId)}
+                                  className={`text-left truncate cursor-pointer ${
+                                    task.completed ? 'line-through text-[var(--lightgray)]' : 'text-[var(--bright)] hover:text-[var(--lime)]'
+                                  }`}
+                                >
+                                  {task.completed ? '[x] ' : '[ ] '}{task.title}
+                                </button>
+                                <span className="text-[var(--lightgray)] shrink-0">{task.schemaType}</span>
+                              </div>
+                            ))}
+                            {showTestTools && (
+                              <form onSubmit={handleAddTask} className="flex gap-1.5 pt-1 border-t border-dashed border-[var(--hairline)]">
+                                <input
+                                  type="text"
+                                  aria-label="New Notion task title"
+                                  placeholder="Add Notion task..."
+                                  value={newTaskTitle}
+                                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                                  className="flex-1 bg-[var(--surface)] border border-[var(--hairline)] px-2 py-1 text-[11px] text-[var(--bright)]"
+                                />
+                                <button
+                                  type="submit"
+                                  className="px-2 py-1 border border-[var(--hairline)] text-[11px] hover:border-[var(--lime)] hover:text-[var(--lime)] cursor-pointer"
+                                >
+                                  +Task
+                                </button>
+                              </form>
+                            )}
+                          </div>
+                        </>
+                      )}
+
+                      {workspaceTab === 'notes' && (
+                        <div className="border border-[var(--hairline)] bg-[var(--ink)] p-4 space-y-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="inline-flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--verified)]">
+                              <AssemblyAiPixelSvg className="w-4 h-4" />
+                              <span>LIVE MEETING NOTES (MEMORY-ONLY)</span>
                             </span>
+                            {meetingState?.active && (
+                              <button
+                                type="button"
+                                onClick={() => void wipeMeetingScribe()}
+                                className="font-pixel text-[9px] px-2 py-0.5 border border-[var(--hairline)] text-[var(--lightgray)] hover:border-[var(--danger)] hover:text-[var(--danger)] cursor-pointer"
+                              >
+                                Wipe Memory
+                              </button>
+                            )}
                           </div>
-                        ))}
-                        <form onSubmit={handleAddBusySlot} className="flex gap-1.5 pt-1">
-                          <input
-                            type="text"
-                            aria-label="New busy calendar event title"
-                            placeholder="Add busy block..."
-                            value={newBusyTitle}
-                            onChange={(e) => setNewBusyTitle(e.target.value)}
-                            className="flex-1 bg-[var(--surface)] border border-[var(--hairline)] px-2 py-1 text-[11px] text-[var(--bright)]"
-                          />
-                          <input
-                            type="text"
-                            aria-label="Busy block UTC start HH:MM"
-                            value={newBusyTime}
-                            onChange={(e) => setNewBusyTime(e.target.value)}
-                            className="w-14 bg-[var(--surface)] border border-[var(--hairline)] px-2 py-1 text-[11px] text-[var(--bright)]"
-                          />
-                          <button
-                            type="submit"
-                            className="px-2 py-1 border border-[var(--hairline)] text-[11px] hover:border-[var(--lime)] hover:text-[var(--lime)] cursor-pointer"
-                          >
-                            +Busy
-                          </button>
-                        </form>
-                      </div>
-
-                      {/* Gmail + Incoming Reply */}
-                      <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="inline-flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
-                            <GmailPixelSvg className="w-4 h-4" />
-                            <span>GMAIL THREADS</span>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => void handleSimulateIncomingReply()}
-                            className="font-pixel text-[9px] px-2 py-0.5 border border-[var(--warning)] text-[var(--warning)] hover:bg-[var(--warning)] hover:text-[var(--ink)] cursor-pointer"
-                          >
-                            New Incoming Reply
-                          </button>
-                        </div>
-                        {workspace.gmailThreads.map((t) => (
-                          <div key={t.threadId} className="border-t border-dashed border-[var(--hairline)] pt-1.5 space-y-1">
-                            <div className="flex justify-between">
-                              <span className="text-[var(--bright)]">{t.fromName}</span>
-                              <span className="text-[var(--lightgray)]">{t.sentMessages.length} sent</span>
+                          {!meetingState || meetingState.turns.length === 0 ? (
+                            <p className="text-[var(--lightgray)] leading-relaxed">
+                              Speaker separation runs strictly in volatile memory with zero audio written to disk. Click &ldquo;Start Live Meeting Scribe&rdquo; below to preview live diarization.
+                            </p>
+                          ) : (
+                            <div className="space-y-1.5 border-t border-dashed border-[var(--hairline)] pt-2">
+                              {meetingState.turns.slice(-4).map((t, idx) => (
+                                <div key={idx} className="text-[11px] text-[var(--bright)]">
+                                  <span className="text-[var(--lime)]">[{t.attendeeName}]</span> {t.text}
+                                </div>
+                              ))}
+                              {meetingState.actions.slice(0, 3).map((act) => (
+                                <div key={act.id} className="text-[11px] text-[var(--verified)]">
+                                  + {act.title} ({act.owner})
+                                </div>
+                              ))}
                             </div>
-                            <p className="text-[var(--lightgray)]">{t.snippet}</p>
-                            {t.sentMessages.map((m, idx) => (
-                              <div key={idx} className="text-[var(--verified)]">
-                                [{m.mode}] {m.body}
-                              </div>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Notion Database */}
-                      <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
-                        <div className="flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
-                          <NotionPixelSvg className="w-4 h-4" />
-                          <span>NOTION DATABASE (AUTO-SCHEMA)</span>
+                          )}
                         </div>
-                        {workspace.notionTasks.slice(0, 4).map((task) => (
-                          <div key={task.pageId} className="flex justify-between gap-2 border-t border-dashed border-[var(--hairline)] pt-1.5">
-                            <button
-                              type="button"
-                              onClick={() => void handleToggleTask(task.pageId)}
-                              className={`text-left truncate cursor-pointer ${
-                                task.completed ? 'line-through text-[var(--lightgray)]' : 'text-[var(--bright)] hover:text-[var(--lime)]'
-                              }`}
-                            >
-                              {task.completed ? '[x] ' : '[ ] '}{task.title}
-                            </button>
-                            <span className="text-[var(--lightgray)] shrink-0">{task.schemaType}</span>
-                          </div>
-                        ))}
-                        <form onSubmit={handleAddTask} className="flex gap-1.5 pt-1">
-                          <input
-                            type="text"
-                            aria-label="New Notion task title"
-                            placeholder="Add Notion task..."
-                            value={newTaskTitle}
-                            onChange={(e) => setNewTaskTitle(e.target.value)}
-                            className="flex-1 bg-[var(--surface)] border border-[var(--hairline)] px-2 py-1 text-[11px] text-[var(--bright)]"
-                          />
-                          <button
-                            type="submit"
-                            className="px-2 py-1 border border-[var(--hairline)] text-[11px] hover:border-[var(--lime)] hover:text-[var(--lime)] cursor-pointer"
-                          >
-                            +Task
-                          </button>
-                        </form>
-                      </div>
+                      )}
 
-                      {/* Audit Receipts */}
-                      <div className="border border-[var(--hairline)] bg-[var(--ink)] p-3 space-y-1.5">
-                        <div className="flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--bright)]">
-                          <ShieldPixelSvg className="w-4 h-4" />
-                          <span>AUDIT RECEIPT LEDGER ({receipts.length})</span>
-                        </div>
-                        {receipts.length === 0 ? (
-                          <p className="text-[var(--lightgray)]">Run any voice workflow above to inspect live receipts &amp; 30s surgical undo.</p>
-                        ) : (
-                          receipts.slice(0, 2).map((rec) => (
-                            <div key={rec.receiptId} className="border-t border-dashed border-[var(--hairline)] pt-1.5 space-y-1">
-                              <div className="flex justify-between items-center gap-2">
-                                <span className="text-[var(--verified)]">{rec.receiptId} · {rec.status}</span>
-                                {rec.canUndo && (
-                                  <button
-                                    type="button"
-                                    onClick={() => void handleUndoFromLedger(rec.idempotencyKey)}
-                                    className="font-pixel text-[9px] px-2 py-0.5 border border-[var(--lime)] text-[var(--lime)] hover:bg-[var(--lime)] hover:text-[var(--ink)] cursor-pointer"
-                                  >
-                                    UNDO (30s)
-                                  </button>
-                                )}
+                      {workspaceTab === 'activity' && (
+                        <div className="border border-[var(--hairline)] bg-[var(--ink)] p-4 space-y-2">
+                          <div className="flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--bright)]">
+                            <ShieldPixelSvg className="w-4 h-4" />
+                            <span>ACTION RECEIPTS &amp; 30S UNDO ({receipts.length})</span>
+                          </div>
+                          {receipts.length === 0 ? (
+                            <p className="text-[var(--lightgray)]">Run any voice workflow above to inspect committed receipts and 30-second undo.</p>
+                          ) : (
+                            receipts.slice(0, 3).map((rec) => (
+                              <div key={rec.receiptId} className="border-t border-dashed border-[var(--hairline)] pt-2 space-y-1">
+                                <div className="flex justify-between items-center gap-2">
+                                  <span className="text-[var(--verified)]">{rec.receiptId} · {rec.status}</span>
+                                  {rec.canUndo && (
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleUndoFromLedger(rec.idempotencyKey)}
+                                      className="font-pixel text-[9px] px-2 py-0.5 border border-[var(--lime)] text-[var(--lime)] hover:bg-[var(--lime)] hover:text-[var(--ink)] cursor-pointer"
+                                    >
+                                      UNDO (30s)
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="text-[var(--lightgray)]">{rec.summaryLines.join(' | ')}</div>
                               </div>
-                              <div className="text-[var(--lightgray)]">{rec.summaryLines.join(' | ')}</div>
+                            ))
+                          )}
+                          {auditLog.length > 0 && (
+                            <div className="border-t border-dashed border-[var(--hairline)] pt-2 space-y-0.5 text-[11px] text-[var(--lightgray)]">
+                              {auditLog.slice(0, 4).map((ev) => (
+                                <div key={ev.id} className="truncate">
+                                  <span className="text-[var(--lime)]">[{ev.kind}]</span> {ev.detail}
+                                </div>
+                              ))}
                             </div>
-                          ))
-                        )}
-                        {auditLog.length > 0 && (
-                          <div className="border-t border-dashed border-[var(--hairline)] pt-1.5 space-y-0.5 text-[11px] text-[var(--lightgray)]">
-                            {auditLog.slice(0, 3).map((ev) => (
-                              <div key={ev.id} className="truncate">
-                                <span className="text-[var(--lime)]">[{ev.kind}]</span> {ev.detail}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1587,7 +1639,7 @@ export function App() {
                 {
                   num: '01 · BEFORE',
                   title: 'Hallway Corridor Brief',
-                  desc: 'Fuses Calendar countdown, attendee Gmail ask, and linked Drive snippet in 42 legible columns.',
+                  desc: 'Calendar countdown, latest Gmail ask, and linked Drive snippet in 42 legible columns.',
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
                       <CalendarPixelSvg className="w-3.5 h-3.5" />
@@ -1600,8 +1652,8 @@ export function App() {
                 },
                 {
                   num: '02 · BEFORE',
-                  title: 'Transit Shift + Grounded Reply',
-                  desc: 'Say "OnQ, push 15m and tell Priya". Checks Free/Busy, drafts under Code-Guard, arms 2.0s Undo Ring.',
+                  title: 'One-Line Reschedule & Reply',
+                  desc: 'Say "OnQ, push 15m and tell Priya". Checks Free/Busy, drafts safely, arms 2.0s Undo Ring.',
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
                       <CalendarPixelSvg className="w-3.5 h-3.5" />
@@ -1613,19 +1665,20 @@ export function App() {
                 },
                 {
                   num: '03 · DURING',
-                  title: 'RAM-Only Speaker Diarization',
-                  desc: 'AssemblyAI STT-3.7 separates wearer vs attendees in volatile RAM with zero audio persisted to disk.',
+                  title: 'Private In-Room Meeting Notes',
+                  desc: 'Separates speakers in volatile memory with zero audio recordings written to disk.',
                   icons: <AssemblyAiPixelSvg className="w-3.5 h-3.5" />,
                   cta: 'Start Live Meeting Scribe',
                   action: () => void runLiveMeetingDemo(),
                 },
                 {
                   num: '04 · DURING',
-                  title: 'Quiet Earbuds & Lens Recall',
-                  desc: 'Ask "OnQ, what did Priya ask about Q4?" -> cites live transcript or Drive + speaks over TTS-1 earbuds.',
+                  title: 'Quiet Earbuds Recall',
+                  desc: 'Ask "OnQ, what did Priya ask about Q4?" for a lens summary plus quiet earbuds playback.',
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
                       <ClaudePixelSvg className="w-3.5 h-3.5" />
+                      <ChatGptPixelSvg className="w-3.5 h-3.5" />
                       <AssemblyAiPixelSvg className="w-3.5 h-3.5" />
                     </span>
                   ),
@@ -1634,8 +1687,8 @@ export function App() {
                 },
                 {
                   num: '05 · AFTER',
-                  title: 'Zero-Friction Wrap-Up Pack',
-                  desc: 'Extracts decisions + deadlines via chrono-node -> Notion 2026-03-11 tasks, Calendar hold & Gmail draft.',
+                  title: 'Instant Post-Meeting Wrap-Up',
+                  desc: 'Turns spoken decisions and deadlines into Notion tasks, a Calendar hold, and a Gmail draft.',
                   icons: (
                     <span className="inline-flex items-center gap-1.5">
                       <NotionPixelSvg className="w-3.5 h-3.5" />
@@ -1647,8 +1700,8 @@ export function App() {
                 },
                 {
                   num: '06 · GUARD',
-                  title: 'HTTP 409 Lock & Prompt Shield',
-                  desc: 'Blocks double-bookings and stale Gmail threads before committing, proposing the next free verified slot.',
+                  title: 'Double-Booking & Prompt Shield',
+                  desc: 'Blocks calendar overlaps and stale Gmail threads automatically, surfacing the next free slot.',
                   icons: <ShieldPixelSvg className="w-3.5 h-3.5" />,
                   cta: 'Test 409 Conflict Lock',
                   action: () => void stageCommand('Move VC sync to 14:45'),
@@ -1774,6 +1827,8 @@ export function App() {
               <GmailPixelSvg className="w-3.5 h-3.5" />
               <DrivePixelSvg className="w-3.5 h-3.5" />
               <ClaudePixelSvg className="w-3.5 h-3.5" />
+              <ChatGptPixelSvg className="w-3.5 h-3.5" />
+              <OpenRouterPixelSvg className="w-3.5 h-3.5" />
               <AssemblyAiPixelSvg className="w-3.5 h-3.5" />
             </span>
           </div>

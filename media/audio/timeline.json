@@ -1,5 +1,5 @@
 {
-  "total_duration_s": 121.76,
+  "total_duration_s": 120.84,
   "voice_engine": "assemblyai-tts-1",
   "chapters": [
     {
@@ -7,45 +7,45 @@
       "title": "Before: The 90-Second Corridor Brief",
       "caption": "275 daily interruptions (Microsoft WTI) \u00b7 OnQ fuses GCal, Gmail, Drive, and Notion on Even G2",
       "vo_start": 1.0,
-      "vo_end": 22.84,
+      "vo_end": 22.36,
       "clip_start": 0.0,
-      "clip_end": 24.44
+      "clip_end": 23.96
     },
     {
       "id": "02_read_voice",
       "title": "Live 576x288 Waveguide & AssemblyAI STT-3.7",
       "caption": "42-column waveguide brief \u00b7 16 kHz PCM streaming + RMS silence gate",
-      "vo_start": 24.84,
-      "vo_end": 43.579,
-      "clip_start": 24.44,
-      "clip_end": 44.979
+      "vo_start": 24.36,
+      "vo_end": 42.16,
+      "clip_start": 23.96,
+      "clip_end": 43.56
     },
     {
       "id": "03_safety_write",
       "title": "Default-NO & 2.0s Optical Undo Ring",
       "caption": "45s Default-NO preview -> 2.0s 4-bit PNG Undo Ring -> live SSE commit",
-      "vo_start": 45.379,
-      "vo_end": 64.659,
-      "clip_start": 44.979,
-      "clip_end": 66.459
+      "vo_start": 43.96,
+      "vo_end": 62.498,
+      "clip_start": 43.56,
+      "clip_end": 64.298
     },
     {
       "id": "04_conflict_notion",
       "title": "During & After: Live Diarization, TTS-1 & 409 Lock",
       "caption": "RAM-only STT-3.7 diarization -> Companion TTS-1 answer -> Notion Wrap-Up & 409 Lock",
-      "vo_start": 66.859,
-      "vo_end": 88.379,
-      "clip_start": 66.459,
-      "clip_end": 90.179
+      "vo_start": 64.698,
+      "vo_end": 86.778,
+      "clip_start": 64.298,
+      "clip_end": 88.578
     },
     {
       "id": "05_proof_close",
       "title": "Connectors Hub, Multi-Model Harness & Clean-Room Proof",
-      "caption": "207 tests \u00b7 32/32 intent eval \u00b7 5/5 injection block \u00b7 11/11 geometry \u00b7 10/10 security",
-      "vo_start": 90.579,
-      "vo_end": 117.459,
-      "clip_start": 90.179,
-      "clip_end": 119.859
+      "caption": "213 tests \u00b7 32/32 intent eval \u00b7 5/5 injection block \u00b7 11/11 geometry \u00b7 10/10 security",
+      "vo_start": 88.978,
+      "vo_end": 116.54,
+      "clip_start": 88.578,
+      "clip_end": 118.94
     }
   ]
 }

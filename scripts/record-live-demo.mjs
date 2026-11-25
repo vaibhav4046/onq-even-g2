@@ -307,7 +307,8 @@ async function main() {
       const phPage = await phCtx.newPage();
       await phPage.goto(webSrv.url, { waitUntil: 'load' });
       await phPage.locator('#experience').waitFor({ state: 'visible', timeout: 15000 });
-      await phPage.waitForTimeout(1200);
+      await phPage.locator('[data-testid="g2-lens"]').getByText(/VC Sync/i).first().waitFor({ state: 'visible', timeout: 15000 });
+      await phPage.waitForTimeout(900);
       await phPage.screenshot({ path: path.join(PH_DIR, 'gallery-01-hero.png') });
 
       await phPage.getByRole('button', { name: /Test 409 Conflict Lock/ }).click();

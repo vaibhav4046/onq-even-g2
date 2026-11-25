@@ -40,9 +40,10 @@ OnQ boots cold in labeled `DEMO` sandbox mode with zero env vars. To plug in rea
 | **11-Check Geometry Gate** | `scripts/verify-geometry.mjs` + `docs/screenshots/geometry-*.png` | `11 / 11` PASS across all lens states (`97.3%-98.0%` black pixels, `<= 257` UTF-8 bytes) + Check 11 Negative Control |
 | **Security Audit Report** | `SECURITY_AUDIT.md` (`scripts/security-scan.mjs`) | `10 / 10` domains PASS (`0` High/Critical findings, `0` secrets across 82 scanned files + `.ehpk`, `npm audit --omit=dev: 0 vulnerabilities`) |
 | **Clean-Room Verification Log** | `docs/VERIFICATION_LOG.txt` | Fresh-clone verification transcript with zero env vars |
-| **Product Launch Film** | `media/out/onq-launch-demo.mp4` | `1920x1080`, `60 fps`, `121.72s` (`2:02 <= 2:45`), `9.12 MB` H.264 + 48 kHz AAC stereo (`-14 LUFS`, `AssemblyAI-TTS-1` VO + unified 3D G2 + EvenHub Simulator 0.9.5 footage) |
+| **Product Launch Film** | `media/out/onq-launch-demo.mp4` | `1920x1080`, `60 fps`, `120.83s` (`2:01 <= 2:45`), `8.73 MB` H.264 + 48 kHz AAC stereo (`-14 LUFS`, `AssemblyAI-TTS-1` VO + unified 3D G2 + EvenHub Simulator 0.9.5 footage) |
 | **Product Hunt Launch Kit** | `media/product-hunt/` | `gallery-01-hero.png` .. `gallery-04-architecture.png` (`1270x760`), `thumbnail-240x240.gif`, `PRODUCT_HUNT_LAUNCH_COPY.md` |
 | **API Feedback Deliverable** | `API_FEEDBACK.md` | 5 concrete Even Hub SDK `0.0.16`, Simulator `0.9.5`, and WebView OAuth PKCE feature requests |
+| **Competitive Audit Matrix** | `docs/COMPETITIVE_ANALYSIS.md` | Track 04 Read-and-Write rubric & head-to-head comparison against field entries |
 
 ---
 
@@ -91,6 +92,6 @@ Target $7/month Work-Pro tier (~$0.001/brief unit cost because deterministic rul
 
 ## 3. Manual Pre-Publish Checklist
 1. Push `onq-even-g2` to a public GitHub repository (`git remote add origin ... && git push -u origin master`).
-2. Upload `media/out/onq-launch-demo.mp4` (`2:02`, 1080p60, `9.12 MB`, voiced with `AssemblyAI-TTS-1`) to YouTube/DoraHacks and attach `dist/onq.ehpk`.
+2. Upload `media/out/onq-launch-demo.mp4` (`2:01`, 1080p60, `8.73 MB`, voiced with `AssemblyAI-TTS-1`) to YouTube/DoraHacks and attach `dist/onq.ehpk`.
 3. Paste the Track 04 description above + the 5 requests from `API_FEEDBACK.md` into DoraHacks and submit.
 4. For Product Hunt: upload `media/product-hunt/gallery-01..04.png`, `thumbnail-240x240.gif`, and paste `media/product-hunt/PRODUCT_HUNT_LAUNCH_COPY.md`.

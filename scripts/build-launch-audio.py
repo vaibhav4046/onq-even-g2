@@ -66,11 +66,11 @@ CHAPTERS = [
     {
         "id": "05_proof_close",
         "title": "Connectors Hub, Multi-Model Harness & Clean-Room Proof",
-        "caption": "207 tests · 32/32 intent eval · 5/5 injection block · 11/11 geometry · 10/10 security",
+        "caption": "213 tests · 32/32 intent eval · 5/5 injection block · 11/11 geometry · 10/10 security",
         "text": (
             "Connect Google OAuth, Notion, Claude, OpenRouter, or ChatGPT in one click inside an AES-256-GCM encrypted vault, "
             "backed by automatic multi-model failover. "
-            "Verified across two hundred seven automated tests, thirty-two evaluation intents with five out of five injection blocks, "
+            "Verified across two hundred thirteen automated tests, thirty-two evaluation intents with five out of five injection blocks, "
             "eleven optical geometry gates, and a clean ten-domain security audit."
         ),
         "pad_after": 2.4,

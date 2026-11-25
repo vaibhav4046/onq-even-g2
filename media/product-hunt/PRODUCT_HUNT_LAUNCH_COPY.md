@@ -4,7 +4,7 @@
 Own the 90 seconds between meetings on Even Realities G2.
 
 ## Short Description
-OnQ puts one private 42-column glance on your Even Realities G2 smart glasses across Google Calendar, Gmail, Drive, and Notion, before, during, and after meetings. Speak `"OnQ, ..."` via AssemblyAI STT-3.7 or local Whisper, review a Default-NO diff, arm the 2.0s optical Undo Ring, hear crisp TTS-1 answers on paired earbuds, and get verified commits protected by an HTTP 409 Conflict Hard-Lock.
+OnQ brings Google Calendar, Gmail, Drive, Notion, and multi-model AI onto your Even Realities G2 smart glasses in 42 clean optical columns. Speak `"OnQ, ..."` or tap your R1 ring to reschedule meetings, send verified replies, capture private memory-only meeting notes, and prevent double-bookings behind a 2.0s Undo Ring.
 
 ## Topics
 Artificial Intelligence, Productivity, Developer Tools, Wearables
@@ -12,13 +12,12 @@ Artificial Intelligence, Productivity, Developer Tools, Wearables
 ## Maker First Comment
 Hey Product Hunt!
 
-I built OnQ for the Heads Up: Even Realities G2 Hackathon (Track 04: AI Assistants & Work) to solve the most annoying daily bottleneck for founders, engineers, and operators: the 90-second corridor between back-to-back meetings.
+We built **OnQ** to fix the most distracting 90 seconds of the workday: walking between back-to-back meetings while digging through four phone apps (Calendar, Gmail, Drive, Notion).
 
-Instead of shrinking a phone dashboard onto 576x288 monochrome optics, OnQ enforces strict waveguide discipline:
-- One 42-column card answering who you are meeting, what they just asked in Gmail, and the linked Drive or Notion note.
-- Real 16 kHz PCM local Whisper STT behind an RMS silence gate so accidental pocket/temple presses never transcribe room noise.
-- A 4-Layer Deterministic Safety Gate: Default-NO preview, Commit-Locked 2.0s 4-bit PNG Undo Ring, live Calendar Free/Busy + Gmail historyId HTTP 409 Hard-Lock, and a Code-Guard fact verifier that blocks AI-invented emails or prompt injections.
+Instead of shrinking a cluttered mobile dashboard onto 576x288 monochrome glass, OnQ delivers:
+- **One Glance Before:** Upcoming meeting countdown, the sender's latest Gmail ask, and linked Drive/Notion context in 42 legible columns.
+- **One Voice Phrase During:** Live speaker separation strictly in RAM (zero audio written to disk) plus quiet recall playback to companion earbuds.
+- **Zero-Friction Wrap-Up After:** Automatically stages Notion tasks, a follow-up Calendar hold, and a Gmail recap draft behind 4 safety locks (`RMS Silence Gate`, `Default-NO` preview, `2.0s` optical Undo Ring, and `HTTP 409` Conflict Hard-Lock).
+- **Connect Once, Cascade Safely:** Supports Google OAuth 2.0 PKCE, 1-click `.ics` schedules, Notion (`2026-03-11`), Claude, OpenRouter, ChatGPT, and AssemblyAI (`STT-3.7` + `TTS-1`) with automatic failover and zero keys required to try locally.
 
-You can test the entire loop in 10 seconds in the browser 576x288 optical simulator with zero API keys, or pair your own Google Workspace + Notion database locally with encrypted mode-0600 storage.
-
-(Honest note: tested end-to-end in Even Hub Simulator 0.9.5 and our 11-check Chromium Geometry Gate; physical Even G2 + R1 ring hardware testing is pending.)
+Verified cold across **213 automated tests**, **32/32 harness intents (5/5 injection blocks)**, **11/11 Geometry Gate checks**, **7 official EvenHub Simulator 0.9.5 captures**, and **10/10 security audit domains**. (Honest disclosure: physical Even G2 + R1 hardware testing is pending.)
