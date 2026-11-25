@@ -233,6 +233,30 @@ export class TelegramWorkspaceClient {
     }
   }
 
+  /** Replaces a sent message's text and (by omitting reply_markup) removes its buttons, so a decision can't be tapped twice. */
+  async editMessageText(chatId: string, messageId: number, text: string): Promise<void> {
+    const res = await this.fetchImpl(this.endpoint('editMessageText'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, message_id: messageId, text: text.slice(0, 3900) }),
+    });
+    if (!res.ok) {
+      throw new Error(`Telegram editMessageText failed: HTTP ${res.status}`);
+    }
+  }
+
+  /** Registers the "/" menu inside Telegram. */
+  async setMyCommands(commands: Array<{ command: string; description: string }>): Promise<void> {
+    const res = await this.fetchImpl(this.endpoint('setMyCommands'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commands }),
+    });
+    if (!res.ok) {
+      throw new Error(`Telegram setMyCommands failed: HTTP ${res.status}`);
+    }
+  }
+
   private async postTelegramMessage(params: {
     text: string;
     chatId?: string;

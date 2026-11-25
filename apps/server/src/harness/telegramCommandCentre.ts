@@ -90,7 +90,11 @@ export class TelegramCommandCentre {
           : res.error ?? 'Action blocked';
         if (client) {
           await client.answerCallbackQuery(cq.id, notice).catch(() => null);
-          await client.sendMessage(notice, cq.chatId).catch(() => null);
+          // Edit the approval card in place (buttons disappear, no double taps); fall back to a new message.
+          const done = cq.messageId
+            ? await client.editMessageText(cq.chatId, cq.messageId, `${res.ok ? (verb === 'approve' ? 'APPROVED' : 'REJECTED') : 'BLOCKED'}: ${notice}`).then(() => true, () => false)
+            : false;
+          if (!done) await client.sendMessage(notice, cq.chatId).catch(() => null);
         }
         this.processedCount += 1;
         return { handled: true, reply: notice };
@@ -103,6 +107,28 @@ export class TelegramCommandCentre {
 
     if (update.message?.text) {
       const msg = update.message;
+
+      // Owner gate: anyone can message a public bot, so only the paired owner chat may run commands.
+      // /myid works anywhere so pairing is one paste; everything else from other chats gets a generic refusal.
+      const owner = this.deps.getCredentials().chatId?.trim();
+      const word = (msg.text.trim().split(/\s+/)[0] ?? '').toLowerCase().split('@')[0];
+      if (word === '/myid' || word === '/start') {
+        const reply = `Your chat ID is ${msg.chatId}. In OnQ, open Connectors, Telegram, and paste it as the owner chat.`;
+        if (client && msg.chatId) await client.sendMessage(reply, msg.chatId).catch(() => null);
+        return { handled: true, reply };
+      }
+      if (!owner || msg.chatId !== owner) {
+        this.deps.onLog?.(`Ignored Telegram message from unpaired chat ${msg.chatId}`);
+        const inGroup = msg.chatType === 'group' || msg.chatType === 'supergroup';
+        const refusal = inGroup
+          ? 'Group privacy guard: OnQ only runs in your private owner DM with the bot, not in group chats.'
+          : owner
+            ? 'This bot is private.'
+            : 'Not paired yet. Send /myid and paste the number into OnQ.';
+        if (client && msg.chatId) await client.sendMessage(refusal, msg.chatId).catch(() => null);
+        return { handled: false, reply: refusal };
+      }
+
       const outcome = await this.deps.osHarness.handleCommand({
         text: msg.text,
         surface: 'telegram',
@@ -165,10 +191,34 @@ export class TelegramCommandCentre {
     }
   }
 
+  /** Puts the "/" menu in Telegram once per run. Best effort: a failure must never stop polling. */
+  private menuRegistered = false;
+  private async registerMenu(): Promise<void> {
+    if (this.menuRegistered) return;
+    const client = this.getClient();
+    if (!client) return;
+    this.menuRegistered = true;
+    await client
+      .setMyCommands([
+        { command: 'status', description: 'OnQ status and pending approvals' },
+        { command: 'calendar', description: 'Your next meetings' },
+        { command: 'inbox', description: 'Email that needs you' },
+        { command: 'task', description: 'Stage a task (waits for your approval)' },
+        { command: 'approve', description: 'Approve the waiting item' },
+        { command: 'reject', description: 'Reject the waiting item' },
+        { command: 'pause', description: 'Kill switch: pause everything' },
+        { command: 'resume', description: 'Resume after a pause' },
+        { command: 'myid', description: 'Show this chat ID for pairing' },
+        { command: 'help', description: 'All commands' },
+      ])
+      .catch((err: unknown) => this.deps.onLog?.(`Telegram menu not set: ${err instanceof Error ? err.message : 'error'}`));
+  }
+
   startPolling(intervalMs = 5000): void {
     this.stopPolling();
     if (!this.getClient()) return;
     this.active = true;
+    void this.registerMenu();
     void this.pollOnce();
     this.timer = setInterval(() => {
       void this.pollOnce();

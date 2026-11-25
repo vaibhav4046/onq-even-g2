@@ -86,7 +86,7 @@ SCENES = [
     ),
     dict(
         id="night", clock="22:00", title="NIGHT  /  VERIFIED, NOT CLAIMED", min_s=21,
-        vo="Verified in the simulator: two hundred fifty-one tests, thirty-two of thirty-two eval intents, eleven display "
+        vo="Verified in the simulator: two hundred fifty-five tests, thirty-two of thirty-two eval intents, eleven display "
            "gates and a ten domain security audit. Physical glasses are the next test.",
         hud=[],
     ),
@@ -539,7 +539,7 @@ def compose(scene, t, dur, rec_frames):
         d.rectangle([rx - 18, ry + rec.height + 22, rx + rec.width + 18, ry + rec.height + 66], fill=(0, 0, 0, 220))
         d.text((rx, ry + rec.height + 30), "REAL SCREEN RECORDING OF THE ONQ WEB APP (DEMO SANDBOX)", font=F_SM, fill=(160, 255, 200))
     if sc == "night" and t > dur * 0.18:
-        cards = [("251", "TESTS PASS"), ("32/32", "EVAL INTENTS"), ("11/11", "DISPLAY GATES"), ("10/10", "SECURITY"), ("13", "SIM CAPTURES")]
+        cards = [("255", "TESTS PASS"), ("32/32", "EVAL INTENTS"), ("11/11", "DISPLAY GATES"), ("10/10", "SECURITY"), ("13", "SIM CAPTURES")]
         for i, (big, small) in enumerate(cards):
             k = min(1.0, (t - dur * 0.18 - i * 0.35) * 2.2)
             if k <= 0:

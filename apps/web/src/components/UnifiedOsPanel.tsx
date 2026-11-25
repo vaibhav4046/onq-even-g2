@@ -302,7 +302,7 @@ export function UnifiedOsPanel({
       });
       const j = (await res.json()) as { skill?: { name: string }; state?: UnifiedOsStateDto };
       if (j.state) setOsState(j.state);
-      if (j.skill) onStatusMsg(`Saved reusable Grok-Bot skill "${j.skill.name}".`);
+      if (j.skill) onStatusMsg(`Saved reusable skill "${j.skill.name}".`);
       setNewSkillName('');
     } finally {
       setBusy(false);
@@ -622,7 +622,7 @@ export function UnifiedOsPanel({
         )}
       </div>
 
-      {/* Row 4: Reusable Grok-Bot Skills/Routines + Real Free Music Curator */}
+      {/* Row 4: Reusable Skills and Routines + Real Free Music Curator */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         <div className="lg:col-span-6 border border-white/10 bg-black/55 p-3 space-y-2.5">
           <div className="font-pixel text-[9px] uppercase tracking-wider text-[var(--g2-phosphor)]">
@@ -663,7 +663,7 @@ export function UnifiedOsPanel({
           <div className="flex flex-wrap gap-1.5 pt-1 border-t border-dashed border-white/10">
             <input
               type="text"
-              placeholder="New Grok-Bot skill name..."
+              placeholder="New skill name..."
               value={newSkillName}
               onChange={(e) => setNewSkillName(e.target.value)}
               className="flex-1 min-w-[140px] bg-[var(--ink)] border border-[var(--hairline)] px-2 py-1 text-[11px] text-[var(--bright)]"

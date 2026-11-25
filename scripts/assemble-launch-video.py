@@ -97,7 +97,7 @@ def make_closing_slate(path: str) -> None:
     d.text((130, 195), "Ready to run cold with zero paid keys.", fill=(242, 242, 242), font=f_h1)
 
     cards = [
-        ("251 / 251", "Automated Tests", "28 files: safety locks, Telegram approvals, OS harness, failover & concurrency"),
+        ("255 / 255", "Automated Tests", "28 files: safety locks, Telegram approvals, OS harness, failover & concurrency"),
         ("11 / 11", "Geometry Gate", "11 lens checks <= 999B plus Negative Control gate"),
         ("10 / 10", "Security Audit", "Zero secrets in source, web bundle, or onq.ehpk"),
         ("32 / 32", "Harness Eval", "100% intent match, 5/5 injection block, 100% 409 lock"),

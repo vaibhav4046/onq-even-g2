@@ -353,7 +353,7 @@ None. All automated static and negative HTTP security gates passed.
 LATEST FULL RUN SUMMARY (2026-11-25, every command exit 0)
 This section supersedes the earlier raw transcript above (commit 0b73a2b).
 ================================================================================
-npm test                  28 files, 251 tests passed
+npm test                  28 files, 255 tests passed
 npm run eval:harness      32/32 intents, 5/5 injections blocked, 3/3 409 locks,
                           5/5 RMS silence rejections, 4 failover scenarios
 npm run pack              dist/onq.ehpk 51,344 bytes, SDK 0.0.16

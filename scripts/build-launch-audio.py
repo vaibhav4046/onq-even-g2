@@ -66,14 +66,14 @@ CHAPTERS = [
     {
         "id": "05_proof_close",
         "title": "One Personal OS, Kill Switch & Verified Proof",
-        "caption": "251 tests · 32/32 intent eval · 5/5 injection block · 11/11 geometry · 10/10 security",
+        "caption": "255 tests · 32/32 intent eval · 5/5 injection block · 11/11 geometry · 10/10 security",
         "text": (
             "One personal OS sits behind the glasses, the web app, and Telegram. "
             "A morning crew of specialist agents runs under a global kill switch, "
             "and anything that sends waits for your approval. "
             "Accounts connect in one click and keys stay in an encrypted vault on your own machine. "
             "Verified in the simulator, not yet on physical glasses: "
-            "two hundred fifty-one automated tests, thirty-two evaluation intents with five out of five injection blocks, "
+            "two hundred fifty-five automated tests, thirty-two evaluation intents with five out of five injection blocks, "
             "eleven display geometry gates, and a clean ten-domain security audit."
         ),
         "pad_after": 2.4,

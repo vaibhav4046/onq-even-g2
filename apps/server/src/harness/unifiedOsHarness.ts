@@ -487,7 +487,7 @@ interface PersistedOsState {
  * Single Unified Autonomous Personal OS Harness coordinating all OnQ capabilities:
  * - L0-L5 Autonomy Policy + Global Kill Switch
  * - 10 Least-Privilege Specialist Agents + L4 Parallel Pipeline Runner
- * - Persisted Grok-Bot Reusable Skills & 24/7 Routines
+ * - Persisted Reusable Skills & 24/7 Routines
  * - Single-Use Expiring L2 Approval Inbox synced across Web, Even G2 Glasses, and Telegram
  * - Free Real-Catalog Music Curator + Telegram Command Centre
  */
@@ -699,7 +699,7 @@ export class UnifiedOsHarness {
       specialistId: specialist,
       description:
         input.description?.trim().slice(0, 180) ||
-        `Reusable Grok-Bot skill orchestrated cleanly via ${specialist}.`,
+        `Reusable skill orchestrated cleanly via ${specialist}.`,
       steps:
         input.steps && input.steps.length > 0
           ? input.steps.map((s) => s.trim()).filter(Boolean).slice(0, 6)

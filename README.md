@@ -44,7 +44,7 @@ Open `http://127.0.0.1:5173`. Boots immediately in labeled `DEMO` sandbox mode w
 
 | Verification Gate | Exact Command | Observed Result |
 | :--- | :--- | :--- |
-| **Core + Server + Auth + Avatar + Computer Bridge Suite** | `npm test` | **251 tests passing** across 28 files (core, OAuth and auto-discovery, 4-bit Pixel Avatar PNG, Local Computer Bridge, Proactive Self-Harness and Orchestrator, Telegram Bot API incl. the 409 webhook case, music mood queries, multi-line live UI, 4-tier failover, 25x concurrency races) |
+| **Core + Server + Auth + Avatar + Computer Bridge Suite** | `npm test` | **255 tests passing** across 28 files (core, OAuth and auto-discovery, 4-bit Pixel Avatar PNG, Local Computer Bridge, Proactive Self-Harness and Orchestrator, Telegram Bot API incl. the 409 webhook case, music mood queries, multi-line live UI, 4-tier failover, 25x concurrency races) |
 | **Reproducible AI & Safety Harness Eval** | `npm run eval:harness` | **32/32 intents**, **5/5 prompt injections blocked**, **3/3 409 conflict locks**, **5/5 RMS silence rejections**, **4 failover scenarios** (`docs/HARNESS_EVAL.json`) |
 | **11-Check 576x288 Geometry Gate + Negative Control** | `npm run verify:geometry` | **11/11 PASS** plus the Check 11 negative control (`97.2%` to `97.9%` dark pixels, `<= 260` UTF-8 bytes against a 999-byte budget) |
 | **Official EvenHub Simulator 0.9.5 QA** | `npm run verify:sim` | **13 real 576x288 captures** from EvenHub Simulator `0.9.5` (`sim-01..sim-13.png`). `sim-12` is the Unified OS card and `sim-13` is the L4 crew pipeline. `sim-13` used to render 1 of 4 lines; the crew block is now one multi-line text block and shows the crew title plus 3 lines (Chief, Developer, Auditor) |
@@ -68,7 +68,8 @@ Open `http://127.0.0.1:5173`. Boots immediately in labeled `DEMO` sandbox mode w
 - **Music curator fix:** a bare mood such as `coding` was used as the literal search term and returned off-mood pop. It now uses tuned queries (`lofi beats` for coding, `ambient study` for deep_focus). A live check returned lofi and study tracks.
 - **Telegram 409:** `getUpdates` with an active webhook now reports "Webhook active on Telegram bot. Clear the webhook (deleteWebhook) or use the webhook endpoint instead of polling. HTTP 409" and backs off 5 minutes.
 - **Local computer bridge on Windows:** npm `.cmd` shims (such as `claude.cmd`) could not be spawned (`spawn EINVAL`) and failed a task. Shims are now skipped, and a failing CLI falls back to the built-in planner with a note.
-- **Tests:** 5 new tests (multi-line live UI, Telegram 409 x2, music mood x2).
+- **Telegram:** only the paired owner chat can run commands (anyone else gets "This bot is private."); `/myid` makes pairing one paste; the "/" menu is registered automatically; an approval card is edited in place after a tap so it cannot be tapped twice. Day-to-day guide: [docs/DAILY_USE.md](docs/DAILY_USE.md).
+- **Tests:** 9 new tests (multi-line live UI, Telegram 409 x2, music mood x2, Telegram owner gate, pairing and approval card x4).
 - **Launch video:** the existing render predates these changes. Refresh in progress; update this line with the final length when rendered.
 - **Code commit:** `fd285b6`
 
