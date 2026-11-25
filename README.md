@@ -1,9 +1,10 @@
-# OnQ - Even Realities G2 Corridor Copilot (Track 04)
+# OnQ - Even Realities G2 Corridor & Telegram Copilot (Track 04 + Telegram)
 
-**Own the 90 seconds between meetings on Even Realities G2.**
-OnQ fuses Google Calendar, Gmail, Google Drive, Notion (`2026-03-11` `data_sources`), and RFC 5545 `.ics` feeds into one 42-column monochrome waveguide card, then executes voice-staged workspace updates behind a **Default-NO Confirm Gate**, a **Commit-Locked 2.0s 4-Bit PNG Undo Ring**, an **HTTP 409 Conflict Hard-Lock**, and a deterministic **Code-Guard Fact Verifier**.
+**Own the 90 seconds between meetings — and every urgent Telegram ping — on Even Realities G2.**
+OnQ fuses Google Calendar, Gmail, Google Drive, Notion (`2026-03-11` `data_sources`), **Telegram Bot API** (`/api/telegram/digest` & voice-staged `/api/telegram/stage-reply`), and RFC 5545 `.ics` feeds into one 42-column monochrome waveguide card, then executes voice-staged workspace updates behind a **Default-NO Confirm Gate**, a **Commit-Locked 2.0s 4-Bit PNG Undo Ring**, an **HTTP 409 Conflict Hard-Lock**, and a deterministic **Code-Guard Fact Verifier**.
 
-- **Track:** Track 04 - AI Assistants & Work (Google Workspace: Gmail, Calendar, Drive | Notion | Claude / OpenRouter / ChatGPT + AssemblyAI `STT-3.7` & `TTS-1` / local `faster-whisper`)
+- **Tracks:** Track 04 - AI Assistants & Work (Google Workspace + Notion + Multi-LLM) + Track 01 / Best Telegram Integration (`TelegramWorkspaceClient`)
+- **Demo Day Pitch:** See [TVM_PITCH_DECK.md](docs/TVM_PITCH_DECK.md)
 - **Built:** Nov 23-29, 2026 hackathon window (zero pre-Nov 23 proprietary code)
 - **Honest Limits:** Verified end-to-end in `@evenrealities/evenhub-simulator@0.9.5`, our 11-check Chromium Geometry Gate, and our automated unit/HTTP/WebSocket/OAuth/harness suite. Physical Even G2 + R1 ring hardware testing is pending. Audio responses route exclusively to Companion Phone / Bluetooth Earbuds (`AssemblyAI-TTS-1`) because Even G2 has no speaker.
 
@@ -40,12 +41,12 @@ Open `http://127.0.0.1:5173`. Boots immediately in labeled `DEMO` sandbox mode w
 
 | Verification Gate | Exact Command | Observed Result |
 | :--- | :--- | :--- |
-| **Core + Server + Auth + Harness Suite** | `npm test` | **213 tests passing** across 15 files (core, PKCE OAuth, HttpOnly cookie, 4-tier failover, 25x concurrency races, WS/AssemblyAI, Postgres, fault injection) |
+| **Core + Server + Auth + Harness + Telegram Suite** | `npm test` | **217 tests passing** across 17 files (core, PKCE OAuth, HttpOnly cookie, Telegram Bot API, 4-tier failover, 25x concurrency races, WS/AssemblyAI, Postgres, fault injection) |
 | **Reproducible AI & Safety Harness Eval** | `npm run eval:harness` | **32/32 intents (100%)**, **5/5 prompt injections blocked**, **3/3 409 conflict locks**, **5/5 RMS silence rejections**, **4/4 failover matrix** (`docs/HARNESS_EVAL.json`) |
-| **11-Check 576x288 Geometry Gate + Negative Control** | `npm run verify:geometry` | **11 / 11 passing** across 11 checks (`MEETING_LIVE` & `WRAP_UP` included, `<= 42` cols, `<= 999` UTF-8 bytes, `>= 97.3%` black optical field) + Check 11 Negative Control |
+| **11-Check 576x288 Geometry Gate + Negative Control** | `npm run verify:geometry` | **11 / 11 passing** across 11 checks (`MEETING_LIVE` & `WRAP_UP` included, `<= 42` cols, `<= 999` UTF-8 bytes, `>= 97.2%` black optical field) + Check 11 Negative Control |
 | **Official EvenHub Simulator 0.9.5 QA** | `npm run verify:sim` | **7 real 576x288 RGBA captures** (including native `ListContainer`, 76x76 4-bit PNG ring, `409` lock) with 0 uncaught errors |
-| **EvenHub `.ehpk` Packaging** | `npm run pack` | **`dist/onq.ehpk`** (45,096 bytes, SDK `0.0.16`, `min_app_version 2.2.10`, 0 warnings) |
-| **Security Audit & Negative HTTP Tests** | `npm run verify:security` | **10 / 10 domains PASS** (`SECURITY_AUDIT.md`, 0 High/Critical findings, 0 secrets in 82 scanned files or `.ehpk`) |
+| **EvenHub `.ehpk` Packaging** | `npm run pack` | **`dist/onq.ehpk`** (45,135 bytes, SDK `0.0.16`, `min_app_version 2.2.10`, 0 warnings) |
+| **Security Audit & Negative HTTP Tests** | `npm run verify:security` | **10 / 10 domains PASS** (`SECURITY_AUDIT.md`, 0 High/Critical findings, 0 secrets in 89 scanned files or `.ehpk`) |
 
 ---
 

@@ -29,6 +29,7 @@ import {
   NotionPixelSvg,
   OpenRouterPixelSvg,
   ShieldPixelSvg,
+  TelegramPixelSvg,
 } from './components/EcosystemIcons';
 import { ConnectorsHub } from './components/ConnectorsHub';
 import { G2Hardware3D } from './components/G2Hardware3D';
@@ -41,6 +42,7 @@ import {
   ScrollProgressRail,
   ScrollReveal,
 } from './components/MotionPrimitives';
+import { ArchitectureShowcase } from './components/ArchitectureShowcase';
 import { OnQLogo } from './components/OnQLogo';
 import { OnQVoiceOrb } from './components/OnQVoiceOrb';
 import { ResearchGraphsSection } from './components/ResearchGraphsSection';
@@ -1158,9 +1160,10 @@ export function App() {
             <OnQLogo showWordmark />
           </a>
 
-          <nav aria-label="Primary navigation" className="hidden md:flex items-center gap-6 text-sm text-[var(--lightgray)] whitespace-nowrap">
+          <nav aria-label="Primary navigation" className="hidden md:flex items-center gap-5 text-sm text-[var(--lightgray)] whitespace-nowrap">
             <a href="#experience" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Experience</a>
             <a href="#use-cases" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Use Cases</a>
+            <a href="#architecture" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Architecture</a>
             <a href="#research" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Research</a>
             <a href="#safety" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Safety</a>
             <a href="#connectors" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Connectors</a>
@@ -1901,8 +1904,11 @@ export function App() {
           </div>
         </section>
 
+        {/* Interactive System Architecture & Telemetry (#architecture) */}
+        <ArchitectureShowcase testCount={217} />
+
         {/* Visual Survey Graphs, Curves & Field Benchmark (#research) */}
-        <ResearchGraphsSection testCount={216} />
+        <ResearchGraphsSection testCount={217} />
 
         {/* Sticky Scroll Safety Story (#safety) */}
         <StickySafetyStory />
@@ -1988,10 +1994,11 @@ export function App() {
           <div className="flex flex-wrap items-center gap-3">
             <OnQLogo showWordmark />
             <span className="font-pixel text-[10px] uppercase tracking-[0.18em] text-[var(--lightgray)]">
-              EVEN REALITIES G2 · TRACK 04
+              EVEN REALITIES G2 · TRACK 04 + TELEGRAM
             </span>
             <span className="inline-flex items-center gap-2 pl-2 border-l border-dashed border-[var(--hairline)]" aria-label="Supported ecosystems">
               <NotionPixelSvg className="w-3.5 h-3.5" />
+              <TelegramPixelSvg className="w-3.5 h-3.5" />
               <CalendarPixelSvg className="w-3.5 h-3.5" />
               <GmailPixelSvg className="w-3.5 h-3.5" />
               <DrivePixelSvg className="w-3.5 h-3.5" />
@@ -2003,7 +2010,7 @@ export function App() {
           </div>
           <div className="flex flex-wrap gap-6">
             <a href="#experience" className="hover:text-[var(--bright)]">3D Glasses</a>
-            <a href="#use-cases" className="hover:text-[var(--bright)]">Use Cases</a>
+            <a href="#architecture" className="hover:text-[var(--bright)]">Architecture</a>
             <a href="#research" className="hover:text-[var(--bright)]">Research</a>
             <a href="#connectors" className="hover:text-[var(--bright)]">Connectors</a>
           </div>

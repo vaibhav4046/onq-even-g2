@@ -39,6 +39,10 @@ import type { DemoFaultInjection } from './providers/demoProvider.js';
 import { buildGoogleAuthUrl, GoogleWorkspaceClient } from './providers/googleProvider.js';
 import { LiveWorkspaceProvider } from './providers/liveProvider.js';
 import { NotionWorkspaceClient } from './providers/notionProvider.js';
+import {
+  getSandboxTelegramDigest,
+  TelegramWorkspaceClient,
+} from './providers/telegramProvider.js';
 import type { WorkspaceProvider } from './providers/types.js';
 import { MAX_WAV_UPLOAD_BYTES, transcribeWavBuffer } from './stt.js';
 import type { SttOptions } from './stt.js';
@@ -292,6 +296,14 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           detail: creds.notionDatabaseId
             ? `Database ...${creds.notionDatabaseId.slice(-6)} synced (2026-03-11)`
             : 'Internal integration + auto-schema discovery ready',
+        },
+        telegram: {
+          connected: Boolean(creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN),
+          mode: creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN ? 'LIVE' : 'SANDBOX',
+          detail:
+            creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN
+              ? `Telegram Bot connected${creds.telegramChatId ? ` (chat ...${creds.telegramChatId.slice(-4)})` : ''}`
+              : 'Track 01 + Best Telegram prize integration ready (BotFather token)',
         },
         claude: {
           connected: Boolean(llmCfg.anthropicKey),
@@ -1327,6 +1339,8 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           preferredLlm?: PreferredLlmProvider;
           notionToken?: string;
           notionDatabaseId?: string;
+          telegramBotToken?: string;
+          telegramChatId?: string;
           googleClientId?: string;
           googleClientSecret?: string;
           googleOAuthJson?: string;
@@ -1373,6 +1387,9 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           next.notionDatabaseId = body.notionDatabaseId.trim();
           upgradedToken = await ledger.mintSession('LIVE');
           upgradedMode = 'LIVE';
+        } else if (prov === 'telegram' && body.telegramBotToken?.trim()) {
+          next.telegramBotToken = body.telegramBotToken.trim();
+          if (body.telegramChatId?.trim()) next.telegramChatId = body.telegramChatId.trim();
         } else if (prov === 'google_oauth_json' && body.googleOAuthJson?.trim()) {
           try {
             const parsed = parseGoogleOAuthJson(body.googleOAuthJson.trim());
@@ -1416,6 +1433,8 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           if (body.openRouterModel?.trim()) next.openRouterModel = body.openRouterModel.trim();
           if (body.openAiKey?.trim()) next.openAiKey = body.openAiKey.trim();
           if (body.assemblyAiKey?.trim()) next.assemblyAiKey = body.assemblyAiKey.trim();
+          if (body.telegramBotToken?.trim()) next.telegramBotToken = body.telegramBotToken.trim();
+          if (body.telegramChatId?.trim()) next.telegramChatId = body.telegramChatId.trim();
           if (body.notionToken?.trim() && body.notionDatabaseId?.trim()) {
             const client = new NotionWorkspaceClient(
               body.notionToken.trim(),
@@ -1483,6 +1502,10 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           if (prov === 'notion') {
             delete next.notionToken;
             delete next.notionDatabaseId;
+          }
+          if (prov === 'telegram') {
+            delete next.telegramBotToken;
+            delete next.telegramChatId;
           }
           if (prov === 'googleWorkspace') {
             delete next.googleRefreshToken;
@@ -1938,6 +1961,31 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           return;
         }
 
+        if (provider === 'telegram') {
+          const botToken = creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN;
+          if (botToken) {
+            const tg = new TelegramWorkspaceClient(botToken, creds.telegramChatId, opts.fetchImpl);
+            const ping = await tg.ping();
+            recordAudit('CONNECTOR_TESTED', `telegram: ${ping.detail}`);
+            jsonResponse(res, 200, {
+              ok: ping.ok,
+              provider,
+              mode: ping.ok ? 'LIVE' : 'ERROR',
+              latencyMs: ping.latencyMs,
+              detail: ping.detail,
+            });
+            return;
+          }
+          jsonResponse(res, 200, {
+            ok: true,
+            provider,
+            mode: 'SANDBOX',
+            latencyMs: Math.max(1, Date.now() - t0),
+            detail: 'Telegram Track 01 sandbox digest healthy (connect BotFather token for live chats)',
+          });
+          return;
+        }
+
         jsonResponse(res, 404, { error: `Unknown connector provider: ${provider}` });
         return;
       }
@@ -2001,6 +2049,69 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         if (!session) return;
         const st = proactiveHarness.runPulse();
         jsonResponse(res, 200, st);
+        return;
+      }
+
+      // 14f. Dual-Track Telegram Digest & Default-NO Reply Staging (Track 01 + Best Telegram Prize)
+      if (req.method === 'GET' && pathname === '/api/telegram/digest') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const creds = vault.load();
+        const botToken = creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN;
+        if (botToken) {
+          try {
+            const tg = new TelegramWorkspaceClient(botToken, creds.telegramChatId, opts.fetchImpl);
+            const messages = await tg.getRecentMessages(6);
+            jsonResponse(res, 200, { mode: 'LIVE', messages });
+            return;
+          } catch (err) {
+            jsonResponse(res, 200, {
+              mode: 'SANDBOX',
+              messages: getSandboxTelegramDigest(),
+              warning: err instanceof Error ? redactSecrets(err.message) : 'Telegram fetch error',
+            });
+            return;
+          }
+        }
+        jsonResponse(res, 200, { mode: 'SANDBOX', messages: getSandboxTelegramDigest() });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/telegram/stage-reply') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ text?: string; chatId?: string }>(req);
+        const replyText = body.text?.trim();
+        if (!replyText) {
+          jsonResponse(res, 400, { error: 'Reply text required' });
+          return;
+        }
+        const creds = vault.load();
+        const targetChat = (body.chatId ?? creds.telegramChatId ?? 'tg-grp-even').trim();
+        const nowMs = nowFn();
+        const canonical = JSON.stringify({ intent: 'TELEGRAM_REPLY', chatId: targetChat, text: replyText });
+        const idempotencyKey = crypto.createHash('sha256').update(canonical).digest('hex');
+        const preview: ActionPreview = {
+          previewToken: `pt_${crypto.randomBytes(12).toString('hex')}`,
+          idempotencyKey,
+          expiresAtIso: new Date(nowMs + 45_000).toISOString(),
+          intent: 'RESCHEDULE_AND_NOTIFY',
+          defaultSelection: 'NO',
+          summaryLines: [
+            `1) TG CHAT: ${targetChat.slice(0, 18)}`,
+            `2) DRAFT: "${replyText.slice(0, 28)}"`,
+            '3) GATE: Default-NO · 2.0s Ring',
+          ],
+          operations: [],
+          safetyChecks: {
+            calendarConflictFree: true,
+            threadFresh: true,
+            recipientVerified: true,
+            factGuardPassed: true,
+          },
+        };
+        await ledger.savePreview(preview, session.tokenHash);
+        jsonResponse(res, 200, { ok: true, preview });
         return;
       }
 

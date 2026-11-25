@@ -12,6 +12,7 @@ import {
   NotionPixelSvg,
   OpenRouterPixelSvg,
   ShieldPixelSvg,
+  TelegramPixelSvg,
 } from './EcosystemIcons';
 import { GlyphDecodeHeading, ScrollReveal } from './MotionPrimitives';
 
@@ -49,6 +50,7 @@ interface ConnectorStatusResponse {
     openrouter: ConnectorCardStatus;
     chatgpt: ConnectorCardStatus;
     assemblyai: ConnectorCardStatus;
+    telegram?: ConnectorCardStatus;
   };
 }
 
@@ -63,6 +65,7 @@ interface ConnectorTestResult {
 type ConnectorProviderId =
   | 'googleWorkspace'
   | 'notion'
+  | 'telegram'
   | 'claude'
   | 'openrouter'
   | 'chatgpt'
@@ -130,6 +133,8 @@ export function ConnectorsHub({
   const [openRouterModel, setOpenRouterModel] = useState('meta-llama/llama-3.2-3b-instruct:free');
   const [openAiKey, setOpenAiKey] = useState('');
   const [aaiKey, setAaiKey] = useState('');
+  const [telegramBotToken, setTelegramBotToken] = useState('');
+  const [telegramChatId, setTelegramChatId] = useState('');
 
   const [showPhysicalPair, setShowPhysicalPair] = useState(false);
   const [g2Code, setG2Code] = useState<string | null>(null);
@@ -412,6 +417,18 @@ export function ConnectorsHub({
       secondaryIcons: null,
       state: status?.connectors.assemblyai,
     },
+    {
+      id: 'telegram' as const,
+      name: 'Telegram',
+      sub: 'Track 01 + Best Telegram Digest & Voice Reply',
+      icon: (
+        <ApplePixelTile size="lg" tint="#26A5E4">
+          <TelegramPixelSvg className="w-6 h-6" />
+        </ApplePixelTile>
+      ),
+      secondaryIcons: null,
+      state: status?.connectors.telegram,
+    },
   ];
 
   return (
@@ -439,7 +456,7 @@ export function ConnectorsHub({
                   : 'AES-256-GCM Local Vault'}
               </div>
               <div className="font-pixel text-[9px] uppercase tracking-[0.14em] text-[var(--g2-phosphor)]">
-                {mode === 'DEMO' ? 'SANDBOX' : mode} · {cards.filter((x) => x.state?.connected).length}/6 LIVE · {status?.activeLlmProvider ?? 'Rules Engine'}
+                {mode === 'DEMO' ? 'SANDBOX' : mode} · {cards.filter((x) => x.state?.connected).length}/7 LIVE · {status?.activeLlmProvider ?? 'Rules Engine'}
               </div>
             </div>
             <button
@@ -651,6 +668,8 @@ export function ConnectorsHub({
                       anthropicKey: claudeKey || undefined,
                       openAiKey: openAiKey || undefined,
                       assemblyAiKey: aaiKey || undefined,
+                      telegramBotToken: telegramBotToken || undefined,
+                      telegramChatId: telegramChatId || undefined,
                       icsText: icsText || undefined,
                     },
                     'All entered credentials saved cleanly to encrypted AES-256-GCM 0600 vault.',
@@ -785,7 +804,7 @@ export function ConnectorsHub({
                         : 'retro-btn-primary'
                     }`}
                   >
-                    {active ? 'Close' : connected ? 'Configure' : c.id === 'googleWorkspace' ? 'Connect Google' : c.id === 'notion' ? 'Connect Notion' : 'Connect'}
+                    {active ? 'Close' : connected ? 'Configure' : c.id === 'googleWorkspace' ? 'Connect Google' : c.id === 'notion' ? 'Connect Notion' : c.id === 'telegram' ? 'Connect Telegram' : 'Connect'}
                   </button>
                   <button
                     type="button"
@@ -1111,6 +1130,53 @@ export function ConnectorsHub({
                     Connect ChatGPT
                   </button>
                 </div>
+              </>
+            )}
+
+            {openDrawer === 'telegram' && (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[#26A5E4]">
+                    CONNECT TELEGRAM BOT (TRACK 01 + BEST TELEGRAM PRIZE)
+                  </span>
+                  <a
+                    href="https://t.me/BotFather"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-[#26A5E4] underline decoration-dashed underline-offset-2"
+                  >
+                    Create Bot in @BotFather -&gt;
+                  </a>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    type="password"
+                    placeholder="Telegram Bot Token (123456:ABC...)"
+                    value={telegramBotToken}
+                    onChange={(e) => setTelegramBotToken(e.target.value)}
+                    className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Default Chat ID (e.g. -100...)"
+                    value={telegramChatId}
+                    onChange={(e) => setTelegramChatId(e.target.value)}
+                    className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    void postConnect(
+                      { provider: 'telegram', telegramBotToken, telegramChatId },
+                      'Telegram Bot connected cleanly in AES-256-GCM 0600 vault.',
+                    )
+                  }
+                  className="retro-btn-primary px-4 py-2 cursor-pointer"
+                >
+                  Save &amp; Connect Telegram
+                </button>
               </>
             )}
 

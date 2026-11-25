@@ -1,7 +1,7 @@
 # OnQ - Final Hackathon & Product Hunt Submission Handoff
 
 **Project Root:** `C:\Users\lalwa\.gemini\antigravity\scratch\oncue-even-g2`
-**Hard Safety Stop Enforced:** All local building, testing (`213/213`), harness benchmarking (`npm run eval:harness`), `.ehpk` packaging, simulator capture, security auditing, 3D WebGL UI overhaul, and launch film rendering (`121.72s <= 2:45`) are complete. External DoraHacks / Product Hunt submission and any paid hosting remain unsubmitted for your manual review and final click.
+**Hard Safety Stop Enforced:** All local building, testing (`217/217` across 17 files), harness benchmarking (`npm run eval:harness`), `.ehpk` packaging (`45,135` bytes), simulator capture, security auditing (`10/10` across 89 files), dual-sided 3D WebGL crystal-lens optics (`Front` + `Wearer POV`), HydraDB-inspired `#architecture` showcase, Dual-Track Telegram Bot API integration (`/api/telegram/*`), TVM Ventures pitch deck (`docs/TVM_PITCH_DECK.md`), and launch film rendering are complete. External DoraHacks / Product Hunt submission and any paid hosting remain unsubmitted for your manual review and final click.
 
 ---
 
@@ -33,12 +33,13 @@ OnQ boots cold in labeled `DEMO` sandbox mode with zero env vars. To plug in rea
 
 | Artifact | Path | Observed Verification |
 | :--- | :--- | :--- |
-| **Monorepo Source** | `packages/core`, `apps/server`, `apps/glasses`, `apps/web` | `npm ci && npm test && npm run build` passed cold (**213 / 213 tests** across 15 files) |
+| **Monorepo Source** | `packages/core`, `apps/server`, `apps/glasses`, `apps/web` | `npm ci && npm test && npm run build` passed cold (**217 / 217 tests** across 17 files) |
 | **Orchestration & Safety Eval** | `docs/HARNESS_EVAL.json` (`npm run eval:harness`) | **32/32 intents (100%)**, **5/5 prompt injections blocked**, **3/3 409 locks**, **5/5 RMS silence rejections**, **4-tier failover matrix** |
-| **EvenHub G2 Package** | `dist/onq.ehpk` | Packed via `@evenrealities/evenhub-cli@0.2.0` (`45,096` bytes, SDK `0.0.16`, `min_app_version 2.2.10`, 0 warnings, 0 secrets) |
+| **EvenHub G2 Package** | `dist/onq.ehpk` | Packed via `@evenrealities/evenhub-cli@0.2.0` (`45,135` bytes, SDK `0.0.16`, `min_app_version 2.2.10`, 0 warnings, 0 secrets) |
 | **Official Simulator Captures** | `docs/screenshots/sim-01..07.png` | 7 real 576x288 RGBA captures from `@evenrealities/evenhub-simulator@0.9.5` (including native `ListContainer`) with 0 uncaught/unhandled errors |
-| **11-Check Geometry Gate** | `scripts/verify-geometry.mjs` + `docs/screenshots/geometry-*.png` | `11 / 11` PASS across all lens states (`97.3%-98.0%` black pixels, `<= 257` UTF-8 bytes) + Check 11 Negative Control |
-| **Security Audit Report** | `SECURITY_AUDIT.md` (`scripts/security-scan.mjs`) | `10 / 10` domains PASS (`0` High/Critical findings, `0` secrets across 82 scanned files + `.ehpk`, `npm audit --omit=dev: 0 vulnerabilities`) |
+| **11-Check Geometry Gate** | `scripts/verify-geometry.mjs` + `docs/screenshots/geometry-*.png` | `11 / 11` PASS across all lens states (`97.2%-97.9%` black pixels, `<= 260` UTF-8 bytes) + Check 11 Negative Control |
+| **Security Audit Report** | `SECURITY_AUDIT.md` (`scripts/security-scan.mjs`) | `10 / 10` domains PASS (`0` High/Critical findings, `0` secrets across 89 scanned files + `.ehpk`, `npm audit --omit=dev: 0 vulnerabilities`) |
+| **TVM Ventures Pitch Deck** | `docs/TVM_PITCH_DECK.md` | 10-slide Demo Day pitch deck mapped to judging weights + Dual-Track Track 04 / Telegram live script |
 | **Clean-Room Verification Log** | `docs/VERIFICATION_LOG.txt` | Fresh-clone verification transcript with zero env vars |
 | **Product Launch Film** | `media/out/onq-launch-demo.mp4` | `1920x1080`, `60 fps`, `120.83s` (`2:01 <= 2:45`), `8.73 MB` H.264 + 48 kHz AAC stereo (`-14 LUFS`, `AssemblyAI-TTS-1` VO + unified 3D G2 + EvenHub Simulator 0.9.5 footage) |
 | **Product Hunt Launch Kit** | `media/product-hunt/` | `gallery-01-hero.png` .. `gallery-04-architecture.png` (`1270x760`), `thumbnail-240x240.gif`, `PRODUCT_HUNT_LAUNCH_COPY.md` |
@@ -53,7 +54,7 @@ OnQ boots cold in labeled `DEMO` sandbox mode with zero env vars. To plug in rea
 `OnQ`
 
 ### Track
-`04. AI Assistants & Work (Google Workspace: Gmail, Calendar, Drive · Notion · Claude / OpenRouter / ChatGPT)`
+`04. AI Assistants & Work + Track 01 / Best Telegram Integration (Google Workspace · Notion · Telegram · Claude / OpenRouter / ChatGPT)`
 
 ### One-Liner (118 chars)
 `Own the 90 seconds between meetings on Even G2: Calendar+Gmail+Drive brief, voice shift, 409 conflict lock & 2s undo.`

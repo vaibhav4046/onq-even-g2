@@ -18,8 +18,8 @@ async function main() {
   const { sessionToken } = await (await fetch(`${API_BASE}/api/demo/session`, { method: 'POST' })).json();
   const auth = { Authorization: `Bearer ${sessionToken}`, 'Content-Type': 'application/json' };
 
-  // 2. Test ALL 6 connectors live via HTTP (including real upstream AssemblyAI!)
-  for (const pid of ['googleWorkspace', 'notion', 'claude', 'openrouter', 'chatgpt', 'assemblyai']) {
+  // 2. Test ALL 7 connectors live via HTTP (including real upstream AssemblyAI & Telegram!)
+  for (const pid of ['googleWorkspace', 'notion', 'telegram', 'claude', 'openrouter', 'chatgpt', 'assemblyai']) {
     const r = await fetch(`${API_BASE}/api/connectors/${pid}/test`, { method: 'POST', headers: auth });
     const j = await r.json();
     report.connectors[pid] = { status: r.status, ok: j.ok, mode: j.mode, latencyMs: j.latencyMs, detail: j.detail };

@@ -281,36 +281,50 @@ export function G2Model({
     return applyFaceWrap(extrude, 0.078);
   }, []);
 
-  // Convex glass lenses + outer specular AR shell matching exact rim contours
-  const { leftLensGeom, rightLensGeom, leftShellGeom, rightShellGeom, leftHudGeom, rightHudGeom } =
-    useMemo(() => {
-      const makeLens = (cx: number, convex: number, zOff: number, shrink = 0) => {
-        const s = new THREE.Shape(createLensContour(cx, shrink).getPoints(44));
-        const g = new THREE.ShapeGeometry(s, 36);
-        applyFaceWrap(g, 0.082, convex, cx);
-        g.translate(0, 0, zOff);
-        return g;
-      };
+  // Convex glass lenses + outer specular AR shell + Front & un-mirrored Back (Wearer POV) HUD geometries
+  const {
+    leftLensGeom,
+    rightLensGeom,
+    leftShellGeom,
+    rightShellGeom,
+    leftHudFrontGeom,
+    rightHudFrontGeom,
+    leftHudBackGeom,
+    rightHudBackGeom,
+  } = useMemo(() => {
+    const makeLens = (cx: number, convex: number, zOff: number, shrink = 0) => {
+      const s = new THREE.Shape(createLensContour(cx, shrink).getPoints(44));
+      const g = new THREE.ShapeGeometry(s, 36);
+      applyFaceWrap(g, 0.082, convex, cx);
+      g.translate(0, 0, zOff);
+      return g;
+    };
 
-      const hudW = 0.72;
-      const hudH = 0.38;
-      const lHud = new THREE.PlaneGeometry(hudW, hudH, 16, 8);
-      lHud.translate(-0.78, 0, 0.026);
-      applyFaceWrap(lHud, 0.082);
+    const hudW = 0.72;
+    const hudH = 0.36;
 
-      const rHud = new THREE.PlaneGeometry(hudW, hudH, 16, 8);
-      rHud.translate(0.78, 0, 0.026);
-      applyFaceWrap(rHud, 0.082);
+    const mkHud = (centerX: number, zOff: number, backFacing: boolean) => {
+      const g = new THREE.PlaneGeometry(hudW, hudH, 16, 8);
+      if (backFacing) {
+        // Flip normal (+Z -> -Z) around center so UV reads left-to-right from Wearer POV (-Z)
+        g.rotateY(Math.PI);
+      }
+      g.translate(centerX, 0, zOff);
+      return applyFaceWrap(g, 0.082);
+    };
 
-      return {
-        leftLensGeom: makeLens(-0.78, 0.024, -0.004, -0.008),
-        rightLensGeom: makeLens(0.78, 0.024, -0.004, -0.008),
-        leftShellGeom: makeLens(-0.78, 0.028, 0.036, 0.004),
-        rightShellGeom: makeLens(0.78, 0.028, 0.036, 0.004),
-        leftHudGeom: lHud,
-        rightHudGeom: rHud,
-      };
-    }, []);
+    return {
+      leftLensGeom: makeLens(-0.78, 0.024, -0.004, -0.008),
+      rightLensGeom: makeLens(0.78, 0.024, -0.004, -0.008),
+      leftShellGeom: makeLens(-0.78, 0.028, 0.036, 0.004),
+      rightShellGeom: makeLens(0.78, 0.028, 0.036, 0.004),
+      leftHudFrontGeom: mkHud(-0.78, 0.024, false),
+      rightHudFrontGeom: mkHud(0.78, 0.024, false),
+      // From wearer POV (-Z facing +Z), wearer's Left Eye sits at +X and Right Eye sits at -X
+      leftHudBackGeom: mkHud(0.78, -0.024, true),
+      rightHudBackGeom: mkHud(-0.78, -0.024, true),
+    };
+  }, []);
 
   const leftTempleGeom = useMemo(() => buildSculptedTempleGeometry(-1), []);
   const rightTempleGeom = useMemo(() => buildSculptedTempleGeometry(1), []);
@@ -351,8 +365,10 @@ export function G2Model({
       rightLensGeom.dispose();
       leftShellGeom.dispose();
       rightShellGeom.dispose();
-      leftHudGeom.dispose();
-      rightHudGeom.dispose();
+      leftHudFrontGeom.dispose();
+      rightHudFrontGeom.dispose();
+      leftHudBackGeom.dispose();
+      rightHudBackGeom.dispose();
       leftTempleGeom.dispose();
       rightTempleGeom.dispose();
       frameDotGeom.dispose();
@@ -372,8 +388,10 @@ export function G2Model({
     rightLensGeom,
     leftShellGeom,
     rightShellGeom,
-    leftHudGeom,
-    rightHudGeom,
+    leftHudFrontGeom,
+    rightHudFrontGeom,
+    leftHudBackGeom,
+    rightHudBackGeom,
     leftTempleGeom,
     rightTempleGeom,
     frameDotGeom,
@@ -384,11 +402,11 @@ export function G2Model({
 
   // Redraw Left Lens when telemetry state changes
   useEffect(() => {
-    drawLeftLensHudCanvas(leftHudCanvas, { phase, headerLine, primaryLine });
+    drawLeftLensHudCanvas(leftHudCanvas, { phase, headerLine, primaryLine, timeSec: 0 });
     leftHudTex.needsUpdate = true;
   }, [leftHudCanvas, leftHudTex, phase, headerLine, primaryLine]);
 
-  // Keep Right Lens dynamic at low overhead (12 Hz or state changes) for countdown/voice animation
+  // Keep BOTH Left & Right Lens textures dynamically animated like live optics (~14 Hz)
   const lastDrawRef = useRef(-1);
   useFrame((state, delta) => {
     if (frameGroupRef.current && lensGroupRef.current && hudGroupRef.current && templesGroupRef.current) {
@@ -412,8 +430,15 @@ export function G2Model({
     if (solidLeftTempleMatRef.current) solidLeftTempleMatRef.current.opacity = THREE.MathUtils.lerp(0.28, 1, smoothReveal);
     if (solidRightTempleMatRef.current) solidRightTempleMatRef.current.opacity = THREE.MathUtils.lerp(0.28, 1, smoothReveal);
 
-    if (lastDrawRef.current < 0 || (!reducedMotion && now - lastDrawRef.current > 0.08)) {
+    if (lastDrawRef.current < 0 || (!reducedMotion && now - lastDrawRef.current > 0.07)) {
       lastDrawRef.current = now;
+      drawLeftLensHudCanvas(leftHudCanvas, {
+        phase,
+        headerLine,
+        primaryLine,
+        timeSec: now,
+      });
+      leftHudTex.needsUpdate = true;
       drawRightLensHudCanvas(rightHudCanvas, {
         phase,
         orbState,
@@ -513,81 +538,77 @@ export function G2Model({
       >
         <mesh geometry={leftLensGeom}>
           <meshPhysicalMaterial
-            color="#0b110f"
-            transmission={0.92}
-            opacity={1}
+            color="#e8fff3"
+            opacity={0.045}
             transparent
-            ior={1.52}
-            thickness={0.35}
-            roughness={0.04}
-            metalness={0}
-            reflectivity={0.95}
+            roughness={0.02}
+            metalness={0.02}
+            reflectivity={0.9}
             clearcoat={1}
-            clearcoatRoughness={0.03}
-            iridescence={0.45}
+            clearcoatRoughness={0.02}
+            iridescence={0.48}
             iridescenceIOR={1.38}
             iridescenceThicknessRange={[180, 420]}
-            envMapIntensity={1.55}
+            depthWrite={false}
+            envMapIntensity={1.25}
             side={THREE.DoubleSide}
           />
         </mesh>
         <mesh geometry={rightLensGeom}>
           <meshPhysicalMaterial
-            color="#0b110f"
-            transmission={0.92}
-            opacity={1}
+            color="#e8fff3"
+            opacity={0.045}
             transparent
-            ior={1.52}
-            thickness={0.35}
-            roughness={0.04}
-            metalness={0}
-            reflectivity={0.95}
+            roughness={0.02}
+            metalness={0.02}
+            reflectivity={0.9}
             clearcoat={1}
-            clearcoatRoughness={0.03}
-            iridescence={0.45}
+            clearcoatRoughness={0.02}
+            iridescence={0.48}
             iridescenceIOR={1.38}
             iridescenceThicknessRange={[180, 420]}
-            envMapIntensity={1.55}
+            depthWrite={false}
+            envMapIntensity={1.25}
             side={THREE.DoubleSide}
           />
         </mesh>
 
-        {/* Outer thin specular AR coating glaze so softbox highlights sweep over the HUD */}
+        {/* Outer crystal AR sheen glaze */}
         <mesh geometry={leftShellGeom}>
           <meshPhysicalMaterial
             color="#ffffff"
             transparent
-            opacity={0.11}
+            opacity={0.03}
             roughness={0.02}
-            metalness={0.05}
+            metalness={0.02}
             clearcoat={1}
             clearcoatRoughness={0.02}
-            iridescence={0.62}
+            iridescence={0.42}
             iridescenceIOR={1.38}
             iridescenceThicknessRange={[200, 430]}
             depthWrite={false}
-            envMapIntensity={1.9}
+            envMapIntensity={1.35}
           />
         </mesh>
         <mesh geometry={rightShellGeom}>
           <meshPhysicalMaterial
             color="#ffffff"
             transparent
-            opacity={0.11}
+            opacity={0.03}
             roughness={0.02}
-            metalness={0.05}
+            metalness={0.02}
             clearcoat={1}
             clearcoatRoughness={0.02}
-            iridescence={0.62}
+            iridescence={0.42}
             iridescenceIOR={1.38}
             iridescenceThicknessRange={[200, 430]}
             depthWrite={false}
-            envMapIntensity={1.9}
+            envMapIntensity={1.35}
           />
         </mesh>
       </group>
 
-      {/* Layer 3: Recessed 525nm Phosphor Waveguide Grating & Live HUD Projections */}
+      {/* Layer 3: Dual-Sided Crystal Waveguide Grating & Un-Mirrored Front + Back HUD Projections */}
       <group
         ref={hudGroupRef}
         onClick={(e) => {
@@ -595,45 +616,91 @@ export function G2Model({
           onLensClick?.();
         }}
       >
-        <mesh geometry={leftHudGeom}>
+        {/* Front (+Z) Optical Grating & HUD */}
+        <mesh geometry={leftHudFrontGeom}>
           <meshBasicMaterial
             map={gratingTex}
             transparent
-            opacity={0.5}
+            opacity={0.42}
             blending={THREE.AdditiveBlending}
             depthWrite={false}
             toneMapped={false}
+            side={THREE.FrontSide}
           />
         </mesh>
-        <mesh geometry={rightHudGeom}>
+        <mesh geometry={rightHudFrontGeom}>
           <meshBasicMaterial
             map={gratingTex}
             transparent
-            opacity={0.5}
+            opacity={0.42}
             blending={THREE.AdditiveBlending}
             depthWrite={false}
             toneMapped={false}
+            side={THREE.FrontSide}
           />
         </mesh>
-
-        <mesh geometry={leftHudGeom} position={[0, 0, 0.004]}>
+        <mesh geometry={leftHudFrontGeom} position={[0, 0, 0.004]}>
           <meshBasicMaterial
             map={leftHudTex}
             transparent
             blending={THREE.AdditiveBlending}
             depthWrite={false}
             toneMapped={false}
-            side={THREE.DoubleSide}
+            side={THREE.FrontSide}
           />
         </mesh>
-        <mesh geometry={rightHudGeom} position={[0, 0, 0.004]}>
+        <mesh geometry={rightHudFrontGeom} position={[0, 0, 0.004]}>
           <meshBasicMaterial
             map={rightHudTex}
             transparent
             blending={THREE.AdditiveBlending}
             depthWrite={false}
             toneMapped={false}
-            side={THREE.DoubleSide}
+            side={THREE.FrontSide}
+          />
+        </mesh>
+
+        {/* Back (-Z Wearer POV) Crisp Un-Mirrored Waveguide Optics */}
+        <mesh geometry={leftHudBackGeom}>
+          <meshBasicMaterial
+            map={gratingTex}
+            transparent
+            opacity={0.46}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+            side={THREE.FrontSide}
+          />
+        </mesh>
+        <mesh geometry={rightHudBackGeom}>
+          <meshBasicMaterial
+            map={gratingTex}
+            transparent
+            opacity={0.46}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+            side={THREE.FrontSide}
+          />
+        </mesh>
+        <mesh geometry={leftHudBackGeom} position={[0, 0, -0.004]}>
+          <meshBasicMaterial
+            map={leftHudTex}
+            transparent
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+            side={THREE.FrontSide}
+          />
+        </mesh>
+        <mesh geometry={rightHudBackGeom} position={[0, 0, -0.004]}>
+          <meshBasicMaterial
+            map={rightHudTex}
+            transparent
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+            side={THREE.FrontSide}
           />
         </mesh>
       </group>

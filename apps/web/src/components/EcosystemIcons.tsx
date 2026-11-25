@@ -197,6 +197,24 @@ export function OpenRouterPixelSvg({ className = 'w-4 h-4', theme = 'dark' }: Ec
   );
 }
 
+/** 16x16 pixel-art Telegram paper-plane glyph. */
+export function TelegramPixelSvg({ className = 'w-4 h-4', theme = 'dark' }: EcosystemIconProps) {
+  const sky = theme === 'light' ? '#0a0a0a' : '#26A5E4';
+  const wing = theme === 'light' ? '#525252' : '#f2f2f2';
+
+  return (
+    <svg viewBox="0 0 16 16" shapeRendering="crispEdges" className={`shrink-0 ${className}`} aria-hidden="true">
+      <rect x="11" y="2" width="3" height="2" fill={sky} />
+      <rect x="7" y="4" width="7" height="2" fill={sky} />
+      <rect x="2" y="6" width="11" height="2" fill={sky} />
+      <rect x="5" y="8" width="7" height="2" fill={wing} />
+      <rect x="7" y="10" width="4" height="2" fill={sky} />
+      <rect x="6" y="11" width="2" height="2" fill={wing} />
+      <rect x="9" y="12" width="2" height="2" fill={sky} />
+    </svg>
+  );
+}
+
 /** 16x16 pixel-art AssemblyAI waveform mark. */
 export function AssemblyAiPixelSvg({ className = 'w-4 h-4', theme = 'dark' }: EcosystemIconProps) {
   const primary = theme === 'light' ? '#0a0a0a' : '#daff52';
@@ -311,6 +329,7 @@ export function EcosystemStrip() {
     { label: 'Calendar', tint: '#4285F4', icon: <CalendarPixelSvg className="w-4 h-4" /> },
     { label: 'Gmail', tint: '#EA4335', icon: <GmailPixelSvg className="w-4 h-4" /> },
     { label: 'Drive', tint: '#FBBC05', icon: <DrivePixelSvg className="w-4 h-4" /> },
+    { label: 'Telegram', tint: '#26A5E4', icon: <TelegramPixelSvg className="w-4 h-4" /> },
     { label: 'Notion', tint: '#f2f2f2', icon: <NotionPixelSvg className="w-4 h-4" /> },
     { label: 'Claude', tint: '#D97757', icon: <ClaudePixelSvg className="w-4 h-4" /> },
     { label: 'ChatGPT', tint: '#10A37F', icon: <ChatGptPixelSvg className="w-4 h-4" /> },

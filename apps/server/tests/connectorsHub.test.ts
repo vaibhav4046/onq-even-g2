@@ -47,6 +47,7 @@ describe('Connector Hub & Multi-Model Inference Harness', () => {
     expect(Object.keys(json.connectors)).toEqual([
       'googleWorkspace',
       'notion',
+      'telegram',
       'claude',
       'openrouter',
       'chatgpt',

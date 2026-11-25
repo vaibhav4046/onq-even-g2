@@ -198,7 +198,8 @@ function drawScanlines(ctx: CanvasRenderingContext2D, w: number, h: number) {
 }
 
 /**
- * Renders live 525nm monochrome phosphor dossier/action HUD for the Left G2 Waveguide Lens.
+ * Renders live animated 525nm monochrome phosphor dossier/action HUD for the Left G2 Waveguide Lens.
+ * Runs a seamless 12-second waveguide showcase reel while idle (live FSM phases override immediately).
  */
 export function drawLeftLensHudCanvas(
   canvas: HTMLCanvasElement,
@@ -206,6 +207,7 @@ export function drawLeftLensHudCanvas(
     phase: HudPhase;
     headerLine: string;
     primaryLine: string;
+    timeSec?: number;
   },
 ): void {
   const ctx = canvas.getContext('2d');
@@ -214,31 +216,42 @@ export function drawLeftLensHudCanvas(
   const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
 
-  const pal = getPhosphorPalette(opts.phase);
+  const t = opts.timeSec ?? 0;
+  const reelStage = opts.phase === 'idle' && t > 0 ? Math.floor((t % 12) / 3) : -1;
+  const pal = getPhosphorPalette(reelStage === 2 ? 'armed' : opts.phase);
 
-  // Subtle green optical vignette inside lens only (black stays transparent under AdditiveBlending)
-  const grad = ctx.createRadialGradient(w * 0.5, h * 0.5, 12, w * 0.5, h * 0.5, w * 0.48);
-  grad.addColorStop(0, opts.phase === 'conflict' ? 'rgba(65, 36, 4, 0.36)' : 'rgba(6, 44, 22, 0.42)');
+  // Feather-light waveguide shimmer keeping optical glass crystal clear see-through
+  const grad = ctx.createRadialGradient(w * 0.5, h * 0.5, 10, w * 0.5, h * 0.5, w * 0.46);
+  grad.addColorStop(0, opts.phase === 'conflict' ? 'rgba(65, 36, 4, 0.16)' : 'rgba(10, 62, 30, 0.14)');
   grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
   ctx.save();
   ctx.shadowColor = pal.glow;
-  ctx.shadowBlur = 14;
+  ctx.shadowBlur = 12;
 
-  // Header status line
+  const headerText =
+    reelStage === 0
+      ? 'LIVE · CORRIDOR (12M)'
+      : reelStage === 1
+        ? 'STT-3.7 · 16KHZ STREAM'
+        : reelStage === 2
+          ? 'DEFAULT-NO · ARMED 2.0S'
+          : reelStage === 3
+            ? 'RECEIPT · 409 SHIELD OK'
+            : opts.headerLine.slice(0, 24).toUpperCase();
+
   ctx.fillStyle = pal.secondary;
-  ctx.font = '700 24px "JetBrains Mono", Consolas, monospace';
-  ctx.fillText(opts.headerLine.slice(0, 26).toUpperCase(), 38, 72);
+  ctx.font = '700 22px "JetBrains Mono", Consolas, monospace';
+  ctx.fillText(headerText, 38, 68);
 
   // Dotted waveguide divider rule
   ctx.fillStyle = pal.primary;
   for (let x = 38; x < w - 38; x += 12) {
-    ctx.fillRect(x, 89, 6, 2);
+    ctx.fillRect(x, 86, 6, 2);
   }
 
-  // Primary card / phase headline
   const headline =
     opts.phase === 'conflict'
       ? '!! LOCKED (409) BUSY'
@@ -248,29 +261,53 @@ export function drawLeftLensHudCanvas(
           ? 'WRAP-UP DEFAULT: NO'
           : opts.phase === 'done'
             ? 'COMMITTED · RECEIPT OK'
-            : opts.primaryLine;
+            : reelStage === 1
+              ? '"Shift +15m & reply"'
+              : reelStage === 2
+                ? '> [YES] SWEEPING 2.0S'
+                : reelStage === 3
+                  ? 'GCAL +15M · TG+MAIL OK'
+                  : opts.primaryLine;
 
   ctx.fillStyle = pal.primary;
-  ctx.font = '700 30px "JetBrains Mono", Consolas, monospace';
-  ctx.fillText(headline.slice(0, 22), 38, 144);
+  ctx.font = '700 28px "JetBrains Mono", Consolas, monospace';
+  ctx.fillText(headline.slice(0, 23), 38, 138);
 
-  // Contextual sub-line synced to phase
   const sub =
     opts.phase === 'armed'
-      ? 'HOLD/TAP R1 -> ABORT WRITES'
+      ? 'TAP R1 -> ABORT WRITES'
       : opts.phase === 'listening'
         ? 'STT-3.7 16KHZ STREAMING'
         : opts.phase === 'meeting_live'
           ? '2 SPEAKERS · ASK "ONQ"'
           : opts.phase === 'conflict'
-            ? '0 EDITS · NEXT FREE 15:45'
+            ? '0 EDITS · FREE 15:45'
             : opts.phase === 'stale'
-              ? 'STALE CACHE · OFFLINE SAFE'
-              : '42-COL · <=999B · G2';
+              ? 'STALE CACHE · OFFLINE'
+              : reelStage === 0
+                ? 'CAL · MAIL · TG VERIFIED'
+                : reelStage === 1
+                  ? 'NO HALLUCINATIONS · GUARD'
+                  : reelStage === 2
+                    ? 'ANY TAP = 0 WRITES SENT'
+                    : reelStage === 3
+                      ? '24/7 HARNESS WATCHING'
+                      : '42-COL · <=999B · G2';
 
   ctx.fillStyle = pal.secondary;
-  ctx.font = '700 22px "JetBrains Mono", Consolas, monospace';
-  ctx.fillText(sub, 38, 196);
+  ctx.font = '700 20px "JetBrains Mono", Consolas, monospace';
+  ctx.fillText(sub, 38, 186);
+
+  // Subtle animated signal / audio bars along bottom of lens
+  const bars = 12;
+  for (let i = 0; i < bars; i++) {
+    const wave = 0.28 + 0.72 * Math.abs(Math.sin(t * (reelStage === 1 ? 7.5 : 2.6) + i * 0.55));
+    const bh = Math.round((reelStage === 1 ? 22 : 10) * wave);
+    ctx.fillStyle = i % 3 === 0 ? pal.secondary : pal.primary;
+    ctx.globalAlpha = 0.55 + 0.35 * wave;
+    ctx.fillRect(38 + i * 16, 224 - bh, 10, bh);
+  }
+  ctx.globalAlpha = 1;
   ctx.restore();
 
   drawScanlines(ctx, w, h);
@@ -301,8 +338,8 @@ export function drawRightLensHudCanvas(
   const cx = w * 0.5;
   const cy = h * 0.43;
 
-  const grad = ctx.createRadialGradient(cx, cy, 8, cx, cy, w * 0.46);
-  grad.addColorStop(0, opts.phase === 'conflict' ? 'rgba(65, 36, 4, 0.36)' : 'rgba(6, 48, 24, 0.42)');
+  const grad = ctx.createRadialGradient(cx, cy, 8, cx, cy, w * 0.44);
+  grad.addColorStop(0, opts.phase === 'conflict' ? 'rgba(65, 36, 4, 0.16)' : 'rgba(10, 62, 30, 0.14)');
   grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
@@ -311,22 +348,29 @@ export function drawRightLensHudCanvas(
   ctx.shadowColor = pal.glow;
   ctx.shadowBlur = 12;
 
+  const idleReelStage = opts.phase === 'idle' && opts.timeSec > 0 ? Math.floor((opts.timeSec % 12) / 3) : -1;
   const orbMode: VoiceOrbState =
-    opts.orbState ??
-    (opts.phase === 'conflict' || opts.phase === 'error'
-      ? 'conflict'
-      : opts.phase === 'armed'
-        ? 'armed'
-        : opts.phase === 'listening' || opts.phase === 'meeting_live'
-          ? 'listening'
-          : 'idle');
+    opts.orbState && opts.orbState !== 'idle'
+      ? opts.orbState
+      : idleReelStage === 1
+        ? 'listening'
+        : idleReelStage === 2
+          ? 'armed'
+          : (opts.orbState ??
+            (opts.phase === 'conflict' || opts.phase === 'error'
+              ? 'conflict'
+              : opts.phase === 'armed'
+                ? 'armed'
+                : opts.phase === 'listening' || opts.phase === 'meeting_live'
+                  ? 'listening'
+                  : 'idle'));
 
   // 1. Stepped Bayer 4x4 circular pixel Voice Orb matrix inside the right lens
   const grid = 11;
   const pitch = 9;
   const cell = 7;
   const half = (grid - 1) / 2;
-  const amp = Math.min(1, Math.max(0, opts.rmsLevel * 6.5));
+  const amp = Math.max(idleReelStage === 1 ? 0.62 : 0, Math.min(1, Math.max(0, opts.rmsLevel * 6.5)));
   const breathe = 0.5 + 0.5 * Math.sin(opts.timeSec * (orbMode === 'speaking' ? 7 : 2.1));
 
   for (let gy = 0; gy < grid; gy++) {
@@ -372,14 +416,17 @@ export function drawRightLensHudCanvas(
   // 2. Concentric 24-segment phosphor reticle / 2.0s Undo Countdown Ring around orb
   const segments = 24;
   const radius = 64;
+  const reelRingProg = idleReelStage === 2 ? ((opts.timeSec % 3) / 3) : 0;
   const activeProg =
     opts.phase === 'armed'
       ? Math.max(0.08, Math.min(1, opts.ringProgress))
-      : opts.phase === 'done'
-        ? 1
-        : orbMode === 'thinking'
-          ? 0.5
-          : 0.75;
+      : idleReelStage === 2
+        ? Math.max(0.1, reelRingProg)
+        : opts.phase === 'done' || idleReelStage === 3
+          ? 1
+          : orbMode === 'thinking'
+            ? 0.5
+            : 0.78;
   const litCount = Math.round(segments * activeProg);
   const spinOffset = orbMode === 'thinking' ? Math.floor(opts.timeSec * 8) : 0;
 
@@ -392,27 +439,31 @@ export function drawRightLensHudCanvas(
     ctx.fillRect(Math.round(px), Math.round(py), 6, 6);
   }
 
-  // 3. Inside-lens status caption ("OnQ" wake prompt / active spoken word / countdown)
+  // 3. Crisp centered caption inside lens margins (zero clipping)
   ctx.fillStyle = pal.secondary;
-  ctx.font = '700 20px "JetBrains Mono", Consolas, monospace';
+  ctx.font = '700 18px "JetBrains Mono", Consolas, monospace';
   ctx.textAlign = 'center';
   const caption =
     orbMode === 'speaking' && opts.activeWord
-      ? `TTS-1: "${opts.activeWord.toUpperCase()}"`
+      ? `TTS: "${opts.activeWord.toUpperCase()}"`
       : orbMode === 'speaking'
-        ? 'TTS-1 · EARBUDS OUT'
-        : orbMode === 'armed'
-          ? `ARMED ${((1 - activeProg) * 2).toFixed(1)}S · TAP CANCEL`
-          : orbMode === 'listening'
-            ? opts.phase === 'meeting_live'
-              ? 'STT-3.7 · DIARIZING'
-              : 'LISTENING · 16KHZ'
-            : orbMode === 'thinking'
-              ? 'ONQ THINKING...'
-              : orbMode === 'conflict'
-                ? 'HTTP 409 · LOCKED'
-                : 'SAY "ONQ, ..." · CLICK LENS';
-  ctx.fillText(caption.slice(0, 26), cx, 224);
+        ? 'TTS-1 · EARBUDS'
+        : opts.phase === 'armed'
+          ? `ARMED ${((1 - activeProg) * 2).toFixed(1)}S · CANCEL`
+          : idleReelStage === 2
+            ? `ARMED ${((1 - activeProg) * 2).toFixed(1)}S · RING`
+            : orbMode === 'listening'
+              ? opts.phase === 'meeting_live'
+                ? 'STT-3.7 DIARIZING'
+                : 'STT-3.7 · 16KHZ'
+              : orbMode === 'thinking'
+                ? 'ONQ THINKING...'
+                : orbMode === 'conflict'
+                  ? 'HTTP 409 · LOCKED'
+                  : idleReelStage === 3
+                    ? 'COMMITTED · OK'
+                    : 'SAY "ONQ, ..."';
+  ctx.fillText(caption.slice(0, 20), cx, 224);
 
   ctx.restore();
   drawScanlines(ctx, w, h);

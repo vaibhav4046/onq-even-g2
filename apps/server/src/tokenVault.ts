@@ -11,6 +11,8 @@ export interface StoredCredentials {
   googleClientSecret?: string;
   notionToken?: string;
   notionDatabaseId?: string;
+  telegramBotToken?: string;
+  telegramChatId?: string;
   preferredLlm?: 'auto' | 'claude' | 'openrouter' | 'chatgpt' | 'rules';
   anthropicKey?: string;
   openRouterKey?: string;
@@ -52,6 +54,7 @@ export class EncryptedTokenVault {
     if (creds.googleAccessToken) registerSecretForRedaction(creds.googleAccessToken);
     if (creds.googleClientSecret) registerSecretForRedaction(creds.googleClientSecret);
     if (creds.notionToken) registerSecretForRedaction(creds.notionToken);
+    if (creds.telegramBotToken) registerSecretForRedaction(creds.telegramBotToken);
     if (creds.anthropicKey) registerSecretForRedaction(creds.anthropicKey);
     if (creds.openRouterKey) registerSecretForRedaction(creds.openRouterKey);
     if (creds.openAiKey) registerSecretForRedaction(creds.openAiKey);
@@ -98,6 +101,7 @@ export class EncryptedTokenVault {
       const parsed = JSON.parse(plain) as StoredCredentials;
       if (parsed.googleRefreshToken) registerSecretForRedaction(parsed.googleRefreshToken);
       if (parsed.notionToken) registerSecretForRedaction(parsed.notionToken);
+      if (parsed.telegramBotToken) registerSecretForRedaction(parsed.telegramBotToken);
       if (parsed.anthropicKey) registerSecretForRedaction(parsed.anthropicKey);
       if (parsed.openRouterKey) registerSecretForRedaction(parsed.openRouterKey);
       if (parsed.openAiKey) registerSecretForRedaction(parsed.openAiKey);

@@ -12,7 +12,7 @@ import { OnQVoiceOrb } from './OnQVoiceOrb';
 import { R1RingModel } from './R1RingModel';
 import { createRadialFloorGlowTexture } from './hardwareTextures';
 
-export type HardwareViewMode = 'optics' | 'exploded' | 'ring' | 'lens';
+export type HardwareViewMode = 'optics' | 'back' | 'exploded' | 'ring' | 'lens';
 
 interface G2Hardware3DProps {
   hudState?: HudState;
@@ -104,6 +104,7 @@ function OpticalSvgFallback({
 interface StudioSceneProps {
   mode: HardwareViewMode;
   autoTour: boolean;
+  resetSeq: number;
   zoomProgressRef: React.MutableRefObject<number>;
   onAutoLensPhase: (inside: boolean) => void;
   phase: HudState['phase'];
@@ -124,6 +125,7 @@ interface StudioSceneProps {
 function StudioScene({
   mode,
   autoTour,
+  resetSeq,
   onAutoLensPhase,
   phase,
   orbState,
@@ -151,8 +153,9 @@ function StudioScene({
   useEffect(() => () => floorGlowTex.dispose(), [floorGlowTex]);
 
   useEffect(() => {
-    transitionTimerRef.current = 1.25;
-  }, [mode]);
+    transitionTimerRef.current = 2.6;
+    userInteractingRef.current = false;
+  }, [mode, autoTour, resetSeq]);
 
   useFrame((state, delta) => {
     const dt = Math.min(0.05, delta);
@@ -163,9 +166,9 @@ function StudioScene({
     if (autoTour && !reducedMotion && mode === 'optics' && !userInteractingRef.current) {
       tourClockRef.current = (tourClockRef.current + dt) % 10.6;
       const t = tourClockRef.current;
-      zoomInside = t >= 3.6 && t <= 8.8;
-      cameraAutoZooming = t >= 2.3 && t <= 9.6;
-    } else if (mode !== 'optics') {
+      zoomInside = t >= 4.0 && t <= 8.8;
+      cameraAutoZooming = t >= 2.8 && t <= 10.4;
+    } else if (mode !== 'optics' || !autoTour) {
       tourClockRef.current = 0;
     }
 
@@ -177,28 +180,55 @@ function StudioScene({
     const effectiveLensZoom = mode === 'lens' || (cameraAutoZooming && tourClockRef.current < 8.8);
     const targetPos = effectiveLensZoom
       ? new THREE.Vector3(0.0, 0.03, 1.38)
-      : mode === 'ring'
-        ? new THREE.Vector3(0.88, 0.44, 2.24)
-        : mode === 'exploded'
-          ? new THREE.Vector3(3.1, 0.72, 4.1)
-          : new THREE.Vector3(0.68, 0.28, 4.58);
+      : mode === 'back'
+        ? new THREE.Vector3(0.0, 0.24, -4.95)
+        : mode === 'ring'
+          ? new THREE.Vector3(0.88, 0.44, 2.24)
+          : mode === 'exploded'
+            ? new THREE.Vector3(3.25, 0.76, 4.35)
+            : new THREE.Vector3(0.55, 0.24, 5.05);
 
     const targetLook = effectiveLensZoom
       ? new THREE.Vector3(0.0, 0.01, -0.05)
-      : mode === 'ring'
-        ? new THREE.Vector3(0, -0.1, 0)
-        : mode === 'exploded'
-          ? new THREE.Vector3(0.04, -0.04, 0.12)
-          : new THREE.Vector3(0.04, -0.06, -0.35);
+      : mode === 'back'
+        ? new THREE.Vector3(0.0, -0.02, -0.25)
+        : mode === 'ring'
+          ? new THREE.Vector3(0, -0.1, 0)
+          : mode === 'exploded'
+            ? new THREE.Vector3(0.04, -0.04, 0.12)
+            : new THREE.Vector3(0.04, -0.06, -0.35);
 
     if ((transitionTimerRef.current > 0 || cameraAutoZooming) && !userInteractingRef.current) {
       if (transitionTimerRef.current > 0) {
         transitionTimerRef.current = Math.max(0, transitionTimerRef.current - dt);
       }
-      const dampRate = effectiveLensZoom ? 3.2 : 4.5;
-      camera.position.lerp(targetPos, 1 - Math.exp(-dampRate * dt));
+      const dampRate = effectiveLensZoom ? 3.2 : 6.2;
+      const alpha = 1 - Math.exp(-dampRate * dt);
       if (controlsRef.current) {
-        controlsRef.current.target.lerp(targetLook, 1 - Math.exp(-dampRate * dt));
+        controlsRef.current.target.lerp(targetLook, alpha);
+      }
+      // Swing azimuthally around target whenever azimuth differs > 0.08 rad so Front <-> Back completes full 180° arc cleanly
+      const pivot = controlsRef.current ? controlsRef.current.target : targetLook;
+      const curRel = camera.position.clone().sub(pivot);
+      const dstRel = targetPos.clone().sub(pivot);
+      const curAz = Math.atan2(curRel.x, curRel.z);
+      const dstAz = Math.atan2(dstRel.x, dstRel.z);
+      let dAz = dstAz - curAz;
+      while (dAz > Math.PI) dAz -= Math.PI * 2;
+      while (dAz < -Math.PI) dAz += Math.PI * 2;
+      if (Math.abs(dAz) > 0.08) {
+        const nextAz = curAz + dAz * alpha;
+        const nextRad = THREE.MathUtils.lerp(Math.hypot(curRel.x, curRel.z), Math.hypot(dstRel.x, dstRel.z), alpha);
+        const nextY = THREE.MathUtils.lerp(curRel.y, dstRel.y, alpha);
+        camera.position.set(
+          pivot.x + Math.sin(nextAz) * nextRad,
+          pivot.y + nextY,
+          pivot.z + Math.cos(nextAz) * nextRad,
+        );
+      } else {
+        camera.position.lerp(targetPos, alpha);
+      }
+      if (controlsRef.current) {
         controlsRef.current.update();
       }
     }
@@ -368,6 +398,7 @@ export function G2Hardware3D({
 }: G2Hardware3DProps) {
   const [mode, setMode] = useState<HardwareViewMode>(defaultMode);
   const [autoTour, setAutoTour] = useState(true);
+  const [resetSeq, setResetSeq] = useState(0);
   const [lensOverlayOpen, setLensOverlayOpen] = useState(false);
   const [inView, setInView] = useState(true);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -432,7 +463,7 @@ export function G2Hardware3D({
               shadows
               dpr={[1, 1.5]}
               camera={{
-                position: mode === 'ring' ? [0.88, 0.44, 2.24] : [0.68, 0.28, 4.58],
+                position: mode === 'ring' ? [0.88, 0.44, 2.24] : [0.55, 0.24, 5.05],
                 fov: 32,
                 near: 0.1,
                 far: 40,
@@ -451,6 +482,7 @@ export function G2Hardware3D({
               <StudioScene
                 mode={mode}
                 autoTour={autoTour}
+                resetSeq={resetSeq}
                 zoomProgressRef={zoomProgressRef}
                 onAutoLensPhase={(inside) => setLensOverlayOpen(inside)}
                 phase={phase}
@@ -593,6 +625,7 @@ export function G2Hardware3D({
             {(
               [
                 ['optics', '3D Optics'],
+                ['back', 'Wearer POV'],
                 ['exploded', 'Exploded'],
                 ['ring', 'R1 Ring'],
                 ['lens', 'Inside Lens'],
@@ -605,6 +638,7 @@ export function G2Hardware3D({
                   type="button"
                   onClick={() => {
                     setAutoTour(false);
+                    setResetSeq((s) => s + 1);
                     if (key === 'lens') {
                       setMode('lens');
                       setLensOverlayOpen(true);
