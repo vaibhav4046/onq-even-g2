@@ -1,7 +1,7 @@
 # OnQ - Final Hackathon & Product Hunt Submission Handoff
 
 **Project Root:** `C:\Users\lalwa\.gemini\antigravity\scratch\oncue-even-g2`
-**Hard Safety Stop Enforced:** All local building, testing (`207/207`), harness benchmarking (`npm run eval:harness`), `.ehpk` packaging, simulator capture, security auditing, 3D WebGL UI overhaul, and launch film rendering (`121.72s <= 2:45`) are complete. External DoraHacks / Product Hunt submission and any paid hosting remain unsubmitted for your manual review and final click.
+**Hard Safety Stop Enforced:** All local building, testing (`213/213`), harness benchmarking (`npm run eval:harness`), `.ehpk` packaging, simulator capture, security auditing, 3D WebGL UI overhaul, and launch film rendering (`121.72s <= 2:45`) are complete. External DoraHacks / Product Hunt submission and any paid hosting remain unsubmitted for your manual review and final click.
 
 ---
 
@@ -33,7 +33,7 @@ OnQ boots cold in labeled `DEMO` sandbox mode with zero env vars. To plug in rea
 
 | Artifact | Path | Observed Verification |
 | :--- | :--- | :--- |
-| **Monorepo Source** | `packages/core`, `apps/server`, `apps/glasses`, `apps/web` | `npm ci && npm test && npm run build` passed cold (**207 / 207 tests** across 14 files) |
+| **Monorepo Source** | `packages/core`, `apps/server`, `apps/glasses`, `apps/web` | `npm ci && npm test && npm run build` passed cold (**213 / 213 tests** across 15 files) |
 | **Orchestration & Safety Eval** | `docs/HARNESS_EVAL.json` (`npm run eval:harness`) | **32/32 intents (100%)**, **5/5 prompt injections blocked**, **3/3 409 locks**, **5/5 RMS silence rejections**, **4-tier failover matrix** |
 | **EvenHub G2 Package** | `dist/onq.ehpk` | Packed via `@evenrealities/evenhub-cli@0.2.0` (`45,096` bytes, SDK `0.0.16`, `min_app_version 2.2.10`, 0 warnings, 0 secrets) |
 | **Official Simulator Captures** | `docs/screenshots/sim-01..07.png` | 7 real 576x288 RGBA captures from `@evenrealities/evenhub-simulator@0.9.5` (including native `ListContainer`) with 0 uncaught/unhandled errors |
@@ -73,7 +73,7 @@ npm run dev
 Open http://127.0.0.1:5173 for the interactive 3D Even G2 hardware stage, 576x288 Browser Optical Simulator, Harness Eval Telemetry, and 1-Click Connectors Hub, or sideload dist/onq.ehpk in Even Hub.
 
 ## Verified, Not Claimed
-- 207 / 207 automated tests passing via npm test (core + PKCE OAuth, HttpOnly cookie, 4-tier failover, WS/AssemblyAI, Postgres, fault-injection tests, 0 keys required)
+- 213 / 213 automated tests passing via npm test (core + PKCE OAuth, HttpOnly cookie, 4-tier failover, 25x concurrency races, WS/AssemblyAI, Postgres, fault-injection tests, 0 keys required)
 - Reproducible Harness Eval (npm run eval:harness -> docs/HARNESS_EVAL.json): 32/32 intents (100%), 5/5 prompt injections blocked, 3/3 HTTP 409 conflict locks, 5/5 RMS silence rejections, 4-tier cascading failover matrix
 - 11 / 11 Chromium 576x288 Geometry Gate passing across all lens states + Check 11 Negative Control
 - 7 real 576x288 captures in @evenrealities/evenhub-simulator@0.9.5 with 0 uncaught/unhandled errors

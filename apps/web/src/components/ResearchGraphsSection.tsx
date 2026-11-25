@@ -13,7 +13,7 @@ import {
  * - Mark, Gudith & Klocke (UC Irvine, CHI 2008, doi:10.1145/1357054.1357072)
  * - Reproducible OnQ Orchestration & Safety Harness (docs/HARNESS_EVAL.json)
  */
-export function ResearchGraphsSection({ testCount = 207 }: { testCount?: number }) {
+export function ResearchGraphsSection({ testCount = 213 }: { testCount?: number }) {
   const wtiBars = [
     { label: 'Lack uninterrupted focus time (WTI 2023)', pct: 68, stat: '68%', accent: '#daff52' },
     { label: 'Meetings in peak focus 9-11am / 1-3pm (WTI 2025)', pct: 50, stat: '50%', accent: '#34F57E' },

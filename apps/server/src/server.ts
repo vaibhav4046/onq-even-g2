@@ -368,7 +368,24 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       if (req.method === 'GET' && pathname === '/api/health') {
         const creds = vault.load();
         const hasLive = Boolean(creds.googleRefreshToken || creds.notionToken || activeIcsFeed);
-        const hasAai = Boolean(process.env.ASSEMBLYAI_API_KEY);
+        const hasAai = Boolean(resolveAssemblyAiKey());
+        const llmCfg = resolveLlmConfig();
+        const llmProvider =
+          llmCfg.preferredProvider === 'rules'
+            ? 'Rules (Deterministic)'
+            : llmCfg.preferredProvider === 'claude' && llmCfg.anthropicKey
+              ? 'Claude'
+              : llmCfg.preferredProvider === 'openrouter' && llmCfg.openRouterKey
+                ? 'OpenRouter'
+                : llmCfg.preferredProvider === 'chatgpt' && llmCfg.openAiKey
+                  ? 'ChatGPT'
+                  : llmCfg.anthropicKey
+                    ? 'Claude'
+                    : llmCfg.openRouterKey
+                      ? 'OpenRouter'
+                      : llmCfg.openAiKey
+                        ? 'ChatGPT'
+                        : 'Rules (Deterministic)';
         jsonResponse(res, 200, {
           ok: true,
           brand: 'OnQ',
@@ -385,13 +402,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
               : 'faster-whisper-local',
           ttsEngine: hasAai ? 'assemblyai-tts-1' : 'demo-timing',
           ttsVoices: listAvailableTtsVoices(),
-          llmProvider: process.env.ANTHROPIC_API_KEY
-            ? 'Claude'
-            : process.env.OPENROUTER_API_KEY
-              ? 'OpenRouter'
-              : process.env.OPENAI_API_KEY
-                ? 'ChatGPT'
-                : 'Rules (Deterministic)',
+          llmProvider,
           storage: process.env.DATABASE_URL ? 'neon-postgres' : 'node:sqlite',
           version: '2.0.0',
         });
@@ -975,7 +986,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           body.attendees && body.attendees.length > 0
             ? body.attendees
             : snap.calendarEvents.map((e) => e.attendeeName ?? '').filter(Boolean);
-        const providerMode = process.env.ASSEMBLYAI_API_KEY ? 'LIVE_ASSEMBLYAI' : 'DEMO_SANDBOX';
+        const providerMode = resolveAssemblyAiKey() ? 'LIVE_ASSEMBLYAI' : 'DEMO_SANDBOX';
         const state = meetingBuffer.start({
           providerMode,
           attendees: attendees.length > 0 ? attendees : ['Priya Nair', 'Alex Chen'],
@@ -1055,6 +1066,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const spoken = await synthesizeTtsUtterance({
           text: `${answerLine}. ${sourceCitation}`,
           voiceId: body.voiceId ?? 'aai-kyla',
+          apiKey: resolveAssemblyAiKey(),
           wsFactory: opts.assemblyAiWsFactory,
         });
 
@@ -1201,6 +1213,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const spoken = await synthesizeTtsUtterance({
           text: body.text.trim(),
           voiceId: body.voiceId ?? 'aai-kyla',
+          apiKey: resolveAssemblyAiKey(),
           wsFactory: opts.assemblyAiWsFactory,
         });
         jsonResponse(res, 200, spoken);
@@ -1818,7 +1831,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     };
 
     const connectSttIfConfigured = async () => {
-      const apiKey = process.env.ASSEMBLYAI_API_KEY;
+      const apiKey = resolveAssemblyAiKey();
       if (!apiKey) return;
       sttSession?.terminate();
       sttSession = new AssemblyAiRealtimeSession({
@@ -1848,7 +1861,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     sendJson({
       type: 'orb_state',
       state: 'idle',
-      engine: process.env.ASSEMBLYAI_API_KEY ? 'LIVE · ASSEMBLYAI' : 'DEMO · SANDBOX',
+      engine: resolveAssemblyAiKey() ? 'LIVE · ASSEMBLYAI' : 'DEMO · SANDBOX',
     });
 
     ws.on('message', async (data: Buffer | ArrayBuffer | Buffer[], isBinary: boolean) => {
@@ -1856,7 +1869,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const buf = Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer);
         const rms = computePcmRms(buf);
         sendJson({ type: 'orb_rms', rms });
-        if (!sttSession && process.env.ASSEMBLYAI_API_KEY) {
+        if (!sttSession && resolveAssemblyAiKey()) {
           await connectSttIfConfigured();
         }
         sttSession?.sendAudioPcm(buf);
@@ -1876,7 +1889,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
             hadMeetingActive = true;
             const snap = resolveProvider(session.mode).getSnapshot();
             meetingBuffer.start({
-              providerMode: process.env.ASSEMBLYAI_API_KEY ? 'LIVE_ASSEMBLYAI' : 'DEMO_SANDBOX',
+              providerMode: resolveAssemblyAiKey() ? 'LIVE_ASSEMBLYAI' : 'DEMO_SANDBOX',
               attendees: snap.calendarEvents.map((e) => e.attendeeName ?? '').filter(Boolean),
             });
           }
@@ -1889,7 +1902,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           sendJson({ type: 'orb_state', state: 'listening' });
         } else if (msg.type === 'speak' && msg.text) {
           sendJson({ type: 'orb_state', state: 'speaking' });
-          const apiKey = process.env.ASSEMBLYAI_API_KEY;
+          const apiKey = resolveAssemblyAiKey();
           if (apiKey) {
             ttsSession?.terminate();
             ttsSession = new AssemblyAiTtsSession({

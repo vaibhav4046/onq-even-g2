@@ -261,14 +261,54 @@ export class LiveWorkspaceProvider implements WorkspaceProvider {
           endIso: e.endIso,
         }));
         if (this.deps.google) {
-          const busy = await this.deps.google.queryFreeBusy(startIso, endIso);
-          if (busy.length > 0) {
-            busySlots = busy.map((b, idx) => ({
-              eventId: `freebusy-${idx}`,
-              title: 'Busy Calendar Event',
-              startIso: b.start,
-              endIso: b.end,
-            }));
+          let listedIds = false;
+          try {
+            const events = await this.deps.google.listUpcomingEvents(startIso, endIso);
+            if (events.length > 0) {
+              listedIds = true;
+              busySlots = events
+                .filter((ev) => ev.start?.dateTime && ev.end?.dateTime)
+                .map((ev) => ({
+                  eventId: ev.id,
+                  title: ev.summary ?? 'Busy Calendar Event',
+                  startIso: ev.start!.dateTime!,
+                  endIso: ev.end!.dateTime!,
+                }));
+            }
+          } catch {
+            // fallback to freeBusy below
+          }
+          try {
+            const busy = await this.deps.google.queryFreeBusy(startIso, endIso);
+            const movingOrigStart = baselineCard?.startIso ? Date.parse(baselineCard.startIso) : NaN;
+            const movingOrigEnd = baselineCard?.endIso ? Date.parse(baselineCard.endIso) : NaN;
+            for (let idx = 0; idx < busy.length; idx++) {
+              const b = busy[idx];
+              const bStart = Date.parse(b.start);
+              const bEnd = Date.parse(b.end);
+              // Ignore moved event's own previous slot when Google FreeBusy echoes it back
+              if (
+                Number.isFinite(movingOrigStart) &&
+                Number.isFinite(movingOrigEnd) &&
+                bStart === movingOrigStart &&
+                bEnd === movingOrigEnd
+              ) {
+                continue;
+              }
+              const coveredByEvent =
+                listedIds &&
+                busySlots.some((s) => Date.parse(s.startIso) === bStart && Date.parse(s.endIso) === bEnd);
+              if (!coveredByEvent) {
+                busySlots.push({
+                  eventId: `freebusy-${idx}`,
+                  title: 'Busy Calendar Event',
+                  startIso: b.start,
+                  endIso: b.end,
+                });
+              }
+            }
+          } catch {
+            // freeBusy check best-effort when upcoming events already fetched
           }
         }
         const movingId = op.op === 'MOVE_EVENT' ? baselineCard?.calendarEventId : undefined;

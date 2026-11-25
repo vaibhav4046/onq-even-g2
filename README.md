@@ -40,7 +40,7 @@ Open `http://127.0.0.1:5173`. Boots immediately in labeled `DEMO` sandbox mode w
 
 | Verification Gate | Exact Command | Observed Result |
 | :--- | :--- | :--- |
-| **Core + Server + Auth + Harness Suite** | `npm test` | **207 tests passing** across 14 files (core, PKCE OAuth, HttpOnly cookie, 4-tier failover, WS/AssemblyAI, Postgres, fault injection) |
+| **Core + Server + Auth + Harness Suite** | `npm test` | **213 tests passing** across 15 files (core, PKCE OAuth, HttpOnly cookie, 4-tier failover, 25x concurrency races, WS/AssemblyAI, Postgres, fault injection) |
 | **Reproducible AI & Safety Harness Eval** | `npm run eval:harness` | **32/32 intents (100%)**, **5/5 prompt injections blocked**, **3/3 409 conflict locks**, **5/5 RMS silence rejections**, **4/4 failover matrix** (`docs/HARNESS_EVAL.json`) |
 | **11-Check 576x288 Geometry Gate + Negative Control** | `npm run verify:geometry` | **11 / 11 passing** across 11 checks (`MEETING_LIVE` & `WRAP_UP` included, `<= 42` cols, `<= 999` UTF-8 bytes, `>= 97.3%` black optical field) + Check 11 Negative Control |
 | **Official EvenHub Simulator 0.9.5 QA** | `npm run verify:sim` | **7 real 576x288 RGBA captures** (including native `ListContainer`, 76x76 4-bit PNG ring, `409` lock) with 0 uncaught errors |

@@ -1088,25 +1088,25 @@ export function App() {
             <OnQLogo showWordmark />
           </a>
 
-          <nav aria-label="Primary navigation" className="hidden md:flex items-center gap-6 text-sm text-[var(--lightgray)]">
-            <a href="#experience" className="hover:text-[var(--bright)] transition-colors">Experience</a>
-            <a href="#use-cases" className="hover:text-[var(--bright)] transition-colors">Use Cases</a>
-            <a href="#research" className="hover:text-[var(--bright)] transition-colors">Research</a>
-            <a href="#safety" className="hover:text-[var(--bright)] transition-colors">Safety</a>
-            <a href="#connectors" className="hover:text-[var(--bright)] transition-colors">Connectors</a>
+          <nav aria-label="Primary navigation" className="hidden md:flex items-center gap-6 text-sm text-[var(--lightgray)] whitespace-nowrap">
+            <a href="#experience" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Experience</a>
+            <a href="#use-cases" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Use Cases</a>
+            <a href="#research" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Research</a>
+            <a href="#safety" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Safety</a>
+            <a href="#connectors" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Connectors</a>
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <a
               href="#connectors"
-              className="px-4 py-2 border border-[var(--hairline)] text-[var(--bright)] hover:border-[var(--lime)] hover:text-[var(--lime)] text-xs sm:text-sm transition-colors"
+              className="px-4 py-2 border border-[var(--hairline)] text-[var(--bright)] hover:border-[var(--lime)] hover:text-[var(--lime)] text-xs sm:text-sm transition-colors whitespace-nowrap shrink-0"
             >
               Connect Apps
             </a>
             <button
               type="button"
               onClick={() => void runVoicePreset('Push 15m and tell Priya')}
-              className="px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] hover:bg-[var(--bright)] text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
+              className="px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] hover:bg-[var(--bright)] text-xs sm:text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
               Run Voice
             </button>
@@ -1129,7 +1129,7 @@ export function App() {
                   EVEN REALITIES G2 · TRACK 04
                 </p>
                 <h1 className="font-dots font-black leading-[0.94] tracking-[-0.02em] text-[2.3rem] sm:text-[3.05rem] lg:text-[3.35rem]">
-                  <span className="block text-[var(--lightgray)]">Own the room, before</span>
+                  <span className="block text-[var(--lightgray)]">Own the room, before,</span>
                   <span className="block text-[var(--bright)]">during, and after.</span>
                 </h1>
                 <p className="text-sm md:text-base leading-relaxed text-[var(--lightgray)]">
@@ -1680,7 +1680,7 @@ export function App() {
         </section>
 
         {/* Visual Survey Graphs, Curves & Field Benchmark (#research) */}
-        <ResearchGraphsSection testCount={207} />
+        <ResearchGraphsSection testCount={213} />
 
         {/* Sticky Scroll Safety Story (#safety) */}
         <StickySafetyStory />
