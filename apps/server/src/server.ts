@@ -54,7 +54,7 @@ import {
   runSafeReadInspection,
 } from './providers/localComputerBridge.js';
 import type { SafeInspectKind, SafeInspectResult } from './providers/localComputerBridge.js';
-import { NotionWorkspaceClient } from './providers/notionProvider.js';
+import { discoverFirstNotionDatabase, NotionWorkspaceClient } from './providers/notionProvider.js';
 import {
   getSandboxTelegramDigest,
   TelegramWorkspaceClient,
@@ -277,6 +277,8 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     const clientSecret = creds.googleClientSecret ?? process.env.GOOGLE_CLIENT_SECRET;
     const googleOAuthConfigured = Boolean(clientId && clientSecret);
     const googleAuthUrl = googleOAuthConfigured ? '/api/auth/google/start' : null;
+    const googleWorkspaceAuthUrl = googleOAuthConfigured ? '/api/auth/google/start?scope=workspace' : null;
+    const googleSignedIn = Boolean(creds.googleAccessToken || creds.googleRefreshToken);
     const notionOAuthConfigured = Boolean(
       (process.env.NOTION_CLIENT_ID ?? '') && (process.env.NOTION_CLIENT_SECRET ?? ''),
     );
@@ -293,35 +295,39 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       notionOAuthConfigured,
       openRouterOAuthReady: true,
       googleAuthUrl,
+      googleWorkspaceAuthUrl,
+      googleScopeMode: googleSignedIn ? creds.googleScopeMode ?? 'workspace' : null,
       proactive: proactiveHarness.getStatus(),
       connectors: {
         googleWorkspace: {
-          connected: Boolean(creds.googleRefreshToken),
-          mode: creds.googleRefreshToken ? 'LIVE' : activeIcsFeed ? 'ICS' : 'SANDBOX',
-          detail: creds.googleRefreshToken
-            ? 'OAuth Calendar, Gmail & Drive active (AES-256-GCM 0600)'
+          connected: googleSignedIn || Boolean(activeIcsFeed),
+          mode: googleSignedIn ? 'LIVE' : activeIcsFeed ? 'ICS' : 'SANDBOX',
+          detail: googleSignedIn
+            ? creds.googleScopeMode === 'identity'
+              ? `Signed in cleanly as ${creds.accountEmail ?? 'Google account'} (Zero-Warning Instant OAuth)`
+              : 'Full Calendar, Gmail & Drive LIVE (AES-256-GCM 0600)'
             : activeIcsFeed
               ? 'Live RFC 5545 .ics schedule active'
-              : 'Drop Google OAuth JSON, sign in, or click 1-click .ics',
+              : '1-click Zero-Warning Sign-In or instant .ics schedule',
         },
         notion: {
           connected: Boolean(creds.notionToken && creds.notionDatabaseId),
           mode: creds.notionToken && creds.notionDatabaseId ? 'LIVE' : 'SANDBOX',
           detail: creds.notionDatabaseId
             ? `Database ...${creds.notionDatabaseId.slice(-6)} synced (2026-03-11)`
-            : 'Internal integration + auto-schema discovery ready',
+            : 'Paste Notion token alone — auto-discovers DB & schema',
         },
         telegram: {
           connected: Boolean(creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN),
           mode: creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN ? 'LIVE' : 'SANDBOX',
           detail:
             creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN
-              ? `Telegram Bot connected${creds.telegramChatId ? ` (chat ...${creds.telegramChatId.slice(-4)})` : ''}`
+              ? `Telegram Bot connected${creds.telegramChatId ? ` (chat ...${creds.telegramChatId.slice(-4)})` : ' (message bot /start to link chat)'}`
               : 'Track 01 + Best Telegram prize integration ready (BotFather token)',
         },
         claude: {
           connected: Boolean(llmCfg.anthropicKey),
-          mode: llmCfg.anthropicKey ? 'LIVE' : 'STANDBY',
+          mode: claudeHealth === 'COOLDOWN' ? 'COOLDOWN' : llmCfg.anthropicKey ? 'LIVE' : 'STANDBY',
           health: claudeHealth,
           detail:
             claudeHealth === 'COOLDOWN'
@@ -332,7 +338,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         },
         openrouter: {
           connected: Boolean(llmCfg.openRouterKey),
-          mode: llmCfg.openRouterKey ? 'LIVE' : 'STANDBY',
+          mode: openRouterHealth === 'COOLDOWN' ? 'COOLDOWN' : llmCfg.openRouterKey ? 'LIVE' : 'STANDBY',
           health: openRouterHealth,
           detail:
             openRouterHealth === 'COOLDOWN'
@@ -343,7 +349,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         },
         chatgpt: {
           connected: Boolean(llmCfg.openAiKey),
-          mode: llmCfg.openAiKey ? 'LIVE' : 'STANDBY',
+          mode: chatGptHealth === 'COOLDOWN' ? 'COOLDOWN' : llmCfg.openAiKey ? 'LIVE' : 'STANDBY',
           health: chatGptHealth,
           detail:
             chatGptHealth === 'COOLDOWN'
@@ -1023,13 +1029,99 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const provider = resolveProvider(session.mode);
         try {
           const data = await provider.fetchCorridor(new Date(nowFn()).toISOString());
+          const enrichedCards: CorridorCard[] = data.cards.map((c, idx) => {
+            if (idx === 0 && !c.quickActions.some((qa) => qa.id === 'qa-live-scribe')) {
+              return {
+                ...c,
+                quickActions: [
+                  ...c.quickActions,
+                  {
+                    id: 'qa-live-scribe',
+                    label: 'Start Live Scribe + Muse Avatar',
+                    intent: 'CREATE_ACTION_PACK',
+                    commandText: '__START_LIVE_SCRIBE__',
+                  },
+                ],
+              };
+            }
+            return c;
+          });
+          const nowIso = data.syncedAtIso;
+          const creds = vault.load();
+          const tgToken = creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN;
+          const tgSample = cachedTelegramInsight ?? {
+            title: `TG · ${getSandboxTelegramDigest()[0]?.fromName ?? 'Priya Nair'}`,
+            detail: getSandboxTelegramDigest()[0]?.text ?? 'Share Q4 metrics + OnQ .ehpk build?',
+          };
+          enrichedCards.push({
+            id: 'card-telegram-bridge',
+            sourceMode: tgToken ? 'LIVE' : data.sourceMode,
+            syncedAtIso: nowIso,
+            provenanceLabel: tgToken ? 'TELEGRAM LIVE' : data.provenanceLabel,
+            kind: 'EMAIL_ASK',
+            title: clipLine42(tgSample.title, 42),
+            timeMeta: tgToken ? 'TG LIVE' : 'TELEGRAM',
+            startIso: nowIso,
+            endIso: new Date(Date.parse(nowIso) + 15 * 60_000).toISOString(),
+            contextLine1: clipLine42(tgSample.detail, 42),
+            contextLine2: 'Bot @onq_g2_copilot_bot | Default-NO',
+            triageRule: 'ASK_DEADLINE',
+            etag: `tg-${nowIso}`,
+            quickActions: [
+              {
+                id: 'qa-tg-reply',
+                label: 'Reply TG: On my way in 5m',
+                intent: 'RESCHEDULE_AND_NOTIFY',
+                commandText: 'Reply on Telegram: on my way in 5m',
+              },
+            ],
+          });
+
+          const llmLabel = resolveHealthyLlmLabel(resolveLlmConfig());
+          const activeH = proactiveHarness.getStatus().activeHarness;
+          enrichedCards.push({
+            id: 'card-computer-proactive',
+            sourceMode: data.sourceMode,
+            syncedAtIso: nowIso,
+            provenanceLabel: 'AI + COMPUTER',
+            kind: 'MEETING',
+            title: clipLine42(activeH?.goal ?? 'PC · AI Proactive + Computer Agent', 42),
+            timeMeta: clipLine42(`ORCH: ${llmLabel}`, 14),
+            startIso: nowIso,
+            endIso: new Date(Date.parse(nowIso) + 30 * 60_000).toISOString(),
+            contextLine1: clipLine42(
+              activeH?.opticalCardLines?.[0] ?? lastInspectResult?.summary ?? 'Ready: git / gh / node / python',
+              42,
+            ),
+            contextLine2: clipLine42(
+              activeH?.opticalCardLines?.[1] ?? 'Local Computer Bridge | Default-NO Gate',
+              42,
+            ),
+            triageRule: 'IMMINENT_MTG',
+            etag: `comp-${nowIso}`,
+            quickActions: [
+              {
+                id: 'qa-pc-git',
+                label: 'Check Git & Open PRs',
+                intent: 'DELEGATE_COMPUTER_TASK',
+                commandText: 'Check git status and open GitHub PRs',
+              },
+              {
+                id: 'qa-synth-ai',
+                label: 'Synthesize Fresh AI Harness',
+                intent: 'PLAN_PROJECT',
+                commandText: '__SYNTHESIZE_PROACTIVE__',
+              },
+            ],
+          });
+
           lastCorridorCache = {
-            cards: data.cards,
+            cards: enrichedCards,
             provenanceLabel: data.provenanceLabel,
             syncedAtIso: data.syncedAtIso,
           };
           jsonResponse(res, 200, {
-            cards: data.cards,
+            cards: enrichedCards,
             sourceMode: data.sourceMode,
             provenanceLabel: data.provenanceLabel,
             syncedAtIso: data.syncedAtIso,
@@ -1698,20 +1790,37 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           next.preferredLlm = 'chatgpt';
         } else if (prov === 'assemblyai' && body.apiKey?.trim()) {
           next.assemblyAiKey = body.apiKey.trim();
-        } else if (prov === 'notion' && body.notionToken?.trim() && body.notionDatabaseId?.trim()) {
+        } else if (prov === 'notion' && body.notionToken?.trim()) {
+          let resolvedDbId = body.notionDatabaseId?.trim() ?? '';
+          if (!resolvedDbId) {
+            const discovered = await discoverFirstNotionDatabase(body.notionToken.trim(), opts.fetchImpl);
+            if (!discovered) {
+              jsonResponse(res, 422, {
+                error: 'No shared Notion database found for that token. Share a database with your integration in Notion and retry.',
+              });
+              return;
+            }
+            resolvedDbId = discovered.databaseId;
+          }
           const client = new NotionWorkspaceClient(
             body.notionToken.trim(),
-            body.notionDatabaseId.trim(),
+            resolvedDbId,
             opts.fetchImpl,
           );
           discoveredSchema = await client.inspectSchema();
           next.notionToken = body.notionToken.trim();
-          next.notionDatabaseId = body.notionDatabaseId.trim();
+          next.notionDatabaseId = resolvedDbId;
           upgradedToken = await ledger.mintSession('LIVE');
           upgradedMode = 'LIVE';
         } else if (prov === 'telegram' && body.telegramBotToken?.trim()) {
           next.telegramBotToken = body.telegramBotToken.trim();
-          if (body.telegramChatId?.trim()) next.telegramChatId = body.telegramChatId.trim();
+          if (body.telegramChatId?.trim()) {
+            next.telegramChatId = body.telegramChatId.trim();
+          } else {
+            const tg = new TelegramWorkspaceClient(next.telegramBotToken, undefined, opts.fetchImpl);
+            const found = await tg.discoverLatestChat().catch(() => null);
+            if (found?.chatId) next.telegramChatId = found.chatId;
+          }
         } else if (prov === 'google_oauth_json' && body.googleOAuthJson?.trim()) {
           try {
             const parsed = parseGoogleOAuthJson(body.googleOAuthJson.trim());
@@ -1756,18 +1865,31 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           if (body.openAiKey?.trim()) next.openAiKey = body.openAiKey.trim();
           if (body.assemblyAiKey?.trim()) next.assemblyAiKey = body.assemblyAiKey.trim();
           if (body.telegramBotToken?.trim()) next.telegramBotToken = body.telegramBotToken.trim();
-          if (body.telegramChatId?.trim()) next.telegramChatId = body.telegramChatId.trim();
-          if (body.notionToken?.trim() && body.notionDatabaseId?.trim()) {
-            const client = new NotionWorkspaceClient(
-              body.notionToken.trim(),
-              body.notionDatabaseId.trim(),
-              opts.fetchImpl,
-            );
-            discoveredSchema = await client.inspectSchema();
-            next.notionToken = body.notionToken.trim();
-            next.notionDatabaseId = body.notionDatabaseId.trim();
-            upgradedToken = await ledger.mintSession('LIVE');
-            upgradedMode = 'LIVE';
+          if (body.telegramChatId?.trim()) {
+            next.telegramChatId = body.telegramChatId.trim();
+          } else if (next.telegramBotToken && !next.telegramChatId) {
+            const tg = new TelegramWorkspaceClient(next.telegramBotToken, undefined, opts.fetchImpl);
+            const found = await tg.discoverLatestChat().catch(() => null);
+            if (found?.chatId) next.telegramChatId = found.chatId;
+          }
+          if (body.notionToken?.trim()) {
+            let resolvedDbId = body.notionDatabaseId?.trim() ?? '';
+            if (!resolvedDbId) {
+              const discovered = await discoverFirstNotionDatabase(body.notionToken.trim(), opts.fetchImpl);
+              if (discovered) resolvedDbId = discovered.databaseId;
+            }
+            if (resolvedDbId) {
+              const client = new NotionWorkspaceClient(
+                body.notionToken.trim(),
+                resolvedDbId,
+                opts.fetchImpl,
+              );
+              discoveredSchema = await client.inspectSchema();
+              next.notionToken = body.notionToken.trim();
+              next.notionDatabaseId = resolvedDbId;
+              upgradedToken = await ledger.mintSession('LIVE');
+              upgradedMode = 'LIVE';
+            }
           }
           if (body.icsText?.trim()) {
             const parsedEvents = parseIcsEvents(body.icsText.trim());
@@ -1892,6 +2014,8 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           });
           return;
         }
+        const scopeMode: 'identity' | 'workspace' =
+          parsedUrl.searchParams.get('scope') === 'workspace' ? 'workspace' : 'identity';
         const listenPort =
           (server.address() as { port?: number } | null)?.port ?? opts.port ?? 8787;
         const redirectUri =
@@ -1900,6 +2024,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const state = oauthStates.issue({
           provider: 'google',
           codeVerifier: pkce.codeVerifier,
+          scopeMode,
           redirectTo: 'http://127.0.0.1:5173/?signedIn=1#connectors',
         });
         const authUrl = buildGoogleAuthUrl({
@@ -1908,9 +2033,16 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           state,
           codeChallenge: pkce.codeChallenge,
           codeChallengeMethod: pkce.method,
+          scopeMode,
         });
         if (parsedUrl.searchParams.get('format') === 'json') {
-          jsonResponse(res, 200, { configured: true, authUrl, state, codeChallengeMethod: pkce.method });
+          jsonResponse(res, 200, {
+            configured: true,
+            scopeMode,
+            authUrl,
+            state,
+            codeChallengeMethod: pkce.method,
+          });
           return;
         }
         res.writeHead(302, { Location: authUrl, 'Cache-Control': 'no-store' });
@@ -1919,6 +2051,17 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       }
 
       if (req.method === 'GET' && pathname === '/api/auth/google/callback') {
+        const oauthError = parsedUrl.searchParams.get('error');
+        if (oauthError) {
+          const stateParam = parsedUrl.searchParams.get('state');
+          if (stateParam) oauthStates.consume(stateParam, 'google');
+          res.writeHead(302, {
+            Location: `http://127.0.0.1:5173/?oauthError=${encodeURIComponent(oauthError)}#connectors`,
+            'Cache-Control': 'no-store',
+          });
+          res.end();
+          return;
+        }
         const oauthCode = parsedUrl.searchParams.get('code');
         const state = parsedUrl.searchParams.get('state');
         const pending = oauthStates.consume(state, 'google');
@@ -1944,6 +2087,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           clientSecret,
           redirectUri,
           codeVerifier: pending.codeVerifier,
+          scopeMode: pending.scopeMode ?? 'identity',
         });
         const liveSessionToken = await ledger.mintSession('LIVE');
         const setCookie = cookieAuth.buildSetCookieHeader(liveSessionToken, {
@@ -2325,13 +2469,21 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           if (botToken) {
             const tg = new TelegramWorkspaceClient(botToken, creds.telegramChatId, opts.fetchImpl);
             const ping = await tg.ping();
+            let autoChat = creds.telegramChatId;
+            if (!autoChat) {
+              const found = await tg.discoverLatestChat().catch(() => null);
+              if (found?.chatId) {
+                autoChat = found.chatId;
+                vault.save({ ...creds, telegramChatId: autoChat });
+              }
+            }
             recordAudit('CONNECTOR_TESTED', `telegram: ${ping.detail}`);
             jsonResponse(res, 200, {
               ok: ping.ok,
               provider,
               mode: ping.ok ? 'LIVE' : 'ERROR',
               latencyMs: ping.latencyMs,
-              detail: ping.detail,
+              detail: autoChat ? `${ping.detail} · chat ...${autoChat.slice(-4)}` : ping.detail,
             });
             return;
           }
@@ -2570,6 +2722,9 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           try {
             const tg = new TelegramWorkspaceClient(botToken, creds.telegramChatId, opts.fetchImpl);
             const messages = await tg.getRecentMessages(6);
+            if (!creds.telegramChatId && messages[0]?.chatId) {
+              vault.save({ ...creds, telegramChatId: messages[0].chatId });
+            }
             jsonResponse(res, 200, { mode: 'LIVE', messages });
             return;
           } catch (err) {
@@ -2620,6 +2775,68 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         };
         await ledger.savePreview(preview, session.tokenHash);
         jsonResponse(res, 200, { ok: true, preview });
+        return;
+      }
+
+      // 14g. Strict-Loopback Official EvenHub Simulator 0.9.5 Live Proxy
+      if (req.method === 'GET' && pathname === '/api/emulator/status') {
+        let running = false;
+        try {
+          const pingRes = await (opts.fetchImpl ?? fetch)('http://127.0.0.1:9898/api/ping');
+          running = pingRes.ok;
+        } catch {
+          running = false;
+        }
+        jsonResponse(res, 200, { running, port: 9898 });
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/emulator/frame') {
+        try {
+          const frameRes = await (opts.fetchImpl ?? fetch)('http://127.0.0.1:9898/api/screenshot/glasses');
+          if (!frameRes.ok) {
+            res.writeHead(204, { 'Cache-Control': 'no-store' });
+            res.end();
+            return;
+          }
+          const buf = Buffer.from(await frameRes.arrayBuffer());
+          res.writeHead(200, {
+            'Content-Type': 'image/png',
+            'Cache-Control': 'no-store',
+          });
+          res.end(buf);
+        } catch {
+          res.writeHead(204, { 'Cache-Control': 'no-store' });
+          res.end();
+        }
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/emulator/input') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ action?: string }>(req);
+        const allowed = new Set(['up', 'down', 'click', 'double_click', 'long_press', 'long_press_release']);
+        if (!body.action || !allowed.has(body.action)) {
+          jsonResponse(res, 400, {
+            error: 'Invalid emulator action. Allowed: up, down, click, double_click, long_press, long_press_release',
+          });
+          return;
+        }
+        try {
+          const r = await (opts.fetchImpl ?? fetch)('http://127.0.0.1:9898/api/input', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: body.action }),
+          });
+          if (!r.ok) {
+            jsonResponse(res, 502, { error: `EvenHub Emulator rejected input: HTTP ${r.status}` });
+            return;
+          }
+          jsonResponse(res, 200, { ok: true, action: body.action });
+        } catch {
+          jsonResponse(res, 503, { error: 'EvenHub Emulator 0.9.5 is offline on loopback :9898' });
+        }
         return;
       }
 

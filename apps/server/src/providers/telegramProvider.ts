@@ -125,6 +125,13 @@ export class TelegramWorkspaceClient {
     return items.slice(-limit).reverse();
   }
 
+  async discoverLatestChat(): Promise<{ chatId: string; chatTitle: string; fromName: string } | null> {
+    const recent = await this.getRecentMessages(5).catch(() => []);
+    const found = recent.find((m) => m.chatId && m.chatId.trim().length > 0);
+    if (!found) return null;
+    return { chatId: found.chatId, chatTitle: found.chatTitle, fromName: found.fromName };
+  }
+
   async sendMessage(text: string, chatId?: string): Promise<{ messageId: number; chatId: string }> {
     const targetChat = (chatId ?? this.defaultChatId ?? '').trim();
     if (!targetChat) {

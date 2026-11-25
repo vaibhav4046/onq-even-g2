@@ -14,13 +14,14 @@ export const ARM_TICK_MS = 250; // 4 Hz BLE-safe ring cadence
 
 export interface HudControllerHooks {
   onStateChange?: (state: HudState) => void;
-  onStageAction?: (card: CorridorCard, actionIndex: number) => Promise<ActionPreview | ConflictLockDetail>;
+  onStageAction?: (card: CorridorCard, actionIndex: number) => Promise<ActionPreview | ConflictLockDetail | null>;
   onStageSlot?: (slotStartIso: string, slotEndIso: string) => Promise<ActionPreview | ConflictLockDetail>;
   onCommitPreview?: (preview: ActionPreview) => Promise<CommitReceipt | ConflictLockDetail>;
   onUndoReceipt?: (receipt: CommitReceipt) => Promise<CommitReceipt>;
   onRefreshCorridor?: () => Promise<{ cards: CorridorCard[]; sourceMode: SourceMode; provenanceLabel: string; syncedAtIso: string }>;
   onStartVoice?: () => void;
   onStopVoice?: () => Promise<void>;
+  onExitMeeting?: () => Promise<void> | void;
   onRequestShutdown?: () => void;
 }
 
@@ -390,6 +391,14 @@ export class OnQHudController {
       return;
     }
 
+    if (this.state.phase === 'meeting_live') {
+      if (ev.kind === 'DOUBLE_CLICK') {
+        await this.hooks.onExitMeeting?.();
+        this.setMeetingSession(null);
+      }
+      return;
+    }
+
     if (this.state.phase === 'detail') {
       const card = this.state.cards[this.state.selectedCardIndex];
       const count = card?.quickActions.length ?? 0;
@@ -410,6 +419,7 @@ export class OnQHudController {
       if (ev.kind === 'CLICK' && card && this.hooks.onStageAction) {
         const idx = ev.listIndex !== undefined ? Math.min(ev.listIndex, Math.max(0, count - 1)) : this.state.selectedActionIndex;
         const res = await this.hooks.onStageAction(card, idx);
+        if (!res) return;
         if (isConflictDetail(res)) {
           this.showConflict(res);
         } else {

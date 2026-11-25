@@ -28,30 +28,36 @@ export function buildGoogleAuthUrl(params: {
   state: string;
   codeChallenge?: string;
   codeChallengeMethod?: 'S256';
+  scopeMode?: 'identity' | 'workspace';
 }): string {
+  const scopeMode = params.scopeMode ?? 'identity';
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   url.searchParams.set('client_id', params.clientId);
   url.searchParams.set('redirect_uri', params.redirectUri);
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('access_type', 'offline');
-  url.searchParams.set('prompt', 'consent');
+  url.searchParams.set('prompt', scopeMode === 'workspace' ? 'consent' : 'select_account');
+  if (scopeMode === 'workspace') {
+    url.searchParams.set('include_granted_scopes', 'true');
+  }
   url.searchParams.set('state', params.state);
   if (params.codeChallenge) {
     url.searchParams.set('code_challenge', params.codeChallenge);
     url.searchParams.set('code_challenge_method', params.codeChallengeMethod ?? 'S256');
   }
-  url.searchParams.set(
-    'scope',
-    [
-      'openid',
-      'email',
-      'profile',
-      'https://www.googleapis.com/auth/calendar.events',
-      'https://www.googleapis.com/auth/calendar.readonly',
-      'https://www.googleapis.com/auth/gmail.modify',
-      'https://www.googleapis.com/auth/drive.readonly',
-    ].join(' '),
-  );
+  const scopes =
+    scopeMode === 'workspace'
+      ? [
+          'openid',
+          'email',
+          'profile',
+          'https://www.googleapis.com/auth/calendar.events',
+          'https://www.googleapis.com/auth/calendar.readonly',
+          'https://www.googleapis.com/auth/gmail.modify',
+          'https://www.googleapis.com/auth/drive.readonly',
+        ]
+      : ['openid', 'email', 'profile'];
+  url.searchParams.set('scope', scopes.join(' '));
   return url.toString();
 }
 
@@ -77,6 +83,7 @@ export class GoogleWorkspaceClient {
     clientSecret: string;
     redirectUri: string;
     codeVerifier?: string;
+    scopeMode?: 'identity' | 'workspace';
   }): Promise<StoredCredentials> {
     registerSecretForRedaction(params.clientSecret);
     const body = new URLSearchParams({
@@ -109,6 +116,10 @@ export class GoogleWorkspaceClient {
       googleAccessToken: json.access_token,
       googleRefreshToken: json.refresh_token ?? existing.googleRefreshToken,
       googleAccessExpiresAt: Date.now() + (json.expires_in ?? 3600) * 1000,
+      googleScopeMode:
+        existing.googleScopeMode === 'workspace'
+          ? 'workspace'
+          : params.scopeMode ?? existing.googleScopeMode ?? 'identity',
       ...(profile.name ? { accountName: profile.name } : {}),
       ...(profile.email ? { accountEmail: profile.email } : {}),
     };
@@ -128,7 +139,17 @@ export class GoogleWorkspaceClient {
   async ping(): Promise<{ ok: boolean; latencyMs: number; detail: string }> {
     const t0 = Date.now();
     try {
+      const creds = this.vault.load();
       const token = await this.getAccessToken();
+      if (creds.googleScopeMode === 'identity') {
+        const info = await this.fetchUserProfile(token);
+        const latencyMs = Math.max(1, Date.now() - t0);
+        return {
+          ok: true,
+          latencyMs,
+          detail: `Signed in cleanly as ${info.email ?? creds.accountEmail ?? 'Google account'} (Zero-Warning OAuth)`,
+        };
+      }
       const res = await this.fetchWithTimeout(
         'https://www.googleapis.com/calendar/v3/users/me/calendarList/primary?fields=id,summary',
         { headers: { Authorization: `Bearer ${token}` } },

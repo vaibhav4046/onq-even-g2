@@ -58,6 +58,39 @@ export function discoverNotionDatabaseSchema(
   return { titleProp, dateProp, completionProp, completionKind, doneStatusName };
 }
 
+export async function discoverFirstNotionDatabase(
+  token: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ databaseId: string; title: string } | null> {
+  registerSecretForRedaction(token);
+  const apiVersion = process.env.NOTION_API_VERSION ?? '2026-03-11';
+  const res = await fetchImpl('https://api.notion.com/v1/search', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Notion-Version': apiVersion,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ page_size: 10 }),
+  });
+  if (!res.ok) return null;
+  const json = (await res.json()) as {
+    results?: Array<{
+      id: string;
+      object?: string;
+      parent?: { type?: string; database_id?: string };
+      title?: Array<{ plain_text?: string }>;
+    }>;
+  };
+  const match = (json.results ?? []).find(
+    (r) => r.object === 'database' || r.object === 'data_source' || Boolean(r.parent?.database_id),
+  );
+  if (!match) return null;
+  const databaseId = match.parent?.database_id ?? match.id;
+  const title = (match.title ?? []).map((t) => t.plain_text ?? '').join('').trim() || 'Notion Workspace DB';
+  return { databaseId, title };
+}
+
 export class NotionWorkspaceClient {
   private cachedSchema: DiscoveredNotionSchema | null = null;
   private cachedDataSourceId: string | null = null;

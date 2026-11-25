@@ -348,6 +348,29 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
   },
   onStageAction: async (card, actionIndex) => {
     const opt = card.quickActions[actionIndex] ?? card.quickActions[0];
+    if (opt?.commandText === '__START_LIVE_SCRIBE__') {
+      await apiJson('/api/meeting/start', {
+        method: 'POST',
+        body: JSON.stringify({ attendees: ['Priya Nair', 'Alex Chen'] }),
+      });
+      const { data: meeting } = await apiJson<MeetingSessionState>('/api/meeting/turn', {
+        method: 'POST',
+        body: JSON.stringify({
+          speakerLabel: 'Speaker A',
+          text: 'Live scribe active on Even G2 with Muse 4-bit avatar.',
+          isFinal: true,
+        }),
+      });
+      controller.setMeetingSession(meeting);
+      return null;
+    }
+    if (opt?.commandText === '__SYNTHESIZE_PROACTIVE__') {
+      await apiJson('/api/proactive/synthesize', {
+        method: 'POST',
+        body: JSON.stringify({ focusHint: 'Synthesize corridor plan from Even G2' }),
+      });
+      return null;
+    }
     const { status, data } = await apiJson<ActionPreview | ConflictLockDetail>('/api/actions/stage', {
       method: 'POST',
       body: JSON.stringify({
@@ -357,6 +380,9 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
     });
     if (status === 409) return data as ConflictLockDetail;
     return data as ActionPreview;
+  },
+  onExitMeeting: async () => {
+    await apiJson('/api/meeting/wipe', { method: 'POST', body: '{}' }).catch(() => null);
   },
   onStageSlot: async (slotStartIso, slotEndIso) => {
     const card = controller.getState().cards[controller.getState().selectedCardIndex];

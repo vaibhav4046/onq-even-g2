@@ -319,6 +319,10 @@ export function App() {
   const [proactive, setProactive] = useState<ProactiveHarnessStatus | null>(null);
   const [activeLlmProvider, setActiveLlmProvider] = useState<string>('OpenRouter / ChatGPT / Claude auto-failover');
   const [buildingHarness, setBuildingHarness] = useState(false);
+  const [lensViewMode, setLensViewMode] = useState<'web' | 'sdk'>('web');
+  const [emulatorRunning, setEmulatorRunning] = useState(false);
+  const [emulatorTick, setEmulatorTick] = useState(() => Date.now());
+  const [emulatorBusy, setEmulatorBusy] = useState(false);
 
   // Live workspace mutation inputs
   const [newBusyTitle, setNewBusyTitle] = useState('');
@@ -332,6 +336,55 @@ export function App() {
   const voiceWsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const ttsTimersRef = useRef<number[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    const checkEmu = async () => {
+      try {
+        const res = await fetch('/api/emulator/status');
+        if (res.ok && alive) {
+          const j = (await res.json()) as { running?: boolean };
+          setEmulatorRunning(Boolean(j.running));
+        }
+      } catch {
+        if (alive) setEmulatorRunning(false);
+      }
+    };
+    void checkEmu();
+    if (lensViewMode !== 'sdk') return;
+    const timer = window.setInterval(() => {
+      void checkEmu();
+      setEmulatorTick(Date.now());
+    }, 900);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [lensViewMode]);
+
+  const sendEmulatorInput = async (action: 'up' | 'down' | 'click' | 'double_click') => {
+    const tok = tokenRef.current;
+    if (!tok) return;
+    setEmulatorBusy(true);
+    try {
+      const res = await fetch('/api/emulator/input', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tok}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action }),
+      });
+      if (res.ok) {
+        setEmulatorRunning(true);
+        window.setTimeout(() => setEmulatorTick(Date.now()), 320);
+      } else {
+        setVoiceFeedback(`EvenHub Emulator: HTTP ${res.status}`);
+      }
+    } finally {
+      setEmulatorBusy(false);
+    }
+  };
 
   const refreshWorkspaceInspector = useCallback(async (tok: string) => {
     try {
@@ -1331,7 +1384,34 @@ export function App() {
                         {hudState.phase.toUpperCase()}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="inline-flex border border-[var(--hairline)] bg-[var(--ink)] p-0.5 text-[10px] font-pixel uppercase">
+                        <button
+                          type="button"
+                          onClick={() => setLensViewMode('web')}
+                          className={`px-2 py-1 cursor-pointer transition-colors ${
+                            lensViewMode === 'web'
+                              ? 'bg-[var(--g2-phosphor)] text-[#0a0a0a]'
+                              : 'text-[var(--lightgray)] hover:text-[var(--bright)]'
+                          }`}
+                        >
+                          Web Optical Sim
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLensViewMode('sdk');
+                            setEmulatorTick(Date.now());
+                          }}
+                          className={`px-2 py-1 cursor-pointer transition-colors ${
+                            lensViewMode === 'sdk'
+                              ? 'bg-[var(--lime)] text-[#0a0a0a]'
+                              : 'text-[var(--lightgray)] hover:text-[var(--bright)]'
+                          }`}
+                        >
+                          EvenHub SDK 0.9.5 Live
+                        </button>
+                      </div>
                       <button
                         type="button"
                         onClick={() => setLensPovOpen(true)}
@@ -1349,29 +1429,101 @@ export function App() {
                     </div>
                   </div>
 
-                  <div
-                    className="g2-lens-scaler overflow-x-auto cursor-pointer"
-                    onClick={() => setLensPovOpen(true)}
-                    title="Click to expand Inside-the-Glasses view"
-                  >
-                    {simLoading ? (
-                      <div className="g2-lens-canvas flex items-center justify-center text-xs">
-                        SYNCING WORKSPACE...
+                  {lensViewMode === 'sdk' ? (
+                    <div className="space-y-3">
+                      <div className="g2-lens-scaler overflow-x-auto">
+                        {emulatorRunning ? (
+                          <div className="g2-lens-canvas flex items-center justify-center bg-black">
+                            <img
+                              src={`/api/emulator/frame?t=${emulatorTick}`}
+                              width={576}
+                              height={288}
+                              alt="Official EvenHub Simulator 0.9.5 live glasses output"
+                              className="w-[576px] h-[288px] block"
+                              style={{ imageRendering: 'pixelated' }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="g2-lens-canvas flex flex-col items-center justify-center gap-2 text-center px-4 text-xs text-[var(--lightgray)]">
+                            <span className="font-pixel text-[10px] text-[var(--warning)] uppercase">
+                              EVENHUB EMULATOR :9898 OFFLINE
+                            </span>
+                            <span>
+                              Start with: <code className="text-[var(--bright)]">npm run verify:sim</code> or attach evenhub-simulator on :9898
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <AnimatePresence mode="wait">
-                        <motion.div
-                          key={`${hudState.phase}-${hudState.selectedCardIndex}`}
-                          initial={{ opacity: 0.75, y: 3 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0.75 }}
-                          transition={{ duration: 0.16, ease: MOTION_EASE }}
+                      <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                        <span className="font-pixel text-[9px] uppercase tracking-[0.12em] text-[var(--g2-phosphor)] mr-1">
+                          EVEN R1 SDK INPUT:
+                        </span>
+                        <button
+                          type="button"
+                          disabled={emulatorBusy}
+                          onClick={() => void sendEmulatorInput('up')}
+                          className="retro-btn-glass px-2.5 py-1 text-[var(--bright)] hover:text-[var(--lime)] cursor-pointer"
                         >
-                          <G2LensCanvas hudState={hudState} opticsMode={opticsMode} />
-                        </motion.div>
-                      </AnimatePresence>
-                    )}
-                  </div>
+                          R1 Up
+                        </button>
+                        <button
+                          type="button"
+                          disabled={emulatorBusy}
+                          onClick={() => void sendEmulatorInput('down')}
+                          className="retro-btn-glass px-2.5 py-1 text-[var(--bright)] hover:text-[var(--lime)] cursor-pointer"
+                        >
+                          R1 Down
+                        </button>
+                        <button
+                          type="button"
+                          disabled={emulatorBusy}
+                          onClick={() => void sendEmulatorInput('click')}
+                          className="px-2.5 py-1 bg-[var(--lime)] text-[#0a0a0a] font-semibold cursor-pointer"
+                        >
+                          R1 Tap (Select)
+                        </button>
+                        <button
+                          type="button"
+                          disabled={emulatorBusy}
+                          onClick={() => void sendEmulatorInput('double_click')}
+                          className="retro-btn-glass px-2.5 py-1 text-[var(--bright)] hover:text-[var(--lime)] cursor-pointer"
+                        >
+                          R1 2xTap (Back)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEmulatorTick(Date.now())}
+                          className="retro-btn-glass px-2.5 py-1 text-[var(--lightgray)] hover:text-[var(--bright)] cursor-pointer ml-auto"
+                        >
+                          Refresh Frame
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className="g2-lens-scaler overflow-x-auto cursor-pointer"
+                      onClick={() => setLensPovOpen(true)}
+                      title="Click to expand Inside-the-Glasses view"
+                    >
+                      {simLoading ? (
+                        <div className="g2-lens-canvas flex items-center justify-center text-xs">
+                          SYNCING WORKSPACE...
+                        </div>
+                      ) : (
+                        <AnimatePresence mode="wait">
+                          <motion.div
+                            key={`${hudState.phase}-${hudState.selectedCardIndex}`}
+                            initial={{ opacity: 0.75, y: 3 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0.75 }}
+                            transition={{ duration: 0.16, ease: MOTION_EASE }}
+                          >
+                            <G2LensCanvas hudState={hudState} opticsMode={opticsMode} />
+                          </motion.div>
+                        </AnimatePresence>
+                      )}
+                    </div>
+                  )}
 
                   {/* Contextual Write Safety Pill (appears ONLY when staged / armed / 409) */}
                   {(hudState.phase === 'preview' || hudState.phase === 'wrap_up') && (

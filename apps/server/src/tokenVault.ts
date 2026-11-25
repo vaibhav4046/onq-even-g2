@@ -9,6 +9,7 @@ export interface StoredCredentials {
   googleAccessExpiresAt?: number;
   googleClientId?: string;
   googleClientSecret?: string;
+  googleScopeMode?: 'identity' | 'workspace';
   notionToken?: string;
   notionDatabaseId?: string;
   telegramBotToken?: string;

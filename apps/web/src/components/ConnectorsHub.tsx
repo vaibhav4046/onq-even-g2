@@ -189,7 +189,11 @@ export function ConnectorsHub({
     const sp = new URLSearchParams(window.location.search);
     const conn = sp.get('connected');
     const signed = sp.get('signedIn');
-    if (conn === 'openrouter') {
+    const oauthError = sp.get('oauthError');
+    if (oauthError) {
+      setFeedback(`Google OAuth cancelled (${oauthError}). Use Zero-Warning Sign-In or Load Live .ics Calendar below.`);
+      window.history.replaceState({}, '', `${window.location.pathname}#connectors`);
+    } else if (conn === 'openrouter') {
       setFeedback('OpenRouter OAuth PKCE key verified and stored in AES-256-GCM 0600 vault.');
       void loadStatus();
       window.history.replaceState({}, '', `${window.location.pathname}#connectors`);
@@ -326,13 +330,16 @@ export function ConnectorsHub({
     }
   };
 
-  const startGoogleSignIn = async () => {
+  const startGoogleSignIn = async (scopeMode: 'identity' | 'workspace' = 'identity') => {
+    const targetUrl =
+      scopeMode === 'workspace' ? '/api/auth/google/start?scope=workspace' : '/api/auth/google/start';
     if (status?.googleOAuthConfigured) {
-      window.location.href = '/api/auth/google/start';
+      window.location.href = targetUrl;
       return;
     }
     try {
-      const res = await fetch('/api/auth/google/start?format=json', { credentials: 'include' });
+      const sep = targetUrl.includes('?') ? '&' : '?';
+      const res = await fetch(`${targetUrl}${sep}format=json`, { credentials: 'include' });
       const data = (await res.json()) as { configured?: boolean; authUrl?: string; error?: string };
       if (data.configured && data.authUrl) {
         window.location.href = data.authUrl;
@@ -888,9 +895,11 @@ export function ConnectorsHub({
                     </div>
                     <span
                       className={`font-pixel text-[9px] uppercase tracking-[0.14em] px-2.5 py-0.5 rounded-full border ${
-                        connected
-                          ? 'border-[var(--g2-phosphor)]/60 text-[var(--g2-phosphor)] bg-[var(--g2-phosphor)]/10'
-                          : 'border-white/15 text-[var(--lightgray)] bg-white/5'
+                        c.state?.mode === 'COOLDOWN'
+                          ? 'border-[var(--warning)]/60 text-[var(--warning)] bg-[var(--warning)]/10'
+                          : connected
+                            ? 'border-[var(--g2-phosphor)]/60 text-[var(--g2-phosphor)] bg-[var(--g2-phosphor)]/10'
+                            : 'border-white/15 text-[var(--lightgray)] bg-white/5'
                       }`}
                     >
                       {c.state?.mode ?? 'READY'}
@@ -987,10 +996,10 @@ export function ConnectorsHub({
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => void startGoogleSignIn()}
+                    onClick={() => void startGoogleSignIn('identity')}
                     className="px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] font-semibold cursor-pointer"
                   >
-                    Sign in with Google OAuth
+                    Sign in with Google (No Warning)
                   </button>
                   <button
                     type="button"
@@ -1002,7 +1011,17 @@ export function ConnectorsHub({
                   >
                     Load Live .ics Calendar (0 Keys)
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => void startGoogleSignIn('workspace')}
+                    className="px-3 py-2 border border-[var(--hairline)] text-[var(--lightgray)] hover:text-[var(--bright)] font-semibold cursor-pointer"
+                  >
+                    Full Gmail/Cal/Drive Scopes
+                  </button>
                 </div>
+                <p className="text-[11px] text-[var(--lightgray)]">
+                  Standard <strong className="text-[var(--bright)]">Sign in with Google (No Warning)</strong> authenticates immediately with zero Google unverified-app prompt. Optional Full Gmail/Cal/Drive scopes require clicking <em>Advanced -&gt; Go to OnQ (unsafe)</em> until post-hackathon Google CASA verification completes.
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                   <input
                     type="text"
@@ -1105,7 +1124,7 @@ export function ConnectorsHub({
                   />
                   <input
                     type="text"
-                    placeholder="Database ID"
+                    placeholder="Database ID (optional — auto-discovered if blank)"
                     value={notionDbId}
                     onChange={(e) => setNotionDbId(e.target.value)}
                     className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
@@ -1268,14 +1287,24 @@ export function ConnectorsHub({
                   <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[#26A5E4]">
                     CONNECT TELEGRAM BOT (TRACK 01 + BEST TELEGRAM PRIZE)
                   </span>
-                  <a
-                    href="https://t.me/BotFather"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] text-[#26A5E4] underline decoration-dashed underline-offset-2"
-                  >
-                    Create Bot in @BotFather -&gt;
-                  </a>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <a
+                      href="https://t.me/onq_g2_copilot_bot"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-[var(--lime)] underline decoration-dashed underline-offset-2"
+                    >
+                      1-Click Open @onq_g2_copilot_bot -&gt;
+                    </a>
+                    <a
+                      href="https://t.me/BotFather"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-[#26A5E4] underline decoration-dashed underline-offset-2"
+                    >
+                      @BotFather -&gt;
+                    </a>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <input
@@ -1287,7 +1316,7 @@ export function ConnectorsHub({
                   />
                   <input
                     type="text"
-                    placeholder="Default Chat ID (e.g. -100...)"
+                    placeholder="Chat ID (optional — auto-detected from bot)"
                     value={telegramChatId}
                     onChange={(e) => setTelegramChatId(e.target.value)}
                     className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"

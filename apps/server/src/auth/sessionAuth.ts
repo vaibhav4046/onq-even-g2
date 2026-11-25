@@ -17,6 +17,7 @@ export function createPkcePair(): PkcePair {
 export interface PendingOAuthState {
   provider: 'google' | 'notion' | 'openrouter';
   codeVerifier?: string;
+  scopeMode?: 'identity' | 'workspace';
   redirectTo: string;
   expiresAtMs: number;
 }
@@ -33,6 +34,7 @@ export class OAuthStateStore {
   issue(params: {
     provider: 'google' | 'notion' | 'openrouter';
     codeVerifier?: string;
+    scopeMode?: 'identity' | 'workspace';
     redirectTo?: string;
     ttlMs?: number;
   }): string {
@@ -40,6 +42,7 @@ export class OAuthStateStore {
     this.entries.set(state, {
       provider: params.provider,
       codeVerifier: params.codeVerifier,
+      scopeMode: params.scopeMode,
       redirectTo: params.redirectTo ?? 'http://127.0.0.1:5173/?signedIn=1#connectors',
       expiresAtMs: this.nowFn() + (params.ttlMs ?? 10 * 60_000),
     });

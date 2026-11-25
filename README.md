@@ -42,11 +42,11 @@ Open `http://127.0.0.1:5173`. Boots immediately in labeled `DEMO` sandbox mode w
 
 | Verification Gate | Exact Command | Observed Result |
 | :--- | :--- | :--- |
-| **Core + Server + Auth + Avatar + Computer Bridge Suite** | `npm test` | **228 tests passing** across 20 files (core, 4-bit Pixel Avatar PNG, Local Computer Bridge & Task Engine, Proactive Self-Harness & Orchestrator, PKCE OAuth, Telegram Bot API, 4-tier failover, 25x concurrency races, WS/AssemblyAI, fault injection) |
+| **Core + Server + Auth + Avatar + Computer Bridge Suite** | `npm test` | **231 tests passing** across 21 files (core, Zero-Warning OAuth & auto-discovery, 4-bit Pixel Avatar PNG, Local Computer Bridge, Proactive Self-Harness & Orchestrator, Telegram Bot API, 4-tier failover, 25x concurrency races) |
 | **Reproducible AI & Safety Harness Eval** | `npm run eval:harness` | **32/32 intents (100%)**, **5/5 prompt injections blocked**, **3/3 409 conflict locks**, **5/5 RMS silence rejections**, **4/4 failover matrix** (`docs/HARNESS_EVAL.json`) |
 | **11-Check 576x288 Geometry Gate + Negative Control** | `npm run verify:geometry` | **11 / 11 passing** across 11 checks (`MEETING_LIVE` & `WRAP_UP` included, `<= 42` cols, `<= 999` UTF-8 bytes, `>= 97.2%` black optical field) + Check 11 Negative Control |
-| **Official EvenHub Simulator 0.9.5 QA** | `npm run verify:sim` | **9 real 576x288 RGBA captures** (`sim-01..09.png`: native `ListContainer`, 76x76 4-bit PNG ring, `409` lock, 76x76 4-bit Muse Pixel Avatar + live Meeting Scribe SSE, Self-Harnessing Proactive Agent card) with 0 uncaught errors |
-| **EvenHub `.ehpk` Packaging** | `npm run pack` | **`dist/onq.ehpk`** (46,657 bytes, SDK `0.0.16`, `min_app_version 2.2.10`, 0 warnings) |
+| **Official EvenHub Simulator 0.9.5 QA** | `npm run verify:sim` | **11 real 576x288 RGBA captures** (`sim-01..11.png`: 4-card G2 dossier w/ Telegram & Computer Bridge, native `ListContainer`, 76x76 4-bit PNG ring, `409` lock, 76x76 4-bit Muse Pixel Avatar, Self-Harnessing Proactive Agent card) with 0 uncaught errors |
+| **EvenHub `.ehpk` Packaging** | `npm run pack` | **`dist/onq.ehpk`** (46,970 bytes, SDK `0.0.16`, `min_app_version 2.2.10`, 0 warnings) |
 | **Security Audit & Negative HTTP Tests** | `npm run verify:security` | **10 / 10 domains PASS** (`SECURITY_AUDIT.md`, 0 High/Critical findings, 0 secrets in 97 scanned files or `.ehpk`) |
 
 ---

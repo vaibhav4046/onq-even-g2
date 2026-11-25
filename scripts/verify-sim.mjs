@@ -101,9 +101,15 @@ async function main() {
     // 1. Corridor Dossier (READ - Card 1: VC Sync - Priya Nair)
     await captureGlasses(autoBase, 'sim-01-dossier.png');
 
-    // 2. Scroll to Card 2 & back to Card 1
+    // 2. Scroll through Card 2 (Notion), Card 3 (Telegram), Card 4 (Proactive AI + Computer), then return to Card 1
     await sendInput(autoBase, 'down');
     await captureGlasses(autoBase, 'sim-02-card2.png');
+    await sendInput(autoBase, 'down');
+    await captureGlasses(autoBase, 'sim-10-telegram.png');
+    await sendInput(autoBase, 'down');
+    await captureGlasses(autoBase, 'sim-11-computer.png');
+    await sendInput(autoBase, 'up');
+    await sendInput(autoBase, 'up');
     await sendInput(autoBase, 'up');
 
     // 3. Open Card 1 Actions -> Stage Default-NO Preview ("Push 15m + Reply Priya")
@@ -188,7 +194,7 @@ async function main() {
     if (errors.length > 0) {
       throw new Error(`Simulator console errors detected:\n${JSON.stringify(errors, null, 2)}`);
     }
-    console.log(`[sim:PASS] Captured 9 real simulator screenshots with 0 console/uncaught errors.`);
+    console.log(`[sim:PASS] Captured 11 real simulator screenshots with 0 console/uncaught errors.`);
   } finally {
     try {
       if (process.platform === 'win32' && simProc.pid) {
