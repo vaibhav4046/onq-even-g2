@@ -5,6 +5,7 @@ import type { ActionPreview, AliveMood, LiveUiInteraction, LiveUiSurface, Normal
 import { OnQVoiceOrb } from './OnQVoiceOrb';
 import { Memory3DGalaxy } from './Memory3DGalaxy';
 import { ExplainerStudio } from './ExplainerStudio';
+import { UnifiedOsPanel } from './UnifiedOsPanel';
 
 export interface LocalToolInfoDto {
   id: string;
@@ -163,7 +164,7 @@ export function LiveVoiceStudio({
   onLiveUiUpdate,
 }: LiveVoiceStudioProps) {
   const reduced = useReducedMotion();
-  const [studioTab, setStudioTab] = useState<'call' | 'apps' | 'fleet' | 'market' | 'explainer' | 'notes' | 'computer'>('call');
+  const [studioTab, setStudioTab] = useState<'call' | 'os' | 'apps' | 'fleet' | 'market' | 'explainer' | 'notes' | 'computer'>('call');
   const [tools, setTools] = useState<LocalToolInfoDto[]>([]);
   const [tasks, setTasks] = useState<AgentTaskDto[]>([]);
   const [localMemories, setLocalMemories] = useState<UnifiedMemoryDto[]>([]);
@@ -773,7 +774,7 @@ export function LiveVoiceStudio({
       const j = (await res.json()) as {
         ok?: boolean;
         domain?: string;
-        recommendedTab?: 'call' | 'apps' | 'fleet' | 'market' | 'explainer' | 'notes' | 'computer';
+        recommendedTab?: 'call' | 'os' | 'apps' | 'fleet' | 'market' | 'explainer' | 'notes' | 'computer';
         reply?: string;
         spokenText?: string;
         preview?: ActionPreview;
@@ -875,8 +876,9 @@ export function LiveVoiceStudio({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-1.5 text-[10.5px]">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-1.5 text-[10.5px]">
               {[
+                { label: 'Personal OS', note: '10 Agents · L0-L5', tab: 'os' as const },
                 { label: 'Schedule & Mail', note: 'Live Sync', tab: 'call' as const },
                 { label: 'Cited Knowledge', note: `${memories.length} notes`, tab: 'call' as const },
                 { label: 'Live Glass Apps', note: liveUi?.title ?? 'Pomodoro', tab: 'apps' as const },
@@ -996,6 +998,7 @@ export function LiveVoiceStudio({
           {(
             [
               ['call', 'Voice & Tasks'],
+              ['os', 'Personal OS'],
               ['apps', 'Live Apps'],
               ['fleet', 'Agent Fleet'],
               ['market', 'Market Bot'],
@@ -1019,6 +1022,18 @@ export function LiveVoiceStudio({
           ))}
         </div>
       </div>
+
+      {studioTab === 'os' && (
+        <UnifiedOsPanel
+          sessionToken={sessionToken}
+          onStatusMsg={(msg) => setStudioMsg(msg)}
+          onLiveUiUpdate={onLiveUiUpdate}
+          onRefreshState={() => {
+            onRefreshMemories?.();
+            void loadStudioState();
+          }}
+        />
+      )}
 
       {studioTab === 'call' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">

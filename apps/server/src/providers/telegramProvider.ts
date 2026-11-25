@@ -10,6 +10,25 @@ export interface TelegramDigestMessage {
   mode: 'LIVE' | 'SANDBOX';
 }
 
+export interface TelegramInlineButton {
+  text: string;
+  callback_data: string;
+}
+
+export interface TelegramCallbackQuery {
+  id: string;
+  chatId: string;
+  fromName: string;
+  data: string;
+  messageId?: number;
+}
+
+export interface TelegramUpdateEnvelope {
+  updateId: number;
+  message?: TelegramDigestMessage & { chatType?: string };
+  callbackQuery?: TelegramCallbackQuery;
+}
+
 export interface TelegramProbeResult {
   ok: boolean;
   botUsername?: string;
@@ -91,8 +110,13 @@ export class TelegramWorkspaceClient {
     }
   }
 
-  async getRecentMessages(limit = 5): Promise<TelegramDigestMessage[]> {
-    const res = await this.fetchImpl(`${this.endpoint('getUpdates')}?limit=${Math.min(20, Math.max(1, limit))}`);
+  async getUpdatesRaw(offset?: number, limit = 20): Promise<TelegramUpdateEnvelope[]> {
+    const clamped = Math.min(50, Math.max(1, limit));
+    const offsetParam = typeof offset === 'number' && Number.isFinite(offset) ? `&offset=${Math.trunc(offset)}` : '';
+    const allowed = encodeURIComponent(JSON.stringify(['message', 'callback_query']));
+    const res = await this.fetchImpl(
+      `${this.endpoint('getUpdates')}?limit=${clamped}${offsetParam}&allowed_updates=${allowed}`,
+    );
     if (!res.ok) {
       throw new Error(`Telegram getUpdates failed: HTTP ${res.status}`);
     }
@@ -103,25 +127,63 @@ export class TelegramWorkspaceClient {
         message?: {
           date: number;
           text?: string;
-          chat?: { id: number | string; title?: string; username?: string; first_name?: string };
+          chat?: {
+            id: number | string;
+            type?: string;
+            title?: string;
+            username?: string;
+            first_name?: string;
+          };
           from?: { first_name?: string; username?: string };
+        };
+        callback_query?: {
+          id: string;
+          data?: string;
+          from?: { first_name?: string; username?: string };
+          message?: { message_id?: number; chat?: { id: number | string } };
         };
       }>;
     };
-    const items: TelegramDigestMessage[] = [];
+    const envelopes: TelegramUpdateEnvelope[] = [];
     for (const upd of json.result ?? []) {
-      const msg = upd.message;
-      if (!msg?.text) continue;
-      items.push({
-        updateId: upd.update_id,
-        chatId: String(msg.chat?.id ?? this.defaultChatId ?? ''),
-        chatTitle: msg.chat?.title ?? msg.chat?.first_name ?? msg.chat?.username ?? 'Telegram Chat',
-        fromName: msg.from?.first_name ?? msg.from?.username ?? 'Contact',
-        text: msg.text.slice(0, 240),
-        atIso: new Date((msg.date || Math.floor(Date.now() / 1000)) * 1000).toISOString(),
-        mode: 'LIVE',
-      });
+      const env: TelegramUpdateEnvelope = { updateId: upd.update_id };
+      if (upd.message?.text) {
+        const msg = upd.message;
+        const text = msg.text ?? '';
+        env.message = {
+          updateId: upd.update_id,
+          chatId: String(msg.chat?.id ?? this.defaultChatId ?? ''),
+          chatType: msg.chat?.type ?? 'private',
+          chatTitle: msg.chat?.title ?? msg.chat?.first_name ?? msg.chat?.username ?? 'Telegram Chat',
+          fromName: msg.from?.first_name ?? msg.from?.username ?? 'Contact',
+          text: text.slice(0, 500),
+          atIso: new Date((msg.date || Math.floor(Date.now() / 1000)) * 1000).toISOString(),
+          mode: 'LIVE',
+        };
+      }
+      if (upd.callback_query?.id) {
+        const cq = upd.callback_query;
+        env.callbackQuery = {
+          id: cq.id,
+          chatId: String(cq.message?.chat?.id ?? this.defaultChatId ?? ''),
+          fromName: cq.from?.first_name ?? cq.from?.username ?? 'Wearer',
+          data: cq.data ?? '',
+          messageId: cq.message?.message_id,
+        };
+      }
+      if (env.message || env.callbackQuery) {
+        envelopes.push(env);
+      }
     }
+    return envelopes;
+  }
+
+  async getRecentMessages(limit = 5): Promise<TelegramDigestMessage[]> {
+    const raw = await this.getUpdatesRaw(undefined, Math.min(20, Math.max(1, limit)));
+    const items = raw
+      .map((u) => u.message)
+      .filter((m): m is TelegramDigestMessage & { chatType?: string } => Boolean(m))
+      .map(({ chatType: _ignored, ...rest }) => rest);
     return items.slice(-limit).reverse();
   }
 
@@ -133,18 +195,53 @@ export class TelegramWorkspaceClient {
   }
 
   async sendMessage(text: string, chatId?: string): Promise<{ messageId: number; chatId: string }> {
-    const targetChat = (chatId ?? this.defaultChatId ?? '').trim();
+    return this.postTelegramMessage({ text, chatId });
+  }
+
+  async sendMessageWithInlineKeyboard(
+    text: string,
+    rows: TelegramInlineButton[][],
+    chatId?: string,
+  ): Promise<{ messageId: number; chatId: string }> {
+    return this.postTelegramMessage({ text, chatId, inlineKeyboard: rows });
+  }
+
+  async answerCallbackQuery(callbackQueryId: string, text: string): Promise<void> {
+    const res = await this.fetchImpl(this.endpoint('answerCallbackQuery'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        callback_query_id: callbackQueryId,
+        text: text.slice(0, 180),
+        show_alert: false,
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`Telegram answerCallbackQuery failed: HTTP ${res.status}`);
+    }
+  }
+
+  private async postTelegramMessage(params: {
+    text: string;
+    chatId?: string;
+    inlineKeyboard?: TelegramInlineButton[][];
+  }): Promise<{ messageId: number; chatId: string }> {
+    const targetChat = (params.chatId ?? this.defaultChatId ?? '').trim();
     if (!targetChat) {
       throw new Error('Telegram Chat ID is required to send verified replies');
+    }
+    const payload: Record<string, unknown> = {
+      chat_id: targetChat,
+      text: params.text,
+      disable_notification: false,
+    };
+    if (params.inlineKeyboard && params.inlineKeyboard.length > 0) {
+      payload.reply_markup = { inline_keyboard: params.inlineKeyboard };
     }
     const res = await this.fetchImpl(this.endpoint('sendMessage'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: targetChat,
-        text,
-        disable_notification: false,
-      }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       throw new Error(`Telegram sendMessage failed: HTTP ${res.status}`);

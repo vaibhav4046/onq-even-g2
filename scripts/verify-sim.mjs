@@ -176,6 +176,20 @@ async function main() {
     await new Promise((r) => setTimeout(r, 900));
     await captureGlasses(autoBase, 'sim-09-proactive-harness.png');
 
+    // 5d. Unified Personal OS Card + Real L4 Multi-Agent Pipeline -> Simulator Live Render
+    for (let i = 0; i < 5; i++) {
+      await sendInput(autoBase, 'down');
+    }
+    await captureGlasses(autoBase, 'sim-12-unified-os.png');
+    const pipeRes = await fetch('http://127.0.0.1:8787/api/os/pipeline/run', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ preset: 'software_delivery', goal: 'Simulator OS verification' }),
+    });
+    if (!pipeRes.ok) throw new Error(`POST /api/os/pipeline/run failed: ${pipeRes.status}`);
+    await new Promise((r) => setTimeout(r, 900));
+    await captureGlasses(autoBase, 'sim-13-os-pipeline-live.png');
+
     // 6. Check simulator console logs for unexpected errors (allow the intentional 409 Conflict test fetch)
     const conRes = await fetch(`${autoBase}/api/console`);
     const conJson = await conRes.json();
@@ -194,7 +208,7 @@ async function main() {
     if (errors.length > 0) {
       throw new Error(`Simulator console errors detected:\n${JSON.stringify(errors, null, 2)}`);
     }
-    console.log(`[sim:PASS] Captured 11 real simulator screenshots with 0 console/uncaught errors.`);
+    console.log(`[sim:PASS] Captured 13 real simulator screenshots with 0 console/uncaught errors.`);
   } finally {
     try {
       if (process.platform === 'win32' && simProc.pid) {

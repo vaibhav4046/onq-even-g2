@@ -375,6 +375,71 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
       });
       return null;
     }
+    if (opt?.commandText === '__OS_RUN_PIPELINE__') {
+      const { data: pipeRes } = await apiJson<{ run?: { g2Lines?: string[] } }>('/api/os/pipeline/run', {
+        method: 'POST',
+        body: JSON.stringify({ preset: 'software_delivery', goal: 'Evening G2 OS crew check' }),
+      });
+      if (pipeRes.run?.g2Lines?.length) {
+        controller.showAnswer(pipeRes.run.g2Lines);
+      }
+      return null;
+    }
+    if (opt?.commandText === '__OS_MUSIC_FOCUS__') {
+      const { data: musRes } = await apiJson<{ g2Lines?: string[] }>('/api/os/music/curate', {
+        method: 'POST',
+        body: JSON.stringify({ mood: 'deep_focus', durationMin: 45 }),
+      });
+      if (musRes.g2Lines?.length) {
+        controller.showAnswer(musRes.g2Lines);
+      }
+      return null;
+    }
+    if (opt?.commandText === '__OS_RUN_ROUTINE__') {
+      const { data: rtnRes } = await apiJson<{ g2Lines?: string[] }>('/api/os/routines/run', {
+        method: 'POST',
+        body: JSON.stringify({ routineId: 'morning_brief' }),
+      });
+      if (rtnRes.g2Lines?.length) {
+        controller.showAnswer(rtnRes.g2Lines);
+      }
+      return null;
+    }
+    if (opt?.commandText === '__OS_TOGGLE_KILLSWITCH__') {
+      await apiJson('/api/os/killswitch', {
+        method: 'POST',
+        body: JSON.stringify({ reason: 'Toggled from Even G2 temple' }),
+      });
+      const { data: corr } = await apiJson<{
+        cards: CorridorCard[];
+        sourceMode: SourceMode;
+        provenanceLabel: string;
+        syncedAtIso: string;
+      }>('/api/corridor');
+      controller.setCorridor(corr.cards, corr.sourceMode, corr.provenanceLabel, corr.syncedAtIso);
+      return null;
+    }
+    if (opt?.commandText === '__OS_APPROVE_LATEST__') {
+      const { data: osSt } = await apiJson<{ approvals?: Array<{ id: string; status: string }> }>('/api/os/state');
+      const pending = osSt.approvals?.find((a) => a.status === 'PENDING');
+      if (!pending) {
+        controller.showAnswer(['NO PENDING L2 APPROVAL', 'Queue is already clear']);
+        return null;
+      }
+      const { data: dec } = await apiJson<{ ok: boolean; error?: string; item?: { title?: string; executionDetail?: string } }>(
+        `/api/os/approvals/${pending.id}/decide`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ decision: 'approve', surface: 'glasses' }),
+        },
+      );
+      controller.showAnswer([
+        dec.ok ? `L2 EXECUTED: ${pending.id}` : `L2 BLOCKED: ${pending.id}`,
+        clipLine42(dec.item?.title ?? 'OS Approval'),
+        clipLine42(dec.item?.executionDetail ?? dec.error ?? 'Done'),
+      ]);
+      return null;
+    }
     const { status, data } = await apiJson<ActionPreview | ConflictLockDetail>('/api/actions/stage', {
       method: 'POST',
       body: JSON.stringify({
@@ -452,6 +517,21 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
       controller.showError('SILENT PRESS - NO AUDIO SENT');
       return;
     }
+    if (
+      stt.transcript.startsWith('/') ||
+      /\b(kill switch|pause all|resume os|curate music|focus music|run crew|specialist crew)\b/i.test(
+        stt.transcript,
+      )
+    ) {
+      const osOut = await apiJson<{ g2Lines?: string[] }>('/api/os/command', {
+        method: 'POST',
+        body: JSON.stringify({ text: stt.transcript, surface: 'glasses' }),
+      });
+      if (osOut.data.g2Lines?.length) {
+        controller.showAnswer(osOut.data.g2Lines);
+      }
+      return;
+    }
     const card = controller.getState().cards[controller.getState().selectedCardIndex];
     const staged = await apiJson<ActionPreview | ConflictLockDetail | { readOnlyAnswer?: boolean; lines?: string[] }>(
       '/api/actions/stage',
@@ -486,13 +566,16 @@ function startSseSync(tok: string): void {
     sseSource?.close();
     sseSource = new EventSource(`${RELAY_BASE}/api/stream?token=${encodeURIComponent(tok)}`);
     sseSource.addEventListener('corridor', () => {
+      if (activeLiveUi) return;
       void apiJson<{
         cards: CorridorCard[];
         sourceMode: SourceMode;
         provenanceLabel: string;
         syncedAtIso: string;
       }>('/api/corridor').then(({ data }) => {
-        controller.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso);
+        if (!activeLiveUi) {
+          controller.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso);
+        }
       });
     });
     sseSource.addEventListener('meeting', (ev) => {
@@ -559,6 +642,19 @@ function startSseSync(tok: string): void {
       } catch {
         // ignore malformed SSE proactive frame
       }
+    });
+    sseSource.addEventListener('os_state', () => {
+      if (controller.getState().phase !== 'idle' || activeLiveUi) return;
+      void apiJson<{
+        cards: CorridorCard[];
+        sourceMode: SourceMode;
+        provenanceLabel: string;
+        syncedAtIso: string;
+      }>('/api/corridor').then(({ data }) => {
+        if (controller.getState().phase === 'idle' && !activeLiveUi) {
+          controller.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso);
+        }
+      });
     });
     sseSource.addEventListener('liveui', (ev) => {
       try {

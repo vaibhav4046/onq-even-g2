@@ -38,6 +38,12 @@ import type { BotScreenControlAction, KanbanLane } from './harness/kanbanEngine.
 import { TokenSavingsLedger } from './harness/tokenOptimizer.js';
 import { CitedKnowledgeEngine } from './harness/ragEngine.js';
 import { MarketResearchBotEngine } from './harness/marketBotEngine.js';
+import { MusicCuratorEngine } from './harness/musicCuratorEngine.js';
+import type { MusicMood } from './harness/musicCuratorEngine.js';
+import { UnifiedOsHarness } from './harness/unifiedOsHarness.js';
+import type { SpecialistId } from './harness/unifiedOsHarness.js';
+import { TelegramCommandCentre } from './harness/telegramCommandCentre.js';
+import type { TelegramUpdateEnvelope } from './providers/telegramProvider.js';
 import { loadLocalEnvFile } from './env.js';
 import {
   createPkcePair,
@@ -111,7 +117,12 @@ export interface AuditTelemetryEvent {
     | 'CONNECTOR_DISCONNECTED'
     | 'COMPUTER_INSPECT'
     | 'AGENT_TASK'
-    | 'PROACTIVE_PULSE';
+    | 'PROACTIVE_PULSE'
+    | 'OS_COMMAND'
+    | 'OS_APPROVAL'
+    | 'OS_PIPELINE'
+    | 'KILL_SWITCH'
+    | 'MUSIC_CURATE';
   detail: string;
 }
 
@@ -713,6 +724,175 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     proactiveHarness.runPulse();
   }
 
+  const musicCurator = new MusicCuratorEngine(nowFn);
+  const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
+
+  let telegramCentre!: TelegramCommandCentre;
+  const osHarness = new UnifiedOsHarness({
+    dataDir,
+    getSnapshot: () => {
+      const creds = vault.load();
+      const hasLive = Boolean(creds.googleRefreshToken || creds.notionToken || activeIcsFeed);
+      const sourceMode: SourceMode = hasLive ? 'LIVE' : 'DEMO';
+      return {
+        snapshot: resolveProvider(sourceMode).getSnapshot(),
+        sourceMode,
+      };
+    },
+    getSummary: () => {
+      const creds = vault.load();
+      const llmCfg = resolveLlmConfig();
+      const tgToken = creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN;
+      return {
+        activeLlmProvider: resolveHealthyLlmLabel(llmCfg),
+        voiceConnected: Boolean(resolveAssemblyAiKey()),
+        connectedCount: [
+          Boolean(creds.googleRefreshToken || activeIcsFeed),
+          Boolean(creds.notionToken && creds.notionDatabaseId),
+          Boolean(tgToken),
+          Boolean(llmCfg.openRouterKey || llmCfg.anthropicKey || llmCfg.openAiKey || llmCfg.xaiKey),
+        ].filter(Boolean).length,
+        hasGoogle: Boolean(creds.googleRefreshToken || activeIcsFeed),
+        hasNotion: Boolean(creds.notionToken && creds.notionDatabaseId),
+        hasTelegram: Boolean(tgToken),
+        telegramChatId: creds.telegramChatId ?? process.env.TELEGRAM_CHAT_ID,
+        hasOpenRouter: Boolean(llmCfg.openRouterKey),
+        hasGrok: Boolean(llmCfg.xaiKey),
+        hasOmniRoute: Boolean(llmCfg.omniRouteKey || llmCfg.omniRouteUrl),
+        hasSpotify: false,
+        hasGitHubToken: Boolean(process.env.GITHUB_TOKEN || process.env.GH_TOKEN),
+      };
+    },
+    getLlmConfig: () => resolveLlmConfig(),
+    citedKnowledge,
+    marketBot,
+    kanbanScreen,
+    tokenLedger,
+    musicCurator,
+    runInspect: (kind) => runSafeReadInspection(kind, process.cwd()),
+    listMemories: async (limit = 16) => (await ledger.listMemories?.(limit)) ?? [],
+    saveMemory: async (item) => {
+      await saveUnifiedMemory(item);
+    },
+    executeApprovalAction: async (item) => {
+      const creds = vault.load();
+      if (item.destination === 'TELEGRAM') {
+        const botToken = creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN;
+        const chatId = creds.telegramChatId ?? process.env.TELEGRAM_CHAT_ID;
+        if (!botToken || !chatId) {
+          return {
+            ok: false,
+            detail: 'Connect Telegram bot token + chat ID in Connectors to send live Telegram messages.',
+          };
+        }
+        const tg = new TelegramWorkspaceClient(botToken, chatId, opts.fetchImpl);
+        const sent = await tg.sendMessage(item.payloadPreview, chatId);
+        return {
+          ok: true,
+          detail: `Sent live Telegram msg #${sent.messageId} to chat ...${chatId.slice(-4)}`,
+        };
+      }
+      if (item.destination === 'COMPUTER') {
+        const res = await executeDelegatedTask({
+          kind: 'PLAN_PROJECT',
+          title: item.title,
+          prompt: item.payloadPreview,
+          targetTool: 'auto',
+          cwd: process.cwd(),
+          llmConfig: resolveLlmConfig(),
+        });
+        return {
+          ok: res.status === 'DONE',
+          detail: `${res.toolUsed}: ${res.summary}`,
+        };
+      }
+      const hasLive = Boolean(creds.googleRefreshToken || (creds.notionToken && creds.notionDatabaseId));
+      const modeLabel: SourceMode = hasLive ? 'LIVE' : 'DEMO';
+      const prov = resolveProvider(modeLabel);
+      const corr = await prov.fetchCorridor(new Date(nowFn()).toISOString());
+      const topCard = corr.cards[0];
+      if (item.destination === 'NOTION') {
+        const preview = await buildAndValidatePreview({
+          intent: 'CREATE_ACTION_PACK',
+          cardId: topCard?.id,
+          operations: [
+            {
+              provider: 'NOTION',
+              op: 'CREATE_TASK',
+              targetLabel: 'Workspace Tasks',
+              afterValue: item.payloadPreview.slice(0, 96),
+            },
+          ],
+          summaryLines: [`1) NOTION: ${item.title.slice(0, 30)}`],
+          nowFn,
+          provider: prov,
+          ledger,
+          sessionHash: item.idempotencyKey,
+        });
+        if ('conflict' in preview) {
+          return { ok: false, detail: 'Conflict blocked Notion task creation cleanly' };
+        }
+        const rec = await prov.executePreview({
+          preview: preview.preview,
+          operations: preview.preview.operations,
+          card: topCard,
+        });
+        return {
+          ok: true,
+          detail: `[${modeLabel}] Notion task committed (${rec.receiptId})`,
+        };
+      }
+      return {
+        ok: true,
+        detail: `[${modeLabel}] Verified & logged ${item.destination} action: "${item.title}"`,
+      };
+    },
+    onApprovalCreated: async (item) => {
+      if (isTestEnv && !opts.fetchImpl) return undefined;
+      return telegramCentre?.notifyApproval(item);
+    },
+    onKillSwitchChanged: (paused) => {
+      if (paused) {
+        proactiveHarness.stop();
+      } else if (!opts.disableProactiveTimer && !isTestEnv) {
+        proactiveHarness.start();
+      }
+    },
+    onBroadcast: (event, data) => broadcastSse(event, data),
+    onAudit: (detail, level) => {
+      const kind: AuditTelemetryEvent['kind'] =
+        level === 'APPROVAL'
+          ? 'OS_APPROVAL'
+          : level === 'PIPELINE'
+            ? 'OS_PIPELINE'
+            : level === 'KILL_SWITCH'
+              ? 'KILL_SWITCH'
+              : 'OS_COMMAND';
+      recordAudit(kind, detail);
+    },
+    fetchImpl: opts.fetchImpl,
+    nowFn,
+  });
+
+  telegramCentre = new TelegramCommandCentre({
+    osHarness,
+    getCredentials: () => {
+      const creds = vault.load();
+      return {
+        botToken: creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN,
+        chatId: creds.telegramChatId ?? process.env.TELEGRAM_CHAT_ID,
+      };
+    },
+    fetchImpl: opts.fetchImpl,
+    onLog: (msg) => recordAudit('OS_COMMAND', msg),
+    onError: (msg) => logError('telegram-poller', msg),
+  });
+
+  if (!opts.disableProactiveTimer && !isTestEnv) {
+    osHarness.startScheduler(90_000);
+    telegramCentre.startPolling(5000);
+  }
+
   function applyCors(req: http.IncomingMessage, res: http.ServerResponse): boolean {
     const origin = req.headers.origin;
     if (!origin) return true;
@@ -1194,8 +1374,17 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
                 intent: 'PLAN_PROJECT',
                 commandText: '__SYNTHESIZE_PROACTIVE__',
               },
+              {
+                id: 'qa-pc-os-crew',
+                label: 'Run L4 Specialist Crew',
+                intent: 'PLAN_PROJECT',
+                commandText: '__OS_RUN_PIPELINE__',
+              },
             ],
           });
+
+          // Card 4: Unified Autonomous Personal OS (L0-L5, 10 Agents, L2 Approvals, Routines, Music, Kill Switch)
+          enrichedCards.push(osHarness.buildCorridorCard(nowIso, data.sourceMode));
 
           lastCorridorCache = {
             cards: enrichedCards,
@@ -3644,6 +3833,30 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const nowIso = new Date(nowFn()).toISOString();
         const urlMatch = msg.match(/https?:\/\/[^\s]+/i);
 
+        // 0) Unified Personal OS Commands (Slash commands, Kill Switch, Music/Focus, Multi-Agent Crew, Jobs/Settings)
+        if (
+          msg.startsWith('/') ||
+          /\b(kill switch|pause all|resume os|curate music|focus playlist|focus music|multi-agent|specialist crew|run crew|l4 pipeline)\b/i.test(
+            msg,
+          )
+        ) {
+          const outcome = await osHarness.handleCommand({ text: msg, surface: 'web' });
+          jsonResponse(res, 200, {
+            ok: outcome.ok,
+            domain: outcome.domain,
+            recommendedTab: outcome.recommendedTab ?? 'os',
+            reply: outcome.reply,
+            spokenText: outcome.reply,
+            g2Lines: outcome.g2Lines,
+            approval: outcome.approval,
+            pipelineRun: outcome.pipelineRun,
+            musicSession: outcome.musicSession,
+            surface: outcome.liveUiSurface,
+            tokenSummary: tokenLedger.getSummary(),
+          });
+          return;
+        }
+
         // 1) Docs URL -> Defuddle + Cited RAG
         if (urlMatch) {
           try {
@@ -3916,6 +4129,197 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         return;
       }
 
+      // 14j. Unified Autonomous Personal OS Harness Routes (Web + Even G2 Glasses + Telegram Command Centre)
+      if (req.method === 'GET' && pathname === '/api/os/state') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        jsonResponse(res, 200, {
+          ...osHarness.getState(),
+          telegramPoller: telegramCentre.getStatus(),
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/os/command') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ text?: string; surface?: 'web' | 'glasses' | 'telegram' }>(req);
+        if (!body.text?.trim()) {
+          jsonResponse(res, 400, { error: 'text required' });
+          return;
+        }
+        const outcome = await osHarness.handleCommand({
+          text: body.text.trim(),
+          surface: body.surface ?? 'web',
+        });
+        jsonResponse(res, 200, {
+          ...outcome,
+          state: osHarness.getState(),
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/os/killswitch') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ paused?: boolean; reason?: string }>(req);
+        const paused = typeof body.paused === 'boolean' ? body.paused : !osHarness.getState().killSwitch.paused;
+        const state = osHarness.setKillSwitch(paused, body.reason);
+        jsonResponse(res, 200, { ok: true, state });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/os/routines/run') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ routineId?: string }>(req);
+        const result = await osHarness.runRoutine(body.routineId ?? 'morning_brief');
+        jsonResponse(res, 200, {
+          ...result,
+          state: osHarness.getState(),
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/os/routines/toggle') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ routineId?: string; paused?: boolean }>(req);
+        if (!body.routineId) {
+          jsonResponse(res, 400, { error: 'routineId required' });
+          return;
+        }
+        const routine = osHarness.toggleRoutine(body.routineId, body.paused);
+        if (!routine) {
+          jsonResponse(res, 404, { error: `Routine ${body.routineId} not found` });
+          return;
+        }
+        jsonResponse(res, 200, { ok: true, routine, state: osHarness.getState() });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/os/skills/create') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{
+          name?: string;
+          triggerCommand?: string;
+          specialistId?: SpecialistId;
+          description?: string;
+          steps?: string[];
+          scheduleLabel?: string;
+        }>(req);
+        if (!body.name?.trim()) {
+          jsonResponse(res, 400, { error: 'name required' });
+          return;
+        }
+        const created = osHarness.createSkill({
+          name: body.name.trim(),
+          triggerCommand: body.triggerCommand,
+          specialistId: body.specialistId,
+          description: body.description,
+          steps: body.steps,
+          scheduleLabel: body.scheduleLabel,
+        });
+        jsonResponse(res, 200, { ok: true, ...created, state: osHarness.getState() });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/os/pipeline/run') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ preset?: string; goal?: string }>(req);
+        const run = await osHarness.runPipeline({ preset: body.preset, goal: body.goal });
+        const pipeSurface: LiveUiSurface = {
+          id: run.runId,
+          title: `L4 Crew: ${run.preset}`.slice(0, 38),
+          frame: 'stack',
+          repairedCodes: [],
+          vars: { status: run.status },
+          updatedAtIso: run.finishedAtIso,
+          components: run.g2Lines.slice(0, 4).map((line, idx) => ({
+            id: `${run.runId}_${idx}`,
+            kind: 'text',
+            region: 'main',
+            text: line,
+          })),
+        };
+        activeLiveUi = pipeSurface;
+        broadcastSse('liveui', { surface: pipeSurface, g2: formatLiveUiForG2(pipeSurface) });
+        jsonResponse(res, 200, {
+          ok: run.status === 'VERIFIED_DONE',
+          run,
+          surface: pipeSurface,
+          state: osHarness.getState(),
+        });
+        return;
+      }
+
+      const osApprovalMatch = pathname.match(/^\/api\/os\/approvals\/([a-zA-Z0-9_-]+)\/decide$/);
+      if (req.method === 'POST' && osApprovalMatch) {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{
+          decision?: 'approve' | 'reject';
+          surface?: 'web' | 'glasses' | 'telegram';
+        }>(req);
+        const decision = body.decision === 'reject' ? 'reject' : 'approve';
+        const outcome = await osHarness.decideApproval(osApprovalMatch[1], decision, {
+          surface: body.surface ?? 'web',
+        });
+        jsonResponse(res, outcome.statusCode, {
+          ok: outcome.ok,
+          error: outcome.error,
+          item: outcome.item,
+          state: osHarness.getState(),
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/os/music/curate') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{
+          mood?: MusicMood;
+          query?: string;
+          durationMin?: number;
+          pushToGlasses?: boolean;
+        }>(req);
+        const outcome = await osHarness.handleCommand({
+          text: `/music ${body.mood ?? ''} ${body.query ?? ''} ${body.durationMin ? `${body.durationMin}m` : ''}`.trim(),
+          surface: 'web',
+        });
+        if (outcome.liveUiSurface) {
+          activeLiveUi = outcome.liveUiSurface;
+        }
+        recordAudit('MUSIC_CURATE', outcome.reply.slice(0, 140));
+        jsonResponse(res, 200, {
+          ok: true,
+          session: outcome.musicSession,
+          surface: outcome.liveUiSurface,
+          g2Lines: outcome.g2Lines,
+          state: osHarness.getState(),
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/os/telegram/webhook-test') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ update?: TelegramUpdateEnvelope }>(req);
+        if (!body.update) {
+          jsonResponse(res, 400, { error: 'update envelope required' });
+          return;
+        }
+        const resUpd = await telegramCentre.processUpdate(body.update);
+        jsonResponse(res, 200, {
+          ok: true,
+          ...resUpd,
+          state: osHarness.getState(),
+        });
+        return;
+      }
+
       // 15. Session revoke
       if (req.method === 'POST' && pathname === '/api/session/revoke') {
         const bearer = extractBearer(req);
@@ -4103,6 +4507,8 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     vault,
     demoProvider,
     close: async () => {
+      telegramCentre.stopPolling();
+      osHarness.stopScheduler();
       proactiveHarness.stop();
       meetingBuffer.wipe();
       for (const client of wss.clients) {

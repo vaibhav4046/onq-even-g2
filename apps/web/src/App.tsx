@@ -723,9 +723,14 @@ export function App() {
         ) {
           ctrlRef.current.showAnswer(payload.g2.lines);
         }
+        setEmulatorTick(Date.now());
       } catch {
         // ignore
       }
+    });
+    es.addEventListener('os_state', () => {
+      setExternalTaskSeq((s) => s + 1);
+      setEmulatorTick(Date.now());
     });
     return () => es.close();
   }, [geometryMode, sessionToken, refreshCorridor, refreshWorkspaceInspector]);
@@ -2392,10 +2397,10 @@ export function App() {
         </section>
 
         {/* Interactive System Architecture & Telemetry (#architecture) */}
-        <ArchitectureShowcase testCount={240} />
+        <ArchitectureShowcase testCount={246} />
 
         {/* Visual Survey Graphs, Curves & Field Benchmark (#research) */}
-        <ResearchGraphsSection testCount={240} />
+        <ResearchGraphsSection testCount={246} />
 
         {/* Sticky Scroll Safety Story (#safety) */}
         <StickySafetyStory />
