@@ -165,7 +165,7 @@ export interface OsRoutine {
   lastSummary: string;
 }
 
-export type ApprovalDestination = 'TELEGRAM' | 'GMAIL' | 'GCAL' | 'NOTION' | 'COMPUTER';
+export type ApprovalDestination = 'TELEGRAM' | 'GMAIL' | 'GCAL' | 'NOTION' | 'COMPUTER' | 'BROWSER';
 
 export interface OsApprovalItem {
   id: string;
@@ -288,6 +288,8 @@ export interface UnifiedOsHarnessDeps {
   executeApprovalAction: (item: OsApprovalItem) => Promise<{ ok: boolean; detail: string }>;
   onApprovalCreated?: (item: OsApprovalItem) => Promise<number | undefined>;
   onKillSwitchChanged?: (paused: boolean) => void;
+  /** Starts a task in the user's own browser on this PC (see browserAgent.ts). */
+  startBrowserTask?: (goal: string, surface: 'web' | 'glasses' | 'telegram') => { ok: boolean; id?: string; error?: string };
   onBroadcast: (event: string, data: unknown) => void;
   onAudit: (detail: string, level?: 'COMMAND' | 'APPROVAL' | 'PIPELINE' | 'KILL_SWITCH' | 'ROUTINE') => void;
   fetchImpl?: typeof fetch;
@@ -471,6 +473,7 @@ const PRIVILEGED_TELEGRAM_COMMANDS = new Set([
   '/calendar',
   '/code',
   '/settings',
+  '/browse',
 ]);
 
 interface PersistedOsState {
@@ -1185,11 +1188,30 @@ export class UnifiedOsHarness {
       });
     }
 
+    // 0. /browse <goal>: work in the user's own browser on this PC; risky steps come back as approvals.
+    if (cmd === '/browse') {
+      const started = arg
+        ? this.deps.startBrowserTask?.(arg, params.surface) ?? { ok: false, error: 'Browser agent is not available on this PC.' }
+        : { ok: false, error: 'Say what to do, for example: /browse find the cheapest flight to Dubai on Friday' };
+      return recordOutcome({
+        ok: started.ok,
+        command: '/browse',
+        domain: 'BROWSER',
+        specialistId: 'researcher',
+        autonomyLevel: 'L1_PREPARE',
+        reply: started.ok
+          ? `Working on it in your browser (${started.id}). I will ask before anything that buys, sends or submits.`
+          : started.error ?? 'Could not start.',
+        g2Lines: started.ok ? ['BROWSER | WORKING', clipLine42(arg)] : ['BROWSER | NOT STARTED', clipLine42(started.error ?? '')],
+        recommendedTab: 'os',
+      });
+    }
+
     // 1. /help
     if (cmd === '/help') {
       const reply = [
         'OnQ Unified OS Commands:',
-        '/status, /calendar, /inbox, /research <q>, /jobs, /code, /project <goal>',
+        '/status, /calendar, /inbox, /browse <goal>, /research <q>, /jobs, /code, /project <goal>',
         '/music [mood|query], /focus [mins], /task <desc>, /ask <q>',
         '/approve <id>, /reject <id>, /pause [routine|all], /resume [routine|all], /settings',
       ].join('\n');

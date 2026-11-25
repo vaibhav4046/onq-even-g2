@@ -46,6 +46,14 @@ export class TelegramCommandCentre {
     return new TelegramWorkspaceClient(botToken.trim(), chatId?.trim(), this.deps.fetchImpl);
   }
 
+  /** Plain message to the paired owner chat (used when a Telegram-started task finishes). */
+  async notifyText(text: string): Promise<void> {
+    const client = this.getClient();
+    const { chatId } = this.deps.getCredentials();
+    if (!client || !chatId?.trim()) return;
+    await client.sendMessage(text.slice(0, 3900), chatId).catch(() => undefined);
+  }
+
   async notifyApproval(item: OsApprovalItem): Promise<number | undefined> {
     const client = this.getClient();
     const { chatId } = this.deps.getCredentials();

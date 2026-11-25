@@ -43,6 +43,8 @@ import type { MusicMood } from './harness/musicCuratorEngine.js';
 import { UnifiedOsHarness } from './harness/unifiedOsHarness.js';
 import type { SpecialistId } from './harness/unifiedOsHarness.js';
 import { TelegramCommandCentre } from './harness/telegramCommandCentre.js';
+import { BrowserAgentEngine, type BrowserDriver, type Planner } from './harness/browserAgent.js';
+import { createBrowserPlanner, createLocalChromeDriver } from './harness/browserRuntime.js';
 import type { TelegramUpdateEnvelope } from './providers/telegramProvider.js';
 import { loadLocalEnvFile } from './env.js';
 import {
@@ -141,6 +143,10 @@ export interface ServerOptions {
   nowFn?: () => number;
   allowTestFaultControls?: boolean;
   disableProactiveTimer?: boolean;
+  /** Tests inject a fake browser and planner; production drives the user's own Chrome. */
+  browserDriverFactory?: () => BrowserDriver;
+  browserPlanner?: Planner;
+  browserAllowLoopback?: boolean;
 }
 
 const DEFAULT_ORIGINS = [
@@ -728,7 +734,12 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
   const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
 
   let telegramCentre!: TelegramCommandCentre;
+  let browserAgent!: BrowserAgentEngine;
   const osHarness = new UnifiedOsHarness({
+    startBrowserTask: (goal, surface) => {
+      const res = browserAgent.start(goal, surface);
+      return { ok: res.ok, id: res.run?.id, error: res.error };
+    },
     dataDir,
     getSnapshot: () => {
       const creds = vault.load();
@@ -791,6 +802,9 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           ok: true,
           detail: `Sent live Telegram msg #${sent.messageId} to chat ...${chatId.slice(-4)}`,
         };
+      }
+      if (item.destination === 'BROWSER') {
+        return browserAgent.resumeAfterApproval(item.id);
       }
       if (item.destination === 'COMPUTER') {
         const res = await executeDelegatedTask({
@@ -886,6 +900,43 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     fetchImpl: opts.fetchImpl,
     onLog: (msg) => recordAudit('OS_COMMAND', msg),
     onError: (msg) => logError('telegram-poller', msg),
+  });
+
+  browserAgent = new BrowserAgentEngine({
+    driverFactory: opts.browserDriverFactory ?? (() =>
+      createLocalChromeDriver({
+        profileDir: path.join(dataDir, 'browser-profile'),
+        headless: process.env.ONQ_BROWSER_HEADLESS === '1',
+      })),
+    planner: opts.browserPlanner ?? createBrowserPlanner(() => resolveLlmConfig()),
+    requestApproval: (input) =>
+      osHarness.enqueueApproval({
+        specialistId: 'researcher',
+        destination: 'BROWSER',
+        title: input.title,
+        summary: input.summary,
+        payloadPreview: input.payloadPreview,
+        sourceSurface: 'web',
+      }),
+    getApprovalStatus: (id) => osHarness.getState().approvals.find((a) => a.id === id)?.status,
+    isPaused: () => osHarness.getState().killSwitch.paused,
+    allowLoopback: opts.browserAllowLoopback,
+    allowlist: (process.env.ONQ_BROWSER_ALLOWLIST ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+    nowFn,
+    onUpdate: (run) => {
+      broadcastSse('browser_run', run);
+      if (run.lensLines.length) {
+        broadcastSse('liveui', {
+          surface: null,
+          g2: { header: run.lensLines[0], lines: run.lensLines, bodyText: run.lensLines.join('\n') },
+        });
+      }
+      const terminal = run.status === 'DONE' || run.status === 'STOPPED' || run.status === 'FAILED';
+      if (terminal) {
+        recordAudit('OS_COMMAND', `Browser task ${run.id} ${run.status}: ${run.answer ?? ''}`.slice(0, 200));
+        if (run.source === 'telegram') void telegramCentre?.notifyText(`Browser task ${run.status.toLowerCase()}: ${run.answer ?? ''}`);
+      }
+    },
   });
 
   if (!opts.disableProactiveTimer && !isTestEnv) {
@@ -4222,6 +4273,29 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           scheduleLabel: body.scheduleLabel,
         });
         jsonResponse(res, 200, { ok: true, ...created, state: osHarness.getState() });
+        return;
+      }
+
+      // Browser agent: works in the user's own Chrome on this PC; risky steps become approvals.
+      if (req.method === 'POST' && pathname === '/api/browser/run') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ goal?: string; source?: 'web' | 'glasses' | 'voice' }>(req);
+        const started = browserAgent.start(String(body.goal ?? ''), body.source ?? 'web');
+        jsonResponse(res, started.ok ? 202 : 409, started.ok ? { ok: true, run: started.run } : { ok: false, error: started.error });
+        return;
+      }
+      if (req.method === 'GET' && pathname === '/api/browser/runs') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        jsonResponse(res, 200, { runs: browserAgent.listRuns() });
+        return;
+      }
+      const browserStop = pathname.match(/^\/api\/browser\/runs\/(brw_[a-f0-9]+)\/stop$/);
+      if (req.method === 'POST' && browserStop) {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        jsonResponse(res, 200, { ok: browserAgent.stop(browserStop[1]) });
         return;
       }
 
