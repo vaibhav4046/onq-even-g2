@@ -956,7 +956,7 @@ def main():
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     ff = _resolve_ffmpeg()
     cmd = [ff, '-y', '-hide_banner', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'bgr24', '-s', f'{OW}x{OH}', '-r', str(FPS), '-i', '-',
-           '-i', wav, '-c:v', 'libx264', '-preset', 'fast' if DRAFT else 'medium', '-crf', '24' if DRAFT else '23', '-pix_fmt', 'yuv420p',
+           '-i', wav, '-c:v', 'libx264', '-preset', 'fast' if DRAFT else 'medium', '-crf', '24', '-maxrate', '4000k', '-bufsize', '8000k', '-pix_fmt', 'yuv420p',
            '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-movflags', '+faststart', '-shortest', out_path]
     pr = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     import multiprocessing as mp
