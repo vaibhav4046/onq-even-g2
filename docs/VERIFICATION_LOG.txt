@@ -350,7 +350,7 @@ None. All automated static and negative HTTP security gates passed.
 
 
 ================================================================================
-LATEST FULL RUN SUMMARY (2026-11-25, every command exit 0)
+LATEST FULL RUN SUMMARY (2026-11-26, every command exit 0)
 This section supersedes the earlier raw transcript above (commit 0b73a2b).
 ================================================================================
 npm test                  31 files, 280 tests passed
@@ -364,8 +364,8 @@ npm run verify:sim        13 real EvenHub Simulator 0.9.5 captures, sim-01..sim-
                           (sim-13 rendered 1 of 4 lines before this pass; the crew block is now
                           one multi-line text block and shows the crew title plus 3 lines:
                           Chief, Developer, Auditor)
-npm run verify:security   10/10 PASS, 0 vulns (npm audit --omit=dev), 112 files at last run
-Web bundle                entry JS chunk 292 kB raw / 76 kB gzip (was 1,756 kB / 498 kB);
+npm run verify:security   10/10 PASS, 0 vulns (npm audit --omit=dev), 125 files in a clean clone
+Web bundle                entry JS chunk 262 kB raw / 67 kB gzip (was 1,756 kB / 498 kB);
                           Three.js and the 3D glasses load lazily in their own chunk
 modern-web-guidance       legacy-scan on apps/web/src: 0 findings across 25 files
                           guide "tabs" applied (role=tablist/tab, aria-selected, selected tab
