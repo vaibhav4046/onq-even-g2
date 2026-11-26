@@ -300,7 +300,7 @@ Next  evenhub create C:\Users\lalwa\AppData\Local\Temp\onq-final-check\dist\onq.
 > onq-even-g2@1.0.0 verify:geometry
 > node scripts/verify-geometry.mjs
 
-[geometry:PASS] DOSSIER            | lines=7 | bytes=255 | dark=97.3%
+[geometry:PASS] DOSSIER            | lines=7 | bytes=268 | dark=97.3%
 [geometry:PASS] DETAIL             | lines=7 | bytes=220 | dark=97.8%
 [geometry:PASS] VOICE_LISTENING    | lines=7 | bytes=216 | dark=98.0%
 [geometry:PASS] MEETING_LIVE       | lines=6 | bytes=211 | dark=98.0%
@@ -353,7 +353,7 @@ None. All automated static and negative HTTP security gates passed.
 LATEST FULL RUN SUMMARY (2026-11-25, every command exit 0)
 This section supersedes the earlier raw transcript above (commit 0b73a2b).
 ================================================================================
-npm test                  28 files, 255 tests passed
+npm test                  30 files, 268 tests passed
 npm run eval:harness      32/32 intents, 5/5 injections blocked, 3/3 409 locks,
                           5/5 RMS silence rejections, 4 failover scenarios
 npm run pack              dist/onq.ehpk 51,344 bytes, SDK 0.0.16

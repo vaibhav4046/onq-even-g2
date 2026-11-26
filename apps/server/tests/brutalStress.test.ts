@@ -297,7 +297,10 @@ describe('Brutal Concurrency, Live-Provider & Adversarial Stress Suite', () => {
       ws.send(frame);
     }
     ws.send(JSON.stringify({ type: 'barge_in' }));
-    await new Promise((r) => setTimeout(r, 150));
+    // Wait for the messages instead of a fixed 150 ms, which raced on a loaded machine.
+    for (let i = 0; i < 60 && !(receivedTypes.includes('orb_rms') && receivedTypes.includes('tts_cancelled')); i++) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
     expect(receivedTypes).toContain('orb_rms');
     expect(receivedTypes).toContain('tts_cancelled');
 

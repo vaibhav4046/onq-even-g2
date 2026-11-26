@@ -52,7 +52,7 @@ def make_opening_slate(path: str) -> None:
     f_sub = load_font(30)
     f_stat = load_font(22, mono=True)
 
-    d.text((130, 190), "OnQ · EVEN REALITIES G2 · TRACK 04", fill=(218, 255, 82), font=f_eyebrow)
+    d.text((130, 190), "OnQ · EVEN REALITIES G2 · TRACK 04", fill=(218, 268, 82), font=f_eyebrow)
     d.text((130, 250), "Own the 90 seconds", fill=(160, 160, 168), font=f_h1)
     d.text((130, 350), "between meetings.", fill=(242, 242, 242), font=f_h1)
     d.text(
@@ -63,7 +63,7 @@ def make_opening_slate(path: str) -> None:
     )
 
     d.rectangle([130, 590, W - 130, 770], fill=(12, 12, 14), outline=(55, 56, 58), width=2)
-    d.text((165, 622), "PUBLISHED PROBLEM EVIDENCE", fill=(218, 255, 82), font=f_eyebrow)
+    d.text((165, 622), "PUBLISHED PROBLEM EVIDENCE", fill=(218, 268, 82), font=f_eyebrow)
     d.text(
         (165, 668),
         "Microsoft Work Trend Index (2023-2025): 275 daily interruptions, 68% lack focus time",
@@ -93,11 +93,11 @@ def make_closing_slate(path: str) -> None:
     f_desc = load_font(20, mono=True)
     f_body = load_font(24, mono=True)
 
-    d.text((130, 140), "VERIFIED, NOT CLAIMED · CLEAN-ROOM REPRODUCIBLE", fill=(218, 255, 82), font=f_eyebrow)
+    d.text((130, 140), "VERIFIED, NOT CLAIMED · CLEAN-ROOM REPRODUCIBLE", fill=(218, 268, 82), font=f_eyebrow)
     d.text((130, 195), "Ready to run cold with zero paid keys.", fill=(242, 242, 242), font=f_h1)
 
     cards = [
-        ("255 / 255", "Automated Tests", "28 files: safety locks, Telegram approvals, OS harness, failover & concurrency"),
+        ("268 / 268", "Automated Tests", "28 files: safety locks, Telegram approvals, OS harness, failover & concurrency"),
         ("11 / 11", "Geometry Gate", "11 lens checks <= 999B plus Negative Control gate"),
         ("10 / 10", "Security Audit", "Zero secrets in source, web bundle, or onq.ehpk"),
         ("32 / 32", "Harness Eval", "100% intent match, 5/5 injection block, 100% 409 lock"),
@@ -108,9 +108,9 @@ def make_closing_slate(path: str) -> None:
     for idx, (num, title, desc) in enumerate(cards):
         x0 = 130 + idx * (cw + gap)
         x1 = x0 + cw
-        outline = (218, 255, 82) if idx == 0 else (55, 56, 58)
+        outline = (218, 268, 82) if idx == 0 else (55, 56, 58)
         d.rectangle([x0, y0, x1, y1], fill=(12, 12, 14), outline=outline, width=2)
-        d.text((x0 + 26, y0 + 28), num, fill=(218, 255, 82), font=f_big)
+        d.text((x0 + 26, y0 + 28), num, fill=(218, 268, 82), font=f_big)
         d.text((x0 + 26, y0 + 112), title, fill=(242, 242, 242), font=f_title)
         wrapped = textwrap.wrap(desc, width=29)
         for li, line in enumerate(wrapped[:3]):
@@ -123,8 +123,8 @@ def make_closing_slate(path: str) -> None:
         font=f_body,
     )
 
-    d.rectangle([130, 695, W - 130, 840], fill=(16, 22, 6), outline=(218, 255, 82), width=2)
-    d.text((165, 727), "CLONE, VERIFY & SIDELOAD", fill=(218, 255, 82), font=f_eyebrow)
+    d.rectangle([130, 695, W - 130, 840], fill=(16, 22, 6), outline=(218, 268, 82), width=2)
+    d.text((165, 727), "CLONE, VERIFY & SIDELOAD", fill=(218, 268, 82), font=f_eyebrow)
     d.text(
         (165, 769),
         "npm ci && npm test && npm run eval:harness && npm run pack   ->   dist/onq.ehpk",
@@ -153,39 +153,39 @@ def make_stage_frame(
     d = ImageDraw.Draw(ov)
 
     # Top sleek black strip (0..56)
-    d.rectangle([0, 0, W, 56], fill=(0, 0, 0, 255))
-    d.line([0, 56, W, 56], fill=(42, 44, 48, 255), width=1)
-    d.text((48, 18), "OnQ · LIVE PRODUCT RECORDING", fill=(218, 255, 82, 255), font=load_font(18, bold=True, mono=True))
-    d.text((W - 430, 18), "SANDBOX: DEMO  |  LIVE RELAY: 127.0.0.1:8787", fill=(154, 158, 166, 255), font=load_font(16, mono=True))
+    d.rectangle([0, 0, W, 56], fill=(0, 0, 0, 268))
+    d.line([0, 56, W, 56], fill=(42, 44, 48, 268), width=1)
+    d.text((48, 18), "OnQ · LIVE PRODUCT RECORDING", fill=(218, 268, 82, 268), font=load_font(18, bold=True, mono=True))
+    d.text((W - 430, 18), "SANDBOX: DEMO  |  LIVE RELAY: 127.0.0.1:8787", fill=(154, 158, 166, 268), font=load_font(16, mono=True))
 
     # Right dedicated Simulator panel when sim_img_path is supplied (zero overlap with web UI!)
     if sim_img_path and os.path.exists(sim_img_path):
-        d.rectangle([1400, 57, W, 954], fill=(6, 6, 8, 255))
-        d.line([1400, 57, 1400, 954], fill=(55, 56, 58, 255), width=2)
+        d.rectangle([1400, 57, W, 954], fill=(6, 6, 8, 268))
+        d.line([1400, 57, 1400, 954], fill=(55, 56, 58, 268), width=2)
 
         px, py = 1424, 150
         pw, ph = 468, 234
-        d.text((px, py - 58), "OFFICIAL HARDWARE RUNTIME", fill=(154, 158, 166, 255), font=load_font(16, bold=True, mono=True))
-        d.text((px, py - 34), pip_title, fill=(52, 245, 126, 255), font=load_font(18, bold=True, mono=True))
-        d.rectangle([px - 4, py - 4, px + pw + 4, py + ph + 4], fill=(0, 0, 0, 255), outline=(52, 245, 126, 255), width=2)
+        d.text((px, py - 58), "OFFICIAL HARDWARE RUNTIME", fill=(154, 158, 166, 268), font=load_font(16, bold=True, mono=True))
+        d.text((px, py - 34), pip_title, fill=(52, 245, 126, 268), font=load_font(18, bold=True, mono=True))
+        d.rectangle([px - 4, py - 4, px + pw + 4, py + ph + 4], fill=(0, 0, 0, 268), outline=(52, 245, 126, 268), width=2)
         sim_im = Image.open(sim_img_path).convert("RGBA").resize((pw, ph), Image.Resampling.NEAREST)
         ov.paste(sim_im, (px, py))
 
         # Status callout card under the simulator lens
         cy = py + ph + 28
-        d.rectangle([px, cy, px + pw, cy + 160], fill=(12, 12, 14, 255), outline=(55, 56, 58, 255), width=1)
-        d.text((px + 18, cy + 20), "OPTICAL TELEMETRY SPEC", fill=(218, 255, 82, 255), font=load_font(16, bold=True, mono=True))
+        d.rectangle([px, cy, px + pw, cy + 160], fill=(12, 12, 14, 268), outline=(55, 56, 58, 268), width=1)
+        d.text((px + 18, cy + 20), "OPTICAL TELEMETRY SPEC", fill=(218, 268, 82, 268), font=load_font(16, bold=True, mono=True))
         for idx, note_line in enumerate(textwrap.wrap(pip_note, width=40)[:3]):
-            d.text((px + 18, cy + 56 + idx * 30), note_line, fill=(224, 226, 232, 255), font=load_font(18, mono=True))
+            d.text((px + 18, cy + 56 + idx * 30), note_line, fill=(224, 226, 232, 268), font=load_font(18, mono=True))
 
     # Dedicated bottom editorial caption bar (954..1080) — solid obsidian so zero buttons peek behind!
-    d.rectangle([0, 954, W, H], fill=(0, 0, 0, 255))
-    d.line([0, 954, W, 954], fill=(55, 56, 58, 255), width=1)
-    d.rectangle([48, 974, W - 48, 1054], fill=(10, 10, 12, 255), outline=(55, 56, 58, 255), width=2)
-    d.rectangle([62, 986, 128, 1042], fill=(218, 255, 82, 255))
-    d.text((79, 999), step_num, fill=(10, 10, 10, 255), font=load_font(24, bold=True, mono=True))
-    d.text((152, 987), label, fill=(242, 242, 242, 255), font=load_font(24, bold=True))
-    d.text((152, 1020), sub, fill=(168, 172, 180, 255), font=load_font(19, mono=True))
+    d.rectangle([0, 954, W, H], fill=(0, 0, 0, 268))
+    d.line([0, 954, W, 954], fill=(55, 56, 58, 268), width=1)
+    d.rectangle([48, 974, W - 48, 1054], fill=(10, 10, 12, 268), outline=(55, 56, 58, 268), width=2)
+    d.rectangle([62, 986, 128, 1042], fill=(218, 268, 82, 268))
+    d.text((79, 999), step_num, fill=(10, 10, 10, 268), font=load_font(24, bold=True, mono=True))
+    d.text((152, 987), label, fill=(242, 242, 242, 268), font=load_font(24, bold=True))
+    d.text((152, 1020), sub, fill=(168, 172, 180, 268), font=load_font(19, mono=True))
 
     ov.save(path)
 

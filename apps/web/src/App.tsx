@@ -23,7 +23,6 @@ import {
   ChatGptPixelSvg,
   ClaudePixelSvg,
   DrivePixelSvg,
-  EcosystemStrip,
   EvenG2PixelSvg,
   GmailPixelSvg,
   NotionPixelSvg,
@@ -38,13 +37,7 @@ const G2Hardware3D = lazy(() => import('./components/G2Hardware3D').then((m) => 
 import { G2LensCanvas } from './components/G2LensCanvas';
 import { startBrowserMicCapture } from './components/MicRecorder';
 import type { MicRecordingHandle } from './components/MicRecorder';
-import {
-  GlyphDecodeHeading,
-  MOTION_EASE,
-  ScrollProgressRail,
-  ScrollReveal,
-  SpotlightBentoCard,
-} from './components/MotionPrimitives';
+import { MOTION_EASE, ScrollProgressRail, ScrollReveal } from './components/MotionPrimitives';
 import { ArchitectureShowcase } from './components/ArchitectureShowcase';
 import { LiveVoiceStudio } from './components/LiveVoiceStudio';
 import type { UnifiedMemoryDto } from './components/LiveVoiceStudio';
@@ -53,12 +46,7 @@ import { OnQVoiceOrb } from './components/OnQVoiceOrb';
 import { PhosphorMeshShader } from './components/PhosphorMeshShader';
 import { ResearchGraphsSection } from './components/ResearchGraphsSection';
 import { StickySafetyStory } from './components/StickySafetyStory';
-import {
-  ConflictShieldVisual,
-  CorridorBriefVisual,
-  InRoomScribeVisual,
-  ShiftScheduleVisual,
-} from './components/WorkflowVisuals';
+import { ClipCards, DayStory, ProofStrip } from './components/LandingStory';
 
 interface ProactiveInsight {
   id: string;
@@ -949,26 +937,6 @@ export function App() {
     setVoiceFeedback('In-RAM meeting transcript wiped clean (0 audio persisted).');
   };
 
-  // Tour step 3: the morning crew runs on the one OS harness; the result also streams to the glasses via SSE.
-  const runMorningCrewTour = async () => {
-    const tok = tokenRef.current;
-    if (!tok) return;
-    const res = await fetch('/api/os/pipeline/run', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ preset: 'morning_os' }),
-    });
-    if (!res.ok) {
-      setVoiceFeedback(`Morning crew could not run (HTTP ${res.status})`);
-      return;
-    }
-    const j = (await res.json()) as { run?: { status: string; auditorVerdict: string; g2Lines: string[] } };
-    if (j.run) {
-      ctrlRef.current?.showAnswer(j.run.g2Lines);
-      setVoiceFeedback(`Morning crew ${j.run.status.toLowerCase().replace(/_/g, ' ')}: ${j.run.auditorVerdict}`);
-    }
-  };
-
   const stageCommand = async (cmd: string) => {
     const tok = tokenRef.current;
     if (!tok) {
@@ -1399,11 +1367,12 @@ export function App() {
 
           <nav aria-label="Primary navigation" className="hidden lg:flex items-center gap-5 text-sm text-[var(--lightgray)] whitespace-nowrap">
             <a href="#experience" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Lens</a>
-            <a href="#use-cases" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Workflows</a>
-            <a href="#architecture" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">How it works</a>
-            <a href="#research" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Research</a>
+            <a href="#clips" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Watch</a>
+            <a href="#use-cases" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Your day</a>
             <a href="#safety" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Safety</a>
             <a href="#connectors" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">Connect</a>
+            <a href="#architecture" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">How it works</a>
+            <a href="#faq" className="hover:text-[var(--bright)] transition-colors whitespace-nowrap shrink-0">FAQ</a>
           </nav>
 
           <div className="flex items-center gap-3 shrink-0">
@@ -1429,20 +1398,26 @@ export function App() {
 
       {/* Hero: Full-Size 360° 3D Glasses Artifact + HydraDB-inspired Rotating-Word Tagline */}
       <main id="top">
-        <section id="experience" className="py-10 sm:py-14 relative overflow-hidden">
-          <PhosphorMeshShader intensity={0.85} />
+        <section id="experience" className="pt-10 pb-10 sm:pt-14 sm:pb-14 relative overflow-hidden">
+          {/* Glow covers the hero only: a full-section shader also repainted the tall workbench every frame. */}
+          <PhosphorMeshShader
+            intensity={0.85}
+            className="max-h-[60rem] [mask-image:linear-gradient(to_bottom,black_70%,transparent)]"
+          />
           <div className="container-page relative z-10 space-y-10">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            <div className="space-y-10 sm:space-y-12">
               <motion.div
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.45, ease: MOTION_EASE }}
-                className="lg:col-span-5 space-y-5"
+                className="max-w-3xl mx-auto text-center flex flex-col items-center space-y-6"
               >
-                <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--g2-phosphor)]">
-                  EVEN REALITIES G2
+                <p className="ob-pill inline-flex items-center gap-2 !py-1.5 text-[11px] sm:text-xs text-[var(--lightgray)]">
+                  <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--g2-phosphor)]">Even G2</span>
+                  <span aria-hidden="true" className="w-px h-3 bg-white/15" />
+                  Verified in the simulator
                 </p>
-                <h1 className="font-dots font-black leading-[0.96] tracking-[-0.02em] text-[2.35rem] sm:text-[3.05rem] lg:text-[3.4rem]">
+                <h1 className="font-dots font-black leading-[0.95] tracking-[-0.02em] text-[2.6rem] sm:text-[4rem] lg:text-[4.75rem]">
                   <span className="block text-[var(--bright)]">Your glasses that</span>
                   <span className="block min-h-[1.08em] text-[var(--g2-phosphor)]">
                     <AnimatePresence initial={false}>
@@ -1459,13 +1434,26 @@ export function App() {
                     </AnimatePresence>
                   </span>
                 </h1>
-                <p className="text-sm md:text-base leading-relaxed text-[var(--lightgray)]">
-                  Read, decide and reply from your glasses. OnQ always asks before anything sends.
+                <p className="text-base md:text-lg leading-relaxed text-[var(--lightgray)] max-w-xl">
+                  Read, decide and reply from your glasses. Nothing sends until you confirm.
                 </p>
 
-                <EcosystemStrip />
+                {/* The read-and-write loop, in order */}
+                <ol aria-label="How a reply works" className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-2 text-[11px] sm:text-xs">
+                  {['Glance', 'Say it or tap', 'Draft ready', 'Confirm', '2s undo ring', 'Done'].map((s, i, arr) => (
+                    <li key={s} className="inline-flex items-center gap-1.5">
+                      <span className={`ob-pill !py-1.5 !px-3 ${i === arr.length - 1 ? '!text-[var(--g2-phosphor)] !border-[var(--g2-phosphor)]/40' : ''}`}>
+                        {s}
+                      </span>
+                      {i < arr.length - 1 && <span aria-hidden="true" className="text-[var(--g2-phosphor)]">-&gt;</span>}
+                    </li>
+                  ))}
+                </ol>
+                <p className="text-xs sm:text-sm text-[var(--lightgray)]">
+                  Telegram too. Only chats you pick, replies approved on the glasses.
+                </p>
 
-                <div className="flex flex-wrap items-center gap-3 pt-1">
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
                   <button
                     type="button"
                     onClick={() => void runVoicePreset('Push 15m and tell Priya')}
@@ -1482,13 +1470,13 @@ export function App() {
                   </button>
                 </div>
 
-                <nav aria-label="60-second tour" className="space-y-1.5 pt-2">
+                <nav aria-label="60-second tour" className="space-y-2 pt-2">
                   <p className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lightgray)]">60-SECOND TOUR</p>
-                  <ol className="flex flex-wrap gap-2 text-xs">
+                  <ol className="flex flex-wrap justify-center gap-2 text-xs">
                     {[
                       { n: 1, label: 'Confirm and undo', run: () => void runVoicePreset('Push 15m and tell Priya') },
                       { n: 2, label: 'Double-booking lock', run: () => void stageCommand('Move VC sync to 14:45') },
-                      { n: 3, label: 'Morning crew', run: () => void runMorningCrewTour() },
+                      { n: 3, label: 'Telegram reply', run: () => void stageTelegramBrief() },
                     ].map((step) => (
                       <li key={step.n}>
                         <button
@@ -1509,7 +1497,7 @@ export function App() {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, delay: 0.08, ease: MOTION_EASE }}
-                className="lg:col-span-7"
+                className="ob-card p-2 sm:p-3 max-w-4xl mx-auto origin-top"
               >
                 <Suspense
                   fallback={
@@ -2252,125 +2240,25 @@ export function App() {
           </div>
         </section>
 
-        {/* 6 Live-Runnable Plain-English Workflows (#use-cases) */}
-        <section id="use-cases" className="section-rule py-20 sm:py-24">
-          <div className="container-page space-y-8">
-            <ScrollReveal className="space-y-2 max-w-2xl">
-              <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
-                EVERYDAY WORKFLOWS
-              </p>
-              <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem] lg:text-[3.4rem]">
-                <span className="block text-[var(--lightgray)]">Built for real days.</span>
-                <GlyphDecodeHeading text="Try any flow right now." className="block text-[var(--bright)]" />
-              </h2>
-            </ScrollReveal>
+        {/* Looping real footage in rounded video cards (#clips) */}
+        <ClipCards />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              {[
-                {
-                  tag: 'GLASSES',
-                  title: 'One-glance meeting brief',
-                  desc: 'Your next meeting, the email that needs you, and the shared doc. All on one lens.',
-                  visual: <CorridorBriefVisual />,
-                  icons: (
-                    <span className="inline-flex items-center gap-1.5">
-                      <ApplePixelTile size="sm" tint="#4285F4">
-                        <CalendarPixelSvg className="w-3.5 h-3.5" />
-                      </ApplePixelTile>
-                      <ApplePixelTile size="sm" tint="#EA4335">
-                        <GmailPixelSvg className="w-3.5 h-3.5" />
-                      </ApplePixelTile>
-                      <ApplePixelTile size="sm" tint="#FBBC05">
-                        <DrivePixelSvg className="w-3.5 h-3.5" />
-                      </ApplePixelTile>
-                    </span>
-                  ),
-                  cta: 'Inspect Inside Lens',
-                  action: () => setLensPovOpen(true),
-                },
-                {
-                  tag: 'VOICE',
-                  title: 'Move meeting & reply',
-                  desc: 'Say "Push 15m and tell Priya." It checks free slots, then waits for your tap.',
-                  visual: <ShiftScheduleVisual />,
-                  icons: (
-                    <span className="inline-flex items-center gap-1.5">
-                      <ApplePixelTile size="sm" tint="#4285F4">
-                        <CalendarPixelSvg className="w-3.5 h-3.5" />
-                      </ApplePixelTile>
-                      <ApplePixelTile size="sm" tint="#EA4335">
-                        <GmailPixelSvg className="w-3.5 h-3.5" />
-                      </ApplePixelTile>
-                    </span>
-                  ),
-                  cta: 'Run Shift + Reply',
-                  action: () => void runVoicePreset('Push 15m and tell Priya'),
-                },
-                {
-                  tag: 'TELEGRAM',
-                  title: 'Instant Telegram copilot',
-                  desc: 'Reads your pinned chats, sends briefings, and replies through your own bot.',
-                  visual: <ConflictShieldVisual />,
-                  icons: (
-                    <ApplePixelTile size="sm" tint="#26A5E4">
-                      <TelegramPixelSvg className="w-3.5 h-3.5" />
-                    </ApplePixelTile>
-                  ),
-                  cta: 'Stage Telegram Brief',
-                  action: () => void stageTelegramBrief(),
-                },
-                {
-                  tag: 'NOTES',
-                  title: 'Private meeting scribe',
-                  desc: 'Tells speakers apart and keeps nothing on disk. Ask it questions, then wrap up.',
-                  visual: <InRoomScribeVisual />,
-                  icons: (
-                    <span className="inline-flex items-center gap-1.5">
-                      <ApplePixelTile size="sm" tint="#34F57E">
-                        <AssemblyAiPixelSvg className="w-3.5 h-3.5" />
-                      </ApplePixelTile>
-                      <ApplePixelTile size="sm" tint="#f2f2f2">
-                        <NotionPixelSvg className="w-3.5 h-3.5" />
-                      </ApplePixelTile>
-                    </span>
-                  ),
-                  cta: 'Start Live Meeting Scribe',
-                  action: () => void runLiveMeetingDemo(),
-                },
-              ].map((uc) => (
-                <SpotlightBentoCard key={uc.title} className="retro-glass-card p-6 flex flex-col justify-between">
-                  <div className="flex flex-col justify-between space-y-4 h-full">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                          {uc.tag}
-                        </span>
-                        {uc.icons}
-                      </div>
-                      {uc.visual}
-                      <h3 className="font-display text-xl font-bold text-[var(--bright)]">{uc.title}</h3>
-                      <p className="text-xs leading-relaxed text-[var(--lightgray)]">{uc.desc}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={uc.action}
-                      className="retro-btn-glass w-full py-2 px-3 hover:text-[var(--lime)] text-xs font-pixel uppercase tracking-[0.12em] text-left flex items-center justify-between cursor-pointer"
-                    >
-                      <span>{uc.cta}</span>
-                      <span>-&gt;</span>
-                    </button>
-                  </div>
-                </SpotlightBentoCard>
-              ))}
-            </div>
+        {/* A day with OnQ: sticky stacked story, every chapter runnable (#use-cases) */}
+        <section id="use-cases" className="py-20 sm:py-28">
+          <div className="container-page">
+            <DayStory
+              actions={{
+                openLens: () => setLensPovOpen(true),
+                runLate: () => void runVoicePreset('Push 15m and tell Priya'),
+                startScribe: () => void runLiveMeetingDemo(),
+                tryLock: () => void stageCommand('Move VC sync to 14:45'),
+                stageTelegram: () => void stageTelegramBrief(),
+              }}
+            />
           </div>
         </section>
 
-        {/* Interactive System Architecture & Telemetry (#architecture) */}
-        <ArchitectureShowcase testCount={VERIFIED_TEST_COUNT} />
-
-        {/* Visual Survey Graphs, Curves & Field Benchmark (#research) */}
-        <ResearchGraphsSection testCount={VERIFIED_TEST_COUNT} />
+        <ProofStrip />
 
         {/* Sticky Scroll Safety Story (#safety) */}
         <StickySafetyStory />
@@ -2403,25 +2291,34 @@ export function App() {
           }}
         />
 
-        {/* Technical FAQ (#faq) — Expanded cleanly so nothing is hidden under + signs */}
-        <section id="faq" className="section-rule py-20 sm:py-24">
-          <div className="container-page grid grid-cols-1 lg:grid-cols-12 gap-12">
-            <ScrollReveal className="lg:col-span-5 space-y-4">
-              <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
-                SECURITY &amp; HARDWARE CLARITY
-              </p>
-              <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem]">
-                <span className="block text-[var(--lightgray)]">Built cleanly.</span>
-                <GlyphDecodeHeading text="Everything visible." className="block text-[var(--bright)]" />
+        {/* Interactive System Architecture & Telemetry (#architecture) */}
+        <ArchitectureShowcase testCount={VERIFIED_TEST_COUNT} />
+
+        {/* Visual Survey Graphs, Curves & Field Benchmark (#research) */}
+        <ResearchGraphsSection testCount={VERIFIED_TEST_COUNT} />
+
+        {/* FAQ (#faq): heading pins left, answers stay open */}
+        <section id="faq" className="py-20 sm:py-28">
+          <div className="container-page grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12">
+            <ScrollReveal className="lg:col-span-4 lg:sticky lg:top-24 self-start space-y-4">
+              <h2 className="font-dots font-black leading-[0.95] text-[2.4rem] sm:text-[3.2rem] text-[var(--bright)]">
+                Questions
               </h2>
-              <ul className="space-y-2 text-sm text-[var(--lightgray)] pt-2">
-                <li>The G2 has no camera or speaker, so audio goes to your earbuds.</li>
-                <li>Checked in the Even Hub Simulator 0.9.5. Not yet tried on physical glasses.</li>
-              </ul>
+              <p className="text-sm sm:text-base text-[var(--lightgray)] leading-relaxed max-w-sm">
+                Short answers about safety, hardware and your data.
+              </p>
             </ScrollReveal>
 
-            <ScrollReveal delay={0.06} className="lg:col-span-7 retro-glass-panel px-6 divide-y divide-dashed divide-white/10">
+            <div className="lg:col-span-8 space-y-3">
               {[
+                {
+                  q: 'Has it run on real glasses?',
+                  a: 'Not yet. Everything is verified in the Even Hub Simulator 0.9.5. Physical G2 testing is next.',
+                },
+                {
+                  q: 'Which apps does it use?',
+                  a: 'Google Calendar, Gmail, Drive, Notion and Telegram. Claude, ChatGPT or OpenRouter do the thinking. AssemblyAI handles voice.',
+                },
                 {
                   q: 'Where do my account keys live?',
                   a: 'On your own computer, in an encrypted vault. They never go to the browser or the glasses.',
@@ -2434,14 +2331,38 @@ export function App() {
                   q: 'What if the mic fires by accident or the slot is taken?',
                   a: 'Silence is dropped before transcription. Nothing sends until you confirm and the 2-second undo ring runs. Double-bookings are blocked right before saving.',
                 },
-              ].map((item) => (
-                <details key={item.q} open className="group py-5">
-                  <summary className="flex items-center justify-between gap-4 cursor-pointer list-none font-display text-lg font-medium text-[var(--bright)]">
-                    <span>{item.q}</span>
-                  </summary>
-                  <p className="mt-3 text-sm leading-relaxed text-[var(--lightgray)]">{item.a}</p>
-                </details>
+                {
+                  q: 'Where does sound come from?',
+                  a: 'The G2 has no camera or speaker, so audio goes to your earbuds.',
+                },
+              ].map((item, i) => (
+                <ScrollReveal key={item.q} delay={Math.min(i, 3) * 0.04}>
+                  <details open className="ob-card group px-6 py-5">
+                    <summary className="cursor-pointer list-none font-display text-lg font-medium text-[var(--bright)]">
+                      {item.q}
+                    </summary>
+                    <p className="mt-2.5 text-sm leading-relaxed text-[var(--lightgray)]">{item.a}</p>
+                  </details>
+                </ScrollReveal>
               ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Closing call to action */}
+        <section aria-labelledby="cta-heading" className="pb-24 sm:pb-32">
+          <div className="container-page">
+            <ScrollReveal className="ob-card relative overflow-hidden px-6 py-14 sm:py-20 text-center flex flex-col items-center gap-5">
+              <div aria-hidden="true" className="dot-grid-backdrop absolute inset-0 opacity-60" />
+              <h2 id="cta-heading" className="relative font-dots font-black leading-[0.95] text-[2.4rem] sm:text-[3.6rem] text-[var(--bright)]">
+                Put it on
+              </h2>
+              <p className="relative text-sm sm:text-base text-[var(--lightgray)] max-w-md">
+                Try every flow in your browser. No glasses needed.
+              </p>
+              <a href="#experience" className="relative retro-btn-primary px-6 py-3 text-sm">
+                Try the live demo
+              </a>
             </ScrollReveal>
           </div>
         </section>

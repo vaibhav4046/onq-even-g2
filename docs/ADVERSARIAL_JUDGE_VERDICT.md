@@ -15,8 +15,8 @@ Nobody has worn it. Every display claim is verified in the simulator 0.9.5 and t
 | Criterion | Weight | Score | Evidence | What a harsh judge says |
 | :--- | ---: | ---: | :--- | :--- |
 | Usefulness on G2 | 30% | 8.0 | 90-second corridor brief, voice shift, meeting scribe, all behind confirm. The default workspace now shows only Track 04 actions. | Never tested on glasses. The Personal OS panel (10 agents, autonomy levels) is more than a corridor needs. |
-| Read and Write | 25% | 8.5 | 255 tests cover Default-NO, ring, 409 conflict, stale-thread lock, idempotent commit, undo. Sim captures show each state. | Real writes to the owner's Google and Notion were not re-run today. |
-| Technical execution | 20% | 8.5 | 255/255 tests, 28 files. Eval 32/32 with 5/5 injections blocked. Security 10/10, 0 vulnerabilities. Web entry bundle 292 kB (was 1,756 kB). | A Windows-only bug (`spawn EINVAL` on `.cmd` shims) sat in the repo until today's test run caught it. Environment fragility is a fair worry. |
+| Read and Write | 25% | 8.5 | 268 tests cover Default-NO, ring, 409 conflict, stale-thread lock, idempotent commit, undo. Sim captures show each state. | Real writes to the owner's Google and Notion were not re-run today. |
+| Technical execution | 20% | 8.5 | 268/268 tests, 30 files. Eval 32/32 with 5/5 injections blocked. Security 10/10, 0 vulnerabilities. Web entry bundle 252 kB (was 1,756 kB). | A Windows-only bug (`spawn EINVAL` on `.cmd` shims) sat in the repo until today's test run caught it. Environment fragility is a fair worry. |
 | UX for display and voice | 15% | 8.0 | 7 lines by 42 columns, 97.2% to 97.9% dark pixels. Period glyph bug fixed. Four workspaces instead of eight tabs. AssemblyAI STT and TTS live (660 ms probe). | Studio panels are still dense. Voice was probed, not demonstrated on glasses. |
 | Business and safety | 10% | 6.5 | Safety is strong. $7 per month Pro and about $0.001 per brief are modeled, not measured. | No customers, no pricing test, no measured unit cost. |
 | Best Telegram | bonus | 8.5 | Inline Approve/Reject synced with the glasses card and the web inbox, owner-DM privacy guard, and a clear message plus 5-minute backoff when a webhook blocks polling (HTTP 409). | Live polling was verified in an earlier session, not re-run today. |
@@ -43,7 +43,7 @@ The brief asked for every controllable bucket to reach 9.0. These stay below it 
 | Telegram 409 gave a bare HTTP error | P2 | Clear webhook message and 5-minute backoff | 2 new tests |
 | 8-tab studio | P1 | 3 workspaces with real tab roles | Live check: 0 console errors, 0 overflow |
 | 1.7 MB entry bundle | P2 | Lazy 3D chunk, vendor chunks | Build output |
-| Test counts disagreed across pages (189, 213, 220, 246) | P2 | One constant, `apps/web/src/verifiedCounts.ts` | Page shows 255 |
+| Test counts disagreed across pages (189, 213, 220, 246) | P2 | One constant, `apps/web/src/verifiedCounts.ts` | Page shows 268 |
 
 ## Still open
 
@@ -52,4 +52,4 @@ The brief asked for every controllable bucket to reach 9.0. These stay below it 
 3. The AI chain fell back to Rules in today's probe. Do not say "powered by frontier models" in a demo unless the badge shows Claude, ChatGPT or OpenRouter. Saying "deterministic rules first, models second" is accurate.
 4. Measure the per-brief cost before quoting a number in the pitch.
 5. The Personal OS panel still shows dense autonomy-level text. Keep it out of the 3-minute demo.
-6. The pixel-anime film (`media/out/onq-anime-film.mp4`, 2:36) uses only real simulator captures and one real screen recording, and says the glasses are not yet tested. Do not describe it as footage from physical glasses.
+6. The pixel-anime film (`media/out/onq-anime-film.mp4`, 1:56) uses only real simulator captures and one real screen recording, and says the glasses are not yet tested. Do not describe it as footage from physical glasses.
