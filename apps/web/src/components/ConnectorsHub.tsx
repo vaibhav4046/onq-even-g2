@@ -1470,8 +1470,8 @@ export function ConnectorsHub({
                     aria-label="Companion Earbuds TTS Voice"
                     className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
                   >
-                    <option value="aai-kyla">aai-kyla (Default)</option>
-                    <option value="aai-titus">aai-titus</option>
+                    <option value="aai-kyla">aai-kyla</option>
+                    <option value="aai-titus">aai-titus (Default)</option>
                     <option value="aai-audrey">aai-audrey</option>
                     <option value="aai-sara">aai-sara</option>
                     <option value="aai-ewald">aai-ewald</option>

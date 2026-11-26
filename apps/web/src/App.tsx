@@ -307,7 +307,7 @@ export function App() {
   const [micActive, setMicActive] = useState(false);
   const [lensPovOpen, setLensPovOpen] = useState(false);
   const [voiceEngineLabel, setVoiceEngineLabel] = useState('LOCAL VOICE');
-  const [ttsVoiceId, setTtsVoiceId] = useState('aai-kyla');
+  const [ttsVoiceId, setTtsVoiceId] = useState('aai-titus');
   const [speakingNow, setSpeakingNow] = useState(false);
   const [activeSpokenWord, setActiveSpokenWord] = useState('');
   const [voiceLatencyMs, setVoiceLatencyMs] = useState<number | null>(null);

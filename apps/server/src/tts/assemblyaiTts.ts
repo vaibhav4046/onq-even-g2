@@ -11,8 +11,8 @@ export interface TtsVoiceProfile {
 }
 
 const BASE_VOICES: TtsVoiceProfile[] = [
-  { id: 'aai-kyla', label: 'Kyla (Default)', role: 'Fast & crisp companion voice' },
-  { id: 'aai-titus', label: 'Titus', role: 'Calm editorial tone' },
+  { id: 'aai-kyla', label: 'Kyla', role: 'Fast & crisp companion voice' },
+  { id: 'aai-titus', label: 'Titus (Default)', role: 'Calm male voice that matches the OnQ avatar' },
   { id: 'aai-audrey', label: 'Audrey', role: 'Clear balanced brief tone' },
   { id: 'aai-sara', label: 'Sara', role: 'Concise executive voice' },
   { id: 'aai-ewald', label: 'Ewald', role: 'Warm deliberate narrator' },
@@ -30,10 +30,10 @@ export function listAvailableTtsVoices(): TtsVoiceProfile[] {
   return BASE_VOICES;
 }
 
-export function buildAssemblyAiTtsUrl(voiceId = 'aai-kyla', region: AssemblyAiRegion = 'us'): string {
+export function buildAssemblyAiTtsUrl(voiceId = 'aai-titus', region: AssemblyAiRegion = 'us'): string {
   const host = region === 'eu' ? 'wss://tts.eu.assemblyai.com/v1/ws' : 'wss://tts.us.assemblyai.com/v1/ws';
   const params = new URLSearchParams({
-    voice_id: voiceId || 'aai-kyla',
+    voice_id: voiceId || 'aai-titus',
     language: 'english',
   });
   return `${host}?${params.toString()}`;
@@ -69,7 +69,7 @@ export class AssemblyAiTtsSession {
   }
 
   async connect(): Promise<void> {
-    const url = buildAssemblyAiTtsUrl(this.options.voiceId ?? 'aai-kyla', this.options.region ?? 'us');
+    const url = buildAssemblyAiTtsUrl(this.options.voiceId ?? 'aai-titus', this.options.region ?? 'us');
     const headers = { Authorization: this.options.apiKey };
     const ws = this.options.wsFactory
       ? this.options.wsFactory(url, headers)
@@ -210,7 +210,7 @@ export async function synthesizeTtsUtterance(opts: {
   wsFactory?: WsFactory;
   timeoutMs?: number;
 }): Promise<SynthesizedSpeechResult> {
-  const voiceId = opts.voiceId ?? 'aai-kyla';
+  const voiceId = opts.voiceId ?? 'aai-titus';
   const apiKey = opts.apiKey ?? process.env.ASSEMBLYAI_API_KEY;
   if (!apiKey) {
     const demo = buildDemoWordBoundaries(opts.text);

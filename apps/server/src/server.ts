@@ -2007,7 +2007,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
 
         const spoken = await synthesizeTtsUtterance({
           text: `${answerLine}. ${sourceCitation}`,
-          voiceId: body.voiceId ?? 'aai-kyla',
+          voiceId: body.voiceId ?? 'aai-titus',
           apiKey: resolveAssemblyAiKey(),
           wsFactory: opts.assemblyAiWsFactory,
         });
@@ -2154,7 +2154,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         }
         const spoken = await synthesizeTtsUtterance({
           text: body.text.trim(),
-          voiceId: body.voiceId ?? 'aai-kyla',
+          voiceId: body.voiceId ?? 'aai-titus',
           apiKey: resolveAssemblyAiKey(),
           wsFactory: opts.assemblyAiWsFactory,
         });
@@ -4819,7 +4819,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
             ttsSession?.terminate();
             ttsSession = new AssemblyAiTtsSession({
               apiKey,
-              voiceId: msg.voiceId ?? 'aai-kyla',
+              voiceId: msg.voiceId ?? 'aai-titus',
               region: process.env.ASSEMBLYAI_REGION === 'eu' ? 'eu' : 'us',
               wsFactory: opts.assemblyAiWsFactory,
               callbacks: {
