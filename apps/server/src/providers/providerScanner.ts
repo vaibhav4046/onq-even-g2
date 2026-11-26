@@ -327,6 +327,8 @@ interface ServerSpec {
   parse: (json: unknown) => string[];
 }
 
+const EMBEDDING_MODEL_RE = /(?:^|[:/_-])(embed|embedding|minilm|bge|rerank)/i;
+
 const parseOpenAiModels = (json: unknown) =>
   ((json as { data?: Array<{ id?: string }> })?.data ?? []).map((m) => m.id ?? '').filter(Boolean);
 
@@ -344,16 +346,20 @@ async function scanServer(spec: ServerSpec, deps: ScannerDeps): Promise<ScannedP
       ? { ...base, state: 'error', selectable: false, defaultModel: null, models: [], detail: `Installed but not running (${spec.baseUrl})`, fixHint: spec.start }
       : { ...base, state: 'not_installed', selectable: false, defaultModel: null, models: [], detail: `Not running on ${spec.baseUrl}`, fixHint: spec.install };
   }
-  const ids = spec.parse(probe.json);
+  const rawIds = spec.parse(probe.json);
+  const chatIds = rawIds.filter((id) => !EMBEDDING_MODEL_RE.test(id));
+  const embedIds = rawIds.filter((id) => EMBEDDING_MODEL_RE.test(id));
+  const ids = [...chatIds, ...embedIds];
   const models = ids.map((id) => ({ id, name: id, local: true }));
   if (models.length === 0) {
     return { ...base, state: 'error', selectable: false, defaultModel: null, models, detail: 'Running, but no models are loaded', fixHint: spec.id === 'ollama' ? 'Run: ollama pull llama3.2' : 'Load a model, then rescan' };
   }
+  const preferredDefault = chatIds.find((id) => !/-base(?:[:]|$)/i.test(id)) ?? models[0].id;
   return {
     ...base,
     state: 'connected',
     selectable: true,
-    defaultModel: models[0].id,
+    defaultModel: preferredDefault,
     models,
     detail: `Running on ${spec.baseUrl} with ${models.length} model(s), no cloud key needed`,
     fixHint: '',

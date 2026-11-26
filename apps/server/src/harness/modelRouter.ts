@@ -276,6 +276,7 @@ async function invokeLocalProvider(
       maxTokens: maxTokens ?? 320,
       f: cfg.fetchImpl ?? fetch,
       signal,
+      ...(rt.id === 'ollama' ? { extraBody: { think: false } } : {}),
     });
     return { raw, usage };
   }
@@ -312,6 +313,7 @@ async function invokeOpenAiCompat(params: {
   maxTokens: number;
   f: typeof fetch;
   signal: AbortSignal;
+  extraBody?: Record<string, unknown>;
 }): Promise<{ raw: string; httpStatus: number; usage?: ProviderUsage }> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (params.apiKey && params.apiKey !== 'omniroute-local') {
@@ -327,6 +329,7 @@ async function invokeOpenAiCompat(params: {
         { role: 'system', content: params.systemPrompt },
         { role: 'user', content: params.prompt },
       ],
+      ...(params.extraBody ?? {}),
     }),
     signal: params.signal,
   });
