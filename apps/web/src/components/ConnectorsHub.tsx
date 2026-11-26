@@ -17,6 +17,9 @@ import {
   TelegramPixelSvg,
 } from './EcosystemIcons';
 import { GlyphDecodeHeading, ScrollReveal } from './MotionPrimitives';
+import { NotionScan } from './connect/NotionScan';
+import { ProviderScanner } from './connect/ProviderScanner';
+import { TelegramScan } from './connect/TelegramScan';
 
 export interface ConnectorHubProps {
   sessionToken: string | null;
@@ -304,49 +307,6 @@ export function ConnectorsHub({
     }
   };
 
-  const switchOrchestrator = async (
-    nextPreferred: ConnectorStatusResponse['preferredLlm'],
-    nextModel = openRouterModel,
-  ) => {
-    setBusy(true);
-    setFeedback(`Switching AI model to ${nextPreferred.toUpperCase()}...`);
-    try {
-      const res = await fetch('/api/connectors/orchestrator', {
-        method: 'POST',
-        headers: {
-          ...authHeaders(),
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          preferredLlm: nextPreferred,
-          openRouterModel: nextModel,
-        }),
-      });
-      const json = (await res.json()) as ConnectorStatusResponse & {
-        status?: ConnectorStatusResponse;
-        error?: string;
-      };
-      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
-      const nextStatus = json.status ?? json;
-      if (nextStatus?.connectors) {
-        setStatus(nextStatus);
-        if (nextStatus.openRouterModel) setOpenRouterModel(nextStatus.openRouterModel);
-      }
-      setFeedback(
-        `Now using ${nextStatus.activeLlmProvider ?? nextPreferred.toUpperCase()} (${nextModel}).`,
-      );
-      await loadStatus();
-      if (sessionToken) {
-        onSessionUpdated(sessionToken, mode === 'LIVE' ? 'LIVE' : 'DEMO');
-      }
-    } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'Orchestrator switch failed');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const startGoogleSignIn = async (scopeMode: 'identity' | 'workspace' = 'identity') => {
     const targetUrl =
       scopeMode === 'workspace' ? '/api/auth/google/start?scope=workspace' : '/api/auth/google/start';
@@ -540,6 +500,42 @@ export function ConnectorsHub({
     },
   ];
 
+  const connectedCards = cards.filter((x) => x.state?.connected);
+
+  /** Runs the existing per-provider test for every connected card and returns a one-line summary. */
+  const testAllConnected = async (): Promise<string> => {
+    if (connectedCards.length === 0) return 'Nothing is connected yet, so there is nothing to test.';
+    const results = await Promise.all(
+      connectedCards.map(async (c) => {
+        try {
+          const res = await fetch(`/api/connectors/${c.id}/test`, {
+            method: 'POST',
+            headers: authHeaders(),
+            credentials: 'include',
+          });
+          return { card: c, out: (await res.json()) as ConnectorTestResult };
+        } catch {
+          return { card: c, out: null };
+        }
+      }),
+    );
+    setTestResults((prev) => {
+      const next = { ...prev };
+      for (const r of results) if (r.out) next[r.card.id] = r.out;
+      return next;
+    });
+    const failed = results.filter((r) => !r.out?.ok).map((r) => r.card.name);
+    const passed = results.length - failed.length;
+    return failed.length
+      ? `${passed} of ${results.length} passed. Failed: ${failed.join(', ')}.`
+      : `All ${results.length} connected services passed.`;
+  };
+
+  const afterScanChange = (message: string) => {
+    setFeedback(message);
+    void loadStatus();
+  };
+
   return (
     <section id="connectors" className="section-rule py-20 sm:py-24">
       <div className="container-page space-y-8">
@@ -609,71 +605,13 @@ export function ConnectorsHub({
           </div>
         </ScrollReveal>
 
-        {/* Active AI Orchestrator 1-Click Switcher Bar */}
-        <div className="retro-glass-panel p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs overflow-hidden">
-          <div className="space-y-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--g2-phosphor)]">
-                ACTIVE AI MODEL
-              </span>
-              <span className="font-pixel text-[9px] uppercase px-2 py-0.5 rounded-full border border-[var(--lime)]/50 bg-[var(--lime)]/10 text-[var(--lime)]">
-                {status?.activeLlmProvider ?? 'Built-in rules'}
-              </span>
-            </div>
-            <p className="text-[11px] text-[var(--lightgray)]">
-              Pick a model, or let Auto switch if one fails.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-            {(
-              [
-                ['auto', 'Auto'],
-                ['claude', 'Claude'],
-                ['chatgpt', 'ChatGPT'],
-                ['openrouter', 'OpenRouter'],
-                ['grok', 'Grok (optional)'],
-                ['omniroute', 'OmniRoute (optional)'],
-                ['rules', 'Built-in rules'],
-              ] as const
-            ).map(([id, label]) => {
-              const isActive = (status?.preferredLlm ?? 'auto') === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void switchOrchestrator(id)}
-                  className={`px-2.5 py-1.5 text-[11px] font-semibold cursor-pointer transition-colors ${
-                    isActive
-                      ? 'bg-[var(--lime)] text-[#0a0a0a]'
-                      : 'retro-btn-glass text-[var(--bright)] hover:text-[var(--lime)]'
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-            <select
-              aria-label="Active OpenRouter model"
-              disabled={busy}
-              value={openRouterModel}
-              onChange={(e) => {
-                const nextModel = e.target.value;
-                setOpenRouterModel(nextModel);
-                void switchOrchestrator(status?.preferredLlm ?? 'auto', nextModel);
-              }}
-              className="bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[11px] text-[var(--bright)] max-w-full"
-            >
-              <option value="openrouter/free">openrouter/free (auto)</option>
-              <option value="google/gemma-3-27b-it:free">google/gemma-3-27b-it:free</option>
-              <option value="meta-llama/llama-3.3-70b-instruct:free">meta-llama/llama-3.3-70b-instruct:free</option>
-              <option value="anthropic/claude-3.5-haiku">anthropic/claude-3.5-haiku</option>
-              <option value="openai/gpt-4o-mini">openai/gpt-4o-mini</option>
-              <option value="google/gemini-2.0-flash-001">google/gemini-2.0-flash-001</option>
-            </select>
-          </div>
-        </div>
+        <ProviderScanner
+          sessionToken={sessionToken}
+          fallbackAiLabel={status?.activeLlmProvider ?? 'fixed rules'}
+          fallbackConnected={{ connected: connectedCards.length, total: cards.length }}
+          onTestAll={testAllConnected}
+          onModelChanged={afterScanChange}
+        />
 
         {openDrawer === 'bulk' && (
           <div className="retro-glass-panel p-5 space-y-4 text-xs">
@@ -978,6 +916,12 @@ export function ConnectorsHub({
                   </div>
                   <p className="text-xs text-[var(--lightgray)]">{c.sub}</p>
                   {c.state?.detail && <p className="text-[11px] text-[var(--bright)]/80">{c.state.detail}</p>}
+                  {c.id === 'googleWorkspace' && status && !status.googleOAuthConfigured && !connected && (
+                    <ol className="text-[11px] text-[var(--lightgray)] list-decimal pl-4 space-y-0.5">
+                      <li>Google sign-in is not set up yet. Create an OAuth client in Google Cloud.</li>
+                      <li>Open Connect Google, paste the client ID and secret, then sign in.</li>
+                    </ol>
+                  )}
                   {latestProbe && (
                     <div
                       className={`text-[10px] font-pixel uppercase tracking-[0.1em] px-2.5 py-1 rounded-md border ${
@@ -1175,6 +1119,7 @@ export function ConnectorsHub({
                     Create Integration Token -&gt;
                   </a>
                 </div>
+                <NotionScan sessionToken={sessionToken} onSelected={afterScanChange} />
                 {status?.notionOAuthConfigured && (
                   <div>
                     <a
@@ -1488,6 +1433,11 @@ export function ConnectorsHub({
                 >
                   Save and connect
                 </button>
+                <TelegramScan
+                  sessionToken={sessionToken}
+                  tokenSaved={Boolean(status?.connectors.telegram?.connected)}
+                  onChanged={afterScanChange}
+                />
               </>
             )}
 
