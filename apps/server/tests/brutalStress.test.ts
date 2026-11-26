@@ -60,11 +60,11 @@ describe('Brutal Concurrency, Live-Provider & Adversarial Stress Suite', () => {
             items: [
               {
                 id: 'evt-1',
-                summary: 'VC Sync - Priya Nair',
+                summary: 'Investor call',
                 etag: 'etag-1',
                 start: { dateTime: '2026-11-24T14:00:00.000Z' },
                 end: { dateTime: '2026-11-24T14:30:00.000Z' },
-                attendees: [{ email: 'priya@tvm.example', displayName: 'Priya Nair' }],
+                attendees: [{ email: 'investor@sample.example', displayName: 'Investor contact' }],
               },
               {
                 id: 'evt-2',
@@ -72,7 +72,7 @@ describe('Brutal Concurrency, Live-Provider & Adversarial Stress Suite', () => {
                 etag: 'etag-2',
                 start: { dateTime: '2026-11-24T14:45:00.000Z' },
                 end: { dateTime: '2026-11-24T15:15:00.000Z' },
-                attendees: [{ email: 'dana@studio.example', displayName: 'Dana Kim' }],
+                attendees: [{ email: 'design@sample.example', displayName: 'Design lead' }],
               },
             ],
           }),
@@ -179,7 +179,7 @@ describe('Brutal Concurrency, Live-Provider & Adversarial Stress Suite', () => {
     const stageRes = await fetch(`${srv.url}/api/actions/stage`, {
       method: 'POST',
       headers: auth,
-      body: JSON.stringify({ commandText: 'Push 15m and tell Priya' }),
+      body: JSON.stringify({ commandText: 'Push 15m and tell Investor' }),
     });
     expect(stageRes.status).toBe(200);
     const preview = (await stageRes.json()) as { previewToken: string; idempotencyKey: string };
@@ -205,7 +205,7 @@ describe('Brutal Concurrency, Live-Provider & Adversarial Stress Suite', () => {
       await fetch(`${srv.url}/api/actions/stage`, {
         method: 'POST',
         headers: auth,
-        body: JSON.stringify({ commandText: 'Push 15m and tell Priya' }),
+        body: JSON.stringify({ commandText: 'Push 15m and tell Investor' }),
       })
     ).json()) as { previewToken: string };
 

@@ -141,8 +141,8 @@ export class ProactiveAgenticHarness {
         category: 'MEETING',
         severity: minsAway <= 20 && minsAway >= -5 ? 'action' : 'info',
         title: `Next: ${nextEv.title}`,
-        detail: `${nextEv.startIso.slice(11, 16)}-${nextEv.endIso.slice(11, 16)} UTC (${sourceMode === 'LIVE' ? 'LIVE' : 'SANDBOX'})`,
-        suggestedCommand: 'Push 15m and tell Priya',
+        detail: `${nextEv.startIso.slice(11, 16)}-${nextEv.endIso.slice(11, 16)} UTC (${sourceMode === 'LIVE' ? 'LIVE' : 'SAMPLE'})`,
+        suggestedCommand: 'Push 15m and tell Investor',
         sourceMode,
       });
 
@@ -175,7 +175,7 @@ export class ProactiveAgenticHarness {
         severity: openThread.sentMessages.length === 0 ? 'action' : 'info',
         title: `${openThread.fromName} thread ${openThread.sentMessages.length === 0 ? 'awaiting reply' : 'replied'}`,
         detail: openThread.snippet.slice(0, 84),
-        suggestedCommand: openThread.sentMessages.length === 0 ? 'Push 15m and tell Priya' : undefined,
+        suggestedCommand: openThread.sentMessages.length === 0 ? 'Push 15m and tell Investor' : undefined,
         sourceMode,
       });
     }
@@ -238,7 +238,7 @@ export class ProactiveAgenticHarness {
     const suggestedCommand =
       primary?.suggestedCommand ??
       this.insights.find((i) => i.suggestedCommand)?.suggestedCommand ??
-      'Push 15m and tell Priya';
+      'Push 15m and tell Investor';
     const goal = focusHint?.trim()
       ? focusHint.trim().slice(0, 80)
       : primary?.title ?? 'Prepare next workspace corridor brief';

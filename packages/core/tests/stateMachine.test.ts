@@ -9,9 +9,9 @@ const CARD_A: CorridorCard = {
   id: 'c1',
   sourceMode: 'DEMO',
   syncedAtIso: '2026-11-24T13:48:00.000Z',
-  provenanceLabel: 'SANDBOX',
+  provenanceLabel: 'SAMPLE',
   kind: 'MEETING',
-  title: 'VC Sync - Priya Nair',
+  title: 'Investor call',
   timeMeta: '14:00 (12m)',
   contextLine1: 'Can we push 15m?',
   contextLine2: 'Q4_Metrics_v3',
@@ -23,7 +23,7 @@ const CARD_A: CorridorCard = {
   ],
 };
 
-const CARD_B: CorridorCard = { ...CARD_A, id: 'c2', title: 'Partner Sync - Alex Chen' };
+const CARD_B: CorridorCard = { ...CARD_A, id: 'c2', title: 'Partner sync' };
 
 const PREVIEW: ActionPreview = {
   previewToken: 'tok-1',

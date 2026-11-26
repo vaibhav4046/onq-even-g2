@@ -19,7 +19,7 @@ import { createOnQServer } from '../src/server.js';
 const closers: Array<() => Promise<void>> = [];
 afterEach(async () => {
   while (closers.length) await closers.pop()?.();
-});
+}, 30_000);
 
 /** Two fake pages: a shop with a search box, a Buy button and a password field. */
 function fakeDriver(log: string[]): BrowserDriver {
@@ -261,9 +261,14 @@ describe('Browser agent with a real local browser', () => {
     const profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-chrome-'));
     const driver = createLocalChromeDriver({ profileDir, headless: true });
     closers.push(async () => {
-      await driver.close();
+      await Promise.race([driver.close().catch(() => undefined), new Promise<void>((r) => setTimeout(r, 3000))]);
+      site.closeAllConnections?.();
       await new Promise<void>((r) => site.close(() => r()));
-      fs.rmSync(profileDir, { recursive: true, force: true });
+      try {
+        fs.rmSync(profileDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+      } catch {
+        // Chrome profile lock on Windows under heavy load
+      }
     });
 
     try {

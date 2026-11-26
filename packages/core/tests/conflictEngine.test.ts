@@ -10,7 +10,7 @@ import type { BusySlot, CorridorCard } from '../src/index.js';
 const BUSY: BusySlot[] = [
   {
     eventId: 'evt-vc',
-    title: 'VC Sync - Priya',
+    title: 'VC Sync - Investor',
     startIso: '2026-11-24T14:00:00.000Z',
     endIso: '2026-11-24T14:30:00.000Z',
   },
@@ -100,7 +100,7 @@ describe('conflictEngine.ts', () => {
     const base: Omit<CorridorCard, 'id' | 'triageRule' | 'startIso'> = {
       sourceMode: 'DEMO',
       syncedAtIso: '2026-11-24T13:45:00Z',
-      provenanceLabel: 'SANDBOX',
+      provenanceLabel: 'SAMPLE',
       kind: 'MEETING',
       title: 'Item',
       timeMeta: '14:00',

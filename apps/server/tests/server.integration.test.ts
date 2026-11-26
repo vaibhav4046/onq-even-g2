@@ -141,14 +141,14 @@ describe('apps/server integration & fault-injection suite', () => {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${sessionToken}`,
-        'X-OnQ-Preset': 'Push 15m and tell Priya',
+        'X-OnQ-Preset': 'Push 15m and tell Investor',
       },
       body: makeSpokenWav(500),
     });
     expect(res.status).toBe(200);
     const json = (await res.json()) as { rejectedSilent: boolean; transcript: string };
     expect(json.rejectedSilent).toBe(false);
-    expect(json.transcript).toBe('Push 15m and tell Priya');
+    expect(json.transcript).toBe('Push 15m and tell Investor');
   });
 
   it('8. rejects oversized WAV (> 512 KB) with HTTP 413', async () => {
@@ -175,7 +175,7 @@ describe('apps/server integration & fault-injection suite', () => {
     const stageRes = await fetch(`${srv.url}/api/actions/stage`, {
       method: 'POST',
       headers: auth,
-      body: JSON.stringify({ commandText: 'Push 15m and tell Priya', cardId: 'card-vc-priya' }),
+      body: JSON.stringify({ commandText: 'Push 15m and tell Investor', cardId: 'card-vc-priya' }),
     });
     expect(stageRes.status).toBe(200);
     const preview = (await stageRes.json()) as { previewToken: string; idempotencyKey: string; defaultSelection: string };
@@ -200,7 +200,7 @@ describe('apps/server integration & fault-injection suite', () => {
     const res = await fetch(`${srv.url}/api/actions/stage`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${sessionToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ commandText: 'Push 15m and tell Priya', to: 'attacker@evil.example' }),
+      body: JSON.stringify({ commandText: 'Push 15m and tell Investor', to: 'attacker@evil.example' }),
     });
     expect(res.status).toBe(400);
   });
@@ -230,11 +230,11 @@ describe('apps/server integration & fault-injection suite', () => {
     const stageRes = await fetch(`${srv.url}/api/actions/stage`, {
       method: 'POST',
       headers: auth,
-      body: JSON.stringify({ commandText: 'Push 15m and tell Priya', cardId: 'card-vc-priya' }),
+      body: JSON.stringify({ commandText: 'Push 15m and tell Investor', cardId: 'card-vc-priya' }),
     });
     const preview = (await stageRes.json()) as { previewToken: string };
 
-    // Simulate Priya replying right before commit
+    // Simulate Investor replying right before commit
     await fetch(`${srv.url}/api/workspace/fault`, {
       method: 'POST',
       headers: auth,
@@ -260,7 +260,7 @@ describe('apps/server integration & fault-injection suite', () => {
       await fetch(`${srv.url}/api/actions/stage`, {
         method: 'POST',
         headers: auth,
-        body: JSON.stringify({ commandText: 'Push 15m and tell Priya' }),
+        body: JSON.stringify({ commandText: 'Push 15m and tell Investor' }),
       })
     ).json()) as { previewToken: string };
 
@@ -283,7 +283,7 @@ describe('apps/server integration & fault-injection suite', () => {
       await fetch(`${srv.url}/api/actions/stage`, {
         method: 'POST',
         headers: auth,
-        body: JSON.stringify({ commandText: 'Push 15m and tell Priya' }),
+        body: JSON.stringify({ commandText: 'Push 15m and tell Investor' }),
       })
     ).json()) as { previewToken: string };
 
@@ -312,7 +312,7 @@ describe('apps/server integration & fault-injection suite', () => {
       await fetch(`${srv.url}/api/actions/stage`, {
         method: 'POST',
         headers: auth,
-        body: JSON.stringify({ commandText: 'Push 15m and tell Priya' }),
+        body: JSON.stringify({ commandText: 'Push 15m and tell Investor' }),
       })
     ).json()) as { previewToken: string; idempotencyKey: string };
 
@@ -345,7 +345,7 @@ describe('apps/server integration & fault-injection suite', () => {
       await fetch(`${srv.url}/api/actions/stage`, {
         method: 'POST',
         headers: auth,
-        body: JSON.stringify({ commandText: 'Push 15m and tell Priya' }),
+        body: JSON.stringify({ commandText: 'Push 15m and tell Investor' }),
       })
     ).json()) as { previewToken: string };
 
@@ -415,7 +415,7 @@ describe('apps/server integration & fault-injection suite', () => {
       await fetch(`${srv.url}/api/actions/stage`, {
         method: 'POST',
         headers: auth,
-        body: JSON.stringify({ commandText: 'Task: send Q4 metrics to Alex by Thursday' }),
+        body: JSON.stringify({ commandText: 'Task: send Q4 metrics to Partner by Thursday' }),
       })
     ).json()) as { previewToken: string; idempotencyKey: string };
 
@@ -449,7 +449,7 @@ describe('apps/server integration & fault-injection suite', () => {
         await fetch(`${srv.url}/api/actions/stage`, {
           method: 'POST',
           headers: auth,
-          body: JSON.stringify({ commandText: `Reply to Priya confirmed item ${i}` }),
+          body: JSON.stringify({ commandText: `Reply to Investor confirmed item ${i}` }),
         })
       ).json()) as { previewToken: string };
       const c = await fetch(`${srv.url}/api/actions/commit`, {
@@ -463,7 +463,7 @@ describe('apps/server integration & fault-injection suite', () => {
       await fetch(`${srv.url}/api/actions/stage`, {
         method: 'POST',
         headers: auth,
-        body: JSON.stringify({ commandText: 'Reply to Priya confirmed item 11' }),
+        body: JSON.stringify({ commandText: 'Reply to Investor confirmed item 11' }),
       })
     ).json()) as { previewToken: string };
     const c11 = await fetch(`${srv.url}/api/actions/commit`, {
@@ -478,11 +478,11 @@ describe('apps/server integration & fault-injection suite', () => {
     const failingFetch = (async () => new Response('rate limited', { status: 429 })) as unknown as typeof fetch;
     const out = await generateGroundedDraft(
       {
-        recipientName: 'Priya',
-        recipientEmail: 'priya@tvm.example',
-        allowedRecipients: ['priya@tvm.example'],
+        recipientName: 'Investor',
+        recipientEmail: 'investor@sample.example',
+        allowedRecipients: ['investor@sample.example'],
         sourceEmailText: 'Can we push 15m?',
-        userUtterance: 'Push 15m and tell Priya',
+        userUtterance: 'Push 15m and tell Investor',
         computedFacts: ['14:15'],
         fallbackDraft: 'Shifting VC Sync to 14:15.',
       },
@@ -503,11 +503,11 @@ describe('apps/server integration & fault-injection suite', () => {
 
     const out = await generateGroundedDraft(
       {
-        recipientName: 'Priya',
-        recipientEmail: 'priya@tvm.example',
-        allowedRecipients: ['priya@tvm.example'],
+        recipientName: 'Investor',
+        recipientEmail: 'investor@sample.example',
+        allowedRecipients: ['investor@sample.example'],
         sourceEmailText: 'Can we push 15m?',
-        userUtterance: 'Push 15m and tell Priya',
+        userUtterance: 'Push 15m and tell Investor',
         computedFacts: ['14:15'],
         fallbackDraft: 'Shifting VC Sync to 14:15.',
       },

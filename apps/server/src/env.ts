@@ -50,3 +50,19 @@ export function loadLocalEnvFile(cwd: string = process.cwd()): void {
     registerSecretForRedaction(process.env[k]);
   }
 }
+
+/**
+ * Notion fallback: the vault stays primary. Only when it holds no Notion token do NOTION_TOKEN /
+ * NOTION_DATABASE_ID from the environment fill in (a vault database id still wins over the env one).
+ * Read-only view: never pass the result to vault.save(), or the env secret would be copied into the vault.
+ */
+export function withEnvNotionFallback<T extends { notionToken?: string; notionDatabaseId?: string }>(
+  creds: T,
+  env: NodeJS.ProcessEnv = process.env,
+): T {
+  if (creds.notionToken?.trim()) return creds;
+  const token = env.NOTION_TOKEN?.trim();
+  if (!token) return creds;
+  const databaseId = creds.notionDatabaseId?.trim() || env.NOTION_DATABASE_ID?.trim();
+  return { ...creds, notionToken: token, ...(databaseId ? { notionDatabaseId: databaseId } : {}) };
+}

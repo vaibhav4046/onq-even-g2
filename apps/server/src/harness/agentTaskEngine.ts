@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { LlmConfig } from './modelRouter.js';
+import type { MetricsLedger } from './metricsLedger.js';
 import { executeDelegatedTask } from '../providers/localComputerBridge.js';
 
 export type AgentTaskKind =
@@ -45,7 +46,10 @@ export class AgentTaskEngine {
   private readonly tasks = new Map<string, AgentTaskRecord>();
   private readonly orderedIds: string[] = [];
 
-  constructor(private readonly nowFn: () => number = () => Date.now()) {}
+  constructor(
+    private readonly nowFn: () => number = () => Date.now(),
+    private readonly metrics?: MetricsLedger,
+  ) {}
 
   stageTask(params: {
     kind?: AgentTaskKind;
@@ -99,15 +103,26 @@ export class AgentTaskEngine {
     target.status = 'RUNNING';
     target.updatedAtIso = new Date(this.nowFn()).toISOString();
 
-    const result = await executeDelegatedTask({
-      kind: target.kind,
-      title: target.title,
-      prompt: target.prompt,
-      targetTool: target.targetTool,
-      cwd: params.cwd,
-      llmConfig: params.llmConfig,
-      memoryContext: params.memoryContext,
-    });
+    const taskId = target.id;
+    const span = this.metrics?.begin({ kind: 'subagent', provider: target.kind, model: null, runId: taskId, taskId });
+    const exec = () =>
+      executeDelegatedTask({
+        kind: target.kind,
+        title: target.title,
+        prompt: target.prompt,
+        targetTool: target.targetTool,
+        cwd: params.cwd,
+        llmConfig: params.llmConfig,
+        memoryContext: params.memoryContext,
+      });
+    let result: Awaited<ReturnType<typeof executeDelegatedTask>>;
+    try {
+      result = this.metrics ? await this.metrics.runWith({ runId: taskId, taskId }, exec) : await exec();
+    } catch (err) {
+      span?.end({ ok: false, error: err instanceof Error ? err.message : 'task failed' });
+      throw err;
+    }
+    span?.end({ ok: result.status !== 'FAILED' });
 
     target.status = result.status;
     target.toolUsed = result.toolUsed;

@@ -19,9 +19,9 @@ const SAMPLE_CARD: CorridorCard = {
   id: 'c1',
   sourceMode: 'DEMO',
   syncedAtIso: '2026-11-24T13:48:00.000Z',
-  provenanceLabel: 'SANDBOX',
+  provenanceLabel: 'SAMPLE',
   kind: 'MEETING',
-  title: 'VC Sync - Priya Nair',
+  title: 'Investor call',
   timeMeta: '14:00 (12m)',
   startIso: '2026-11-24T14:00:00.000Z',
   endIso: '2026-11-24T14:30:00.000Z',
@@ -30,24 +30,24 @@ const SAMPLE_CARD: CorridorCard = {
   triageRule: 'IMMINENT_MTG',
   etag: 'etag-1',
   quickActions: [
-    { id: 'qa1', label: 'Push 15m + Reply Priya', intent: 'RESCHEDULE_AND_NOTIFY', commandText: 'push 15m and tell Priya' },
+    { id: 'qa1', label: 'Push 15m + Reply Investor', intent: 'RESCHEDULE_AND_NOTIFY', commandText: 'push 15m and tell Investor' },
   ],
 };
 
 describe('formatter.ts', () => {
   it('1. strips emojis and non-ASCII LVGL unsafe characters', () => {
-    const out = sanitizeLvglAscii('Hello 🚀 “Priya” — café résumé → ok');
-    expect(out).toBe('Hello "Priya" - cafe resume -> ok');
+    const out = sanitizeLvglAscii('Hello 🚀 “Investor” — café résumé → ok');
+    expect(out).toBe('Hello "Investor" - cafe resume -> ok');
     expect(/^[\x20-\x7E\n]*$/.test(out)).toBe(true);
   });
 
   it('2. wraps on word boundaries without mid-word cuts', () => {
-    const wrapped = wrapLine42('Meeting with Priya Nair regarding Q4 metrics spreadsheet and deck', 42);
+    const wrapped = wrapLine42('Meeting with Investor contact regarding Q4 metrics spreadsheet and deck', 42);
     expect(wrapped.length).toBeGreaterThan(1);
     for (const ln of wrapped) {
       expect(ln.length).toBeLessThanOrEqual(42);
     }
-    expect(wrapped[0]).toBe('Meeting with Priya Nair regarding Q4');
+    expect(wrapped[0]).toBe('Meeting with Investor contact regarding Q4');
   });
 
   it('3. clips lines cleanly at word boundary within 42 columns', () => {
@@ -87,7 +87,7 @@ describe('formatter.ts', () => {
     const frame = formatLensFrame(state);
     expect(frame.lines.length).toBeLessThanOrEqual(G2_MAX_LINES);
     expect(frame.utf8Bytes).toBeLessThanOrEqual(G2_MAX_UTF8_BYTES);
-    expect(frame.header).toContain('SANDBOX');
+    expect(frame.header).toContain('SAMPLE');
     assertLensBudget(frame.lines);
   });
 
@@ -124,7 +124,7 @@ describe('formatter.ts', () => {
         expiresAtIso: new Date(Date.now() + 30_000).toISOString(),
         intent: 'RESCHEDULE_AND_NOTIFY' as const,
         defaultSelection: 'NO' as const,
-        summaryLines: ['GCAL: 14:00 -> 14:15', 'MAIL: Reply Priya'],
+        summaryLines: ['GCAL: 14:00 -> 14:15', 'MAIL: Reply Investor'],
         operations: [],
         safetyChecks: { calendarConflictFree: true, threadFresh: true, recipientVerified: true, factGuardPassed: true },
       },

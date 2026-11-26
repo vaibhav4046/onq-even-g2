@@ -46,11 +46,11 @@ describe('Zero-API-Key Local Computer Bridge, Agent Task Engine & Enhanced 24/7 
   it('modelRouter falls back cleanly on MALFORMED_JSON without false Code-Guard violation', async () => {
     const out = await routeModelCompletion(
       {
-        recipientName: 'Priya Nair',
-        recipientEmail: 'priya@tvm.example',
-        allowedRecipients: ['priya@tvm.example'],
+        recipientName: 'Investor contact',
+        recipientEmail: 'investor@sample.example',
+        allowedRecipients: ['investor@sample.example'],
         sourceEmailText: 'Can we move VC Sync to 14:15?',
-        userUtterance: 'Push 15m and tell Priya',
+        userUtterance: 'Push 15m and tell Investor',
         computedFacts: ['14:15'],
         fallbackDraft: 'Running slightly behind, pushing sync to 14:15. Thanks!',
       },
@@ -75,7 +75,7 @@ describe('Zero-API-Key Local Computer Bridge, Agent Task Engine & Enhanced 24/7 
         atIso: new Date().toISOString(),
         category: 'TELEGRAM',
         severity: 'action',
-        title: 'TG @alex',
+        title: 'TG @partner',
         detail: 'Need ETA on G2 build',
         sourceMode: 'LIVE',
       }),

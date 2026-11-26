@@ -7,7 +7,7 @@
 
 ### Read and write in seconds (what this app is for)
 1. **Glance:** the lens shows one thing: your next meeting and the one message that needs you (Gmail or a Telegram chat you picked).
-2. **Act:** say one short phrase ("push 15 and tell Priya") or tap the R1 ring. The reply or change is already drafted by AI or a smart default.
+2. **Act:** say one short phrase ("push 15 and tell Investor") or tap the R1 ring. The reply or change is already drafted by AI or a smart default.
 3. **Confirm:** the lens defaults to NO. Tap yes, a 2-second undo ring runs, then Calendar, Gmail, Notion or Telegram update, with a receipt and a 30-second undo.
 4. **Safe by default:** if the slot is taken, a double-booking lock blocks the write and offers the next free time. Nothing is ever sent without your yes.
 
@@ -65,13 +65,51 @@ npm run dev
 
 Open `http://127.0.0.1:5173`. Boots immediately in labeled `DEMO` sandbox mode with zero API keys, or connect real **Google OAuth 2.0 PKCE**, **Notion**, **Telegram** (`@onq_g2_copilot_bot` / BotFather), **Claude**, **OpenRouter**, **ChatGPT**, and **AssemblyAI** directly inside `#connectors` with the **Universal User AI Orchestrator (`Auto Smart Failover`, `OpenRouter`, `ChatGPT`, `Claude`, `Local CLIs`, `Rules`)** and **Self-Harnessing 24/7 Proactive Agent** (tokens stored in AES-256-GCM mode `0600` vault or optional Neon Postgres `user_connectors`; zero secrets in `dist/onq.ehpk` or browser JS).
 
+### Connect: your computer is the host
+
+You do not sign in to accounts on the glasses or the phone. This computer holds everything and does the work. The glasses and phone only display and listen.
+
+- **Connect glasses (two steps).** In `#connectors`, open **Connect glasses**. 1. Turn on remote (optional). 2. Scan the code. The QR holds one link, `<address>/g/?pair=123456`. Opening it pairs the device with no typing. The 6-digit code is shown too, as a manual fallback. Paired devices are listed there, and **Revoke** removes one.
+- **Reaching your phone.** Same Wi-Fi: press **Allow my Wi-Fi** (or set `ONQ_LAN=1`) and restart OnQ once. From anywhere: see **Remote access for your own glasses** below. OnQ never opens your PC to the internet by default.
+- **Two ways to reach each source.** Calendar, Mail, Notion and Telegram each have **Auto | This computer | API**.
+  - **This computer**: no keys. OnQ uses the Chrome you are already signed in to. It is slower, and risky steps ask for your approval.
+  - **API**: a key or sign-in. It is the fastest. The Notion token, Google sign-in and Telegram bot token flows sit under **API key setup** on each card.
+  - **Auto** picks the best route that works right now. Each card shows the route in use and its speed. Speed shows "not measured" until OnQ has really timed a sync.
+- **Outbox.** Writes that are queued, running or failed are listed. A failed one has a **Retry** button.
+- **Optional: make it faster.** The Notion token, Google OAuth JSON plus sign-in, and OpenRouter sign-in are still there. You can skip them and start with **This computer**.
+
+### Remote access for your own glasses
+
+Anyone with their own glasses can connect them to their own computer. You start it yourself. It is never automatic.
+
+**The two steps.** 1. Turn on remote (optional, only needed away from your Wi-Fi). 2. Scan the code.
+
+- **Step 1: Start my tunnel.** Needs [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) (`winget install Cloudflare.cloudflared`). Tick the box that says you understand OnQ becomes reachable from the internet, then press **Start my tunnel**. After a few seconds the QR updates by itself.
+- **Step 2: Scan.** The host serves the glasses app itself at `/g/`, so there is nothing to install. The page claims the code in the link, saves a device token, and removes the code from the address bar.
+  - **Even G2:** open Even Hub and scan the QR (the same link is what `evenhub qr --url <link>` encodes).
+  - **Any other glasses or phone with a browser** (Meta, Android, iPhone): open the link. You get the same 7-line HUD text plus big Previous, Next, Tap, Back and Hold to talk buttons. The microphone needs https (the tunnel is https) or localhost.
+  - **Telegram:** any glasses that run Telegram can use the existing OnQ bot and approve or reject there. No install at all.
+- **Advanced: install as a packaged app.** Collapsed in the card. It builds an `.ehpk` for you from this repo (`npm run build` must have run first; it only works from the repo checkout). Most people do not need it.
+
+**Safety.**
+- *What is exposed:* only the sign-in door. The static glasses page, `/api/health` (it answers just `{ok:true}`) and `POST /api/pair/claim` need no token. Every other request through the tunnel needs a device token or it gets 401.
+- *The pairing link:* the code works once, ends after 5 minutes, and is burned after one use. The server never logs it, the page sends no Referer, and the page removes it from the address bar and history. A scanned or screen-shared QR works only until it is used or expires.
+- *Owner-only:* starting or stopping the tunnel, building packages and showing codes work only from this computer (or your signed-in session). Paired devices get 403.
+- *Kill switch:* locks every paired device at once, tunnel or not. **Stop tunnel** (or closing OnQ) ends the address. **Revoke** removes one device.
+- If every paired device goes quiet while an approval is waiting and Telegram is set up, OnQ also tells your Telegram chat that the device may be blocked, so you can approve there.
+
+**Honest limits.**
+- **Untested on physical glasses. Tested in the simulator.** It is not verified that the Even app lets a loaded page reach a tunnel address. The page tells you on screen: it checks the host, tells blocked from offline, checks the pairing and the live stream, and falls back to polling. If the app blocks it, it says `NET BLOCKED BY APP - USE BROWSER LINK`.
+- A free quick-tunnel address changes every time you turn remote on. Pairing is stored per address, so scan the new QR after a restart. A packaged `.ehpk` has the address built in and needs a new build. For a stable address use a named Cloudflare tunnel or Tailscale (`tailscale serve --bg 8787`; steps are in the Advanced section, and OnQ never starts Tailscale).
+- Your computer must be on and OnQ running.
+
 ---
 
 ## Verified, Not Claimed
 
 | Verification Gate | Exact Command | Observed Result |
 | :--- | :--- | :--- |
-| **Core + Server + Auth + Avatar + Computer Bridge Suite** | `npm test` | **280 tests passing** across 31 files (core, OAuth and auto-discovery, 4-bit Pixel Avatar PNG, Local Computer Bridge, Proactive Self-Harness and Orchestrator, Telegram Bot API incl. the 409 webhook case, music mood queries, multi-line live UI, 4-tier failover, 25x concurrency races) |
+| **Core + Server + Auth + Avatar + Computer Bridge Suite** | `npm test` | **501 tests passing** across 51 files (core, OAuth and auto-discovery, 4-bit Pixel Avatar PNG, Local Computer Bridge, Proactive Self-Harness and Orchestrator, Telegram Bot API incl. the 409 webhook case, pairing & device tokens, snapshot store & write queue, multi-line live UI, 4-tier failover, 25x concurrency races) |
 | **Reproducible AI & Safety Harness Eval** | `npm run eval:harness` | **32/32 intents**, **5/5 prompt injections blocked**, **3/3 409 conflict locks**, **5/5 RMS silence rejections**, **4 failover scenarios** (`docs/HARNESS_EVAL.json`) |
 | **11-Check 576x288 Geometry Gate + Negative Control** | `npm run verify:geometry` | **11/11 PASS** plus the Check 11 negative control (`97.2%` to `97.9%` dark pixels, `<= 260` UTF-8 bytes against a 999-byte budget) |
 | **Official EvenHub Simulator 0.9.5 QA** | `npm run verify:sim` | **13 real 576x288 captures** from EvenHub Simulator `0.9.5` (`sim-01..sim-13.png`). `sim-12` is the Unified OS card and `sim-13` is the L4 crew pipeline. `sim-13` used to render 1 of 4 lines; the crew block is now one multi-line text block and shows the crew title plus 3 lines (Chief, Developer, Auditor) |

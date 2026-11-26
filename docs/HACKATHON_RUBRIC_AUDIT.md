@@ -80,7 +80,7 @@ Every outbound mutation (Calendar shift, Gmail reply, Notion task write, Telegra
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Unit, HTTP, WebSocket, OAuth suites | `npm test` | `280` tests passing across `31` files |
+| Unit, HTTP, WebSocket, OAuth suites | `npm test` | `501` tests passing across `51` files |
 | AI and safety harness | `npm run eval:harness` | `32/32` intents, `5/5` injections blocked, `3/3` 409 locks, `5/5` RMS silence rejections, `4` failover scenarios |
 | Package | `npm run pack` | `dist/onq.ehpk`, `51,344` bytes, SDK `0.0.16` |
 | Geometry | `npm run verify:geometry` | `11/11` PASS plus the Check 11 negative control (`97.2%` to `97.9%` dark pixels, `<= 260` UTF-8 bytes) |

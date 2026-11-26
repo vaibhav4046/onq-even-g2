@@ -14,9 +14,9 @@ import {
 describe('OnQ LiveUI Engine, Safe Formula Parser & Read-Speed Pacer', () => {
   it('parses display markup (<dwell>, <skim>, <beat/>, <mood:X/>) and paces word reveals cleanly', () => {
     const raw =
-      '<mood:confident/>Checking inbox.<beat/><skim>Two emails skipped.</skim> <dwell>Reply ready for Priya.</dwell>';
+      '<mood:confident/>Checking inbox.<beat/><skim>Two emails skipped.</skim> <dwell>Reply ready for Investor.</dwell>';
     const parsed = parseDisplayMarkup(raw, 240);
-    expect(parsed.plainText).toBe('Checking inbox. Two emails skipped. Reply ready for Priya.');
+    expect(parsed.plainText).toBe('Checking inbox. Two emails skipped. Reply ready for Investor.');
     expect(parsed.moods).toEqual(['confident']);
     expect(parsed.totalDurationMs).toBeGreaterThan(1500);
 

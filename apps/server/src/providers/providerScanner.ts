@@ -1,14 +1,20 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { runCliPrompt } from '../harness/cliRunner.js';
 import {
+  cliArgs,
   OPENROUTER_FREE_FALLBACK_MODELS,
   type LocalProviderId,
   type LocalProviderRuntime,
 } from '../harness/modelRouter.js';
 
 export type ProviderKind = 'local_cli' | 'local_server' | 'api_key';
-export type ProviderState = 'connected' | 'needs_auth' | 'not_installed' | 'error';
+/**
+ * connected    = proven: a local CLI answered a real test prompt, a server listed models, or a key is saved.
+ * needs_check  = files found but nothing proved it works (probe timed out, or OnQ cannot test it).
+ */
+export type ProviderState = 'connected' | 'needs_auth' | 'needs_check' | 'not_installed' | 'error';
 
 export interface ScannedModel {
   id: string;
@@ -29,6 +35,8 @@ export interface ScannedProvider {
   models: ScannedModel[];
   detail: string;
   fixHint: string;
+  /** Duration of the real health probe (CLI test prompt or server model list) in ms. Absent when nothing was probed. */
+  probeMs?: number;
   /** Server-side only (binary path / local URL). Stripped by publicProviders() before anything reaches the browser. */
   runtime?: { binaryPath?: string; baseUrl?: string };
 }
@@ -57,7 +65,27 @@ export interface ScannerDeps {
   fetchImpl: typeof fetch;
   serverTimeoutMs: number;
   openRouterTimeoutMs: number;
+  /** Asks a signed-in CLI a trivial question. Injected in tests; the default really runs the CLI. */
+  probeCli: CliProbe;
+  cliProbeTimeoutMs: number;
 }
+
+export type CliProbeResult = { ok: true; ms: number } | { ok: false; timedOut: boolean; reason: string };
+export type CliProbe = (id: LocalProviderId, binaryPath: string, timeoutMs: number) => Promise<CliProbeResult>;
+
+/** Real health check: send "reply OK" through the same arguments the router uses, bounded by a timeout. */
+export const probeCliWithPrompt: CliProbe = async (id, binaryPath, timeoutMs) => {
+  const t0 = Date.now();
+  try {
+    const out = await runCliPrompt(binaryPath, cliArgs(id, 'default'), 'Reply with the single word OK.', timeoutMs);
+    // eslint-disable-next-line no-control-regex
+    if (!out.replace(/\x1b\[[0-9;]*m/g, '').trim()) return { ok: false, timedOut: false, reason: 'It exited cleanly but returned no answer' };
+    return { ok: true, ms: Date.now() - t0 };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'failed';
+    return { ok: false, timedOut: /timed out/i.test(msg), reason: msg.replace(/\s+/g, ' ').slice(0, 140) };
+  }
+};
 
 const SUBSCRIPTION_NOTE = 'Uses your local subscription, no API key needed';
 
@@ -198,7 +226,7 @@ export function findCliBinary(names: string[], deps: Pick<ScannerDeps, 'env' | '
   return null;
 }
 
-function scanCli(spec: CliSpec, deps: ScannerDeps): ScannedProvider {
+async function scanCli(spec: CliSpec, deps: ScannerDeps): Promise<ScannedProvider> {
   const base = { id: spec.id, name: spec.name, kind: 'local_cli' as const, defaultModel: spec.defaultModel, models: spec.models };
   const binaryPath = findCliBinary(spec.binaries, deps);
   if (!binaryPath) {
@@ -209,14 +237,47 @@ function scanCli(spec: CliSpec, deps: ScannerDeps): ScannedProvider {
   if (!signedIn) {
     return { ...base, state: 'needs_auth', selectable: false, detail: 'Installed, not signed in yet', fixHint: spec.login, runtime: { binaryPath } };
   }
-  return {
-    ...base,
-    state: 'connected',
-    selectable: spec.routable,
-    detail: spec.routable ? SUBSCRIPTION_NOTE : `Detected. ${SUBSCRIPTION_NOTE}; OnQ cannot route drafts through it yet`,
-    fixHint: spec.routable ? '' : 'Pick Claude Code, OpenCode, Codex or Gemini CLI to route drafts locally',
-    runtime: { binaryPath },
-  };
+  if (!spec.routable) {
+    // Files exist, but OnQ has no safe way to ask this CLI a question, so there is no proof it works.
+    return {
+      ...base,
+      state: 'needs_check',
+      selectable: false,
+      detail: 'Detected on this PC, but OnQ cannot test it or route drafts through it yet',
+      fixHint: 'Pick Claude Code, OpenCode, Codex or Gemini CLI to route drafts locally',
+      runtime: { binaryPath },
+    };
+  }
+  const probe = await deps.probeCli(spec.id as LocalProviderId, binaryPath, deps.cliProbeTimeoutMs);
+  if (probe.ok) {
+    return {
+      ...base,
+      state: 'connected',
+      selectable: true,
+      detail: `${SUBSCRIPTION_NOTE}. Answered a test prompt in ${(probe.ms / 1000).toFixed(1)}s`,
+      fixHint: '',
+      probeMs: probe.ms,
+      runtime: { binaryPath },
+    };
+  }
+  const secs = Math.round(deps.cliProbeTimeoutMs / 1000);
+  return probe.timedOut
+    ? {
+        ...base,
+        state: 'needs_check',
+        selectable: false,
+        detail: `Installed and signed in, but it did not answer a test prompt within ${secs}s`,
+        fixHint: `Run \`${spec.binaries[0]}\` once in a terminal to see what it needs, then Rescan`,
+        runtime: { binaryPath },
+      }
+    : {
+        ...base,
+        state: 'error',
+        selectable: false,
+        detail: `Installed and signed in, but the test prompt failed: ${probe.reason}`,
+        fixHint: `Run \`${spec.binaries[0]}\` once in a terminal to see the error, fix it, then Rescan`,
+        runtime: { binaryPath },
+      };
 }
 
 async function getJson(
@@ -251,7 +312,9 @@ const parseOpenAiModels = (json: unknown) =>
 
 async function scanServer(spec: ServerSpec, deps: ScannerDeps): Promise<ScannedProvider> {
   const base = { id: spec.id, name: spec.name, kind: 'local_server' as const };
+  const t0 = Date.now();
   const probe = await getJson(deps, spec.listUrl, deps.serverTimeoutMs, spec.headers);
+  const probeMs = Date.now() - t0;
   if (!probe.ok) {
     if (probe.status === 401 || probe.status === 403) {
       return { ...base, state: 'needs_auth', selectable: false, defaultModel: null, models: [], detail: 'Running, but it wants an API key', fixHint: 'Add your OmniRoute API key in Connect' };
@@ -274,6 +337,7 @@ async function scanServer(spec: ServerSpec, deps: ScannerDeps): Promise<ScannedP
     models,
     detail: `Running on ${spec.baseUrl} with ${models.length} model(s), no cloud key needed`,
     fixHint: '',
+    probeMs,
     runtime: { baseUrl: spec.baseUrl },
   };
 }
@@ -347,6 +411,8 @@ function resolveDeps(partial: Partial<ScannerDeps>): ScannerDeps {
     fetchImpl: partial.fetchImpl ?? fetch,
     serverTimeoutMs: partial.serverTimeoutMs ?? 800,
     openRouterTimeoutMs: partial.openRouterTimeoutMs ?? 2500,
+    probeCli: partial.probeCli ?? probeCliWithPrompt,
+    cliProbeTimeoutMs: partial.cliProbeTimeoutMs ?? 25_000,
   };
 }
 
@@ -388,7 +454,8 @@ export async function scanProviders(keys: ScanKeys, partialDeps: Partial<Scanner
     },
   ];
 
-  const [serverResults, orModels] = await Promise.all([
+  const [cliResults, serverResults, orModels] = await Promise.all([
+    Promise.all(CLI_SPECS.map((spec) => scanCli(spec, deps))),
     Promise.all(servers.map((s) => scanServer(s, deps))),
     keys.openRouterKey ? openRouterModels(deps) : Promise.resolve({ models: CURATED_OPENROUTER, live: false }),
   ]);
@@ -397,7 +464,7 @@ export async function scanProviders(keys: ScanKeys, partialDeps: Partial<Scanner
   if (keys.openRouterKey) openrouter.detail += orModels.live ? `, ${orModels.models.length} live models` : ', curated model list (live list unreachable)';
 
   const providers: ScannedProvider[] = [
-    ...CLI_SPECS.map((spec) => scanCli(spec, deps)),
+    ...cliResults,
     ...serverResults,
     openrouter,
     apiProvider('claude', 'Claude API', Boolean(keys.anthropicKey), 'claude-3-5-haiku-latest', [
@@ -429,31 +496,61 @@ export function publicProviders(providers: ScannedProvider[]): Omit<ScannedProvi
 
 const LOCAL_ROUTABLE = new Set<string>(['claude_cli', 'opencode_cli', 'codex_cli', 'gemini_cli', 'ollama', 'lmstudio']);
 const SCAN_TTL_MS = 10 * 60_000;
+const PROBE_OK_TTL_MS = 60 * 60_000;
+const PROBE_FAIL_TTL_MS = 5 * 60_000;
 
 /** Cached scanner shared by the server: endpoints read/refresh it, the router reads routable() synchronously. */
 export class ProviderScanner {
   private last: ProviderScanResult | null = null;
   private lastAtMs = 0;
   private inflight: Promise<ProviderScanResult> | null = null;
+  private forceProbe = false;
+  private readonly probeCache = new Map<string, { atMs: number; result: CliProbeResult }>();
 
   constructor(
     private readonly getKeys: () => ScanKeys,
     private readonly deps: Partial<ScannerDeps> = {},
+    /** Called after every finished scan (including background refreshes) so the host can bump its revision. */
+    private readonly onScanned?: () => void,
   ) {}
 
   async scan(force = false): Promise<ProviderScanResult> {
     if (!force && this.last && Date.now() - this.lastAtMs < SCAN_TTL_MS) return this.last;
     if (this.inflight) return this.inflight;
-    this.inflight = scanProviders(this.getKeys(), this.deps)
+    this.forceProbe = force;
+    this.inflight = scanProviders(this.getKeys(), { ...this.deps, probeCli: this.cachedProbe })
       .then((result) => {
         this.last = result;
         this.lastAtMs = Date.now();
+        try {
+          this.onScanned?.();
+        } catch {
+          // a listener must never break a scan
+        }
         return result;
       })
       .finally(() => {
         this.inflight = null;
       });
     return this.inflight;
+  }
+
+  /**
+   * Each probe is a real (tiny) request on the owner's subscription, so a passing answer is reused for an hour and a
+   * failure for 5 minutes. An explicit rescan (force) always asks again.
+   */
+  private readonly cachedProbe: CliProbe = async (id, binaryPath, timeoutMs) => {
+    const key = `${id}|${binaryPath}`;
+    const hit = this.probeCache.get(key);
+    if (hit && !this.forceProbe && Date.now() - hit.atMs < (hit.result.ok ? PROBE_OK_TTL_MS : PROBE_FAIL_TTL_MS)) return hit.result;
+    const result = await (this.deps.probeCli ?? probeCliWithPrompt)(id, binaryPath, timeoutMs);
+    this.probeCache.set(key, { atMs: Date.now(), result });
+    return result;
+  };
+
+  /** Last scan without ever starting one (no I/O). */
+  peek(): ProviderScanResult | null {
+    return this.last;
   }
 
   /** Last scan, or null before the first one finishes. Starts a background refresh when stale. */

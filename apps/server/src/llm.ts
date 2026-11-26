@@ -37,13 +37,13 @@ export async function probeLlmProvider(cfg: LlmConfig = {}): Promise<LlmProbeRes
   const t0 = Date.now();
   const out = await routeModelCompletion(
     {
-      recipientName: 'Priya Nair',
-      recipientEmail: 'priya@tvm.example',
-      allowedRecipients: ['priya@tvm.example'],
-      sourceEmailText: 'VC Sync - Priya Nair. Can we push 15m to 14:15?',
+      recipientName: 'Investor contact',
+      recipientEmail: 'investor@sample.example',
+      allowedRecipients: ['investor@sample.example'],
+      sourceEmailText: 'Investor call. Can we push 15m to 14:15?',
       userUtterance: 'Push 15m to 14:15 and reply politely',
       computedFacts: ['14:15'],
-      fallbackDraft: 'Running slightly behind, shifting VC Sync to 14:15.',
+      fallbackDraft: 'Running slightly behind, shifting the investor call to 14:15.',
     },
     cfg,
   );

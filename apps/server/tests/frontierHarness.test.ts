@@ -50,8 +50,8 @@ async function startCleanServer(extra: Parameters<typeof createOnQServer>[0] = {
 describe('Frontier Harness: TOON, Defuddle, RTK, Cited RAG, Grok/OmniRoute, Market Bot & Explainer', () => {
   it('1. TOON encoder + Defuddle + RTK compressor achieve verified size savings', () => {
     const sampleRows = [
-      { id: 't1', category: 'MEETING', title: 'VC Sync - Priya Nair', status: 'READY' },
-      { id: 't2', category: 'INBOX', title: 'Follow up with Alex', status: 'DRAFT' },
+      { id: 't1', category: 'MEETING', title: 'Investor call', status: 'READY' },
+      { id: 't2', category: 'INBOX', title: 'Follow up with Partner', status: 'DRAFT' },
       { id: 't3', category: 'NOTION', title: 'Finalize Q4 metrics', status: 'OPEN' },
       { id: 't4', category: 'TELEGRAM', title: 'Send daily digest', status: 'GATED' },
     ];

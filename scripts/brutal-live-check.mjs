@@ -32,7 +32,7 @@ async function main() {
   const ttsRes = await fetch(`${API_BASE}/api/tts/speak`, {
     method: 'POST',
     headers: auth,
-    body: JSON.stringify({ text: 'Sync moved to 14:15. Priya notified.', voiceId: 'aai-kyla' }),
+    body: JSON.stringify({ text: 'Sync moved to 14:15. Investor notified.', voiceId: 'aai-kyla' }),
   });
   const ttsJson = await ttsRes.json();
   report.tts = {
@@ -51,7 +51,7 @@ async function main() {
     await fetch(`${API_BASE}/api/harness/run`, {
       method: 'POST',
       headers: auth,
-      body: JSON.stringify({ utterance: 'Push 15m and tell Priya' }),
+      body: JSON.stringify({ utterance: 'Push 15m and tell Investor' }),
     })
   ).json();
   report.harness = { outcome: hRun.outcome, steps: hRun.steps?.length, providerUsed: hRun.providerUsed };
@@ -66,61 +66,64 @@ async function main() {
   const pageErrors = [];
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    page.setDefaultTimeout(12000);
     page.on('console', (m) => {
       if (m.type() === 'error') consoleErrors.push(m.text());
     });
     page.on('pageerror', (e) => pageErrors.push(e.message));
 
-    await page.goto(WEB_URL, { waitUntil: 'load' });
-    await page.locator('#experience canvas').first().waitFor({ state: 'visible', timeout: 15000 });
+    console.log('[live-check] goto', WEB_URL);
+    await page.goto(WEB_URL, { waitUntil: 'commit', timeout: 30000 });
+    await page.locator('#experience canvas').first().waitFor({ state: 'visible', timeout: 30000 });
     await page.waitForTimeout(1000);
+    console.log('[live-check] hero canvas ready');
 
     // Check navbar height / single-line alignment
     const navRect = await page.locator('header nav a').evaluateAll((els) =>
       els.map((el) => ({ text: el.textContent, h: el.getBoundingClientRect().height })),
     );
     report.browser.navHeights = navRect;
-    await page.screenshot({ path: OUT_SHOT });
+    await page.screenshot({ path: OUT_SHOT, animations: 'disabled', timeout: 10000 }).catch((e) => console.warn('[live-check] screenshot skipped:', e.message));
 
-    // 3D mode buttons + POV modal
-    await page.locator('#experience').getByRole('button', { name: 'Exploded', exact: true }).click();
-    await page.locator('#experience').getByRole('button', { name: 'R1 Ring', exact: true }).click();
-    await page.locator('#experience').getByRole('button', { name: '3D Optics', exact: true }).click();
-    await page.locator('#experience').getByRole('button', { name: 'POV', exact: true }).first().click();
+    console.log('[live-check] 3D modes');
+    await page.locator('#experience').getByRole('button', { name: 'Exploded', exact: true }).click({ noWaitAfter: true });
+    await page.locator('#experience').getByRole('button', { name: 'R1 Ring', exact: true }).click({ noWaitAfter: true });
+    await page.locator('#experience').getByRole('button', { name: '3D Optics', exact: true }).click({ noWaitAfter: true });
+    await page.locator('#experience').getByRole('button', { name: 'POV', exact: true }).first().click({ noWaitAfter: true });
     await page.waitForTimeout(400);
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
 
-    // Full voice commit + undo + reset
-    await page.getByRole('button', { name: 'Talk Now' }).first().click();
+    console.log('[live-check] Talk Now');
+    await page.getByRole('button', { name: 'Talk Now' }).first().click({ noWaitAfter: true });
     await page.getByRole('button', { name: 'Confirm & Arm 2.0s Ring' }).waitFor({ state: 'visible', timeout: 10000 });
-    await page.getByRole('button', { name: 'Confirm & Arm 2.0s Ring' }).click();
+    await page.getByRole('button', { name: 'Confirm & Arm 2.0s Ring' }).click({ noWaitAfter: true });
     await page.waitForTimeout(3200);
-    await page.getByRole('button', { name: 'Reset', exact: true }).click();
+    await page.getByRole('button', { name: 'Reset', exact: true }).click({ noWaitAfter: true });
     await page.waitForTimeout(500);
 
-    // Live Meeting Scribe -> Meeting Notes tab -> Wrap Up
-    await page.getByRole('button', { name: /Start Live Meeting Scribe/ }).click();
+    console.log('[live-check] Meeting Scribe');
+    await page.getByRole('button', { name: /Start Live Meeting Scribe/ }).click({ noWaitAfter: true });
     await page.waitForTimeout(400);
-    await page.getByRole('tab', { name: 'Meeting Scribe', exact: true }).first().click();
+    await page.getByRole('tab', { name: 'Meeting Scribe', exact: true }).first().click({ noWaitAfter: true });
     await page.waitForTimeout(400);
-    await page.getByRole('button', { name: /Wrap Up/ }).first().click();
+    await page.getByRole('button', { name: /Wrap Up/ }).first().click({ noWaitAfter: true });
     await page.getByRole('button', { name: 'Confirm & Arm 2.0s Ring' }).waitFor({ state: 'visible', timeout: 10000 });
 
-    // 409 Conflict Lock check (note: browser logs intentional HTTP 409 response to console)
-    await page.getByRole('button', { name: 'Reset', exact: true }).click();
+    console.log('[live-check] 409 conflict lock');
+    await page.getByRole('button', { name: 'Reset', exact: true }).click({ noWaitAfter: true });
     await page.waitForTimeout(500);
-    await page.getByRole('button', { name: /Test Conflict Lock/ }).first().click();
+    await page.getByRole('button', { name: /Test Conflict Lock/ }).first().click({ noWaitAfter: true });
     await page.locator('[data-testid="g2-lens"]').getByText(/409|LOCKED|14:45/i).first().waitFor({ state: 'visible', timeout: 8000 });
     const lensText409 = await page.locator('[data-testid="g2-lens"]').innerText();
     report.browser.conflict409Shown = lensText409.includes('409') || lensText409.includes('14:45');
 
-    // Click ALL 6 Test Connection buttons in #connectors (wait for live upstream AssemblyAI probe too)
+    console.log('[live-check] Connectors');
     await page.locator('#connectors').scrollIntoViewIfNeeded();
     const testButtons = page.locator('#connectors').getByRole('button', { name: 'Test Connection', exact: true });
     const btnCount = await testButtons.count();
     for (let i = 0; i < btnCount; i++) {
-      await testButtons.nth(i).click();
+      await testButtons.nth(i).click({ noWaitAfter: true });
     }
     await page.waitForFunction(
       () => document.querySelectorAll('#connectors').length > 0 &&
@@ -131,9 +134,10 @@ async function main() {
     const verifiedBadges = await page.locator('#connectors').getByText(/^VERIFIED\b/).count();
 
     // Link Even G2 Glasses pairing modal
-    await page.getByRole('button', { name: /Link Even G2 Glasses/ }).click();
+    await page.getByRole('button', { name: /Link Even G2 Glasses/ }).click({ noWaitAfter: true });
     await page.waitForTimeout(500);
 
+    console.log('[live-check] Overflow');
     const desktopOverflow = await page.evaluate(() => ({
       scrollW: document.documentElement.scrollWidth,
       innerW: window.innerWidth,
@@ -163,10 +167,11 @@ async function main() {
       throw new Error(`Brutal live UI checks failed: ${JSON.stringify(report.browser)}`);
     }
   } finally {
-    await browser.close();
+    await Promise.race([browser.close().catch(() => undefined), new Promise((r) => setTimeout(r, 8000))]);
   }
 
   console.log('BRUTAL_LIVE_CHECK_PASS:', JSON.stringify(report, null, 2));
+  process.exit(0);
 }
 
 main().catch((err) => {

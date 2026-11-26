@@ -7,6 +7,7 @@ import type { WorkspaceSnapshot } from '../providers/types.js';
 import type { SafeInspectKind, SafeInspectResult } from '../providers/localComputerBridge.js';
 import type { LlmConfig } from './modelRouter.js';
 import { orchestrateStructuredJson } from './modelRouter.js';
+import type { MetricsLedger } from './metricsLedger.js';
 import type { CitedKnowledgeEngine } from './ragEngine.js';
 import type { MarketResearchBotEngine } from './marketBotEngine.js';
 import type { KanbanAndScreenManager } from './kanbanEngine.js';
@@ -294,6 +295,8 @@ export interface UnifiedOsHarnessDeps {
   onAudit: (detail: string, level?: 'COMMAND' | 'APPROVAL' | 'PIPELINE' | 'KILL_SWITCH' | 'ROUTINE') => void;
   fetchImpl?: typeof fetch;
   nowFn?: () => number;
+  /** Optional metrics ledger: pipeline specialists and commands are recorded as sub-agent / tool steps. */
+  metrics?: MetricsLedger;
 }
 
 const AUTONOMY_SCALE: UnifiedOsStateSnapshot['autonomyScale'] = [
@@ -974,13 +977,23 @@ export class UnifiedOsHarness {
       return blocked;
     }
 
+    const pipelineRunId = `pip_${crypto.randomBytes(4).toString('hex')}`;
     const runTimed = async (
       specialistId: SpecialistId,
       specialistName: string,
       fn: () => Promise<string>,
     ): Promise<OsPipelineStepResult> => {
       const t0 = Date.now();
-      const evidenceSummary = await fn();
+      const metrics = this.deps.metrics;
+      const span = metrics?.begin({ kind: 'subagent', provider: specialistId, model: null, runId: pipelineRunId });
+      let evidenceSummary: string;
+      try {
+        evidenceSummary = metrics ? await metrics.runWith({ runId: pipelineRunId }, fn) : await fn();
+        span?.end();
+      } catch (err) {
+        span?.end({ ok: false, error: err instanceof Error ? err.message : 'specialist failed' });
+        throw err;
+      }
       return {
         specialistId,
         specialistName,
@@ -1093,7 +1106,7 @@ export class UnifiedOsHarness {
     ];
 
     const run: OsPipelineRun = {
-      runId: `pip_${crypto.randomBytes(4).toString('hex')}`,
+      runId: pipelineRunId,
       preset,
       goal,
       startedAtIso,
@@ -1128,7 +1141,28 @@ export class UnifiedOsHarness {
     return run;
   }
 
+  /** Metered wrapper: one 'tool' step per command; model calls made inside inherit its run id. */
   async handleCommand(params: {
+    text: string;
+    surface: 'web' | 'glasses' | 'telegram';
+    chatId?: string;
+    chatType?: string;
+  }): Promise<OsCommandOutcome> {
+    const metrics = this.deps.metrics;
+    if (!metrics) return this.handleCommandUnmetered(params);
+    const runId = `cmd_${crypto.randomBytes(4).toString('hex')}`;
+    const span = metrics.begin({ kind: 'tool', provider: 'os_command', model: null, runId });
+    try {
+      const out = await metrics.runWith({ runId }, () => this.handleCommandUnmetered(params));
+      span.end();
+      return out;
+    } catch (err) {
+      span.end({ ok: false, error: err instanceof Error ? err.message : 'command failed' });
+      throw err;
+    }
+  }
+
+  private async handleCommandUnmetered(params: {
     text: string;
     surface: 'web' | 'glasses' | 'telegram';
     chatId?: string;

@@ -660,7 +660,7 @@ export function LiveVoiceStudio({
                   'What is our safety rule for G2 glasses?',
                   'What is on my calendar today?',
                   'Summarize my unread email',
-                  'Push my next meeting 15m and tell Priya',
+                  'Push my next meeting 15m and tell Investor',
                 ].map((sample) => (
                   <button
                     key={sample}
@@ -817,7 +817,7 @@ export function LiveVoiceStudio({
               ))}
               <button
                 type="button"
-                onClick={() => onRunCommand('Push 15m and tell Priya')}
+                onClick={() => onRunCommand('Push 15m and tell Investor')}
                 className="retro-btn-glass px-2.5 py-1 text-[10.5px] text-[var(--bright)] hover:text-[var(--g2-phosphor)] cursor-pointer"
               >
                 Push meeting +15m

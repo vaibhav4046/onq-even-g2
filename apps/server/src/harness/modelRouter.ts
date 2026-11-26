@@ -4,7 +4,8 @@ import {
 } from '@onq/core';
 import type { ModelAttemptTrace, ModelProviderId } from '@onq/core';
 import { registerSecretForRedaction } from '../logger.js';
-import { runCliPrompt } from './cliRunner.js';
+import { runCliPrompt, type CliRunOptions } from './cliRunner.js';
+import { parseUsage, type MetricsLedger, type ProviderUsage } from './metricsLedger.js';
 
 export interface CompressReplyInput {
   recipientName: string;
@@ -46,7 +47,7 @@ export interface LocalProviderRuntime {
   model?: string;
 }
 
-export type CliRunner = (binaryPath: string, args: string[], prompt: string, timeoutMs: number) => Promise<string>;
+export type CliRunner = (binaryPath: string, args: string[], prompt: string, timeoutMs: number, opts?: CliRunOptions) => Promise<string>;
 
 export const OPENROUTER_FREE_FALLBACK_MODELS = [
   'openrouter/free',
@@ -112,6 +113,8 @@ export interface LlmConfig {
   cliRunner?: CliRunner;
   /** Timeout for local CLIs / servers (they are slower than API calls). Default 60s. */
   localTimeoutMs?: number;
+  /** Harness metrics ledger; every provider attempt is recorded when set. Never required. */
+  metrics?: MetricsLedger;
 }
 
 const LOCAL_LABELS: Record<LocalProviderId, string> = {
@@ -223,7 +226,7 @@ export function resolveHealthyLlmLabel(cfg: LlmConfig = {}): string {
   return resolveActiveProvider(cfg).label;
 }
 
-function cliArgs(id: LocalProviderId, model: string): string[] {
+export function cliArgs(id: LocalProviderId, model: string): string[] {
   const m = model !== 'default' && SAFE_MODEL_ID.test(model) ? model : undefined;
   const withModel = (flag: string) => (m ? [flag, m] : []);
   if (id === 'claude_cli') {
@@ -246,11 +249,12 @@ async function invokeLocalProvider(
   maxTokens: number | undefined,
   signal: AbortSignal,
   timeoutMs: number,
-): Promise<string> {
+  onFirstByte?: () => void,
+): Promise<{ raw: string; usage?: ProviderUsage }> {
   const model = pickModel(cfg, rt.id, rt.model ?? 'default');
   if (rt.id === 'ollama' || rt.id === 'lmstudio') {
     if (!rt.baseUrl) throw new Error('Local server URL missing');
-    const { raw } = await invokeOpenAiCompat({
+    const { raw, usage } = await invokeOpenAiCompat({
       url: `${rt.baseUrl.replace(/\/+$/, '')}/chat/completions`,
       model,
       systemPrompt,
@@ -259,12 +263,13 @@ async function invokeLocalProvider(
       f: cfg.fetchImpl ?? fetch,
       signal,
     });
-    return raw;
+    return { raw, usage };
   }
   if (!rt.binaryPath) throw new Error('Local CLI path missing');
   const runner = cfg.cliRunner ?? runCliPrompt;
   // eslint-disable-next-line no-control-regex
-  return (await runner(rt.binaryPath, cliArgs(rt.id, model), `${systemPrompt}\n\n${prompt}`, timeoutMs)).replace(/\x1b\[[0-9;]*m/g, '');
+  const out = await runner(rt.binaryPath, cliArgs(rt.id, model), `${systemPrompt}\n\n${prompt}`, timeoutMs, { onFirstByte });
+  return { raw: out.replace(/\x1b\[[0-9;]*m/g, '') };
 }
 
 function extractJsonPayload(raw: string): unknown {
@@ -293,7 +298,7 @@ async function invokeOpenAiCompat(params: {
   maxTokens: number;
   f: typeof fetch;
   signal: AbortSignal;
-}): Promise<{ raw: string; httpStatus: number }> {
+}): Promise<{ raw: string; httpStatus: number; usage?: ProviderUsage }> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (params.apiKey && params.apiKey !== 'omniroute-local') {
     headers.Authorization = `Bearer ${params.apiKey}`;
@@ -315,7 +320,7 @@ async function invokeOpenAiCompat(params: {
     throw Object.assign(new Error(`HTTP ${res.status}`), { httpStatus: res.status });
   }
   const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  return { raw: data.choices?.[0]?.message?.content ?? '', httpStatus: res.status };
+  return { raw: data.choices?.[0]?.message?.content ?? '', httpStatus: res.status, usage: parseUsage(data) };
 }
 
 async function invokeRemoteProvider(
@@ -326,7 +331,7 @@ async function invokeRemoteProvider(
   signal: AbortSignal,
   systemPrompt = SYSTEM_PROMPT,
   maxTokens?: number,
-): Promise<{ raw: string; httpStatus: number }> {
+): Promise<{ raw: string; httpStatus: number; usage?: ProviderUsage }> {
   if (provider === 'claude') {
     const key = cfg.anthropicKey ?? process.env.ANTHROPIC_API_KEY ?? '';
     const res = await f('https://api.anthropic.com/v1/messages', {
@@ -348,7 +353,7 @@ async function invokeRemoteProvider(
       throw Object.assign(new Error(`HTTP ${res.status}`), { httpStatus: res.status });
     }
     const data = (await res.json()) as { content?: Array<{ text?: string }> };
-    return { raw: data.content?.[0]?.text ?? '', httpStatus: res.status };
+    return { raw: data.content?.[0]?.text ?? '', httpStatus: res.status, usage: parseUsage(data) };
   }
 
   if (provider === 'openrouter') {
@@ -380,7 +385,7 @@ async function invokeRemoteProvider(
         throw Object.assign(new Error(`HTTP ${res.status}`), { httpStatus: res.status });
       }
       const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-      return { raw: data.choices?.[0]?.message?.content ?? '', httpStatus: res.status };
+      return { raw: data.choices?.[0]?.message?.content ?? '', httpStatus: res.status, usage: parseUsage(data) };
     };
 
     const candidateModels =
@@ -452,6 +457,22 @@ async function invokeRemoteProvider(
   });
 }
 
+/** The deterministic Rules fallback is a real step with $0 cost and no tokens. */
+function recordRulesStep(cfg: LlmConfig): void {
+  cfg.metrics?.record({
+    kind: 'llm',
+    provider: 'rules',
+    model: null,
+    ttftMs: null,
+    totalMs: 1,
+    inputTokens: 0,
+    outputTokens: 0,
+    estimated: false,
+    cacheHit: null,
+    ok: true,
+  });
+}
+
 type ValidationOutcome<T> =
   | { ok: true; value: T }
   | { ok: false; status: 'MALFORMED_JSON' | 'CODE_GUARD_REJECTED'; detail: string; violations?: string[] };
@@ -494,6 +515,7 @@ async function runCascadingJsonProviders<T>(params: {
 
   if (preferred === 'rules') {
     attempts.push({ provider: 'rules', status: 'OK', latencyMs: 1, detail: 'Explicit rules mode' });
+    recordRulesStep(params.cfg);
     return {
       ok: false,
       explicitRules: true,
@@ -556,18 +578,27 @@ async function runCascadingJsonProviders<T>(params: {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), local ? localTimeoutMs : timeoutMs);
     const tAttempt = Date.now();
+    const inputChars = params.systemPrompt.length + params.userPrompt.length;
+    const span = params.cfg.metrics?.begin({
+      kind: 'llm',
+      provider,
+      model: local
+        ? pickModel(params.cfg, provider, local.model ?? 'default')
+        : remoteModel(params.cfg, provider as RemoteProviderId),
+    });
 
     try {
       let raw: string;
+      let usage: ProviderUsage | undefined;
       if (local) {
         if (usesCli) localCliBusy = true;
         try {
-          raw = await invokeLocalProvider(local, params.cfg, params.systemPrompt, params.userPrompt, params.maxTokens, controller.signal, localTimeoutMs);
+          ({ raw, usage } = await invokeLocalProvider(local, params.cfg, params.systemPrompt, params.userPrompt, params.maxTokens, controller.signal, localTimeoutMs, () => span?.firstToken()));
         } finally {
           if (usesCli) localCliBusy = false;
         }
       } else {
-        ({ raw } = await invokeRemoteProvider(
+        ({ raw, usage } = await invokeRemoteProvider(
           provider as RemoteProviderId,
           params.userPrompt,
           {
@@ -584,6 +615,7 @@ async function runCascadingJsonProviders<T>(params: {
           params.maxTokens,
         ));
       }
+      span?.end({ usage, inputChars, outputChars: raw.length });
       const latencyMs = Math.max(1, Date.now() - tAttempt);
 
       let parsed: unknown;
@@ -628,6 +660,7 @@ async function runCascadingJsonProviders<T>(params: {
         totalLatencyMs: Math.max(1, Date.now() - tStart),
       };
     } catch (err) {
+      span?.end({ ok: false, error: err instanceof Error ? err.message : 'Upstream call failed', inputChars });
       const latencyMs = Math.max(1, Date.now() - tAttempt);
       const isAbort =
         (err instanceof Error && (err.name === 'AbortError' || /timed out/i.test(err.message))) ||
@@ -648,6 +681,7 @@ async function runCascadingJsonProviders<T>(params: {
     }
   }
 
+  recordRulesStep(params.cfg);
   return {
     ok: false,
     explicitRules: false,

@@ -12,7 +12,9 @@ apps/*/data/
 !dist/onq.ehpk
 media/audio/*.wav
 media/raw/
+media/film-v3/work/
 media/out/frame-check-*.png
 docs/screenshots/*.tmp.png
 .DS_Store
 Thumbs.db
+!.env.example

@@ -46,7 +46,7 @@ export interface SilentQuickChip {
 }
 
 export const SILENT_QUICK_CHIPS: SilentQuickChip[] = [
-  { id: 'chip_late', label: 'Running 15m late (Stage)', kind: 'command', payload: 'Push my next meeting 15 minutes and notify Priya' },
+  { id: 'chip_late', label: 'Running 15m late (Stage)', kind: 'command', payload: 'Push my next meeting 15 minutes and notify Investor' },
   { id: 'chip_tg', label: 'Push Telegram Brief', kind: 'telegram', payload: 'brief_push' },
   { id: 'chip_pomodoro', label: 'Build Pomodoro App', kind: 'liveui', payload: 'Build a Pomodoro focus timer' },
   { id: 'chip_yt', label: 'Find AI YouTube Videos', kind: 'scout', payload: 'Find top new AI agent YouTube videos today' },
@@ -72,13 +72,13 @@ export class KanbanAndScreenManager {
       {
         id: 'kb_needs_1',
         lane: 'needs_you',
-        title: 'Push VC Sync 15m + Email Priya',
+        title: 'Push Investor call 15m + Email Investor',
         agentName: 'OnQ Coordinator',
         model: 'Claude / OpenRouter',
         summary: 'Waiting for explicit YES ring tap (Default-NO lock active)',
         updatedAtIso: nowIso,
         canApprove: true,
-        actionCommand: 'Push my next meeting 15 minutes and tell Priya I am walking from another building',
+        actionCommand: 'Push my next meeting 15 minutes and tell Investor I am walking from another building',
       },
       {
         id: 'kb_run_1',
@@ -136,7 +136,7 @@ export class KanbanAndScreenManager {
       lines: [
         '[agent@onq-host] ~/workspace/oncue-even-g2',
         '> watcher.poll(google_calendar, gmail, telegram)',
-        '  calendar: 2 events synced | next: VC Sync - Priya Nair',
+        '  calendar: 2 events synced | next: Investor call',
         '  safety: Default-NO lock armed (0 unconfirmed writes)',
         '  cursor -> [Run AI YouTube Feed Fetch] (184, 112)',
       ],

@@ -7,7 +7,7 @@ Setup: `npm run dev`, then the Even Hub simulator (`node node_modules/@evenreali
 | Time | Show (simulator first) | Say (short) |
 | :--- | :--- | :--- |
 | 0:00 to 0:08 | Lens: next meeting card | "Ninety seconds between meetings. One glance." |
-| 0:08 to 0:30 | Say "push 15 and tell Priya". Lens shows the change, cursor on NO. Tap ring: YES. 2-second ring. Receipt. Put a small on-screen timer in the edit | "One phrase. The reply is already drafted. It waits on NO. One tap, two-second undo ring, done: calendar moved, Priya told, receipt saved." |
+| 0:08 to 0:30 | Say "push 15 and tell Investor". Lens shows the change, cursor on NO. Tap ring: YES. 2-second ring. Receipt. Put a small on-screen timer in the edit | "One phrase. The reply is already drafted. It waits on NO. One tap, two-second undo ring, done: calendar moved, Investor told, receipt saved." |
 | 0:30 to 0:42 | Try the busy 14:45 slot: double-booking lock, next free time | "If the slot is taken it refuses, and suggests the next free time. Nothing written." |
 | 0:42 to 1:10 | A message lands in a watched Telegram chat. Lens card 2 shows it. Tap: AI-drafted reply, NO by default. YES. Phone shows the reply in the chat | "Telegram, only from chats I picked. One tap for an AI-drafted reply. Approve on the glasses. Sent." |
 | 1:10 to 1:30 | Meeting Scribe: speaker notes, "OnQ, wrap up": Notion tasks, calendar hold, email draft, all waiting for yes | "In the meeting it keeps notes in memory only. Wrap up stages tasks and drafts; I approve what goes out." |

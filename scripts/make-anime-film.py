@@ -157,7 +157,7 @@ def pixel_text(d, x, y, s, scale, color):
 SKIN, SHADE = (247, 208, 176), (230, 184, 148)
 PAL = {
     "mika": dict(hair=(29, 42, 85), hl=(86, 112, 200), eye=(47, 214, 160), top=(34, 43, 58), pants=(47, 54, 70), long=False),
-    "priya": dict(hair=(74, 42, 34), hl=(130, 80, 64), eye=(122, 74, 42), top=(194, 69, 122), pants=(47, 54, 70), long=True),
+    "investor": dict(hair=(74, 42, 34), hl=(130, 80, 64), eye=(122, 74, 42), top=(194, 69, 122), pants=(47, 54, 70), long=True),
     "alex": dict(hair=(224, 116, 44), hl=(255, 177, 92), eye=(47, 111, 214), top=(59, 106, 74), pants=(47, 54, 70), long=False),
     "dana": dict(hair=(42, 42, 52), hl=(110, 110, 130), eye=(30, 30, 30), top=(122, 92, 194), pants=(47, 54, 70), long=True),
 }
@@ -426,7 +426,7 @@ def draw_scene(sc, t, dur):
         anchor = person(d, x if walk else int(60 + 0.55 * 280), 228, "mika", t, glasses=True, glow=glow, walk=walk,
                         talk=dur * 0.12 < t < dur * 0.3)
     elif sc == "meeting":
-        person(d, 150, 0, "priya", t, seated_at=205, talk=int(t / 3) % 3 == 1)
+        person(d, 150, 0, "investor", t, seated_at=205, talk=int(t / 3) % 3 == 1)
         person(d, 330, 0, "alex", t, seated_at=205, talk=int(t / 3) % 3 == 2)
         R(d, 60, 186, 360, 14, (120, 82, 62))
         anchor = person(d, 240, 0, "mika", t, glasses=True, glow=glow, seated_at=205, talk=int(t / 3) % 3 == 0)
@@ -538,7 +538,7 @@ def compose(scene, t, dur, rec_frames):
         d.text((W // 2 - 150, 170), "OnQ", font=font(190), fill=GREEN + (int(255 * k),))
         d.text((W // 2 - 520, 400), "Pixel story. Real captures. Even Realities G2.", font=F_MID, fill=(190, 210, 200, int(255 * k)))
     if sc == "hallway" and dur * 0.12 < t < dur * 0.34:
-        _bubble(d, 520, 560, "Push 15m and tell Priya")
+        _bubble(d, 520, 560, "Push 15m and tell Investor")
     if sc == "meeting" and int(t / 3) % 3 == 0 and t > 4:
         _bubble(d, 880, 380, "OnQ, wrap up.")
     if sc == "cafe" and t < dur * 0.4:

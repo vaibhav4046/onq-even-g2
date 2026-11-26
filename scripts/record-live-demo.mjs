@@ -176,7 +176,7 @@ async function captureRealSimulatorSequence() {
       await fetch('http://127.0.0.1:8787/api/meeting/start', {
         method: 'POST',
         headers: hdrs,
-        body: JSON.stringify({ attendees: ['Priya Nair', 'Alex Chen'] }),
+        body: JSON.stringify({ attendees: ['Investor contact', 'Partner contact'] }),
       });
       await fetch('http://127.0.0.1:8787/api/meeting/turn', {
         method: 'POST',
@@ -384,7 +384,7 @@ async function main() {
       const phPage = await phCtx.newPage();
       await phPage.goto(webSrv.url, { waitUntil: 'load' });
       await phPage.locator('#experience').waitFor({ state: 'visible', timeout: 60000 });
-      await phPage.locator('[data-testid="g2-lens"]').last().getByText(/VC Sync/i).first().waitFor({ state: 'visible', timeout: 60000 });
+      await phPage.locator('[data-testid="g2-lens"]').last().getByText(/Investor call/i).first().waitFor({ state: 'visible', timeout: 60000 });
       await phPage.waitForTimeout(900);
       await phPage.screenshot({ path: path.join(PH_DIR, 'gallery-01-hero.png') });
 

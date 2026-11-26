@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
-import { MOTION_EASE, ScrollReveal } from './MotionPrimitives';
+import { GlyphDecodeHeading, MOTION_EASE, ScrollReveal } from './MotionPrimitives';
 import { VERIFIED_TEST_COUNT } from '../verifiedCounts';
 
 /** Muted looping clip that only plays while on screen. Reduced motion: poster + controls, no autoplay. */
@@ -56,7 +56,7 @@ const CLIPS = [
     name: 'running-late',
     tag: 'Simulator capture',
     title: 'One phrase',
-    body: 'Say "Push 15m and tell Priya". OnQ drafts it and waits for your yes.',
+    body: 'Say "Push 15m and tell Investor". OnQ drafts it and waits for your yes.',
   },
   {
     name: 'double-booking-lock',
@@ -78,7 +78,7 @@ export function ClipCards() {
       <div className="container-page space-y-10">
         <ScrollReveal className="max-w-2xl mx-auto text-center space-y-3">
           <h2 id="clips-heading" className="font-dots font-black leading-[0.95] text-[2.4rem] sm:text-[3.4rem] text-[var(--bright)]">
-            Watch it work
+            <GlyphDecodeHeading text="Watch it work" />
           </h2>
           <p className="text-sm sm:text-base text-[var(--lightgray)]">
             Real screen recording and real Even Hub simulator captures.
@@ -129,13 +129,13 @@ const CHAPTERS: Chapter[] = [
     title: 'Morning brief',
     body: 'Your next meeting, the email that needs you and the doc. One glance.',
     img: '/stills/sim-01-dossier.png',
-    imgAlt: 'Simulator capture: meeting brief for VC Sync with Priya Nair',
+    imgAlt: 'Simulator capture: meeting brief for Investor call',
     cta: { label: 'See it on the lens', run: 'openLens' },
   },
   {
     time: '09:50',
     title: 'Running late',
-    body: 'Say "Push 15m and tell Priya". Nothing sends until you confirm.',
+    body: 'Say "Push 15m and tell Investor". Nothing sends until you confirm.',
     img: '/stills/sim-05-armed-ring.png',
     imgAlt: 'Simulator capture: 2-second confirm ring',
     cta: { label: 'Run Shift + Reply', run: 'runLate' },
@@ -174,7 +174,7 @@ export function DayStory({ actions }: { actions: DayStoryActions }) {
       <ScrollReveal className="lg:col-span-4 lg:sticky lg:top-24 self-start space-y-4">
         <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--g2-phosphor)]">One day with OnQ</p>
         <h2 className="font-dots font-black leading-[0.95] text-[2.4rem] sm:text-[3.2rem] text-[var(--bright)]">
-          Your day
+          <GlyphDecodeHeading text="Your day" />
         </h2>
         <p className="text-sm sm:text-base text-[var(--lightgray)] leading-relaxed max-w-sm">
           Five moments. Each one runs here in your browser. Tap to try.
@@ -243,7 +243,7 @@ export function ProofStrip() {
       <div className="container-page space-y-8">
         <ScrollReveal className="ob-card p-6 sm:p-8 space-y-6">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h2 className="font-dots font-black text-[1.9rem] sm:text-[2.4rem] text-[var(--bright)]">Proof</h2>
+            <h2 className="font-dots font-black text-[1.9rem] sm:text-[2.4rem] text-[var(--bright)]"><GlyphDecodeHeading text="Proof" /></h2>
             <p className="text-xs sm:text-sm text-[var(--lightgray)]">Verified in the simulator. Physical glasses are next.</p>
           </div>
           <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-5">

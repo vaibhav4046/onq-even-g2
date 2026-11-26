@@ -34,10 +34,20 @@ import { ConnectorsHub } from './components/ConnectorsHub';
 import { VERIFIED_TEST_COUNT } from './verifiedCounts';
 // Three.js + R3F load in their own chunk so the first paint never waits on WebGL code.
 const G2Hardware3D = lazy(() => import('./components/G2Hardware3D').then((m) => ({ default: m.G2Hardware3D })));
+// Canvas motion lives in its own chunk so it never counts against the entry bundle.
+const BinaryField = lazy(() => import('./components/BinaryField').then((m) => ({ default: m.BinaryField })));
+const BinaryMotionToggle = lazy(() => import('./components/BinaryField').then((m) => ({ default: m.BinaryMotionToggle })));
+const LoopSection = lazy(() => import('./components/LoopSection').then((m) => ({ default: m.LoopSection })));
+
+/** Same height the loop section pins to, so the page below does not jump when the chunk arrives. */
+function LoopPlaceholder() {
+  const reducedNow = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return <div aria-hidden="true" style={{ height: reducedNow ? '60rem' : '340vh' }} />;
+}
 import { G2LensCanvas } from './components/G2LensCanvas';
 import { startBrowserMicCapture } from './components/MicRecorder';
 import type { MicRecordingHandle } from './components/MicRecorder';
-import { MOTION_EASE, ScrollProgressRail, ScrollReveal } from './components/MotionPrimitives';
+import { GlyphDecodeHeading, MOTION_EASE, ScrollProgressRail, ScrollReveal } from './components/MotionPrimitives';
 import { ArchitectureShowcase } from './components/ArchitectureShowcase';
 import { LiveVoiceStudio } from './components/LiveVoiceStudio';
 import type { UnifiedMemoryDto } from './components/LiveVoiceStudio';
@@ -127,7 +137,7 @@ const GEOMETRY_SAMPLE_CARD: CorridorCard = {
   syncedAtIso: '2026-11-24T13:48:00.000Z',
   provenanceLabel: 'SANDBOX',
   kind: 'MEETING',
-  title: 'VC Sync - Priya Nair',
+  title: 'Investor call',
   timeMeta: '14:00 (12m)',
   startIso: '2026-11-24T14:00:00.000Z',
   endIso: '2026-11-24T14:30:00.000Z',
@@ -138,9 +148,9 @@ const GEOMETRY_SAMPLE_CARD: CorridorCard = {
   quickActions: [
     {
       id: 'qa1',
-      label: 'Push 15m + Reply Priya',
+      label: 'Push 15m + Reply Investor',
       intent: 'RESCHEDULE_AND_NOTIFY',
-      commandText: 'Push 15m and tell Priya',
+      commandText: 'Push 15m and tell Investor',
     },
     {
       id: 'qa2',
@@ -161,8 +171,8 @@ function buildGeometryState(stateName: string): HudState {
     defaultSelection: 'NO',
     summaryLines: [
       '1) GCAL: 14:00 -> 14:15 (SLOT FREE)',
-      '2) MAIL: Reply Priya "Running 15m late"',
-      '3) NOTION: Log shift to VC Sync note',
+      '2) MAIL: Reply "Running 15m late"',
+      '3) NOTION: Log shift to the meeting note',
     ],
     operations: [],
     safetyChecks: {
@@ -176,7 +186,7 @@ function buildGeometryState(stateName: string): HudState {
     case 'DETAIL':
       return { ...base, phase: 'detail' };
     case 'VOICE_LISTENING':
-      return { ...base, phase: 'listening', rmsLevel: 0.68, transcript: 'Push 15m and tell Priya' };
+      return { ...base, phase: 'listening', rmsLevel: 0.68, transcript: 'Push 15m and tell Investor' };
     case 'PREVIEW_DEFAULT_NO':
       return { ...base, phase: 'preview', preview, previewSelection: 'NO' };
     case 'ARMED_RING':
@@ -203,7 +213,7 @@ function buildGeometryState(stateName: string): HudState {
           sourceMode: 'DEMO',
           summaryLines: [
             'OK GCAL: 14:00->14:15 GMT',
-            'OK MAIL: Sent to Priya Nair',
+            'OK MAIL: Reply sent',
             'OK NOTION: Logged shift',
           ],
           operations: [],
@@ -224,7 +234,7 @@ function buildGeometryState(stateName: string): HudState {
           elapsedSec: 252,
           speakerCount: 2,
           providerMode: 'DEMO_SANDBOX',
-          attendees: ['Priya Nair', 'Alex Chen'],
+          attendees: ['Investor contact', 'Design lead'],
           turns: [
             {
               id: 't1',
@@ -238,15 +248,15 @@ function buildGeometryState(stateName: string): HudState {
             {
               id: 't2',
               speakerLabel: 'Speaker B',
-              attendeeName: 'Priya',
-              text: 'Send Q4 deck to Alex by Thursday 15:00.',
+              attendeeName: 'Investor contact',
+              text: 'Send Q4 deck to Partner contact by Thursday 15:00.',
               atIso: '2026-11-24T13:59:10.000Z',
               isWearer: false,
               isFinal: true,
             },
           ],
           decisions: [{ id: 'd1', summary: 'Lock Q4 metrics for Thursday', speaker: 'You', atIso: '2026-11-24T13:58:00.000Z' }],
-          actions: [{ id: 'a1', title: 'Send Q4 deck to Alex', owner: 'Priya' }],
+          actions: [{ id: 'a1', title: 'Send Q4 deck to Partner contact', owner: 'Investor contact' }],
         },
       };
     case 'WRAP_UP':
@@ -256,9 +266,9 @@ function buildGeometryState(stateName: string): HudState {
         preview: {
           ...preview,
           summaryLines: [
-            '1) NOTION: Send Q4 deck to Alex',
+            '1) NOTION: Send Q4 deck to Partner contact',
             '2) GCAL: Follow-up 17:00 (30m)',
-            '3) MAIL: Draft Priya Nair (Rules)',
+            '3) MAIL: Draft reply (Rules)',
           ],
         },
         previewSelection: 'NO',
@@ -519,7 +529,7 @@ export function App() {
         const res = await fetch('/api/actions/stage', {
           method: 'POST',
           headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cardId: card.id, commandText: opt?.commandText ?? 'Push 15m and tell Priya' }),
+          body: JSON.stringify({ cardId: card.id, commandText: opt?.commandText ?? 'Push 15m and tell Investor' }),
         });
         return (await res.json()) as ActionPreview | ConflictLockDetail;
       },
@@ -614,24 +624,24 @@ export function App() {
             calendarEvents: [
               {
                 eventId: 'evt-vc-priya',
-                title: 'VC Sync - Priya Nair',
+                title: 'Investor call',
                 startIso: '2026-11-24T14:00:00.000Z',
                 endIso: '2026-11-24T14:30:00.000Z',
-                attendeeName: 'Priya Nair',
+                attendeeName: 'Investor contact',
               },
               {
                 eventId: 'evt-design-busy',
                 title: 'Design Review (Busy Lock)',
                 startIso: '2026-11-24T14:45:00.000Z',
                 endIso: '2026-11-24T15:15:00.000Z',
-                attendeeName: 'Dana Kim',
+                attendeeName: 'Partner contact',
               },
             ],
             gmailThreads: [
               {
                 threadId: 'thr-priya-1',
-                fromName: 'Priya Nair',
-                fromEmail: 'priya@tvm.example',
+                fromName: 'Investor contact',
+                fromEmail: 'investor@sample.example',
                 snippet: 'Can we push 15m? Q4 deck ready?',
                 sentMessages: [],
               },
@@ -645,7 +655,7 @@ export function App() {
               },
               {
                 pageId: 'notion-task-2',
-                title: 'Send Q4 metrics to Alex',
+                title: 'Send Q4 metrics to Partner contact',
                 completed: false,
                 schemaType: 'status',
               },
@@ -1144,7 +1154,7 @@ export function App() {
     ctrlRef.current?.disarmToUndone();
     await ctrlRef.current?.handleEvent({ kind: 'CLICK' });
     await refreshCorridor(tok);
-    setVoiceFeedback('Sandbox workspace reset to initial 14:00 VC Sync state.');
+    setVoiceFeedback('Sandbox workspace reset to initial 14:00 Investor call state.');
   };
 
   const handleAddBusySlot = async (e: React.FormEvent) => {
@@ -1160,7 +1170,7 @@ export function App() {
     });
     setNewBusyTitle('');
     await refreshWorkspaceInspector(tok);
-    setVoiceFeedback(`Added Calendar block "${newBusyTitle.trim()}" at ${newBusyTime}. Try moving VC Sync there to test 409 Lock!`);
+    setVoiceFeedback(`Added Calendar block "${newBusyTitle.trim()}" at ${newBusyTime}. Try moving the Investor call there to test 409 Lock!`);
   };
 
   const handleSimulateIncomingReply = async () => {
@@ -1169,10 +1179,10 @@ export function App() {
     await fetch('/api/workspace/gmail/incoming', {
       method: 'POST',
       headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ snippet: 'Actually let us do 15:00 instead - Priya' }),
+      body: JSON.stringify({ snippet: 'Actually let us do 15:00 instead' }),
     });
     await refreshWorkspaceInspector(tok);
-    setVoiceFeedback('Simulated incoming Priya reply (historyId bumped). Committing old card now triggers 409 CONFLICT_THREAD_UPDATED!');
+    setVoiceFeedback('Simulated incoming reply (historyId bumped). Committing old card now triggers 409 CONFLICT_THREAD_UPDATED!');
   };
 
   const handleAddTask = async (e: React.FormEvent) => {
@@ -1246,6 +1256,9 @@ export function App() {
   return (
     <div className="min-h-screen bg-[var(--ink)] text-[var(--bright)]">
       <ScrollProgressRail />
+      <Suspense fallback={null}>
+        <BinaryMotionToggle />
+      </Suspense>
 
       {/* Expanded First-Person Inside-the-Glasses Waveguide View (Click 3D Lenses to Enter) */}
       <AnimatePresence>
@@ -1345,7 +1358,7 @@ export function App() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => void askMeetingClaude('What did Priya ask about Q4?')}
+                    onClick={() => void askMeetingClaude('What did Investor ask about Q4?')}
                     className="px-3 py-2 border border-[var(--hairline)] text-xs hover:border-[var(--verified)] cursor-pointer"
                   >
                     Ask &quot;OnQ, Q4?&quot;
@@ -1387,7 +1400,7 @@ export function App() {
             </a>
             <button
               type="button"
-              onClick={() => void runVoicePreset('Push 15m and tell Priya')}
+              onClick={() => void runVoicePreset('Push 15m and tell Investor')}
               className="retro-btn-primary px-4 py-2 text-xs sm:text-sm cursor-pointer whitespace-nowrap shrink-0"
             >
               Talk Now
@@ -1404,6 +1417,21 @@ export function App() {
             intensity={0.85}
             className="max-h-[60rem] [mask-image:linear-gradient(to_bottom,black_70%,transparent)]"
           />
+          {/* Bits converge into the glasses, then fly outward as the hero scrolls away. */}
+          <Suspense fallback={null}>
+            <BinaryField
+              mode="form"
+              shape="glasses"
+              behavior="hero"
+              cx={0.5}
+              cy={0.3}
+              boxWidth={0.74}
+              ambient={0.4}
+              maxAlpha={0.4}
+              maxGlyphs={560}
+              className="absolute inset-x-0 top-0 h-[46rem] w-full [mask-image:linear-gradient(to_bottom,black_62%,transparent)]"
+            />
+          </Suspense>
           <div className="container-page relative z-10 space-y-10">
             <div className="space-y-10 sm:space-y-12">
               <motion.div
@@ -1456,7 +1484,7 @@ export function App() {
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
                   <button
                     type="button"
-                    onClick={() => void runVoicePreset('Push 15m and tell Priya')}
+                    onClick={() => void runVoicePreset('Push 15m and tell Investor')}
                     className="retro-btn-primary px-5 py-2.5 text-xs sm:text-sm cursor-pointer"
                   >
                     Talk Now
@@ -1474,7 +1502,7 @@ export function App() {
                   <p className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lightgray)]">60-SECOND TOUR</p>
                   <ol className="flex flex-wrap justify-center gap-2 text-xs">
                     {[
-                      { n: 1, label: 'Confirm and undo', run: () => void runVoicePreset('Push 15m and tell Priya') },
+                      { n: 1, label: 'Confirm and undo', run: () => void runVoicePreset('Push 15m and tell Investor') },
                       { n: 2, label: 'Double-booking lock', run: () => void stageCommand('Move VC sync to 14:45') },
                       { n: 3, label: 'Telegram reply', run: () => void stageTelegramBrief() },
                     ].map((step) => (
@@ -1513,7 +1541,7 @@ export function App() {
                   hudState={hudState}
                   orbState={orbState}
                   activeWord={activeSpokenWord}
-                  headerLine={`${sessionMode === 'DEMO' ? 'SANDBOX' : sessionMode} | ${hudState.phase.toUpperCase()}`}
+                  headerLine={`${sessionMode === 'DEMO' ? 'SAMPLE' : sessionMode} | ${hudState.phase.toUpperCase()}`}
                   primaryLine={
                     hudState.cards[hudState.selectedCardIndex]?.title ?? 'Corridor Ready'
                   }
@@ -1521,7 +1549,7 @@ export function App() {
                   rmsLevel={hudState.rmsLevel ?? 0}
                   engineLabel={voiceEngineLabel}
                   onEnterLensView={() => setLensPovOpen(true)}
-                  onRunVoice={() => void runVoicePreset('Push 15m and tell Priya')}
+                  onRunVoice={() => void runVoicePreset('Push 15m and tell Investor')}
                   onConfirmAction={async () => {
                     await ctrlRef.current?.handleEvent({ kind: 'SCROLL_DOWN' });
                     await ctrlRef.current?.handleEvent({ kind: 'CLICK' });
@@ -1837,8 +1865,19 @@ export function App() {
                       >
                         {showTestTools ? 'Hide Test Tools' : 'Test Scenarios'}
                       </button>
-                      <span className="font-pixel text-[10px] uppercase tracking-[0.15em] text-[var(--verified)]">
-                        {sessionMode === 'DEMO' ? 'SANDBOX' : sessionMode}
+                      <span
+                        className={`font-pixel text-[10px] uppercase tracking-[0.15em] px-2 py-0.5 rounded-full border ${
+                          sessionMode === 'LIVE'
+                            ? 'border-[var(--g2-phosphor)]/60 text-[var(--g2-phosphor)]'
+                            : 'border-[var(--warning)]/50 text-[var(--warning)]'
+                        }`}
+                        title={
+                          sessionMode === 'LIVE'
+                            ? 'Showing your connected accounts'
+                            : 'Made-up sample data. Connect your accounts to see your own.'
+                        }
+                      >
+                        {sessionMode === 'LIVE' ? 'LIVE' : sessionMode === 'DEMO' ? 'SAMPLE DATA' : sessionMode}
                       </span>
                     </div>
                   </div>
@@ -2240,6 +2279,11 @@ export function App() {
           </div>
         </section>
 
+        {/* Sticky read-and-write loop with bits streaming along it (#loop) */}
+        <Suspense fallback={<LoopPlaceholder />}>
+          <LoopSection />
+        </Suspense>
+
         {/* Looping real footage in rounded video cards (#clips) */}
         <ClipCards />
 
@@ -2249,7 +2293,7 @@ export function App() {
             <DayStory
               actions={{
                 openLens: () => setLensPovOpen(true),
-                runLate: () => void runVoicePreset('Push 15m and tell Priya'),
+                runLate: () => void runVoicePreset('Push 15m and tell Investor'),
                 startScribe: () => void runLiveMeetingDemo(),
                 tryLock: () => void stageCommand('Move VC sync to 14:45'),
                 stageTelegram: () => void stageTelegramBrief(),
@@ -2302,7 +2346,7 @@ export function App() {
           <div className="container-page grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12">
             <ScrollReveal className="lg:col-span-4 lg:sticky lg:top-24 self-start space-y-4">
               <h2 className="font-dots font-black leading-[0.95] text-[2.4rem] sm:text-[3.2rem] text-[var(--bright)]">
-                Questions
+                <GlyphDecodeHeading text="Questions" />
               </h2>
               <p className="text-sm sm:text-base text-[var(--lightgray)] leading-relaxed max-w-sm">
                 Short answers about safety, hardware and your data.
@@ -2352,10 +2396,24 @@ export function App() {
         {/* Closing call to action */}
         <section aria-labelledby="cta-heading" className="pb-24 sm:pb-32">
           <div className="container-page">
-            <ScrollReveal className="ob-card relative overflow-hidden px-6 py-14 sm:py-20 text-center flex flex-col items-center gap-5">
-              <div aria-hidden="true" className="dot-grid-backdrop absolute inset-0 opacity-60" />
+            <ScrollReveal className="ob-card relative overflow-hidden px-6 pt-14 pb-12 sm:pb-16 min-h-[32rem] text-center flex flex-col items-center justify-end gap-5">
+              <Suspense fallback={null}>
+                <BinaryField
+                  mode="form"
+                  shape="text"
+                  text="OnQ"
+                  behavior="enter"
+                  cx={0.5}
+                  cy={0.27}
+                  boxWidth={0.46}
+                  ambient={0.25}
+                  maxAlpha={0.42}
+                  maxGlyphs={480}
+                  className="absolute inset-0 h-full w-full"
+                />
+              </Suspense>
               <h2 id="cta-heading" className="relative font-dots font-black leading-[0.95] text-[2.4rem] sm:text-[3.6rem] text-[var(--bright)]">
-                Put it on
+                <GlyphDecodeHeading text="Put it on" />
               </h2>
               <p className="relative text-sm sm:text-base text-[var(--lightgray)] max-w-md">
                 Try every flow in your browser. No glasses needed.

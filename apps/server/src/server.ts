@@ -17,6 +17,7 @@ import {
   parseIcsEvents,
   parseVoiceCommand,
   parseWakeCommand,
+  rankCorridorCards,
   reduceLiveUiAction,
   synthesizeLiveUiFromPrompt,
   verifyDraftAndPayload,
@@ -43,10 +44,44 @@ import type { MusicMood } from './harness/musicCuratorEngine.js';
 import { UnifiedOsHarness } from './harness/unifiedOsHarness.js';
 import type { SpecialistId } from './harness/unifiedOsHarness.js';
 import { TelegramCommandCentre } from './harness/telegramCommandCentre.js';
-import { BrowserAgentEngine, type BrowserDriver, type Planner } from './harness/browserAgent.js';
+import { BrowserAgentEngine, type BrowserDriver, type BrowserRun, type Planner } from './harness/browserAgent.js';
 import { createBrowserPlanner, createLocalChromeDriver } from './harness/browserRuntime.js';
 import type { TelegramUpdateEnvelope } from './providers/telegramProvider.js';
-import { loadLocalEnvFile } from './env.js';
+import { loadLocalEnvFile, withEnvNotionFallback } from './env.js';
+import { MetricsLedger, percentile } from './harness/metricsLedger.js';
+import { SnapshotStore, SNAPSHOT_SOURCES } from './harness/snapshotStore.js';
+import type { SnapshotSource } from './harness/snapshotStore.js';
+import { SyncWorker } from './harness/syncWorker.js';
+import { INLINE_BUDGET_MS, Outbox, OutboxConflictError, OutboxRetryableError, toPublicItem } from './harness/outbox.js';
+import type { OutboxItem } from './harness/outbox.js';
+import {
+  BROWSER_READ_GOAL,
+  browserReceipt,
+  browserWriteGoal,
+  FRESHNESS_TAG_AFTER_MS,
+  normalizeBrowserAnswer,
+  sliceWorkspace,
+  tagProvenance,
+} from './harness/sourceSnapshots.js';
+import type { GmailSlice, TelegramSlice, WorkspaceSlice } from './harness/sourceSnapshots.js';
+import { isSourceId, isSourceSetting, SourceModeStore } from './host/sourceModes.js';
+import { createRequire } from 'node:module';
+import { SPECIALIST_ROSTER } from './harness/unifiedOsHarness.js';
+import {
+  extractDeviceToken,
+  gateRequest,
+  HostRegistry,
+  isOwnerMachineRequest,
+  pairingBaseUrl,
+  PAIR_CODE_TTL_MS,
+  resolveListenHost,
+  type DeviceRecord,
+} from './host/hostRegistry.js';
+import { EXPOSURE_NOTICE, readLanSetting, RemoteService, silentDeviceNote, validateRelayUrl, type RemoteDeps } from './host/remote.js';
+import { RemoteError } from './host/tunnel.js';
+import { isClientPath, serveClient } from './host/staticClient.js';
+import { applySourceModes, buildHostProfile, detectChrome, profileSections, resolveDataSources } from './host/hostProfile.js';
+import type { SourceRow } from './host/hostProfile.js';
 import {
   createPkcePair,
   OAuthStateStore,
@@ -113,6 +148,8 @@ export interface AuditTelemetryEvent {
     | 'COMMIT'
     | 'UNDO'
     | 'PAIR_LIVE'
+    | 'DEVICE_PAIRED'
+    | 'DEVICE_REVOKED'
     | 'ICS_IMPORT'
     | 'MEETING_START'
     | 'MEETING_TURN'
@@ -130,6 +167,7 @@ export interface AuditTelemetryEvent {
     | 'OS_APPROVAL'
     | 'OS_PIPELINE'
     | 'KILL_SWITCH'
+    | 'REMOTE'
     | 'MUSIC_CURATE';
   detail: string;
 }
@@ -158,6 +196,18 @@ export interface ServerOptions {
    * passed, so routing stays offline and keyless.
    */
   scannerDeps?: Partial<ScannerDeps>;
+  /** Opt in to binding 0.0.0.0 (same as ONQ_LAN=1). Non-loopback requests then need a paired device token. */
+  lan?: boolean;
+  /** Tunnel URL placed in the pairing `url` (same as ONQ_PUBLIC_URL). */
+  publicUrl?: string;
+  /** Test hook: report a fake remote address per request so the LAN guard can be exercised from loopback. */
+  getRemoteAddress?: (req: http.IncomingMessage) => string | undefined;
+  /** Tests inject a fake spawn / PATH / repo root so no real tunnel or pack script ever runs. */
+  remoteDeps?: RemoteDeps;
+  /** Directory served at /g/ (default: apps/glasses/dist of the repo checkout). */
+  clientDir?: string;
+  /** A paired device with no request for this long (and no open stream) is "silent" (default 90 s). */
+  silentDeviceMs?: number;
 }
 
 const DEFAULT_ORIGINS = [
@@ -232,14 +282,44 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       ? new SqliteLedgerStore(path.join(dataDir, 'onq.sqlite'), nowFn)
       : await createConfiguredLedgerStore(dataDir, nowFn));
   const vault = new EncryptedTokenVault(dataDir);
+  /** Read-only credentials view: the vault first, NOTION_TOKEN / NOTION_DATABASE_ID only when it has none. Never save() this. */
+  const loadCreds = () => withEnvNotionFallback(vault.load());
+  const metrics = new MetricsLedger({ dataDir });
   const cookieAuth = new SignedSessionCookie(dataDir);
   const oauthStates = new OAuthStateStore(nowFn);
   const demoProvider = opts.demoProvider ?? new DemoWorkspaceProvider();
   const allowedOrigins = new Set(opts.allowedOrigins ?? DEFAULT_ORIGINS);
   const sseClients = new Set<http.ServerResponse>();
+  const hostReg = new HostRegistry({ dataDir, nowFn });
+  // LAN: explicit option, else ONQ_LAN, else the owner's saved "Allow my Wi-Fi" choice (applied at start-up).
+  const lanEnabled = opts.lan ?? (process.env.ONQ_LAN !== undefined ? process.env.ONQ_LAN === '1' : readLanSetting(dataDir));
+  const configuredPublicUrl = opts.publicUrl ?? process.env.ONQ_PUBLIC_URL;
+  const pollWaiters = new Set<(event: string) => void>();
+  const remote = new RemoteService({
+    dataDir,
+    lanEnabled,
+    getPort: () => (server.address() as { port?: number } | null)?.port ?? opts.port ?? 8787,
+    onChange: () => {
+      wakePollers('host');
+      if (hostReady) syncHost();
+    },
+    inspect: process.env.NODE_ENV !== 'test' && process.env.VITEST !== 'true' ? true : Boolean(opts.remoteDeps),
+    deps: opts.remoteDeps,
+  });
+  /** Address clients should pair against: the live tunnel if the owner started one, else the configured one. */
+  const effectivePublicUrl = (): string | undefined => remote.tunnel.status().url ?? configuredPublicUrl;
+  const publicUrl = configuredPublicUrl; // boot-time value, used by the start-up log only
+  const remoteOf = (req: http.IncomingMessage): string | undefined => opts.getRemoteAddress?.(req) ?? req.socket.remoteAddress;
+  /** Device behind each live SSE / voice socket, so revoke and the kill switch can cut them. */
+  const deviceSse = new Map<http.ServerResponse, string>();
+  const devicePolledAt = new Map<string, number>();
+  const deviceSockets = new Map<WebSocket, string>();
+  /** Device resolved by the request gate; requireAuth turns it into a session. */
+  const reqDevice = new WeakMap<http.IncomingMessage, DeviceRecord>();
+  let hostReady = false;
   const auditLog: AuditTelemetryEvent[] = [];
   const meetingBuffer = new MeetingTranscriptBuffer(48);
-  const agentTasks = new AgentTaskEngine(nowFn);
+  const agentTasks = new AgentTaskEngine(nowFn, metrics);
   const kanbanScreen = new KanbanAndScreenManager(new Date(nowFn()).toISOString());
   const tokenLedger = new TokenSavingsLedger();
   const citedKnowledge = new CitedKnowledgeEngine(tokenLedger);
@@ -263,7 +343,12 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     syncedAtIso: string;
   } | null = null;
 
+  function wakePollers(event: string): void {
+    for (const wake of [...pollWaiters]) wake(event);
+  }
+
   function broadcastSse(event: string, data: unknown): void {
+    wakePollers(event);
     const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
     for (const client of sseClients) {
       try {
@@ -319,8 +404,15 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       omniRouteKey: cfg.omniRouteKey,
       assemblyAiKey: resolveAssemblyAiKey(),
     };
-  }, opts.scannerDeps);
+  }, opts.scannerDeps, () => {
+    if (hostReady) syncHost();
+  });
   if (localDetectEnabled && !underTest) void providerScanner.scan().catch(() => undefined);
+
+  /** A test-injected llmConfig wins as before, but still feeds the metrics ledger. */
+  function injectedOrResolvedLlmConfig(): LlmConfig {
+    return opts.llmConfig ? { ...opts.llmConfig, metrics: opts.llmConfig.metrics ?? metrics } : resolveLlmConfig();
+  }
 
   function resolveLlmConfig(overrideProvider?: PreferredLlmProvider): LlmConfig {
     const cfg = baseLlmConfig(overrideProvider);
@@ -357,6 +449,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       preferredProvider: overrideProvider ?? opts.llmConfig?.preferredProvider ?? creds.preferredLlm ?? 'auto',
       timeoutMs: opts.llmConfig?.timeoutMs,
       fetchImpl: opts.llmConfig?.fetchImpl ?? opts.fetchImpl,
+      metrics: opts.llmConfig?.metrics ?? metrics,
     };
   }
 
@@ -393,7 +486,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
   }
 
   function buildConnectorStatus() {
-    const creds = vault.load();
+    const creds = loadCreds();
     const llmCfg = resolveLlmConfig();
     const activeLlmProvider = resolveHealthyLlmLabel(llmCfg);
     const claudeHealth = getProviderHealthStatus('claude', llmCfg.anthropicKey);
@@ -452,7 +545,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           connected: Boolean(creds.notionToken && creds.notionDatabaseId),
           mode: creds.notionToken && creds.notionDatabaseId ? 'LIVE' : 'SANDBOX',
           detail: creds.notionDatabaseId
-            ? `Database ...${creds.notionDatabaseId.slice(-6)} synced (2026-03-11)`
+            ? `Database ...${creds.notionDatabaseId.slice(-6)} selected`
             : 'Paste Notion token alone — auto-discovers DB & schema',
         },
         telegram: {
@@ -529,7 +622,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
   function resolveProvider(sessionMode: SourceMode): WorkspaceProvider {
     if (sessionMode === 'LIVE') {
       if (opts.liveProviderOverride) return opts.liveProviderOverride;
-      const creds = vault.load();
+      const creds = loadCreds();
       const google = creds.googleRefreshToken
         ? new GoogleWorkspaceClient(vault, opts.fetchImpl)
         : undefined;
@@ -548,7 +641,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
 
   const proactiveHarness = new ProactiveAgenticHarness({
     getSnapshot: () => {
-      const creds = vault.load();
+      const creds = loadCreds();
       const hasLive = Boolean(creds.googleRefreshToken || creds.notionToken || activeIcsFeed);
       const sourceMode: SourceMode = hasLive ? 'LIVE' : 'DEMO';
       return {
@@ -557,7 +650,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       };
     },
     getSummary: () => {
-      const creds = vault.load();
+      const creds = loadCreds();
       const llmCfg = resolveLlmConfig();
       const activeLlmProvider = resolveHealthyLlmLabel(llmCfg);
       const voiceConnected = Boolean(resolveAssemblyAiKey());
@@ -579,7 +672,19 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       const creds = vault.load();
       const nowIso = new Date(nowFn()).toISOString();
       const botToken = creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN;
-      if (botToken) {
+      const polled = botToken ? latestPolledOwnerMessage() : null;
+      if (polled) {
+        cachedTelegramInsight = {
+          id: `ins-tg-${polled.updateId}`,
+          atIso: nowIso,
+          category: 'TELEGRAM',
+          severity: 'action',
+          title: polled.title,
+          detail: polled.detail.slice(0, 84),
+          suggestedCommand: 'Reply on Telegram: on my way in 5m',
+          sourceMode: 'LIVE',
+        };
+      } else if (botToken && !telegramCentre.isPolling()) {
         try {
           const tg = new TelegramWorkspaceClient(botToken, creds.telegramChatId, opts.fetchImpl);
           const msgs = await tg.getRecentMessages(1);
@@ -632,7 +737,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       const fallbackCommand =
         primary?.suggestedCommand ??
         insights.find((i) => i.suggestedCommand)?.suggestedCommand ??
-        'Push 15m and tell Priya';
+        'Push 15m and tell Investor';
       const fallbackRationale =
         primary?.detail ?? 'Corridor scan surfaced an actionable brief under Default-NO.';
       const fallbackPlan = {
@@ -802,13 +907,14 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
   let telegramCentre!: TelegramCommandCentre;
   let browserAgent!: BrowserAgentEngine;
   const osHarness = new UnifiedOsHarness({
+    metrics,
     startBrowserTask: (goal, surface) => {
       const res = browserAgent.start(goal, surface);
       return { ok: res.ok, id: res.run?.id, error: res.error };
     },
     dataDir,
     getSnapshot: () => {
-      const creds = vault.load();
+      const creds = loadCreds();
       const hasLive = Boolean(creds.googleRefreshToken || creds.notionToken || activeIcsFeed);
       const sourceMode: SourceMode = hasLive ? 'LIVE' : 'DEMO';
       return {
@@ -817,7 +923,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       };
     },
     getSummary: () => {
-      const creds = vault.load();
+      const creds = loadCreds();
       const llmCfg = resolveLlmConfig();
       const tgToken = creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN;
       return {
@@ -852,7 +958,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       await saveUnifiedMemory(item);
     },
     executeApprovalAction: async (item) => {
-      const creds = vault.load();
+      const creds = loadCreds();
       if (item.destination === 'TELEGRAM') {
         const botToken = creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN;
         const chatId = creds.telegramChatId ?? process.env.TELEGRAM_CHAT_ID;
@@ -929,10 +1035,16 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     },
     onApprovalCreated: async (item) => {
       if (isTestEnv && !opts.fetchImpl) return undefined;
-      return telegramCentre?.notifyApproval(item);
+      const msgId = await telegramCentre?.notifyApproval(item);
+      // If no paired device is live, say so in the same chat: the owner can still approve there.
+      const note = silentDeviceNote(hostReg.listDevices(), new Set(deviceSse.values()), devicePolledAt, nowFn(), opts.silentDeviceMs);
+      if (note) void telegramCentre?.notifyText(note);
+      return msgId;
     },
     onKillSwitchChanged: (paused) => {
       if (paused) {
+        wakePollers('locked');
+        dropDeviceConnections(undefined, 'locked');
         proactiveHarness.stop();
       } else if (!opts.disableProactiveTimer && !isTestEnv) {
         proactiveHarness.start();
@@ -956,6 +1068,17 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
 
   /** Chats returned by the latest /api/telegram/scan-chats (set-owner only accepts these). */
   let lastScannedTelegramChats = new Map<string, TelegramSeenChat>();
+
+  /**
+   * Newest real message from the owner chat, as the poller saw it (the buffer only ever holds updates that went
+   * through processUpdate). getUpdates cannot be called a second time while the poller long-polls (Telegram answers
+   * 409), so the corridor reads the poller's own buffer instead of asking Telegram again.
+   */
+  function latestPolledOwnerMessage(): { title: string; detail: string; updateId: number } | null {
+    const owner = vault.load().telegramChatId ?? process.env.TELEGRAM_CHAT_ID;
+    const msg = telegramCentre.getRecentMessages(50).find((m) => !owner || m.chatId === owner);
+    return msg ? { title: `TG · ${msg.fromName}`, detail: msg.text, updateId: msg.updateId } : null;
+  }
 
   /** Chats the owner picked to read and reply to (vault + TELEGRAM_WATCH_CHATS). */
   function watchedTelegramChats(): string[] {
@@ -1001,6 +1124,8 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     onError: (msg) => logError('telegram-poller', msg),
   });
 
+  /** Resolvers for callers (source sync, outbox writes) waiting for one browser run to end. */
+  const browserWaiters = new Map<string, (run: BrowserRun) => void>();
   browserAgent = new BrowserAgentEngine({
     driverFactory: opts.browserDriverFactory ?? (() =>
       createLocalChromeDriver({
@@ -1031,6 +1156,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         });
       }
       const terminal = run.status === 'DONE' || run.status === 'STOPPED' || run.status === 'FAILED';
+      if (terminal) browserWaiters.get(run.id)?.(run);
       if (terminal) {
         recordAudit('OS_COMMAND', `Browser task ${run.id} ${run.status}: ${run.answer ?? ''}`.slice(0, 200));
         if (run.source === 'telegram') void telegramCentre?.notifyText(`Browser task ${run.status.toLowerCase()}: ${run.answer ?? ''}`);
@@ -1043,18 +1169,501 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     telegramCentre.startPolling(5000);
   }
 
-  function applyCors(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  // ---- Source snapshots, sync worker, source modes and the write outbox ----------------------------------------------
+  // The glasses read snapshots (instant). A slow API or the owner's logged-in Chrome only ever refreshes them in the
+  // background; approved writes that would block run in the outbox. Nothing here changes confirm, undo or approvals.
+  const snapshotStore = new SnapshotStore({ dataDir, now: nowFn });
+  const sourceModes = new SourceModeStore(dataDir);
+  const WORKSPACE_SOURCES = ['calendar', 'notion', 'gmail'] as const;
+  type WorkspaceSource = (typeof WORKSPACE_SOURCES)[number];
+  type EffectiveRoute = SourceRow['effective'];
+  const OP_SOURCE: Record<ActionOperation['provider'], SnapshotSource | null> = {
+    GCAL: 'calendar',
+    GMAIL: 'gmail',
+    NOTION: 'notion',
+    TELEGRAM: 'telegram',
+    COMPUTER: null,
+  };
+
+  /** Effective route per source right now: the owner's setting applied over what is connected / ready. */
+  function resolveSourceRoutes(): Array<Omit<SourceRow, 'p50Ms' | 'lastSyncAt' | 'stale' | 'breaker'>> {
+    const creds = loadCreds();
+    const googleSignedIn = Boolean(creds.googleAccessToken || creds.googleRefreshToken);
+    const workspaceScope = googleSignedIn && creds.googleScopeMode !== 'identity';
+    const connected = {
+      calendar: workspaceScope || Boolean(activeIcsFeed),
+      gmail: workspaceScope,
+      notion: Boolean(creds.notionToken && creds.notionDatabaseId),
+      telegram: Boolean(creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN),
+    };
+    const browser = browserAvailability();
+    const auto = resolveDataSources({ connected, sample: { calendar: true, gmail: true, notion: true, telegram: true }, browser });
+    const settings = Object.fromEntries(SNAPSHOT_SOURCES.map((s) => [s, sourceModes.get(s)])) as Record<SnapshotSource, ReturnType<typeof sourceModes.get>>;
+    return applySourceModes(auto, settings, { connected, browser });
+  }
+  const routeMap = (): Record<SnapshotSource, EffectiveRoute> =>
+    Object.fromEntries(resolveSourceRoutes().map((r) => [r.source, r.effective])) as Record<SnapshotSource, EffectiveRoute>;
+
+  /** One Chrome, one task at a time: source reads and approved writes queue here instead of failing as "busy". */
+  let browserLane: Promise<unknown> = Promise.resolve();
+  function runBrowserGoal(goal: string, signal: AbortSignal): Promise<BrowserRun> {
+    const run = browserLane
+      .catch(() => undefined)
+      .then(() => (signal.aborted ? Promise.reject(new Error('Browser run aborted')) : startBrowserGoal(goal, signal)));
+    browserLane = run;
+    return run;
+  }
+
+  /** Starts one goal in the owner's own Chrome and resolves when that run ends. */
+  function startBrowserGoal(goal: string, signal: AbortSignal): Promise<BrowserRun> {
+    const started = browserAgent.start(goal, 'web');
+    if (!started.ok || !started.run) throw new OutboxRetryableError(started.error ?? 'Browser is busy');
+    const id = started.run.id;
+    return new Promise<BrowserRun>((resolve, reject) => {
+      const cleanup = () => browserWaiters.delete(id);
+      const finish = (run: BrowserRun) => {
+        cleanup();
+        if (run.status === 'DONE') resolve(run);
+        else reject(new Error(run.answer ?? `Browser run ${run.status.toLowerCase()}`));
+      };
+      browserWaiters.set(id, finish);
+      signal.addEventListener(
+        'abort',
+        () => {
+          cleanup();
+          browserAgent.stop(id, 'Timed out');
+          reject(new Error('Browser run aborted'));
+        },
+        { once: true },
+      );
+      const cur = browserAgent.getRun(id);
+      if (cur && (cur.status === 'DONE' || cur.status === 'STOPPED' || cur.status === 'FAILED')) finish(cur);
+    });
+  }
+
+  const workspaceFlights: Partial<Record<'api' | 'sample', Promise<Record<WorkspaceSource, WorkspaceSlice | GmailSlice>>>> = {};
+  /** One provider call feeds calendar, notion and gmail, so refreshing all three together costs one fetch. */
+  function fetchWorkspace(route: 'api' | 'sample') {
+    workspaceFlights[route] ??= (async () => {
+      const provider = route === 'api' ? resolveProvider('LIVE') : demoProvider;
+      const data = await provider.fetchCorridor(new Date(nowFn()).toISOString());
+      return sliceWorkspace(data, provider.getSnapshot().gmailThreads);
+    })().finally(() => {
+      delete workspaceFlights[route];
+    });
+    return workspaceFlights[route] as NonNullable<(typeof workspaceFlights)['api']>;
+  }
+
+  function telegramSlice(route: 'api' | 'sample'): TelegramSlice {
+    if (route === 'sample') {
+      const first = getSandboxTelegramDigest()[0];
+      return { title: `TG · ${first?.fromName ?? 'Group member'}`, detail: first?.text ?? 'Share Q4 metrics + OnQ .ehpk build?' };
+    }
+    const m = latestPolledOwnerMessage() ?? cachedTelegramInsight ?? { title: 'TG · No new messages', detail: 'Connected. Your next owner-chat message shows here' };
+    return { title: m.title, detail: m.detail };
+  }
+
+  const syncWorker = new SyncWorker({
+    store: snapshotStore,
+    resolveRoute: (s) => {
+      const r = resolveSourceRoutes().find((x) => x.source === s);
+      return { effective: r?.effective ?? 'off', reason: r?.reason ?? undefined };
+    },
+    fetcherFor: (source, route) => {
+      if (route === 'browser') {
+        return async (signal) => normalizeBrowserAnswer(source, (await runBrowserGoal(BROWSER_READ_GOAL[source], signal)).answer ?? '', new Date(nowFn()).toISOString());
+      }
+      if (source === 'telegram') return async () => telegramSlice(route);
+      return async () => (await fetchWorkspace(route))[source as WorkspaceSource];
+    },
+    ledger: metrics,
+    now: nowFn,
+    backoffBaseMs: underTest ? 1 : undefined,
+    onChanged: (source) => broadcastSse('corridor', { reason: 'snapshot', source }),
+  });
+
+  /** Route for one approved operation. A demo session never touches the real accounts (except its existing Telegram path). */
+  function opRoute(op: ActionOperation, sessionMode: SourceMode, routes: Record<SnapshotSource, EffectiveRoute>): EffectiveRoute {
+    const src = OP_SOURCE[op.provider];
+    if (!src) return 'api'; // delegated computer task: can be slow, but it is not a data source
+    const eff = routes[src];
+    if (eff === 'off') return 'off';
+    if (sessionMode === 'DEMO') return src === 'telegram' && eff === 'api' ? 'api' : 'sample';
+    return eff;
+  }
+
+  /** Writes already approved by the owner, done in the owner's own Chrome (browser route). One step at a time. */
+  async function runBrowserOps(preview: ActionPreview, ops: ActionOperation[], sessionMode: SourceMode, signal: AbortSignal): Promise<CommitReceipt> {
+    const answers: string[] = [];
+    for (const [i, op] of ops.entries()) {
+      try {
+        answers.push((await runBrowserGoal(browserWriteGoal(op), signal)).answer ?? '');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (i === 0 || err instanceof OutboxRetryableError) throw err;
+        throw new Error(`Step ${i + 1} of ${ops.length} failed (earlier steps already ran): ${msg}`);
+      }
+    }
+    return browserReceipt({
+      idempotencyKey: preview.idempotencyKey,
+      ops,
+      sourceMode: sessionMode,
+      answers,
+      nowIso: new Date(nowFn()).toISOString(),
+      tag: preview.idempotencyKey.slice(0, 6),
+    });
+  }
+
+  /**
+   * Executes an approved, conflict-checked preview and saves its receipt. This is the body the commit route always
+   * ran; it is now shared by the inline path and the outbox. Callers have already consumed the single-use token.
+   */
+  async function runCommitOps(preview: ActionPreview, sessionMode: SourceMode, signal: AbortSignal): Promise<CommitReceipt> {
+    const provider = resolveProvider(sessionMode);
+    const routes = routeMap();
+    const routeOfOp = (op: ActionOperation) => opRoute(op, sessionMode, routes);
+    const browserOps = preview.operations.filter((op) => routeOfOp(op) === 'browser');
+    const workspaceOps = preview.operations.filter((op) => op.provider !== 'COMPUTER' && op.provider !== 'TELEGRAM' && routeOfOp(op) !== 'browser');
+    const computerOps = preview.operations.filter((op) => op.provider === 'COMPUTER');
+    const telegramOps = preview.operations.filter((op) => op.provider === 'TELEGRAM' && routeOfOp(op) !== 'browser');
+
+    const receipt = await provider.executePreview({ preview, operations: workspaceOps });
+    if (browserOps.length > 0) {
+      const viaChrome = await runBrowserOps(preview, browserOps, sessionMode, signal);
+      receipt.summaryLines = [...receipt.summaryLines, ...viaChrome.summaryLines].slice(0, 3);
+      receipt.operations.push(...viaChrome.operations);
+    }
+
+    for (const cop of computerOps) {
+      const priorMem = ((await ledger.listMemories?.(3)) ?? []).map((m) => `${m.title}: ${m.summary}`);
+      const delegated = await executeDelegatedTask({
+        title: cop.afterValue.slice(0, 48),
+        prompt: cop.afterValue,
+        targetTool: /git|pr|test/i.test(cop.afterValue) ? 'workspace_test' : 'auto',
+        cwd: process.cwd(),
+        llmConfig: resolveLlmConfig(),
+        memoryContext: priorMem,
+      });
+      receipt.summaryLines = [...delegated.lensLines, ...receipt.summaryLines].slice(0, 3);
+      receipt.operations.push({
+        ...cop,
+        reversible: false,
+        recallNote: delegated.toolUsed,
+      });
+      await saveUnifiedMemory({
+        kind: 'task',
+        title: cop.afterValue.slice(0, 64),
+        summary: delegated.summary,
+        source: delegated.toolUsed,
+      });
+    }
+
+    for (const top of telegramOps) {
+      const creds = vault.load();
+      const botToken = creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN;
+      let tgNote = 'SAMPLE SENT';
+      // Reply into the chosen chat when it is the owner chat or a watched chat; otherwise the owner chat.
+      const targetChat = isSendableTelegramChat(top.targetLabel) ? top.targetLabel : creds.telegramChatId;
+      if (routeOfOp(top) === 'api' && botToken && targetChat) {
+        const tgClient = new TelegramWorkspaceClient(botToken, targetChat, opts.fetchImpl);
+        try {
+          const sent = await tgClient.sendMessage(top.afterValue, targetChat);
+          tgNote = `LIVE TELEGRAM SENT (#${sent.messageId})`;
+        } catch (err) {
+          tgNote = err instanceof Error ? `TG ERR: ${err.message.slice(0, 60)}` : 'TELEGRAM SEND ERR';
+        }
+      }
+      receipt.operations.push({
+        ...top,
+        reversible: false,
+        recallNote: tgNote,
+      });
+      await saveUnifiedMemory({
+        kind: 'telegram',
+        title: 'Telegram Message',
+        summary: `${top.afterValue} (${tgNote})`,
+        source: creds.telegramChatId ? `chat ${creds.telegramChatId}` : 'Telegram Sandbox',
+      });
+    }
+
+    await ledger.saveReceipt(receipt);
+    recordAudit('COMMIT', `${receipt.receiptId}: ${receipt.summaryLines.join(' | ')}`);
+    if (workspaceOps.length > 0 || browserOps.length > 0) {
+      await saveUnifiedMemory({
+        kind: 'voice',
+        title: receipt.summaryLines[0] ?? 'Workspace Update',
+        summary: receipt.summaryLines.join(' | '),
+        source: `Receipt ${receipt.receiptId}`,
+      });
+    }
+    // The data behind the written sources changed: their snapshots refresh on the next read.
+    if (sessionMode === 'LIVE') {
+      for (const op of preview.operations) {
+        const src = OP_SOURCE[op.provider];
+        if (src && (routes[src] === 'api' || routes[src] === 'browser')) snapshotStore.invalidate(src);
+      }
+    }
+    broadcastSse('receipt', receipt);
+    broadcastSse('corridor', { reason: 'committed' });
+    return receipt;
+  }
+
+  const outbox = new Outbox({
+    dataDir,
+    ledger: metrics,
+    now: nowFn,
+    backoffBaseMs: underTest ? 1 : undefined,
+    onChange: (item) => broadcastSse('outbox', { id: item.id, status: item.status }),
+    execute: async (item, signal) => {
+      const { preview, sessionMode } = item.payload as { preview: ActionPreview; sessionMode: SourceMode };
+      // Already done (a retry after a crash between "saved" and "marked done") must never run twice.
+      const prior = await ledger.getByIdempotency(item.idempotencyKey);
+      if (prior) return { receiptId: prior.receiptId, summaryLines: prior.summaryLines, canUndo: prior.canUndo };
+      // The 409 lock ran just before queueing. If time has passed, or this is a retry, run it again before writing.
+      if (item.attempts > 1 || nowFn() - item.createdAt > 5_000) {
+        const conflict = await resolveProvider(sessionMode).checkLiveConflicts(preview);
+        if (conflict) {
+          recordAudit('CONFLICT_409', conflict.message);
+          throw new OutboxConflictError(conflict.message, conflict);
+        }
+      }
+      const receipt = await runCommitOps(preview, sessionMode, signal);
+      return { receiptId: receipt.receiptId, summaryLines: receipt.summaryLines, canUndo: receipt.canUndo };
+    },
+  });
+
+  /** Receipt-shaped answer for a write that is still queued or running, so the glasses reuse their result card. */
+  function queuedReceipt(item: OutboxItem): CommitReceipt {
+    const { preview, sessionMode } = item.payload as { preview: ActionPreview; sessionMode: SourceMode };
+    return {
+      receiptId: `OBX-${item.id.slice(3)}`,
+      idempotencyKey: item.idempotencyKey,
+      committedAtIso: new Date(item.createdAt).toISOString(),
+      status: 'QUEUED',
+      sourceMode: sessionMode,
+      summaryLines: item.summaryLines,
+      operations: preview.operations.map((op) => ({ ...op, reversible: false })),
+      canUndo: item.status === 'queued',
+      outbox: { id: item.id, status: item.status, ...(item.reason ? { reason: item.reason } : {}) },
+    };
+  }
+
+  /** Sends the right answer for an outbox item: finished -> the real receipt, failed -> why, otherwise 202 queued. */
+  async function respondOutboxItem(res: http.ServerResponse, item: OutboxItem): Promise<void> {
+    if (item.status === 'done') {
+      const receipt = await ledger.getByIdempotency(item.idempotencyKey);
+      if (receipt) {
+        jsonResponse(res, receipt.status === 'SEND_UNKNOWN' ? 504 : 200, receipt);
+        return;
+      }
+    }
+    if (item.status === 'failed') {
+      if (item.conflict) jsonResponse(res, 409, item.conflict);
+      else jsonResponse(res, 502, { error: item.reason ?? 'The action could not be completed', outbox: toPublicItem(item) });
+      return;
+    }
+    jsonResponse(res, 202, queuedReceipt(item));
+  }
+
+  if (!opts.disableProactiveTimer && !underTest) {
+    syncWorker.start();
+    outbox.start();
+  }
+  outbox.kick(); // queued writes that survived a restart continue; ones that were mid-flight were marked failed on load
+
+  /** Corridor data. Demo / sample sources are one in-memory call, read inline. Real routes read snapshots. */
+  async function corridorData(sessionMode: SourceMode, provider: WorkspaceProvider) {
+    const nowIso = new Date(nowFn()).toISOString();
+    const rows = resolveSourceRoutes();
+    const eff = (s: SnapshotSource) => rows.find((r) => r.source === s)?.effective ?? 'off';
+    const useSnapshots = sessionMode === 'LIVE' && WORKSPACE_SOURCES.some((s) => eff(s) !== 'sample');
+    if (!useSnapshots) return { ...(await provider.fetchCorridor(nowIso)), oldestFetchedAt: null as number | null };
+
+    const slices: Partial<Record<WorkspaceSource, WorkspaceSlice | GmailSlice>> = {};
+    let oldest: number | null = null;
+    const note = (fetchedAt: number, ageMs: number) => {
+      if (ageMs > FRESHNESS_TAG_AFTER_MS) oldest = Math.min(oldest ?? fetchedAt, fetchedAt);
+    };
+    const needInline: WorkspaceSource[] = [];
+    for (const s of WORKSPACE_SOURCES) {
+      const route = eff(s);
+      // off: contributes nothing and never falls back. sample (not connected): a live provider has nothing to add for it.
+      if (route === 'off' || route === 'sample') continue;
+      const r = syncWorker.read(s); // stale or missing: a background refresh starts now
+      if (r.snapshot) {
+        slices[s] = r.snapshot.payload as WorkspaceSlice | GmailSlice;
+        note(r.snapshot.fetchedAt, r.snapshot.ageMs);
+      } else if (route === 'api') needInline.push(s); // first ever call: one fetch, bounded by the api timeout
+    }
+    if (needInline.length > 0) {
+      const results = await Promise.all(needInline.map((s) => syncWorker.refresh(s)));
+      results.forEach((r, i) => {
+        if (r.snapshot) slices[needInline[i]] = r.snapshot.payload as WorkspaceSlice | GmailSlice;
+      });
+      if (results.every((r) => !r.snapshot) && Object.keys(slices).length === 0) throw new Error(results[0]?.reason ?? 'Sources unavailable');
+    }
+    syncWorker.prefetch(['gmail', 'telegram']); // the next cards' data, so it is warm when the glasses move on
+    const cal = slices.calendar as WorkspaceSlice | undefined;
+    const nt = slices.notion as WorkspaceSlice | undefined;
+    const meta = cal ?? nt;
+    return {
+      cards: rankCorridorCards([...(cal?.cards ?? []), ...(nt?.cards ?? [])], nowIso),
+      busySlots: [],
+      sourceMode: (meta?.sourceMode ?? 'LIVE') as SourceMode,
+      provenanceLabel: meta?.provenanceLabel ?? 'LIVE',
+      syncedAtIso: meta?.syncedAtIso ?? nowIso,
+      oldestFetchedAt: oldest as number | null,
+    };
+  }
+
+  /** Per-source rows for /api/sources and the host profile (ledger p50, last sync, staleness, breaker). */
+  function sourceRows(): SourceRow[] {
+    const steps = metrics.getSteps(500);
+    return resolveSourceRoutes().map((r) => {
+      const snap = snapshotStore.get(r.source);
+      const live = r.effective === 'api' || r.effective === 'browser';
+      return {
+        ...r,
+        p50Ms: percentile(steps.filter((s) => s.kind === 'tool' && s.ok && s.provider.startsWith(`sync:${r.source}:`)).map((s) => s.totalMs), 50),
+        lastSyncAt: snap?.fetchedAtIso ?? null,
+        stale: snap ? snap.stale : null,
+        breaker: live ? syncWorker.breakerView(r.source, r.effective as 'api' | 'browser').state : 'closed',
+      };
+    });
+  }
+
+  // ---- Host profile, device sessions and request gate -------------------------------------------------------------
+  const isHostLocked = (): boolean => osHarness.getState().killSwitch.paused;
+
+  function canResolvePlaywright(): boolean {
+    try {
+      createRequire(import.meta.url).resolve('playwright');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function browserAvailability() {
+    const injected = Boolean(opts.browserDriverFactory);
+    // Same rule as the model scanner: under tests the real PC is not inspected unless the test injects scanner I/O.
+    const inspectPc = !underTest || Boolean(opts.scannerDeps);
+    const chrome =
+      inspectPc &&
+      detectChrome({
+        env: opts.scannerDeps?.env ?? process.env,
+        platform: opts.scannerDeps?.platform ?? process.platform,
+        exists: opts.scannerDeps?.exists ?? ((p: string) => fs.existsSync(p)),
+      });
+    const driver: 'injected' | 'chrome' | 'none' = injected ? 'injected' : chrome && canResolvePlaywright() ? 'chrome' : 'none';
+    return {
+      wired: Boolean(browserAgent),
+      driver,
+      hasCompletedRun: Boolean(browserAgent) && browserAgent.listRuns().some((r) => r.status === 'DONE'),
+    };
+  }
+
+  function collectHostProfile() {
+    const creds = loadCreds();
+    const llmCfg = resolveLlmConfig();
+    const osState = osHarness.getState();
+    const summary = metrics.summary();
+    const googleSignedIn = Boolean(creds.googleAccessToken || creds.googleRefreshToken);
+    const telegram = Boolean(creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN);
+    const notion = Boolean(creds.notionToken && creds.notionDatabaseId);
+    const browser = browserAvailability();
+    return buildHostProfile({
+      hostname: os.hostname(),
+      platform: process.platform,
+      uptimeSec: Math.round(process.uptime()),
+      revision: hostReg.revision,
+      locked: osState.killSwitch.paused,
+      scan: providerScanner.peek(), // never starts a scan: reading the profile must not spend the owner's subscription
+      routing: {
+        preferredLlm: creds.preferredLlm ?? 'auto',
+        preferredModel: creds.preferredModel ?? null,
+        active: resolveActiveProvider(llmCfg),
+      },
+      agents: SPECIALIST_ROSTER.map((a) => ({ id: a.id, name: a.name, maxAutonomy: a.maxAutonomy })),
+      skills: osState.skills.map((k) => ({ id: k.id, name: k.name, triggerCommand: k.triggerCommand, approvalRule: k.approvalRule })),
+      browser,
+      connectors: {
+        telegram,
+        notion,
+        google: googleSignedIn || Boolean(activeIcsFeed),
+        assemblyai: Boolean(resolveAssemblyAiKey()),
+        openrouter: Boolean(llmCfg.openRouterKey),
+      },
+      dataSources: sourceRows(), // owner setting + effective route + ledger p50, last sync, staleness, breaker
+      metrics: {
+        p50Ms: summary.overall.p50Ms,
+        p95Ms: summary.overall.p95Ms,
+        inFlight: summary.inFlightNow,
+        steps: metrics.getSteps(500),
+        tokensEstimated: summary.overall.tokensEstimated,
+      },
+      devices: hostReg.listDevices(),
+    });
+  }
+
+  /** Rebuilds the profile, bumps the revision when any section changed, and tells connected clients (`host` SSE). */
+  function syncHost() {
+    const profile = collectHostProfile();
+    const tunnel = remote.tunnel.status();
+    // The tunnel address is not in the profile (no URLs there); its state only moves the revision.
+    const sections = tunnel.state === 'off' ? profileSections(profile) : { ...profileSections(profile), remote: `${tunnel.state}:${tunnel.url ?? ''}` };
+    const changed = hostReg.reconcile(sections);
+    if (changed.length === 0) return profile;
+    broadcastSse('host', { revision: hostReg.revision, changed });
+    return { ...profile, revision: hostReg.revision };
+  }
+
+  function dropDeviceConnections(deviceId: string | undefined, reason: 'revoked' | 'locked'): void {
+    for (const [res, id] of deviceSse) {
+      if (deviceId && id !== deviceId) continue;
+      try {
+        res.write(`event: ${reason}\ndata: {}\n\n`);
+        res.end();
+      } catch {
+        // already closed
+      }
+      deviceSse.delete(res);
+      sseClients.delete(res);
+    }
+    for (const [ws, id] of deviceSockets) {
+      if (deviceId && id !== deviceId) continue;
+      try {
+        ws.close();
+      } catch {
+        // already closed
+      }
+      deviceSockets.delete(ws);
+    }
+  }
+
+  type AuthedSession = { tokenHash: string; mode: SourceMode; createdAtMs: number; expiresAtMs: number; rawToken: string; deviceId?: string };
+
+  function deviceSession(dev: DeviceRecord): AuthedSession {
+    const creds = loadCreds();
+    const mode: SourceMode = creds.googleRefreshToken || creds.notionToken || activeIcsFeed ? 'LIVE' : 'DEMO';
+    const key = `dev:${dev.id}`;
+    return { tokenHash: key, rawToken: key, mode, createdAtMs: Date.parse(dev.createdAt), expiresAtMs: Number.MAX_SAFE_INTEGER, deviceId: dev.id };
+  }
+
+  /** Cross-origin browsers may only talk to us from known origins, except paired devices, claim, and preflights from other machines. */
+  function applyCors(req: http.IncomingMessage, res: http.ServerResponse, relaxed: boolean): boolean {
     const origin = req.headers.origin;
     if (!origin) return true;
-    if (!allowedOrigins.has(origin) && !/^https?:\/\/(127\.0\.0\.1|localhost):\d+$/.test(origin)) {
+    const listed = allowedOrigins.has(origin) || /^https?:\/\/(127\.0\.0\.1|localhost):\d+$/.test(origin);
+    if (!listed && !relaxed) {
       jsonResponse(res, 403, { error: 'CORS origin denied' });
       return false;
     }
     res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    if (listed) res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Vary', 'Origin');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-OnQ-Preset');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-OnQ-Preset, X-OnQ-Device');
     return true;
   }
 
@@ -1064,7 +1673,9 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     return cookieAuth.extractSessionToken(req.headers.cookie) ?? undefined;
   }
 
-  async function requireAuth(req: http.IncomingMessage, res: http.ServerResponse) {
+  async function requireAuth(req: http.IncomingMessage, res: http.ServerResponse): Promise<AuthedSession | null> {
+    const dev = reqDevice.get(req);
+    if (dev) return deviceSession(dev);
     const rawToken = extractAuthToken(req);
     const session = await ledger.validateSession(rawToken);
     if (!session || !rawToken) {
@@ -1072,6 +1683,18 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       return null;
     }
     return { ...session, rawToken };
+  }
+
+  /** Pairing admin is owner-only. Devices never get here (gate); a browser must also hold a session, a local program need not. */
+  async function requireOwner(req: http.IncomingMessage, res: http.ServerResponse): Promise<boolean> {
+    if (reqDevice.has(req)) {
+      jsonResponse(res, 403, { error: 'Not available to paired devices. Use the computer.' });
+      return false;
+    }
+    if (!req.headers.origin) return true;
+    if (await ledger.validateSession(extractAuthToken(req))) return true;
+    jsonResponse(res, 401, { error: 'Owner session required' });
+    return false;
   }
 
   async function stageCommandForSession(params: {
@@ -1195,7 +1818,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           computedFacts: [],
           fallbackDraft: parsed.replyMessage ?? 'Confirmed, thank you.',
         },
-        opts.llmConfig ?? resolveLlmConfig(),
+        injectedOrResolvedLlmConfig(),
       );
       operations.push({
         provider: 'GMAIL',
@@ -1253,21 +1876,153 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     return { status: 200, preview: built.preview };
   }
 
+  /** Owner-only remote access endpoints. The gate already refuses tunnel requests that carry no device token. */
+  async function handleRemote(req: http.IncomingMessage, res: http.ServerResponse, pathname: string): Promise<void> {
+    if (!(await requireOwner(req, res))) return;
+    const readBody = async (): Promise<Record<string, unknown> | null> => {
+      try {
+        const b = await readJsonBody<unknown>(req, 4096);
+        return b && typeof b === 'object' && !Array.isArray(b) ? (b as Record<string, unknown>) : {};
+      } catch {
+        jsonResponse(res, 400, { error: 'JSON body required' });
+        return null;
+      }
+    };
+    try {
+      if (req.method === 'GET' && pathname === '/api/remote/status') {
+        jsonResponse(res, 200, await remote.status());
+        return;
+      }
+      if (req.method === 'POST' && pathname === '/api/remote/start') {
+        const body = await readBody();
+        if (!body) return;
+        if (body.provider !== 'cloudflared') {
+          jsonResponse(res, 400, { error: 'provider must be "cloudflared". Tailscale is guidance only; OnQ does not start it.', notice: EXPOSURE_NOTICE });
+          return;
+        }
+        if (body.confirm !== true) {
+          jsonResponse(res, 400, { error: 'Confirmation required: send confirm:true after the owner has read the notice.', notice: EXPOSURE_NOTICE });
+          return;
+        }
+        const cur = remote.tunnel.status();
+        if (cur.state === 'starting' || cur.state === 'on') {
+          jsonResponse(res, 409, { error: 'A tunnel is already running. Stop it first.', tunnel: cur, notice: EXPOSURE_NOTICE });
+          return;
+        }
+        const found = await remote.tunnel.detect(true);
+        if (!found.available) {
+          jsonResponse(res, 409, { error: 'cloudflared was not found on this computer. Install it first (winget install Cloudflare.cloudflared), then try again.', notice: EXPOSURE_NOTICE });
+          return;
+        }
+        recordAudit('REMOTE', 'Owner started a tunnel');
+        remote.tunnel.start().catch((err: unknown) => logError('remote-tunnel', err));
+        jsonResponse(res, 202, { tunnel: remote.tunnel.status(), notice: EXPOSURE_NOTICE });
+        return;
+      }
+      if (req.method === 'POST' && pathname === '/api/remote/stop') {
+        await remote.tunnel.stop();
+        recordAudit('REMOTE', 'Owner stopped the tunnel');
+        jsonResponse(res, 200, { tunnel: remote.tunnel.status() });
+        return;
+      }
+      if (req.method === 'POST' && pathname === '/api/remote/lan') {
+        const body = await readBody();
+        if (!body) return;
+        if (typeof body.enabled !== 'boolean') {
+          jsonResponse(res, 400, { error: 'enabled (true or false) required' });
+          return;
+        }
+        if (body.enabled && body.confirm !== true) {
+          jsonResponse(res, 400, { error: 'Confirmation required: send confirm:true to allow devices on your Wi-Fi.' });
+          return;
+        }
+        recordAudit('REMOTE', `Owner ${body.enabled ? 'allowed' : 'disallowed'} Wi-Fi access (applies at next start)`);
+        jsonResponse(res, 200, remote.setLan(body.enabled));
+        return;
+      }
+      if (req.method === 'POST' && pathname === '/api/remote/pack') {
+        const body = await readBody();
+        if (!body) return;
+        if (body.relayUrl !== undefined && body.relayUrl !== '') validateRelayUrl(body.relayUrl);
+        const out = await remote.buildPackage(body.relayUrl);
+        recordAudit('REMOTE', `Owner built a glasses package (${out.file})`);
+        jsonResponse(res, 200, out);
+        return;
+      }
+      const dl = pathname.match(/^\/api\/remote\/package\/([^/]+)$/);
+      if (req.method === 'GET' && dl) {
+        const f = remote.packageFile(dl[1]);
+        if (!f) {
+          jsonResponse(res, 404, { error: 'No such package' });
+          return;
+        }
+        res.writeHead(200, {
+          'Content-Type': 'application/octet-stream',
+          'Content-Length': f.size,
+          'Content-Disposition': `attachment; filename="${dl[1]}"`,
+          'Cache-Control': 'no-store',
+          'X-Content-Type-Options': 'nosniff',
+        });
+        fs.createReadStream(f.path).pipe(res);
+        return;
+      }
+      jsonResponse(res, 404, { error: 'Not found' });
+    } catch (err) {
+      if (err instanceof RemoteError) {
+        jsonResponse(res, err.status, { error: err.message });
+        return;
+      }
+      throw err;
+    }
+  }
+
   const server = http.createServer(async (req, res) => {
-    if (!applyCors(req, res)) return;
+    const parsedUrl = new URL(req.url ?? '/', 'http://127.0.0.1');
+    const pathname = parsedUrl.pathname;
+
+    // Request gate: owner machine, or a paired device on the allowlist, or (from elsewhere) only /api/pair/claim.
+    const ownerMachine = isOwnerMachineRequest(remoteOf(req), req.headers);
+    const deviceToken = extractDeviceToken(req.headers, pathname, parsedUrl.searchParams.get('token'));
+    const device = deviceToken ? hostReg.authenticate(deviceToken) : null;
+    const gate = gateRequest({
+      method: req.method ?? 'GET',
+      pathname,
+      onOwnerMachine: ownerMachine,
+      deviceTokenPresented: Boolean(deviceToken),
+      device,
+      locked: device ? isHostLocked() : false,
+    });
+    const relaxedCors = Boolean(device) || pathname === '/api/pair/claim' || isClientPath(pathname) || (pathname === '/api/health' && !ownerMachine) || (req.method === 'OPTIONS' && !ownerMachine);
+    if (!applyCors(req, res, relaxedCors)) return;
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
       res.end();
       return;
     }
-
-    const parsedUrl = new URL(req.url ?? '/', 'http://127.0.0.1');
-    const pathname = parsedUrl.pathname;
+    if (!gate.ok) {
+      jsonResponse(res, gate.status, { error: gate.error });
+      return;
+    }
+    if (device) reqDevice.set(req, device);
+    if (req.method !== 'GET') {
+      res.once('finish', () => {
+        try {
+          syncHost();
+        } catch (err) {
+          logError('host-sync', err);
+        }
+      });
+    }
 
     try {
       // 1. Health endpoint
       if (req.method === 'GET' && pathname === '/api/health') {
-        const creds = vault.load();
+        if (!ownerMachine && !device) {
+          // Public door for the self-check on a remote client: it proves the host is up and nothing more.
+          jsonResponse(res, 200, { ok: true, brand: 'OnQ' });
+          return;
+        }
+        const creds = loadCreds();
         const hasLive = Boolean(creds.googleRefreshToken || creds.notionToken || activeIcsFeed);
         const hasAai = Boolean(resolveAssemblyAiKey());
         const llmCfg = resolveLlmConfig();
@@ -1299,6 +2054,129 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       if (req.method === 'POST' && pathname === '/api/demo/session') {
         const sessionToken = await ledger.mintSession('DEMO');
         jsonResponse(res, 200, { sessionToken, mode: 'DEMO' });
+        return;
+      }
+
+      // The glasses client, served by the host itself (same origin as the API). Public static files only.
+      if ((req.method === 'GET' || req.method === 'HEAD') && isClientPath(pathname)) {
+        serveClient(req, res, pathname, parsedUrl.search, opts.clientDir ?? remote.clientDir);
+        return;
+      }
+
+      if (pathname.startsWith('/api/remote/')) {
+        await handleRemote(req, res, pathname);
+        return;
+      }
+
+      // Long-poll fallback for clients whose app blocks EventSource: returns on any change or after `wait` seconds.
+      if (req.method === 'GET' && pathname === '/api/poll') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        if (session.deviceId) devicePolledAt.set(session.deviceId, nowFn());
+        const profile = syncHost();
+        const sinceRaw = parsedUrl.searchParams.get('since');
+        const wait = Math.min(25, Math.max(0, Number(parsedUrl.searchParams.get('wait') ?? 20) || 0));
+        if (sinceRaw !== null && sinceRaw.trim() !== '' && Number(sinceRaw) !== profile.revision) {
+          jsonResponse(res, 200, { revision: profile.revision, changed: true, event: 'host', timedOut: false });
+          return;
+        }
+        if (wait === 0) {
+          jsonResponse(res, 200, { revision: profile.revision, changed: false, event: null, timedOut: true });
+          return;
+        }
+        await new Promise<void>((resolve) => {
+          let settled = false;
+          const settle = (event: string | null) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            pollWaiters.delete(wake);
+            res.off('close', onClose);
+            if (!res.writableEnded && !res.destroyed) {
+              jsonResponse(res, 200, { revision: hostReg.revision, changed: event !== null, event, timedOut: event === null });
+            }
+            resolve();
+          };
+          const wake = (event: string) => settle(event);
+          const onClose = () => settle(null);
+          const timer = setTimeout(() => settle(null), wait * 1000);
+          pollWaiters.add(wake);
+          res.on('close', onClose);
+        });
+        return;
+      }
+
+      // Host pairing: the computer holds everything, phone / glasses claim a device token once (no account sign-ins).
+      if (req.method === 'POST' && pathname === '/api/pair/code') {
+        if (!(await requireOwner(req, res))) return;
+        const issued = hostReg.issueCode();
+        if (!issued) {
+          jsonResponse(res, 429, { error: 'Too many pairing codes requested. Wait a minute.' }, { 'Retry-After': '60' });
+          return;
+        }
+        const port = (server.address() as { port?: number } | null)?.port ?? opts.port ?? 8787;
+        const base = pairingBaseUrl({ publicUrl: effectivePublicUrl(), lan: lanEnabled, port });
+        jsonResponse(res, 200, {
+          code: issued.code,
+          expiresAt: issued.expiresAt,
+          ttlSeconds: PAIR_CODE_TTL_MS / 1000,
+          url: base,
+          // One link does everything: opening or scanning it claims this code on the device. Single use, 5 minutes.
+          link: `${base}/g/?pair=${issued.code}`,
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/pair/claim') {
+        let body: { code?: unknown; label?: unknown };
+        try {
+          body = await readJsonBody<{ code?: unknown; label?: unknown }>(req, 2048);
+        } catch {
+          jsonResponse(res, 400, { error: 'JSON body { code, label } required' });
+          return;
+        }
+        const out = hostReg.claim(body.code, body.label);
+        if (!out.ok) {
+          jsonResponse(res, out.status, { error: out.error });
+          return;
+        }
+        const label = hostReg.listDevices().find((d) => d.id === out.deviceId)?.label ?? 'device';
+        recordAudit('DEVICE_PAIRED', `Device paired: ${label}`);
+        syncHost();
+        jsonResponse(res, 200, { deviceId: out.deviceId, deviceToken: out.deviceToken });
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/pair/devices') {
+        if (!(await requireOwner(req, res))) return;
+        jsonResponse(res, 200, { devices: hostReg.listDevices() });
+        return;
+      }
+
+      const deviceRevoke = pathname.match(/^\/api\/pair\/devices\/(dev_[a-f0-9]+)$/);
+      if (req.method === 'DELETE' && deviceRevoke) {
+        if (!(await requireOwner(req, res))) return;
+        if (!hostReg.revoke(deviceRevoke[1])) {
+          jsonResponse(res, 404, { error: 'No such device' });
+          return;
+        }
+        dropDeviceConnections(deviceRevoke[1], 'revoked');
+        recordAudit('DEVICE_REVOKED', `Device revoked: ${deviceRevoke[1]}`);
+        syncHost();
+        jsonResponse(res, 200, { ok: true });
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/host/profile') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const profile = syncHost();
+        const since = parsedUrl.searchParams.get('since');
+        if (since !== null && since.trim() !== '' && Number(since) === profile.revision) {
+          jsonResponse(res, 200, { unchanged: true, revision: profile.revision });
+          return;
+        }
+        jsonResponse(res, 200, profile);
         return;
       }
 
@@ -1434,7 +2312,13 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         if (!session) return;
         const provider = resolveProvider(session.mode);
         try {
-          const data = await provider.fetchCorridor(new Date(nowFn()).toISOString());
+          const data = await corridorData(session.mode, provider);
+          // Snapshot older than a minute: say so on the source line ("as of 09:41"). Fresh data keeps its text unchanged.
+          if (data.oldestFetchedAt !== null) {
+            const stamp = data.oldestFetchedAt;
+            data.provenanceLabel = tagProvenance(data.provenanceLabel, stamp);
+            data.cards = data.cards.map((c) => ({ ...c, provenanceLabel: tagProvenance(c.provenanceLabel, stamp) }));
+          }
           const enrichedCards: CorridorCard[] = data.cards.map((c, idx) => {
             if (idx === 0 && !c.quickActions.some((qa) => qa.id === 'qa-live-scribe')) {
               return {
@@ -1453,20 +2337,30 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
             return c;
           });
           const nowIso = data.syncedAtIso;
-          const creds = vault.load();
-          const tgToken = creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN;
-          const tgSample = cachedTelegramInsight ?? {
-            title: `TG · ${getSandboxTelegramDigest()[0]?.fromName ?? 'Priya Nair'}`,
-            detail: getSandboxTelegramDigest()[0]?.text ?? 'Share Q4 metrics + OnQ .ehpk build?',
-          };
+          // Telegram follows its own route: the bot API (instant, from the poller), the owner's Chrome (snapshot), sample, or off.
+          const tgRoute = routeMap().telegram;
+          const tgBrowser = tgRoute === 'browser' ? syncWorker.read('telegram') : null;
+          if (tgRoute === 'api') syncWorker.prefetch(['telegram']);
+          const tgOffReason = resolveSourceRoutes().find((r) => r.source === 'telegram')?.reason ?? 'Telegram is off';
+          const tgLive = tgRoute === 'api' || tgRoute === 'browser';
+          // Connected Telegram never shows sample text: real polled message, else the last fetched one, else an honest empty state.
+          const tgSample: TelegramSlice =
+            tgRoute === 'api'
+              ? telegramSlice('api')
+              : tgRoute === 'browser'
+                ? ((tgBrowser?.snapshot?.payload as TelegramSlice | undefined) ?? { title: 'TG · Syncing', detail: 'Reading Telegram in your Chrome' })
+                : tgRoute === 'off'
+                  ? { title: 'TG · Source off', detail: tgOffReason }
+                  : telegramSlice('sample');
+          const tgStamp = tgBrowser?.snapshot && tgBrowser.snapshot.ageMs > FRESHNESS_TAG_AFTER_MS ? tgBrowser.snapshot.fetchedAt : null;
           enrichedCards.push({
             id: 'card-telegram-bridge',
-            sourceMode: tgToken ? 'LIVE' : data.sourceMode,
+            sourceMode: tgLive ? 'LIVE' : data.sourceMode,
             syncedAtIso: nowIso,
-            provenanceLabel: tgToken ? 'TELEGRAM LIVE' : data.provenanceLabel,
+            provenanceLabel: tgLive ? (tgStamp !== null ? tagProvenance(tgRoute === 'browser' ? 'TG BROWSER' : 'TELEGRAM LIVE', tgStamp) : tgRoute === 'browser' ? 'TG BROWSER' : 'TELEGRAM LIVE') : data.provenanceLabel,
             kind: 'EMAIL_ASK',
             title: clipLine42(tgSample.title, 42),
-            timeMeta: tgToken ? 'TG LIVE' : 'TELEGRAM',
+            timeMeta: tgLive ? 'TG LIVE' : 'TELEGRAM',
             startIso: nowIso,
             endIso: new Date(Date.parse(nowIso) + 15 * 60_000).toISOString(),
             contextLine1: clipLine42(tgSample.detail, 42),
@@ -1561,10 +2455,103 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         return;
       }
 
+      // 6b. Data sources: per-source mode (auto | computer | api), effective route, snapshot freshness, breaker
+      if (req.method === 'GET' && pathname === '/api/sources') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const sources = sourceRows().map((r) => {
+          const snap = snapshotStore.get(r.source);
+          const live = r.effective === 'api' || r.effective === 'browser';
+          const bv = live ? syncWorker.breakerView(r.source, r.effective as 'api' | 'browser') : null;
+          return {
+            ...r,
+            route: snap?.route ?? null,
+            durationMs: snap?.durationMs ?? null,
+            ageMs: snap?.ageMs ?? null,
+            ttlMs: snapshotStore.ttlMs(r.source),
+            staleReason: syncWorker.staleReason(r.source),
+            refreshing: syncWorker.isRefreshing(r.source),
+            failures: bv?.failures ?? 0,
+            retryAt: bv?.retryAt ? new Date(bv.retryAt).toISOString() : null,
+          };
+        });
+        jsonResponse(res, 200, { revision: hostReg.revision, sources });
+        return;
+      }
+
+      const sourceAction = req.method === 'POST' ? pathname.match(/^\/api\/sources\/([a-z]+)\/(mode|sync)$/) : null;
+      if (sourceAction) {
+        if (!(await requireOwner(req, res))) return;
+        const id = sourceAction[1];
+        if (!isSourceId(id)) {
+          jsonResponse(res, 404, { error: `Unknown source "${id}". Use calendar, gmail, notion or telegram.` });
+          return;
+        }
+        if (sourceAction[2] === 'mode') {
+          const body = await readJsonBody<{ mode?: unknown }>(req);
+          if (!isSourceSetting(body.mode)) {
+            jsonResponse(res, 400, { error: 'mode must be auto, computer or api' });
+            return;
+          }
+          const changed = sourceModes.set(id, body.mode);
+          syncHost(); // the mode is part of the profile: this bumps the host revision and emits the `host` event
+          const row = sourceRows().find((r) => r.source === id);
+          jsonResponse(res, 200, { source: id, mode: body.mode, changed, effective: row?.effective ?? 'off', reason: row?.reason ?? null, revision: hostReg.revision });
+          return;
+        }
+        // sync: force a refresh in the background and answer right away; ?wait=1 holds until it finishes (bounded by the fetch timeout)
+        const row = sourceRows().find((r) => r.source === id);
+        if (!row || row.effective === 'off') {
+          jsonResponse(res, 200, { source: id, status: 'off', reason: row?.reason ?? 'Source is off', snapshot: snapshotStore.meta(id) });
+          return;
+        }
+        if (syncWorker.isRefreshing(id)) {
+          jsonResponse(res, 202, { source: id, status: 'already_running', snapshot: snapshotStore.meta(id) });
+          return;
+        }
+        const pending = syncWorker.refresh(id, { force: true });
+        if (parsedUrl.searchParams.get('wait') === '1') {
+          const r = await pending;
+          jsonResponse(res, 200, { source: id, status: r.status, route: r.route, reason: r.reason ?? null, snapshot: snapshotStore.meta(id) });
+          return;
+        }
+        void pending.catch(() => undefined);
+        jsonResponse(res, 202, { source: id, status: 'started', snapshot: snapshotStore.meta(id) });
+        return;
+      }
+
+      // 6c. Write outbox: queued -> running -> done | failed | undone
+      if (req.method === 'GET' && pathname === '/api/outbox') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        jsonResponse(res, 200, { items: outbox.list().map(toPublicItem) });
+        return;
+      }
+      const outboxAction = pathname.match(/^\/api\/outbox\/(ob_[a-f0-9]+)(\/retry)?$/);
+      if (outboxAction && ((req.method === 'POST' && outboxAction[2]) || (req.method === 'DELETE' && !outboxAction[2]))) {
+        if (!(await requireOwner(req, res))) return;
+        const item = outbox.get(outboxAction[1]);
+        if (!item) {
+          jsonResponse(res, 404, { error: 'Outbox item not found' });
+          return;
+        }
+        const next = req.method === 'DELETE' ? outbox.cancel(item.id) : outbox.retry(item.id);
+        if (!next) {
+          jsonResponse(res, 409, {
+            error: req.method === 'DELETE' ? `Only a queued item can be cancelled (this one is ${item.status}).` : `Only a failed item can be retried (this one is ${item.status}).`,
+            outbox: toPublicItem(item),
+          });
+          return;
+        }
+        jsonResponse(res, 200, toPublicItem(next));
+        return;
+      }
+
       // 7. SSE live stream
       if (req.method === 'GET' && pathname === '/api/stream') {
         const tokenFromQuery = parsedUrl.searchParams.get('token') ?? undefined;
-        const session = await ledger.validateSession(extractBearer(req) ?? tokenFromQuery);
+        const sseDevice = reqDevice.get(req);
+        const session = sseDevice ? deviceSession(sseDevice) : await ledger.validateSession(extractBearer(req) ?? tokenFromQuery);
         if (!session) {
           jsonResponse(res, 401, { error: 'Unauthorized' });
           return;
@@ -1576,7 +2563,11 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         });
         res.write(`event: connected\ndata: ${JSON.stringify({ mode: session.mode })}\n\n`);
         sseClients.add(res);
-        req.on('close', () => sseClients.delete(res));
+        if (sseDevice) deviceSse.set(res, sseDevice.id);
+        req.on('close', () => {
+          sseClients.delete(res);
+          deviceSse.delete(res);
+        });
         return;
       }
 
@@ -1695,6 +2686,13 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const previewToken = String(body.previewToken ?? '');
 
         if (body.idempotencyKey) {
+          // A repeat of a write that is already queued or running never runs a second time. (A failed one needs a fresh
+          // approval or an owner retry; a finished one is answered from the ledger below.)
+          const queued = outbox.getByKey(body.idempotencyKey);
+          if (queued && (queued.status === 'queued' || queued.status === 'running')) {
+            await respondOutboxItem(res, queued);
+            return;
+          }
           const existing = await ledger.getByIdempotency(body.idempotencyKey);
           if (existing) {
             jsonResponse(res, 200, existing);
@@ -1731,87 +2729,40 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           return;
         }
 
-        const workspaceOps = consumed.preview.operations.filter(
-          (op) => op.provider !== 'COMPUTER' && op.provider !== 'TELEGRAM',
-        );
-        const computerOps = consumed.preview.operations.filter((op) => op.provider === 'COMPUTER');
-        const telegramOps = consumed.preview.operations.filter((op) => op.provider === 'TELEGRAM');
-
-        const receipt = await provider.executePreview({
-          preview: consumed.preview,
-          operations: workspaceOps,
-        });
-
-        for (const cop of computerOps) {
-          const priorMem = ((await ledger.listMemories?.(3)) ?? []).map((m) => `${m.title}: ${m.summary}`);
-          const delegated = await executeDelegatedTask({
-            title: cop.afterValue.slice(0, 48),
-            prompt: cop.afterValue,
-            targetTool: /git|pr|test/i.test(cop.afterValue) ? 'workspace_test' : 'auto',
-            cwd: process.cwd(),
-            llmConfig: resolveLlmConfig(),
-            memoryContext: priorMem,
-          });
-          receipt.summaryLines = [...delegated.lensLines, ...receipt.summaryLines].slice(0, 3);
-          receipt.operations.push({
-            ...cop,
-            reversible: false,
-            recallNote: delegated.toolUsed,
-          });
-          await saveUnifiedMemory({
-            kind: 'task',
-            title: cop.afterValue.slice(0, 64),
-            summary: delegated.summary,
-            source: delegated.toolUsed,
-          });
-        }
-
-        for (const top of telegramOps) {
-          const creds = vault.load();
-          const botToken = creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN;
-          let tgNote = 'SANDBOX SENT';
-          // Reply into the chosen chat when it is the owner chat or a watched chat; otherwise the owner chat.
-          const targetChat = isSendableTelegramChat(top.targetLabel) ? top.targetLabel : creds.telegramChatId;
-          if (botToken && targetChat) {
-            const tgClient = new TelegramWorkspaceClient(botToken, targetChat, opts.fetchImpl);
-            try {
-              const sent = await tgClient.sendMessage(top.afterValue, targetChat);
-              tgNote = `LIVE TELEGRAM SENT (#${sent.messageId})`;
-            } catch (err) {
-              tgNote = err instanceof Error ? `TG ERR: ${err.message.slice(0, 60)}` : 'TELEGRAM SEND ERR';
-            }
-          }
-          receipt.operations.push({
-            ...top,
-            reversible: false,
-            recallNote: tgNote,
-          });
-          await saveUnifiedMemory({
-            kind: 'telegram',
-            title: 'Telegram Message',
-            summary: `${top.afterValue} (${tgNote})`,
-            source: creds.telegramChatId ? `chat ${creds.telegramChatId}` : 'Telegram Sandbox',
-          });
-        }
-
-        await ledger.saveReceipt(receipt);
-        recordAudit('COMMIT', `${receipt.receiptId}: ${receipt.summaryLines.join(' | ')}`);
-        if (workspaceOps.length > 0) {
-          await saveUnifiedMemory({
-            kind: 'voice',
-            title: receipt.summaryLines[0] ?? 'Workspace Update',
-            summary: receipt.summaryLines.join(' | '),
-            source: `Receipt ${receipt.receiptId}`,
-          });
-        }
-        broadcastSse('receipt', receipt);
-        broadcastSse('corridor', { reason: 'committed' });
-
-        if (receipt.status === 'SEND_UNKNOWN') {
-          jsonResponse(res, 504, receipt);
+        // Route each approved operation. A slow route (the owner's Chrome, or a call past 1.5 s) runs in the outbox so the
+        // glasses are never held; confirm, the 409 lock and the single-use token above are unchanged.
+        const routes = routeMap();
+        const opRoutes = consumed.preview.operations.map((op) => opRoute(op, session.mode, routes));
+        const offIdx = opRoutes.indexOf('off');
+        if (offIdx >= 0) {
+          const src = OP_SOURCE[consumed.preview.operations[offIdx].provider];
+          const why = resolveSourceRoutes().find((r) => r.source === src)?.reason ?? 'Source is off';
+          jsonResponse(res, 422, { error: `Not sent: ${src} is off. ${why}` });
           return;
         }
-        jsonResponse(res, 200, receipt);
+        if (!opRoutes.includes('browser') && !opRoutes.includes('api')) {
+          const receipt = await runCommitOps(consumed.preview, session.mode, new AbortController().signal);
+          if (receipt.status === 'SEND_UNKNOWN') {
+            jsonResponse(res, 504, receipt);
+            return;
+          }
+          jsonResponse(res, 200, receipt);
+          return;
+        }
+        const viaBrowser = opRoutes.includes('browser');
+        const primary = consumed.preview.operations.map((op) => OP_SOURCE[op.provider]).find((x): x is SnapshotSource => x !== null) ?? 'computer';
+        const { item } = await outbox.enqueue(
+          {
+            idempotencyKey: consumed.preview.idempotencyKey,
+            source: primary,
+            route: viaBrowser ? 'browser' : 'api',
+            title: consumed.preview.summaryLines[0] ?? 'Approved action',
+            summaryLines: consumed.preview.summaryLines,
+            payload: { preview: consumed.preview, sessionMode: session.mode },
+          },
+          { inlineMs: viaBrowser ? 0 : INLINE_BUDGET_MS },
+        );
+        await respondOutboxItem(res, item);
         return;
       }
 
@@ -1820,6 +2771,23 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const session = await requireAuth(req, res);
         if (!session) return;
         const body = await readJsonBody<{ idempotencyKey?: string }>(req);
+        const queuedItem = body.idempotencyKey ? outbox.getByKey(body.idempotencyKey) : undefined;
+        if (queuedItem?.status === 'queued') {
+          // Not sent yet: cancelling it is the undo. Nothing was written anywhere.
+          const cancelled = outbox.cancel(queuedItem.id);
+          if (cancelled) {
+            const base = queuedReceipt(cancelled);
+            const undoneQueued: CommitReceipt = { ...base, status: 'UNDONE', canUndo: false, summaryLines: ['CANCELLED BEFORE IT RAN', 'NOTHING WAS SENT'], outbox: { id: cancelled.id, status: 'undone' } };
+            recordAudit('UNDO', `${cancelled.id}: cancelled while queued`);
+            broadcastSse('receipt', undoneQueued);
+            jsonResponse(res, 200, undoneQueued);
+            return;
+          }
+        }
+        if (queuedItem?.status === 'running') {
+          jsonResponse(res, 409, { error: 'Already sending. Wait for it to finish, then undo.' });
+          return;
+        }
         const receipt = body.idempotencyKey ? await ledger.getByIdempotency(body.idempotencyKey) : null;
         if (!receipt) {
           jsonResponse(res, 404, { error: 'Receipt not found' });
@@ -1832,6 +2800,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const provider = resolveProvider(receipt.sourceMode);
         const undone = await provider.undoReceipt(receipt);
         await ledger.saveReceipt(undone);
+        if (queuedItem?.status === 'done') outbox.markUndone(queuedItem.id);
         recordAudit('UNDO', `${undone.receiptId}: reversed reversible operations`);
         broadcastSse('receipt', undone);
         broadcastSse('corridor', { reason: 'undone' });
@@ -1873,7 +2842,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         if (!session) return;
         const body = await readJsonBody<{ snippet?: string }>(req);
         demoProvider.injectIncomingReply(
-          body.snippet?.trim() || 'Actually let us do 15:00 instead - Priya',
+          body.snippet?.trim() || 'Actually let us do 15:00 instead - Investor',
         );
         broadcastSse('corridor', { reason: 'gmail_incoming' });
         jsonResponse(res, 200, { ok: true });
@@ -1918,7 +2887,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const providerMode = resolveAssemblyAiKey() ? 'LIVE_ASSEMBLYAI' : 'DEMO_SANDBOX';
         const state = meetingBuffer.start({
           providerMode,
-          attendees: attendees.length > 0 ? attendees : ['Priya Nair', 'Alex Chen'],
+          attendees: attendees.length > 0 ? attendees : ['Investor contact', 'Partner contact'],
           startedAtIso: new Date(nowFn()).toISOString(),
         });
         recordAudit('MEETING_START', `RAM-only scribe started (${providerMode}; 0 audio saved)`);
@@ -2068,7 +3037,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
               computedFacts: [holdHhMm],
               fallbackDraft: recapBody,
             },
-            opts.llmConfig ?? resolveLlmConfig(),
+            injectedOrResolvedLlmConfig(),
           );
           operations.push({
             provider: 'GMAIL',
@@ -2114,7 +3083,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const baseNow = nowFn();
         meetingBuffer.start({
           providerMode: process.env.ASSEMBLYAI_API_KEY ? 'LIVE_ASSEMBLYAI' : 'DEMO_SANDBOX',
-          attendees: ['Priya Nair', 'Alex Chen'],
+          attendees: ['Investor contact', 'Partner contact'],
           startedAtIso: new Date(baseNow - 245_000).toISOString(),
         });
         meetingBuffer.pushTurn({
@@ -2125,7 +3094,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         });
         const state = meetingBuffer.pushTurn({
           speakerLabel: 'Speaker B',
-          text: 'Send Q4 metrics deck to Alex by Thursday 15:00.',
+          text: 'Send Q4 metrics deck to Partner by Thursday 15:00.',
           atIso: new Date(baseNow - 15_000).toISOString(),
           isFinal: true,
         });
@@ -2491,7 +3460,8 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           if (provider === 'openrouter') next.openRouterModel = chosen;
           if (provider === 'omniroute') next.omniRouteModel = chosen;
         }
-        vault.save(next);
+        // Switching to auto / rules clears preferredModel on purpose, so this one save may drop that key.
+        vault.save(next, { allowShrink: true });
         clearProviderCooldowns();
         recordAudit('CONNECTOR_SAVED', `Model selected: ${next.preferredLlm}${next.preferredModel ? ` / ${next.preferredModel}` : ''}`);
         broadcastSse('corridor', { reason: 'orchestrator_updated' });
@@ -2511,7 +3481,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       if (req.method === 'POST' && pathname === '/api/connectors/notion/databases') {
         const session = await requireAuth(req, res);
         if (!session) return;
-        const creds = vault.load();
+        const creds = loadCreds();
         if (!creds.notionToken) {
           jsonResponse(res, 400, { error: 'No Notion token saved yet. Connect Notion with your integration token first.' });
           return;
@@ -2534,12 +3504,12 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           jsonResponse(res, 400, { error: 'databaseId must be a Notion database id (32 hex characters).' });
           return;
         }
-        const creds = vault.load();
+        const creds = loadCreds();
         if (!creds.notionToken) {
           jsonResponse(res, 400, { error: 'No Notion token saved yet. Connect Notion with your integration token first.' });
           return;
         }
-        vault.save({ ...creds, notionDatabaseId: databaseId });
+        vault.save({ ...vault.load(), notionDatabaseId: databaseId });
         recordAudit('CONNECTOR_SAVED', `Notion database selected (...${databaseId.slice(-6)})`);
         jsonResponse(res, 200, { ok: true, databaseId, status: buildConnectorStatus() });
         return;
@@ -2552,7 +3522,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const existing = vault.load();
         const prov = body.provider ?? 'all';
         if (prov === 'all') {
-          vault.save({});
+          vault.disconnectAll();
           activeIcsFeed = null;
         } else {
           const next = { ...existing };
@@ -2582,7 +3552,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
             delete next.googleAccessToken;
             activeIcsFeed = null;
           }
-          vault.save(next);
+          vault.save(next, { allowShrink: true });
         }
         recordAudit('CONNECTOR_DISCONNECTED', `Connector disconnected: ${prov}`);
         jsonResponse(res, 200, { ok: true, status: buildConnectorStatus() });
@@ -2904,9 +3874,10 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       if (req.method === 'POST' && pathname === '/api/auth/signout') {
         const rawToken = extractAuthToken(req);
         if (rawToken) await ledger.revokeSession(rawToken);
-        vault.save({});
+        // Sign-out ends the session only. Wiping the vault here silently deleted the owner's Google / Notion
+        // credentials; only an explicit "disconnect all" may empty it.
         activeIcsFeed = null;
-        recordAudit('CONNECTOR_DISCONNECTED', 'Signed out and wiped encrypted vault + session');
+        recordAudit('CONNECTOR_DISCONNECTED', 'Signed out (session revoked; saved connector credentials kept)');
         jsonResponse(
           res,
           200,
@@ -3121,7 +4092,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         if (!session) return;
         const body = await readJsonBody<{ utterance?: string }>(req);
         const report = await runOrchestrationHarness({
-          utterance: body.utterance?.trim() || 'Push 15m and tell Priya',
+          utterance: body.utterance?.trim() || 'Push 15m and tell Investor',
           provider: resolveProvider(session.mode),
           ledger,
           sessionHash: session.tokenHash,
@@ -3405,7 +4376,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
             resolvedAction === 'voice_reply' && rawText
               ? rawText
               : resolvedAction === 'outreach_digest'
-                ? `OnQ 24/7 Outreach: Next "${cards[0]?.title ?? 'VC Sync'}" | Open tasks: ${snap.notionTasks.filter((t) => !t.completed).length} | Free slot 15:45`
+                ? `OnQ 24/7 Outreach: Next "${cards[0]?.title ?? 'Investor call'}" | Open tasks: ${snap.notionTasks.filter((t) => !t.completed).length} | Free slot 15:45`
                 : `OnQ Daily Brief: ${cards[0]?.title ?? 'Clear schedule'} (${cards[0]?.timeMeta ?? 'now'}) | ${snap.gmailThreads[0]?.fromName ?? 'Inbox'}: ${snap.gmailThreads[0]?.snippet?.slice(0, 60) ?? 'No unread items'}`;
         }
 
@@ -3876,6 +4847,13 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       }
 
       // 14h-ext. TOON/RTK Token Telemetry, Cited Knowledge RAG (+ Defuddle), Hermes Taste Profile, Market Bot, & Explainer
+      if (req.method === 'GET' && pathname === '/api/harness/metrics') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        jsonResponse(res, 200, { ok: true, ...metrics.summary() });
+        return;
+      }
+
       if (req.method === 'GET' && pathname === '/api/harness/tokens') {
         const session = await requireAuth(req, res);
         if (!session) return;
@@ -4506,6 +5484,10 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         if (!session) return;
         const body = await readJsonBody<{ paused?: boolean; reason?: string }>(req);
         const paused = typeof body.paused === 'boolean' ? body.paused : !osHarness.getState().killSwitch.paused;
+        if (session.deviceId && !paused) {
+          jsonResponse(res, 403, { error: 'A paired device can engage the kill switch but only the computer can release it.' });
+          return;
+        }
         const state = osHarness.setKillSwitch(paused, body.reason);
         jsonResponse(res, 200, { ok: true, state });
         return;
@@ -4714,7 +5696,21 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       return;
     }
     const origin = req.headers.origin;
-    if (origin && !allowedOrigins.has(origin) && !/^https?:\/\/(127\.0\.0\.1|localhost):\d+$/.test(origin)) {
+    const dToken = extractDeviceToken(req.headers, reqUrl.pathname, reqUrl.searchParams.get('token'));
+    const wsDevice = dToken ? hostReg.authenticate(dToken) : null;
+    const wsGate = gateRequest({
+      method: 'GET',
+      pathname: reqUrl.pathname,
+      onOwnerMachine: isOwnerMachineRequest(remoteOf(req), req.headers),
+      deviceTokenPresented: Boolean(dToken),
+      device: wsDevice,
+      locked: wsDevice ? isHostLocked() : false,
+    });
+    if (!wsGate.ok) {
+      socket.destroy();
+      return;
+    }
+    if (origin && !wsDevice && !allowedOrigins.has(origin) && !/^https?:\/\/(127\.0\.0\.1|localhost):\d+$/.test(origin)) {
       socket.destroy();
       return;
     }
@@ -4723,18 +5719,20 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       extractBearer(req) ??
       cookieAuth.extractSessionToken(req.headers.cookie) ??
       undefined;
-    void ledger.validateSession(token).then((session) => {
+    void (wsDevice ? Promise.resolve(deviceSession(wsDevice)) : ledger.validateSession(token)).then((session) => {
       if (!session) {
         socket.destroy();
         return;
       }
       wss.handleUpgrade(req, socket, head, (ws) => {
-        wss.emit('connection', ws, req, session);
+        wss.emit('connection', ws, req, wsDevice ? { ...session, deviceId: wsDevice.id } : session);
       });
     });
   });
 
-  wss.on('connection', (ws: WebSocket, _req: http.IncomingMessage, session: { mode: SourceMode }) => {
+  wss.on('connection', (ws: WebSocket, _req: http.IncomingMessage, session: { mode: SourceMode; deviceId?: string }) => {
+    if (session.deviceId) deviceSockets.set(ws, session.deviceId);
+    ws.on('close', () => deviceSockets.delete(ws));
     let sttMode: AssemblyAiSttMode = 'agent';
     let sttSession: AssemblyAiRealtimeSession | null = null;
     let ttsSession: AssemblyAiTtsSession | null = null;
@@ -4860,12 +5858,17 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
   });
 
   await new Promise<void>((resolve) => {
-    server.listen(opts.port ?? 0, opts.host ?? '127.0.0.1', resolve);
+    server.listen(opts.port ?? 0, resolveListenHost(opts.host, lanEnabled), resolve);
   });
   const addr = server.address();
   const actualPort = typeof addr === 'object' && addr ? addr.port : opts.port ?? 8787;
   const url = `http://127.0.0.1:${actualPort}`;
   logInfo('server', `OnQ relay listening on ${url}`);
+  if (lanEnabled) {
+    logInfo('server', `LAN mode ON. Paired devices reach this computer at ${pairingBaseUrl({ publicUrl, lan: true, port: actualPort })}. Every non-local request needs a device token.`);
+  }
+  hostReady = true;
+  syncHost(); // baseline (or bump, if something changed while the server was down)
 
   return {
     server,
@@ -4875,9 +5878,13 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     vault,
     demoProvider,
     close: async () => {
+      remote.dispose();
+      wakePollers('closing');
       telegramCentre.stopPolling();
       osHarness.stopScheduler();
       proactiveHarness.stop();
+      syncWorker.stop();
+      outbox.stop();
       meetingBuffer.wipe();
       for (const client of wss.clients) {
         try {

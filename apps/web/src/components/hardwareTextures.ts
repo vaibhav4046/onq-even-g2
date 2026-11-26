@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { HudPhase, VoiceOrbState } from '@onq/core';
+import { decodeText } from '../lib/binaryMath';
 
 const BAYER_4X4 = [
   [0, 8, 2, 10],
@@ -201,6 +202,26 @@ function drawScanlines(ctx: CanvasRenderingContext2D, w: number, h: number) {
  * Renders live animated 525nm monochrome phosphor dossier/action HUD for the Left G2 Waveguide Lens.
  * Runs a seamless 12-second waveguide showcase reel while idle (live FSM phases override immediately).
  */
+/** Per lens canvas: the text last shown and when it changed, so new text can resolve out of 0s and 1s. */
+const lensDecodeState = new WeakMap<HTMLCanvasElement, { key: string; since: number }>();
+const LENS_DECODE_MS = 650;
+
+/** 0..1 progress of the binary-to-text resolve for the text now on the lens (1 when animation is off). */
+function lensDecodeProgress(canvas: HTMLCanvasElement, key: string, animate: boolean): number {
+  const now = typeof performance !== 'undefined' ? performance.now() : 0;
+  const prev = lensDecodeState.get(canvas);
+  if (!prev) {
+    // First paint shows real text; only later changes animate.
+    lensDecodeState.set(canvas, { key, since: now - LENS_DECODE_MS });
+    return 1;
+  }
+  if (prev.key !== key) {
+    lensDecodeState.set(canvas, { key, since: now });
+    return animate ? 0 : 1;
+  }
+  return animate ? Math.min(1, (now - prev.since) / LENS_DECODE_MS) : 1;
+}
+
 export function drawLeftLensHudCanvas(
   canvas: HTMLCanvasElement,
   opts: {
@@ -208,6 +229,8 @@ export function drawLeftLensHudCanvas(
     headerLine: string;
     primaryLine: string;
     timeSec?: number;
+    /** Resolve changed text out of binary glyphs. Off for reduced motion. */
+    animate?: boolean;
   },
 ): void {
   const ctx = canvas.getContext('2d');
@@ -242,9 +265,12 @@ export function drawLeftLensHudCanvas(
             ? 'RECEIPT · 409 SHIELD OK'
             : opts.headerLine.slice(0, 24).toUpperCase();
 
+  const decode = lensDecodeProgress(canvas, `${opts.phase}|${headerText}|${opts.primaryLine}|${reelStage}`, opts.animate ?? false);
+  const decodeTick = Math.floor(performance.now() / 70);
+
   ctx.fillStyle = pal.secondary;
   ctx.font = '700 22px "JetBrains Mono", Consolas, monospace';
-  ctx.fillText(headerText, 38, 68);
+  ctx.fillText(decodeText(headerText, decode, decodeTick), 38, 68);
 
   // Dotted waveguide divider rule
   ctx.fillStyle = pal.primary;
@@ -271,7 +297,7 @@ export function drawLeftLensHudCanvas(
 
   ctx.fillStyle = pal.primary;
   ctx.font = '700 28px "JetBrains Mono", Consolas, monospace';
-  ctx.fillText(headline.slice(0, 23), 38, 138);
+  ctx.fillText(decodeText(headline.slice(0, 23), decode, decodeTick + 1), 38, 138);
 
   const sub =
     opts.phase === 'armed'
@@ -296,7 +322,7 @@ export function drawLeftLensHudCanvas(
 
   ctx.fillStyle = pal.secondary;
   ctx.font = '700 20px "JetBrains Mono", Consolas, monospace';
-  ctx.fillText(sub, 38, 186);
+  ctx.fillText(decodeText(sub, decode, decodeTick + 2), 38, 186);
 
   // Subtle animated signal / audio bars along bottom of lens
   const bars = 12;

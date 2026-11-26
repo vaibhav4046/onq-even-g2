@@ -25,8 +25,8 @@ const SAFETY_BEATS = [
     summary: 'Nothing leaves until you pick YES.',
     header: 'CONFIRM BEFORE SENDING',
     lines: [
-      '1) Calendar: move VC Sync to 14:15',
-      '2) Gmail: reply to Priya Nair',
+      '1) Calendar: move Investor call to 14:15',
+      '2) Gmail: send the reply',
       '> [NO]   [YES]',
     ],
     footer: 'SWIPE: SWITCH | TAP: CONFIRM',

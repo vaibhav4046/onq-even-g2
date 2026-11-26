@@ -8,7 +8,7 @@ export const NOT_AVAILABLE = 'Not available yet.';
 export async function callApi<T>(
   url: string,
   sessionToken: string | null,
-  method: 'GET' | 'POST' = 'GET',
+  method: 'GET' | 'POST' | 'DELETE' = 'GET',
   body?: unknown,
 ): Promise<ApiResult<T>> {
   const headers: Record<string, string> = {};

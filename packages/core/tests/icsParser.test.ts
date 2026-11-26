@@ -8,8 +8,8 @@ const SAMPLE_ICS = [
   'UID:evt-101@onq.test',
   'DTSTART:20261124T140000Z',
   'DTEND:20261124T143000Z',
-  'SUMMARY:VC Sync with Priya Nair',
-  'ATTENDEE;CN="Priya Nair":mailto:priya@tvm.example',
+  'SUMMARY:Investor call',
+  'ATTENDEE;CN="Investor contact":mailto:investor@sample.example',
   'DESCRIPTION:Agenda and deck at https://docs.google.com/document/d/abc123',
   'END:VEVENT',
   'BEGIN:VEVENT',
@@ -17,7 +17,7 @@ const SAMPLE_ICS = [
   'DTSTART;TZID=Europe/London:20261124T151500',
   'SUMMARY:Folded Line',
   '  Partner Review',
-  'ATTENDEE;CN=Alex Chen:mailto:alex@partner.example',
+  'ATTENDEE;CN=Partner contact:mailto:partner@sample.example',
   'END:VEVENT',
   'BEGIN:VEVENT',
   'UID:evt-old@onq.test',
@@ -33,10 +33,10 @@ describe('icsParser.ts', () => {
     const events = parseIcsEvents(SAMPLE_ICS);
     expect(events).toHaveLength(3);
     expect(events[1].uid).toBe('evt-101@onq.test');
-    expect(events[1].summary).toBe('VC Sync with Priya Nair');
+    expect(events[1].summary).toBe('Investor call');
     expect(events[1].startIso).toBe('2026-11-24T14:00:00.000Z');
-    expect(events[1].attendeeEmail).toBe('priya@tvm.example');
-    expect(events[1].attendeeName).toBe('Priya Nair');
+    expect(events[1].attendeeEmail).toBe('investor@sample.example');
+    expect(events[1].attendeeName).toBe('Investor contact');
     expect(events[1].driveDocUrl).toContain('docs.google.com');
   });
 

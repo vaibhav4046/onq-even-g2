@@ -32,7 +32,7 @@ export interface CorridorCard {
   id: string;
   sourceMode: SourceMode;
   syncedAtIso: string;
-  provenanceLabel: string; // e.g. "LIVE · GCAL+GMAIL" | "DEMO · SANDBOX" | "STALE · 4m ago"
+  provenanceLabel: string; // e.g. "LIVE · GCAL+GMAIL" | "DEMO · SAMPLE" | "STALE · 4m ago"
   kind: CorridorCardKind;
   title: string;
   timeMeta: string;
@@ -97,7 +97,7 @@ export interface CommitReceipt {
   receiptId: string;
   idempotencyKey: string;
   committedAtIso: string;
-  status: 'COMMITTED' | 'SEND_UNKNOWN' | 'UNDONE' | 'CONFLICT';
+  status: 'COMMITTED' | 'SEND_UNKNOWN' | 'UNDONE' | 'CONFLICT' | 'QUEUED';
   sourceMode: SourceMode;
   summaryLines: string[];
   operations: Array<
@@ -109,6 +109,17 @@ export interface CommitReceipt {
   >;
   undoExpiresAtIso?: string;
   canUndo: boolean;
+  /** Present when the write runs in the background outbox instead of inline (slow route). */
+  outbox?: OutboxProgress;
+}
+
+export type OutboxUiStatus = 'queued' | 'running' | 'done' | 'failed' | 'undone';
+
+export interface OutboxProgress {
+  id: string;
+  status: OutboxUiStatus;
+  /** Why it failed (or is retrying). One line, shown on the result card. */
+  reason?: string;
 }
 
 export interface ConflictLockDetail {

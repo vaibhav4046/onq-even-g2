@@ -168,7 +168,7 @@ describe('AssemblyAI 2026 voice stack & Meeting Lifecycle server suite', () => {
     });
 
     await tts.connect();
-    tts.generate('Priya approved Q4');
+    tts.generate('Investor approved Q4');
     tts.flush();
     mockWs.emitJson({ type: 'Configuration', configuration: { sample_rate: 24000 } });
     mockWs.emitJson({ type: 'Audio', flush_id: 1, audio: Buffer.from([0, 1]).toString('base64') });
@@ -176,14 +176,14 @@ describe('AssemblyAI 2026 voice stack & Meeting Lifecycle server suite', () => {
       type: 'WordBoundaries',
       flush_id: 1,
       words: [
-        { word: 'Priya', start: 40, end: 220, confidence: 0.99 },
+        { word: 'Investor', start: 40, end: 220, confidence: 0.99 },
         { word: 'approved', start: 230, end: 520, confidence: 0.98 },
       ],
     });
     tts.cancel();
 
     expect(audioChunks).toBe(1);
-    expect(boundaries).toEqual(['Priya', 'approved']);
+    expect(boundaries).toEqual(['Investor', 'approved']);
     expect(mockWs.sent.some((m) => String(m.data).includes('"Cancel"'))).toBe(true);
     tts.terminate();
   });
@@ -241,14 +241,14 @@ describe('AssemblyAI 2026 voice stack & Meeting Lifecycle server suite', () => {
     const turnRes = await fetch(`${srv.url}/api/meeting/turn`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ speakerLabel: 'Speaker B', text: 'Send Q4 deck to Alex by Thursday 15:00.' }),
+      body: JSON.stringify({ speakerLabel: 'Speaker B', text: 'Send Q4 deck to Partner by Thursday 15:00.' }),
     });
     expect(turnRes.status).toBe(200);
 
     const askRes = await fetch(`${srv.url}/api/meeting/ask`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ question: 'What did Priya ask about Q4?' }),
+      body: JSON.stringify({ question: 'What did Investor ask about Q4?' }),
     });
     expect(askRes.status).toBe(200);
     const askJson = (await askRes.json()) as { readOnlyAnswer: boolean; lines: string[]; speech: { wordBoundaries: unknown[] } };

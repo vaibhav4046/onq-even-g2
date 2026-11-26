@@ -215,6 +215,19 @@ export function G2Model({
   const solidFrameMatRef = useRef<THREE.MeshPhysicalMaterial>(null);
   const solidLeftTempleMatRef = useRef<THREE.MeshPhysicalMaterial>(null);
   const solidRightTempleMatRef = useRef<THREE.MeshPhysicalMaterial>(null);
+  // Hover glow: the lens glass and the HUD layer in front of it share one pointer count so moving between them does not flicker.
+  const hoverCountRef = useRef(0);
+  const hoverGlowRef = useRef(0);
+  const leftShellMatRef = useRef<THREE.MeshPhysicalMaterial>(null);
+  const rightShellMatRef = useRef<THREE.MeshPhysicalMaterial>(null);
+  const lensHoverHandlers = {
+    onPointerOver: () => {
+      hoverCountRef.current += 1;
+    },
+    onPointerOut: () => {
+      hoverCountRef.current = Math.max(0, hoverCountRef.current - 1);
+    },
+  };
 
   const acetateMaps = useMemo(() => createMatteAcetateMaps(), []);
   const titaniumMaps = useMemo(() => createBrushedTitaniumMaps(), []);
@@ -402,9 +415,9 @@ export function G2Model({
 
   // Redraw Left Lens when telemetry state changes
   useEffect(() => {
-    drawLeftLensHudCanvas(leftHudCanvas, { phase, headerLine, primaryLine, timeSec: 0 });
+    drawLeftLensHudCanvas(leftHudCanvas, { phase, headerLine, primaryLine, timeSec: 0, animate: !reducedMotion });
     leftHudTex.needsUpdate = true;
-  }, [leftHudCanvas, leftHudTex, phase, headerLine, primaryLine]);
+  }, [leftHudCanvas, leftHudTex, phase, headerLine, primaryLine, reducedMotion]);
 
   // Keep BOTH Left & Right Lens textures dynamically animated like live optics (~14 Hz)
   const lastDrawRef = useRef(-1);
@@ -415,6 +428,13 @@ export function G2Model({
       lensGroupRef.current.position.z = THREE.MathUtils.damp(lensGroupRef.current.position.z, e * 0.55, 7, delta);
       hudGroupRef.current.position.z = THREE.MathUtils.damp(hudGroupRef.current.position.z, e * 1.18, 7, delta);
       templesGroupRef.current.position.z = THREE.MathUtils.damp(templesGroupRef.current.position.z, -e * 0.78, 7, delta);
+    }
+
+    hoverGlowRef.current = THREE.MathUtils.damp(hoverGlowRef.current, hoverCountRef.current > 0 ? 1 : 0, 9, delta);
+    for (const mat of [leftShellMatRef.current, rightShellMatRef.current]) {
+      if (!mat) continue;
+      mat.opacity = 0.03 + hoverGlowRef.current * 0.15;
+      mat.emissiveIntensity = hoverGlowRef.current * 0.85;
     }
 
     const now = state.clock.elapsedTime;
@@ -437,6 +457,7 @@ export function G2Model({
         headerLine,
         primaryLine,
         timeSec: now,
+        animate: !reducedMotion,
       });
       leftHudTex.needsUpdate = true;
       drawRightLensHudCanvas(rightHudCanvas, {
@@ -531,6 +552,7 @@ export function G2Model({
       {/* Layer 2: Physical AR-Coated Convex Optical Glass + Outer Specular Reflection Shell (click to enter POV) */}
       <group
         ref={lensGroupRef}
+        {...lensHoverHandlers}
         onClick={(e) => {
           e.stopPropagation();
           onLensClick?.();
@@ -576,7 +598,10 @@ export function G2Model({
         {/* Outer crystal AR sheen glaze */}
         <mesh geometry={leftShellGeom}>
           <meshPhysicalMaterial
+            ref={leftShellMatRef}
             color="#ffffff"
+            emissive="#34f57e"
+            emissiveIntensity={0}
             transparent
             opacity={0.03}
             roughness={0.02}
@@ -592,7 +617,10 @@ export function G2Model({
         </mesh>
         <mesh geometry={rightShellGeom}>
           <meshPhysicalMaterial
+            ref={rightShellMatRef}
             color="#ffffff"
+            emissive="#34f57e"
+            emissiveIntensity={0}
             transparent
             opacity={0.03}
             roughness={0.02}
@@ -611,6 +639,7 @@ export function G2Model({
       {/* Layer 3: Dual-Sided Crystal Waveguide Grating & Un-Mirrored Front + Back HUD Projections */}
       <group
         ref={hudGroupRef}
+        {...lensHoverHandlers}
         onClick={(e) => {
           e.stopPropagation();
           onLensClick?.();

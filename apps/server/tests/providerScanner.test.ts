@@ -9,7 +9,7 @@ import {
   type CliRunner,
   type LlmConfig,
 } from '../src/harness/modelRouter.js';
-import { publicProviders, scanProviders, type ScannerDeps } from '../src/providers/providerScanner.js';
+import { ProviderScanner, publicProviders, scanProviders, type CliProbe, type ScannerDeps } from '../src/providers/providerScanner.js';
 import { createOnQServer } from '../src/server.js';
 
 const HOME = 'C:\\Users\\tester';
@@ -53,6 +53,8 @@ function fakeDeps(over: Partial<ScannerDeps> = {}): Partial<ScannerDeps> {
     homedir: HOME,
     exists: (p) => files.has(p.toLowerCase()),
     fetchImpl,
+    probeCli: async () => ({ ok: true, ms: 1200 }),
+    cliProbeTimeoutMs: 50,
     ...over,
   };
 }
@@ -85,6 +87,52 @@ describe('Provider & model scanner', () => {
     expect(byId.assemblyai.selectable).toBe(false);
   });
 
+  it('does not call a CLI connected until it really answered a test prompt (timeout, failure and untestable CLIs)', async () => {
+    const probed: string[] = [];
+    // every CLI is installed and signed in on this fake PC
+    const files = new Set(
+      ['claude', 'opencode', 'codex', 'gemini', 'cursor-agent']
+        .map((b) => `${NPM}\\${b}.cmd`)
+        .concat(['.claude', '.local\\share\\opencode', '.codex', '.gemini', '.cursor'].map((d) => `${HOME}\\${d}`))
+        .map((f) => f.toLowerCase()),
+    );
+    const probeCli: CliProbe = async (id) => {
+      probed.push(id);
+      if (id === 'claude_cli') return { ok: true, ms: 2300 };
+      if (id === 'opencode_cli') return { ok: false, timedOut: false, reason: 'Local AI CLI exited 1: database is locked' };
+      return { ok: false, timedOut: true, reason: 'Local AI CLI timed out' };
+    };
+    const scan = await scanProviders({}, fakeDeps({ exists: (p) => files.has(p.toLowerCase()), probeCli }));
+    const byId = Object.fromEntries(scan.providers.map((p) => [p.id, p]));
+
+    expect(byId.claude_cli).toMatchObject({ state: 'connected', selectable: true });
+    expect(byId.claude_cli.detail).toContain('Answered a test prompt in 2.3s');
+    expect(byId.opencode_cli).toMatchObject({ state: 'error', selectable: false });
+    expect(byId.opencode_cli.detail).toContain('database is locked');
+    expect(byId.codex_cli).toMatchObject({ state: 'needs_check', selectable: false });
+    expect(byId.codex_cli.detail).toContain('did not answer a test prompt');
+    expect(byId.codex_cli.fixHint).toMatch(/Rescan/);
+    // a CLI OnQ cannot test is never shown as connected
+    expect(byId.cursor_cli).toMatchObject({ state: 'needs_check', selectable: false });
+    expect(probed.sort()).toEqual(['claude_cli', 'codex_cli', 'gemini_cli', 'opencode_cli']);
+    expect(Object.values(byId).filter((p) => p.kind === 'local_cli' && p.state === 'connected').map((p) => p.id)).toEqual(['claude_cli']);
+  });
+
+  it('ProviderScanner reuses a probe result, forces a fresh one on explicit rescan, and routes only proven CLIs', async () => {
+    let calls = 0;
+    const probeCli: CliProbe = async () => {
+      calls++;
+      return calls === 1 ? { ok: true, ms: 900 } : { ok: false, timedOut: true, reason: 'Local AI CLI timed out' };
+    };
+    const scanner = new ProviderScanner(() => ({}), fakeDeps({ probeCli }));
+    await scanner.scan(true);
+    expect(calls).toBe(1);
+    expect(scanner.routable().map((r) => r.id)).toContain('claude_cli');
+    await scanner.scan(true); // explicit rescan asks again and now it fails
+    expect(calls).toBe(2);
+    expect(scanner.routable().map((r) => r.id)).not.toContain('claude_cli');
+  });
+
   it('never leaks key values or local paths in the public view', async () => {
     const scan = await scanProviders(KEYS, fakeDeps());
     const json = JSON.stringify(publicProviders(scan.providers));
@@ -107,10 +155,10 @@ describe('Provider & model scanner', () => {
 });
 
 const BASE_INPUT = {
-  recipientName: 'Priya Nair',
-  recipientEmail: 'priya@tvm.example',
-  allowedRecipients: ['priya@tvm.example'],
-  sourceEmailText: 'VC Sync - Priya Nair. Can we push 15m to 14:15?',
+  recipientName: 'Investor contact',
+  recipientEmail: 'investor@sample.example',
+  allowedRecipients: ['investor@sample.example'],
+  sourceEmailText: 'Investor call. Can we push 15m to 14:15?',
   userUtterance: 'Push 15m to 14:15 and reply politely',
   computedFacts: ['14:15'],
   fallbackDraft: 'Running slightly behind, shifting VC Sync to 14:15.',
@@ -123,7 +171,7 @@ describe('modelRouter local CLI / local server routing', () => {
     const calls: Array<{ bin: string; args: string[]; prompt: string }> = [];
     const cliRunner: CliRunner = async (bin, args, prompt) => {
       calls.push({ bin, args, prompt });
-      return '```json\n{"draft":"Shifting VC Sync to 14:15, thanks Priya."}\n```';
+      return '```json\n{"draft":"Shifting VC Sync to 14:15, thanks Investor."}\n```';
     };
     const failingFetch = (async () => new Response('{}', { status: 500 })) as unknown as typeof fetch;
     const out = await routeModelCompletion(BASE_INPUT, {
@@ -139,7 +187,7 @@ describe('modelRouter local CLI / local server routing', () => {
     expect(calls[0].args.slice(0, 3)).toEqual(['-p', '--model', 'haiku']);
     expect(calls[0].args).toContain('--tools');
     expect(calls[0].prompt).toContain('untrusted_workspace_data'); // untrusted text goes via stdin only
-    expect(calls[0].args.join(' ')).not.toContain('Priya');
+    expect(calls[0].args.join(' ')).not.toContain('Investor');
   });
 
   it('explicit selection runs the picked local server with the picked model first', async () => {

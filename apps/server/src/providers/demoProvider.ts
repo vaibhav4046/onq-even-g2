@@ -38,11 +38,11 @@ export class DemoWorkspaceProvider implements WorkspaceProvider {
     this.events = [
       {
         eventId: 'evt-vc-priya',
-        title: 'VC Sync - Priya Nair',
+        title: 'Investor call',
         startIso: '2026-11-24T14:00:00.000Z',
         endIso: '2026-11-24T14:30:00.000Z',
-        attendeeEmail: 'priya@tvm.example',
-        attendeeName: 'Priya Nair',
+        attendeeEmail: 'investor@sample.example',
+        attendeeName: 'Investor contact',
         etag: 'etag-vc-1',
       },
       {
@@ -50,18 +50,18 @@ export class DemoWorkspaceProvider implements WorkspaceProvider {
         title: 'Design Review',
         startIso: '2026-11-24T14:45:00.000Z',
         endIso: '2026-11-24T15:15:00.000Z',
-        attendeeEmail: 'dana@studio.example',
-        attendeeName: 'Dana Kim',
+        attendeeEmail: 'design@sample.example',
+        attendeeName: 'Design lead',
         etag: 'etag-des-1',
       },
       {
-        eventId: 'evt-partner-alex',
-        title: 'Partner Sync - Alex Chen',
+        eventId: 'evt-partner-sync',
+        title: 'Partner sync',
         startIso: '2026-11-24T15:15:00.000Z',
         endIso: '2026-11-24T15:45:00.000Z',
-        attendeeEmail: 'alex@partner.example',
-        attendeeName: 'Alex Chen',
-        etag: 'etag-alex-1',
+        attendeeEmail: 'partner@sample.example',
+        attendeeName: 'Partner contact',
+        etag: 'etag-partner-1',
       },
     ];
 
@@ -69,17 +69,17 @@ export class DemoWorkspaceProvider implements WorkspaceProvider {
       {
         threadId: 'thr-priya-1',
         historyId: 'hist-100',
-        fromName: 'Priya Nair',
-        fromEmail: 'priya@tvm.example',
-        subject: 'Re: 14:00 VC Sync + Q4 deck',
+        fromName: 'Investor contact',
+        fromEmail: 'investor@sample.example',
+        subject: 'Re: 14:00 Investor call + Q4 deck',
         snippet: 'Can we push 15m? Q4 deck ready?',
         sentMessages: [],
       },
       {
-        threadId: 'thr-alex-1',
+        threadId: 'thr-partner-1',
         historyId: 'hist-200',
-        fromName: 'Alex Chen',
-        fromEmail: 'alex@partner.example',
+        fromName: 'Partner contact',
+        fromEmail: 'partner@sample.example',
         subject: 'Q4 metrics checklist',
         snippet: 'Send Q4 metrics before partner sync?',
         sentMessages: [],
@@ -97,7 +97,7 @@ export class DemoWorkspaceProvider implements WorkspaceProvider {
       },
       {
         pageId: 'notion-task-2',
-        title: 'Send Q4 metrics to Alex',
+        title: 'Send Q4 metrics to Partner',
         dueIso: '2026-11-24T17:00:00.000Z',
         completed: false,
         lastEdited: '2026-11-24T12:10:00.000Z',
@@ -193,9 +193,9 @@ export class DemoWorkspaceProvider implements WorkspaceProvider {
     }
 
     const vc = this.events[0];
-    const priyaThr = this.threads[0];
+    const investorThr = this.threads[0];
     const partner = this.events[2];
-    const alexThr = this.threads[1];
+    const partnerThr = this.threads[1];
     const notionTask = this.tasks[0];
 
     const cards: CorridorCard[] = [
@@ -203,31 +203,31 @@ export class DemoWorkspaceProvider implements WorkspaceProvider {
         id: 'card-vc-priya',
         sourceMode: 'DEMO',
         syncedAtIso: nowIso,
-        provenanceLabel: 'SANDBOX',
+        provenanceLabel: 'SAMPLE',
         kind: 'MEETING',
         title: vc.title,
         timeMeta: `${vc.startIso.slice(11, 16)} (12m)`,
         startIso: vc.startIso,
         endIso: vc.endIso,
-        contextLine1: priyaThr.snippet,
+        contextLine1: investorThr.snippet,
         contextLine2: 'Q4_Metrics_v3 (Drive) | 2 comments',
         triageRule: 'IMMINENT_MTG',
         etag: vc.etag,
         calendarEventId: vc.eventId,
-        gmailThreadId: priyaThr.threadId,
-        gmailHistoryId: priyaThr.historyId,
+        gmailThreadId: investorThr.threadId,
+        gmailHistoryId: investorThr.historyId,
         notionPageId: notionTask.pageId,
         notionLastEdited: notionTask.lastEdited,
         attendeeEmail: vc.attendeeEmail,
         attendeeName: vc.attendeeName,
         driveDocTitle: 'Q4_Metrics_v3',
-        driveSnippet: 'ARR growth +18% QoQ; runway 22m; slide 4 flagged by Priya.',
+        driveSnippet: 'ARR growth +18% QoQ; runway 22m; slide 4 flagged by the investor.',
         quickActions: [
           {
             id: 'qa-push-15',
-            label: 'Push 15m + Reply Priya',
+            label: 'Push 15m + Reply Investor',
             intent: 'RESCHEDULE_AND_NOTIFY',
-            commandText: 'Push 15m and tell Priya',
+            commandText: 'Push 15m and tell Investor',
           },
           {
             id: 'qa-push-conflict',
@@ -237,42 +237,42 @@ export class DemoWorkspaceProvider implements WorkspaceProvider {
           },
           {
             id: 'qa-draft-reply',
-            label: 'Draft Reply to Priya',
+            label: 'Draft Reply to Investor',
             intent: 'REPLY_EMAIL',
-            commandText: 'Draft reply to Priya yes Q4 deck is ready',
+            commandText: 'Draft reply to Investor yes Q4 deck is ready',
           },
         ],
       },
       {
-        id: 'card-partner-alex',
+        id: 'card-partner-sync',
         sourceMode: 'DEMO',
         syncedAtIso: nowIso,
-        provenanceLabel: 'SANDBOX',
+        provenanceLabel: 'SAMPLE',
         kind: 'EMAIL_ASK',
         title: partner.title,
         timeMeta: partner.startIso.slice(11, 16),
         startIso: partner.startIso,
         endIso: partner.endIso,
-        contextLine1: alexThr.snippet,
+        contextLine1: partnerThr.snippet,
         contextLine2: `Notion: ${this.tasks[1].title}`,
         triageRule: 'ASK_DEADLINE',
         etag: partner.etag,
         calendarEventId: partner.eventId,
-        gmailThreadId: alexThr.threadId,
-        gmailHistoryId: alexThr.historyId,
+        gmailThreadId: partnerThr.threadId,
+        gmailHistoryId: partnerThr.historyId,
         notionPageId: this.tasks[1].pageId,
         notionLastEdited: this.tasks[1].lastEdited,
         attendeeEmail: partner.attendeeEmail,
         attendeeName: partner.attendeeName,
         quickActions: [
           {
-            id: 'qa-task-alex',
-            label: 'Task + Hold for Alex',
+            id: 'qa-task-partner',
+            label: 'Task + Hold for Partner',
             intent: 'CREATE_ACTION_PACK',
-            commandText: 'Task: send Q4 metrics to Alex by Thursday',
+            commandText: 'Task: send Q4 metrics to Partner by Thursday',
           },
           {
-            id: 'qa-done-alex',
+            id: 'qa-done-partner',
             label: 'Mark Notion Task Done',
             intent: 'COMPLETE_NOTION_TASK',
             commandText: 'Mark Send Q4 metrics done',
@@ -285,7 +285,7 @@ export class DemoWorkspaceProvider implements WorkspaceProvider {
       cards: rankCorridorCards(cards, nowIso),
       busySlots: this.getBusySlots(),
       sourceMode: 'DEMO',
-      provenanceLabel: 'SANDBOX',
+      provenanceLabel: 'SAMPLE',
       syncedAtIso: nowIso,
     };
   }
@@ -294,7 +294,7 @@ export class DemoWorkspaceProvider implements WorkspaceProvider {
     if (this.fault.forceThreadDrift) {
       return {
         code: 'CONFLICT_THREAD_UPDATED',
-        message: 'Priya replied 4s ago; card stale',
+        message: 'Investor replied 4s ago; card stale',
       };
     }
 
@@ -481,7 +481,7 @@ export class DemoWorkspaceProvider implements WorkspaceProvider {
   getSnapshot(): WorkspaceSnapshot {
     return {
       sourceMode: 'DEMO',
-      provenanceLabel: 'SANDBOX',
+      provenanceLabel: 'SAMPLE',
       syncedAtIso: this.nowIso,
       cards: [],
       calendarEvents: this.events,

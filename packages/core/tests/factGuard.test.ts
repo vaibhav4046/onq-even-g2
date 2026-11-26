@@ -7,10 +7,10 @@ import {
 
 describe('factGuard.ts', () => {
   const BASE_INPUT = {
-    recipientEmail: 'priya@tvm.example',
-    allowedRecipients: ['priya@tvm.example', 'alex@studio.example'],
-    sourceCorpus: 'Meeting VC Sync at 14:00. Priya asked: Can we push 15m? Q4 deck ready.',
-    userUtterance: 'Push 15m and tell Priya',
+    recipientEmail: 'investor@sample.example',
+    allowedRecipients: ['investor@sample.example', 'studio@sample.example'],
+    sourceCorpus: 'Meeting VC Sync at 14:00. Investor asked: Can we push 15m? Q4 deck ready.',
+    userUtterance: 'Push 15m and tell Investor',
     computedFacts: ['14:15'],
     fallbackTemplate: 'Running 15m late. Moving VC Sync to 14:15.',
   };
@@ -18,7 +18,7 @@ describe('factGuard.ts', () => {
   it('1. passes clean grounded reply to authoritative recipient', () => {
     const res = verifyDraftAndPayload({
       ...BASE_INPUT,
-      draftText: 'Hi Priya, running 15m behind so moving VC Sync to 14:15. Q4 deck is ready.',
+      draftText: 'Hi Investor, running 15m behind so moving VC Sync to 14:15. Q4 deck is ready.',
     });
     expect(res.passed).toBe(true);
     expect(res.fallbackUsed).toBe(false);

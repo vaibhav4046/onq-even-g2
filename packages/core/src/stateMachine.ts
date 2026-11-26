@@ -6,6 +6,7 @@ import type {
   HudState,
   MeetingSessionState,
   NormalizedEvenEvent,
+  OutboxUiStatus,
   SourceMode,
 } from './types.js';
 
@@ -30,7 +31,7 @@ export function createInitialHudState(cards: CorridorCard[] = [], sourceMode: So
   return {
     phase: 'idle',
     sourceMode,
-    provenanceLabel: sourceMode === 'LIVE' ? 'GCAL+GMAIL+NOTION' : 'SANDBOX',
+    provenanceLabel: sourceMode === 'LIVE' ? 'GCAL+GMAIL+NOTION' : 'SAMPLE',
     cards,
     selectedCardIndex: 0,
     selectedActionIndex: 0,
@@ -252,6 +253,28 @@ export class OnQHudController {
         preview: null,
       });
     }
+  }
+
+  /**
+   * The computer reports progress on a write that went to the background outbox. Updates the shown result card
+   * only when it is that write's card. A failure while the glasses sit on the dossier becomes a one-line notice.
+   */
+  updateOutbox(upd: { id: string; status: OutboxUiStatus; reason?: string; summaryLines?: string[]; canUndo?: boolean; receiptId?: string }): void {
+    const r = this.state.receipt;
+    if (this.state.phase === 'done' && r?.outbox?.id === upd.id) {
+      const finished = upd.status === 'done';
+      this.setState({
+        receipt: {
+          ...r,
+          receiptId: upd.receiptId ?? r.receiptId,
+          summaryLines: upd.summaryLines?.length ? upd.summaryLines : r.summaryLines,
+          canUndo: finished ? Boolean(upd.canUndo) : upd.status === 'queued' ? r.canUndo : false,
+          outbox: { id: upd.id, status: upd.status, ...(upd.reason ? { reason: upd.reason } : {}) },
+        },
+      });
+      return;
+    }
+    if (upd.status === 'failed' && this.state.phase === 'idle') this.showError(upd.reason ?? 'SEND FAILED');
   }
 
   disarmToUndone(): void {

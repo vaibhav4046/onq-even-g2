@@ -15,7 +15,7 @@ People who live in Google Calendar, Gmail, Notion and Telegram and move between 
 
 **How it works:**
 1. Glance: the G2 lens shows one thing: your next meeting and the one message that needs you (Gmail, or a Telegram chat you picked).
-2. Act: say one short phrase ("push 15 and tell Priya") or tap the R1 ring. The reply or change is already drafted by AI or a smart default.
+2. Act: say one short phrase ("push 15 and tell Investor") or tap the R1 ring. The reply or change is already drafted by AI or a smart default.
 3. Confirm: the lens defaults to NO. Tap yes, a 2-second undo ring runs, then Calendar, Gmail, Notion or Telegram update, with a receipt and a 30-second undo.
 4. Safe by default: a double-booking lock blocks taken slots and offers the next free time. Nothing is sent without your yes.
 
@@ -28,7 +28,7 @@ People who live in Google Calendar, Gmail, Notion and Telegram and move between 
 
 **What existed before Nov 23:** nothing. The repository's first commit is 2026-11-24; everything was built in the hackathon window on open-source libraries listed in the README.
 
-**Verified (re-run before submitting):** 280 automated tests, 32/32 eval intents with 5/5 prompt-injection blocks, 11/11 display geometry checks, 13 captures in the official Even Hub simulator 0.9.5, 10/10 security checks, clean clone with zero keys. Not yet tested on physical G2 glasses.
+**Verified (re-run before submitting):** 501 automated tests across 51 files, 32/32 eval intents with 5/5 prompt-injection blocks, 11/11 display geometry checks, 13 captures in the official Even Hub simulator 0.9.5, 10/10 security checks, clean clone with zero keys. Not yet tested on physical G2 glasses.
 
 **Business:** Pro $7/month, Team $19/seat. Most steps run on fixed rules, so model cost per brief stays low (estimate). Tokens stay encrypted on the user's computer; nothing sends without approval.
 

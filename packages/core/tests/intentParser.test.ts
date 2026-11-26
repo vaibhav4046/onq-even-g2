@@ -6,12 +6,12 @@ const NOW = new Date('2026-11-24T13:45:00.000Z');
 
 const CARDS: CorridorCard[] = [
   {
-    id: 'c-priya',
+    id: 'c-investor',
     sourceMode: 'DEMO',
     syncedAtIso: NOW.toISOString(),
-    provenanceLabel: 'SANDBOX',
+    provenanceLabel: 'SAMPLE',
     kind: 'MEETING',
-    title: 'VC Sync - Priya Nair',
+    title: 'Investor call',
     timeMeta: '14:00 (15m)',
     startIso: '2026-11-24T14:00:00.000Z',
     endIso: '2026-11-24T14:30:00.000Z',
@@ -19,17 +19,17 @@ const CARDS: CorridorCard[] = [
     contextLine2: 'Q4_Metrics_v3',
     triageRule: 'IMMINENT_MTG',
     etag: 'e1',
-    attendeeName: 'Priya Nair',
-    attendeeEmail: 'priya@tvm.example',
+    attendeeName: 'Investor contact',
+    attendeeEmail: 'investor@sample.example',
     quickActions: [],
   },
   {
-    id: 'c-alex1',
+    id: 'c-studio',
     sourceMode: 'DEMO',
     syncedAtIso: NOW.toISOString(),
-    provenanceLabel: 'SANDBOX',
+    provenanceLabel: 'SAMPLE',
     kind: 'EMAIL_ASK',
-    title: 'Design Review - Alex Chen',
+    title: 'Design review',
     timeMeta: '14:15',
     startIso: '2026-11-24T14:15:00.000Z',
     endIso: '2026-11-24T14:45:00.000Z',
@@ -37,17 +37,17 @@ const CARDS: CorridorCard[] = [
     contextLine2: 'Notion task due',
     triageRule: 'ASK_DEADLINE',
     etag: 'e2',
-    attendeeName: 'Alex Chen',
-    attendeeEmail: 'alex.chen@studio.example',
+    attendeeName: 'Finance lead',
+    attendeeEmail: 'finance@sample.example',
     quickActions: [],
   },
   {
-    id: 'c-alex2',
+    id: 'c-ops',
     sourceMode: 'DEMO',
     syncedAtIso: NOW.toISOString(),
-    provenanceLabel: 'SANDBOX',
+    provenanceLabel: 'SAMPLE',
     kind: 'NOTION_DUE',
-    title: 'Budget Sync - Alex Rivera',
+    title: 'Budget sync',
     timeMeta: '16:00',
     startIso: '2026-11-24T16:00:00.000Z',
     endIso: '2026-11-24T16:30:00.000Z',
@@ -55,22 +55,22 @@ const CARDS: CorridorCard[] = [
     contextLine2: 'Notion item',
     triageRule: 'NOTION_OVERDUE',
     etag: 'e3',
-    attendeeName: 'Alex Rivera',
-    attendeeEmail: 'alex.rivera@ops.example',
+    attendeeName: 'Finance ops lead',
+    attendeeEmail: 'financeops@sample.example',
     quickActions: [],
   },
 ];
 
 describe('intentParser.ts (30-phrase voice evaluation matrix)', () => {
   const rescheduleCases = [
-    'Push 15m and tell Priya',
-    'Push 15 minutes and tell Priya',
+    'Push 15m and tell Investor',
+    'Push 15 minutes and tell Investor',
     'Shift VC sync by 30 mins',
-    'Delay 10m and email Priya',
-    'Running 15 minutes late, tell Priya',
+    'Delay 10m and email Investor',
+    'Running 15 minutes late, tell Investor',
     'Running late',
     'Move VC sync to Thursday 3pm',
-    'Reschedule Priya meeting to tomorrow 2pm',
+    'Reschedule Investor meeting to tomorrow 2pm',
   ];
 
   rescheduleCases.forEach((phrase, i) => {
@@ -82,9 +82,9 @@ describe('intentParser.ts (30-phrase voice evaluation matrix)', () => {
   });
 
   const actionPackCases = [
-    'Task: send Q4 metrics to Alex by Thursday',
+    'Task: send Q4 metrics to Partner by Thursday',
     'Todo: review term sheet tomorrow 10am',
-    'Remind me to share deck with Priya Friday 9am',
+    'Remind me to share deck with Investor Friday 9am',
     'Action: follow up with legal next Monday',
     'Add task update Notion roadmap today 5pm',
     'Capture follow up on hardware specs',
@@ -100,16 +100,16 @@ describe('intentParser.ts (30-phrase voice evaluation matrix)', () => {
 
   const replyCases = [
     'Reply sounds good, see you at 14:15',
-    'Draft reply to Priya yes deck is ready',
-    'Email Priya running five behind',
-    'Tell Priya yes 14:15 works',
+    'Draft reply to Investor yes deck is ready',
+    'Email Investor running five behind',
+    'Tell Investor yes 14:15 works',
   ];
 
   replyCases.forEach((phrase, i) => {
     it(`E-${i + 1}: parses email reply "${phrase}"`, () => {
       const res = parseVoiceCommand(phrase, { now: NOW, cards: CARDS, activeCard: CARDS[0] });
       expect(res.kind).toBe('REPLY_EMAIL');
-      expect(res.matchedCardId).toBe('c-priya');
+      expect(res.matchedCardId).toBe('c-investor');
     });
   });
 
@@ -128,9 +128,9 @@ describe('intentParser.ts (30-phrase voice evaluation matrix)', () => {
   });
 
   const askCases = [
-    'What did Priya ask?',
+    'What did Investor ask?',
     'Summarize Drive doc',
-    'Read latest note from Priya',
+    'Read latest note from Investor',
     'What is next on my calendar?',
   ];
 
@@ -141,8 +141,8 @@ describe('intentParser.ts (30-phrase voice evaluation matrix)', () => {
     });
   });
 
-  it('returns AMBIGUOUS when two contacts match "Alex"', () => {
-    const res = parseVoiceCommand('Reply to Alex yes', { now: NOW, cards: CARDS, activeCard: CARDS[0] });
+  it('returns AMBIGUOUS when two contacts match "Finance"', () => {
+    const res = parseVoiceCommand('Reply to Finance yes', { now: NOW, cards: CARDS, activeCard: CARDS[0] });
     expect(res.kind).toBe('AMBIGUOUS');
     expect(res.ambiguousMatches?.length).toBe(2);
   });
@@ -154,7 +154,7 @@ describe('intentParser.ts (30-phrase voice evaluation matrix)', () => {
   });
 
   it('computes exact deterministic ISO timestamp for +15m shift', () => {
-    const res = parseVoiceCommand('Push 15m and tell Priya', { now: NOW, cards: CARDS, activeCard: CARDS[0] });
+    const res = parseVoiceCommand('Push 15m and tell Investor', { now: NOW, cards: CARDS, activeCard: CARDS[0] });
     expect(res.targetStartIso).toBe('2026-11-24T14:15:00.000Z');
   });
 

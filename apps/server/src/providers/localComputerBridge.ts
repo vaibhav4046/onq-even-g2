@@ -470,7 +470,7 @@ export async function executeDelegatedTask(params: {
           'Queued drafts behind Ask-Before-Sending lock',
         ],
         outputLines: [
-          '1. Priya Nair (VC Sync) -> 15:45 follow-up + deck link',
+          '1. Investor call -> 15:45 follow-up + deck link',
           '2. Even G2 Builders (Telegram) -> .ehpk build ping',
         ],
         lensLines: [

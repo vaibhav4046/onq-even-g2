@@ -120,8 +120,8 @@ export async function runOrchestrationHarness(params: RunHarnessParams): Promise
 
   const modelOut = await routeModelCompletion(
     {
-      recipientName: topThread?.fromName ?? 'Priya Nair',
-      recipientEmail: topThread?.fromEmail ?? 'priya@tvm.example',
+      recipientName: topThread?.fromName ?? 'Investor contact',
+      recipientEmail: topThread?.fromEmail ?? 'investor@sample.example',
       allowedRecipients: snap.gmailThreads.map((t) => t.fromEmail),
       sourceEmailText: topThread?.snippet ?? '',
       userUtterance: params.utterance,
@@ -251,7 +251,7 @@ export async function runOrchestrationHarness(params: RunHarnessParams): Promise
   const t6 = Date.now();
   const replyText = verifyDraftAndPayload({
     draftText: `Done. Updated schedule and queued reply: ${modelOut.draft}`,
-    recipientEmail: topThread?.fromEmail ?? 'priya@tvm.example',
+    recipientEmail: topThread?.fromEmail ?? 'investor@sample.example',
     allowedRecipients: snap.gmailThreads.map((t) => t.fromEmail),
     sourceCorpus: `${topThread?.snippet ?? ''} ${modelOut.draft}`,
     userUtterance: params.utterance,

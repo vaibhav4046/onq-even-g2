@@ -21,7 +21,7 @@ const FLOW_TABS: FlowGraphSpec[] = [
     id: 'reschedule',
     title: 'Move a meeting',
     sub: 'Reschedule and reply',
-    ask: '"OnQ, push VC Sync 15m and tell Priya"',
+    ask: '"OnQ, push my next meeting 15m and tell Investor"',
     steps: [
       { num: '01', label: 'Understand', detail: 'Works out "15 minutes later" and checks your calendar.' },
       { num: '02', label: 'Ask first', detail: 'Shows the plan with NO selected. Facts are checked first.' },
@@ -31,14 +31,14 @@ const FLOW_TABS: FlowGraphSpec[] = [
       { id: 'mic', title: 'Ring and mic', role: 'Ignores noise', x: 75, y: 54, tint: '#34F57E' },
       { id: 'orch', title: 'OnQ relay', role: 'Checks facts', x: 280, y: 54, tint: '#86FFAF' },
       { id: 'gcal', title: 'Google Calendar', role: 'Moves by 15 min', x: 500, y: 36, tint: '#4285F4' },
-      { id: 'gmail', title: 'Gmail', role: 'Reply to Priya', x: 500, y: 122, tint: '#EA4335' },
+      { id: 'gmail', title: 'Gmail', role: 'Reply in the thread', x: 500, y: 122, tint: '#EA4335' },
     ],
     edges: [
       { from: 'mic', to: 'orch', label: 'HEARD' },
       { from: 'orch', to: 'gcal', label: 'SLOT FREE' },
       { from: 'orch', to: 'gmail', label: 'THREAD OK' },
     ],
-    answer: 'Moved to 14:15. Reply sent to Priya. Undo open for 30 seconds.',
+    answer: 'Moved to 14:15. Reply sent. Undo open for 30 seconds.',
   },
   {
     id: 'telegram',
@@ -67,7 +67,7 @@ const FLOW_TABS: FlowGraphSpec[] = [
     id: 'scribe',
     title: 'Meeting notes',
     sub: 'Live notes, never saved',
-    ask: '"OnQ, what did Priya ask about Q4?"',
+    ask: '"OnQ, what did Investor ask about Q4?"',
     steps: [
       { num: '01', label: 'Listen', detail: 'Speech is transcribed live. Nothing is written to disk.' },
       { num: '02', label: 'Know who is speaking', detail: 'Background voices cannot trigger a write.' },
@@ -84,7 +84,7 @@ const FLOW_TABS: FlowGraphSpec[] = [
       { from: 'ram', to: 'lens', label: 'SHORT BRIEF' },
       { from: 'ram', to: 'tts', label: 'YOU CAN CUT IN' },
     ],
-    answer: 'Priya: "Send the Q4 deck to Alex by Thursday 15:00." Notes wiped on exit.',
+    answer: 'Action item: "Send the Q4 deck by Thursday 15:00." Notes wiped on exit.',
   },
   {
     id: 'wrapup',
@@ -113,7 +113,7 @@ const FLOW_TABS: FlowGraphSpec[] = [
     id: 'shield',
     title: 'Double-booking guard',
     sub: 'Stops clashes',
-    ask: '"OnQ, move VC Sync to 14:45"',
+    ask: '"OnQ, move VC sync to 14:45"',
     steps: [
       { num: '01', label: 'Check again', detail: 'Right before saving, it re-checks Calendar, Gmail and Notion.' },
       { num: '02', label: 'Catch the clash', detail: 'Design Review already holds 14:45 to 15:15, so nothing is saved.' },
@@ -340,7 +340,7 @@ export function ArchitectureShowcase({ testCount = VERIFIED_TEST_COUNT }: { test
             <div className="retro-glass-well p-4 space-y-3 text-xs">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <span className="font-pixel text-[9px] text-[var(--lightgray)] uppercase mr-2">YOU SAY</span>
+                  <span className="font-pixel text-[9px] text-[var(--lightgray)] uppercase mr-2">SAMPLE · YOU SAY</span>
                   <span className="text-[var(--bright)] font-medium">{activeFlow.ask}</span>
                 </div>
               </div>
@@ -355,7 +355,7 @@ export function ArchitectureShowcase({ testCount = VERIFIED_TEST_COUNT }: { test
                 ))}
               </div>
               <div className="border-t border-dashed border-white/10 pt-2 text-[var(--g2-phosphor)] font-plex text-[11px]">
-                <span className="text-[var(--lightgray)] mr-2">RESULT:</span>
+                <span className="text-[var(--lightgray)] mr-2">SAMPLE RESULT:</span>
                 {activeFlow.answer}
               </div>
             </div>

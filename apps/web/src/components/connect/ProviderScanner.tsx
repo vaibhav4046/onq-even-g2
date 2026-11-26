@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { callApi, inputClass, labelClass, smallBtnClass } from './api';
 
 type ProviderKind = 'local_cli' | 'local_server' | 'api_key';
@@ -48,7 +48,7 @@ const STATE_DOT: Record<ProviderState, string> = {
 };
 
 const STATE_LABEL: Record<ProviderState, string> = {
-  connected: 'Connected',
+  connected: 'Found, not tested',
   needs_auth: 'Needs sign-in',
   error: 'Error',
   not_installed: 'Not installed',
@@ -61,6 +61,8 @@ interface ProviderScannerProps {
   fallbackConnected: { connected: number; total: number };
   onTestAll: () => Promise<string>;
   onModelChanged: (message: string) => void;
+  /** Called after a scan or model switch finished, so the host profile can refetch. */
+  onScanned?: () => void;
 }
 
 function modelLabel(m: ScannedModel) {
@@ -138,7 +140,10 @@ export function ProviderScanner({
   fallbackConnected,
   onTestAll,
   onModelChanged,
+  onScanned,
 }: ProviderScannerProps) {
+  const scannedRef = useRef(onScanned);
+  scannedRef.current = onScanned;
   const [scan, setScan] = useState<ScanResponse | null>(null);
   const [scanError, setScanError] = useState('');
   const [scanning, setScanning] = useState(false);
@@ -158,6 +163,7 @@ export function ProviderScanner({
         setScanError(out.ok ? 'The scan came back empty.' : `Model scan: ${out.error}`);
       }
       setScanning(false);
+      if (fresh) scannedRef.current?.();
     },
     [sessionToken],
   );
@@ -182,6 +188,7 @@ export function ProviderScanner({
     const { activeProvider, activeModel, activeLabel } = out.data;
     setScan((prev) => (prev ? { ...prev, activeProvider, activeModel, activeLabel } : prev));
     onModelChanged(`Now using ${activeLabel}${activeModel ? ` / ${activeModel}` : ''}.`);
+    scannedRef.current?.();
   };
 
   const testAll = async () => {
@@ -211,7 +218,7 @@ export function ProviderScanner({
           AI: {aiLabel}
         </span>
         <span className="font-pixel text-[9px] uppercase px-2.5 py-1 rounded-full border border-white/15 text-[var(--bright)]">
-          {count.connected} of {count.total} connected
+          {count.connected} of {count.total} found
         </span>
         <div className="flex flex-wrap gap-2 sm:ml-auto">
           <button
@@ -220,7 +227,7 @@ export function ProviderScanner({
             onClick={() => void runScan(true)}
             className="retro-btn-primary px-3 py-1.5 text-[11px] cursor-pointer disabled:opacity-50"
           >
-            {scanning ? 'Scanning...' : 'Scan machine and models'}
+            {scanning ? 'Scanning...' : 'Scan this computer'}
           </button>
           <button type="button" disabled={testing} onClick={() => void testAll()} className={smallBtnClass}>
             {testing ? 'Testing...' : 'Test all connected'}
@@ -251,7 +258,7 @@ export function ProviderScanner({
           </div>
           {connected.length === 0 ? (
             <p className="text-[11px] text-[var(--lightgray)]">
-              No AI provider is connected yet, so OnQ uses fixed rules. See More providers for a one-line fix.
+              No AI provider found yet, so OnQ uses fixed rules. See More providers for a one-line fix.
             </p>
           ) : (
             <ul className="grid grid-cols-1 lg:grid-cols-2 gap-2">

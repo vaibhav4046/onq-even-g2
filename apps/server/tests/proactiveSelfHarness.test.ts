@@ -195,7 +195,7 @@ describe('Self-Generating Proactive Agentic Harness & Orchestrator Router', () =
         rationale: 'Imminent calendar overlap requires 15m shift with Default-NO guard.',
         orchestratorUsed: 'OpenRouter',
         fallbackUsed: false,
-        suggestedCommand: 'Push 15m and tell Priya',
+        suggestedCommand: 'Push 15m and tell Investor',
         opticalCardLines: [
           'This optical card line is way longer than forty-two columns and must be clipped cleanly',
           'Second very long optical card line exceeding 42 columns for Even G2 lens display safety',
@@ -255,9 +255,9 @@ describe('Self-Generating Proactive Agentic Harness & Orchestrator Router', () =
                 {
                   message: {
                     content: JSON.stringify({
-                      goal: 'Shift VC Sync 15m and update Priya',
-                      rationale: 'Priya awaits reply ahead of VC Sync.',
-                      suggestedCommand: 'Push 15m and tell Priya',
+                      goal: 'Shift VC Sync 15m and update Investor',
+                      rationale: 'Investor awaits reply ahead of VC Sync.',
+                      suggestedCommand: 'Push 15m and tell Investor',
                       opticalCardLines: [
                         'VC SYNC: PUSH 15M + REPLY PRIYA',
                         'CODE-GUARD OK · DEFAULT-NO LOCKED',
@@ -363,7 +363,7 @@ describe('Self-Generating Proactive Agentic Harness & Orchestrator Router', () =
       harness: { suggestedCommand: string };
       preview: { defaultSelection: string; previewToken: string; operations: unknown[] };
     };
-    expect(stageOk.harness.suggestedCommand).toBe('Push 15m and tell Priya');
+    expect(stageOk.harness.suggestedCommand).toBe('Push 15m and tell Investor');
     expect(stageOk.preview.defaultSelection).toBe('NO');
     expect(stageOk.preview.previewToken).toMatch(/^pt_/);
     expect(stageOk.preview.operations.length).toBeGreaterThanOrEqual(1);
@@ -385,7 +385,7 @@ describe('Self-Generating Proactive Agentic Harness & Orchestrator Router', () =
       harness: { suggestedCommand: string };
       conflict: { code: string };
     };
-    expect(stageConflict.harness.suggestedCommand).toBe('Push 15m and tell Priya');
+    expect(stageConflict.harness.suggestedCommand).toBe('Push 15m and tell Investor');
     expect(stageConflict.conflict.code).toBe('CONFLICT_CALENDAR_BUSY');
   });
 });

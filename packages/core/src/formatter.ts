@@ -134,7 +134,7 @@ function formatTimeShort(iso: string): string {
 
 export function formatLensFrame(state: HudState): FormattedLensFrame {
   const provenanceTag = state.sourceMode;
-  const displayTag = provenanceTag === 'DEMO' ? 'SANDBOX' : provenanceTag;
+  const displayTag = provenanceTag === 'DEMO' ? 'SAMPLE' : provenanceTag;
   const clock = formatTimeShort(state.syncedAtIso);
   let header = '';
   const body: string[] = [];
@@ -156,7 +156,7 @@ export function formatLensFrame(state: HudState): FormattedLensFrame {
   } else if (state.phase === 'meeting_live' && state.meeting) {
     const mins = String(Math.floor(state.meeting.elapsedSec / 60)).padStart(2, '0');
     const secs = String(state.meeting.elapsedSec % 60).padStart(2, '0');
-    const recBadge = state.meeting.providerMode === 'LIVE_ASSEMBLYAI' ? 'LIVE' : 'SANDBOX';
+    const recBadge = state.meeting.providerMode === 'LIVE_ASSEMBLYAI' ? 'LIVE' : 'SAMPLE';
     header = padHeaderLine(`REC ${mins}:${secs} | ${state.meeting.speakerCount} SPK | ${recBadge}`, 'RAM');
     const lastTurn = state.meeting.turns[state.meeting.turns.length - 1];
     if (lastTurn) {
@@ -187,7 +187,7 @@ export function formatLensFrame(state: HudState): FormattedLensFrame {
     header = padHeaderLine(`${displayTag} | VOICE MIC 16KHZ`, 'REC');
     body.push('SPEAK CORRIDOR COMMAND:');
     body.push(`MIC ${renderAudioBarAscii(state.rmsLevel, 16)}`);
-    body.push(clipLine42(state.transcript ? `"${state.transcript}"` : 'Ex: "Push 15m and tell Priya"'));
+    body.push(clipLine42(state.transcript ? `"${state.transcript}"` : 'Ex: "Push 15m and tell Investor"'));
     footer = 'RELEASE TO PARSE   2xTAP: CANCEL';
   } else if (state.phase === 'preview' && state.preview) {
     const ttl = Math.max(
@@ -228,14 +228,27 @@ export function formatLensFrame(state: HudState): FormattedLensFrame {
       footer = 'TAP: REFRESH DOSSIER  2xTAP: BACK';
     }
   } else if (state.phase === 'done' && state.receipt) {
+    // A write running in the background outbox shows its progress here: QUEUED, SENDING, DONE, or the failure reason.
+    const ob = state.receipt.outbox;
+    const word = !ob ? 'COMMITTED' : ob.status === 'queued' ? 'QUEUED' : ob.status === 'running' ? 'SENDING' : ob.status === 'failed' ? 'FAILED' : ob.status === 'undone' ? 'CANCELLED' : 'DONE';
     header = padHeaderLine(
-      `${displayTag} | COMMITTED #${state.receipt.receiptId.slice(-4)}`,
+      `${displayTag} | ${word} #${state.receipt.receiptId.slice(-4)}`,
       formatTimeShort(state.receipt.committedAtIso),
     );
-    for (const ln of state.receipt.summaryLines.slice(0, 3)) {
-      body.push(clipLine42(ln));
+    if (ob?.status === 'failed') {
+      body.push(clipLine42(ob.reason ?? 'COULD NOT BE COMPLETED'));
+      body.push('NOTHING WAS CONFIRMED AS SENT');
+    } else {
+      for (const ln of state.receipt.summaryLines.slice(0, 3)) {
+        body.push(clipLine42(ln));
+      }
     }
-    footer = state.receipt.canUndo ? 'TAP: UNDO (30s)   2xTAP: DOSSIER' : 'TAP: DOSSIER      2xTAP: BACK';
+    footer =
+      ob?.status === 'queued' && state.receipt.canUndo
+        ? 'TAP: CANCEL (QUEUED)  2xTAP: DOSSIER'
+        : state.receipt.canUndo
+          ? 'TAP: UNDO (30s)   2xTAP: DOSSIER'
+          : 'TAP: DOSSIER      2xTAP: BACK';
   } else if (state.phase === 'undone') {
     header = padHeaderLine(`${displayTag} | CANCELLED`, clock);
     body.push('ZERO WORKSPACE WRITES EXECUTED');

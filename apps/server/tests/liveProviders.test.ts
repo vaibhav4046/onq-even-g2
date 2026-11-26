@@ -170,11 +170,11 @@ function makeMockFetch() {
           items: [
             {
               id: 'gcal-ev-1',
-              summary: 'Board Prep - Priya',
+              summary: 'Board Prep - Investor',
               etag: '"etag-g1"',
               start: { dateTime: '2026-11-24T14:00:00.000Z' },
               end: { dateTime: '2026-11-24T14:30:00.000Z' },
-              attendees: [{ email: 'priya@tvm.example', displayName: 'Priya Nair' }],
+              attendees: [{ email: 'investor@sample.example', displayName: 'Investor contact' }],
             },
           ],
         }),
@@ -218,7 +218,7 @@ function makeMockFetch() {
               snippet: 'Can we shift 15m?',
               payload: {
                 headers: [
-                  { name: 'From', value: 'Priya Nair <priya@tvm.example>' },
+                  { name: 'From', value: 'Investor contact <investor@sample.example>' },
                   { name: 'Subject', value: 'Board Prep' },
                 ],
               },
@@ -298,10 +298,10 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
     const g = new GoogleWorkspaceClient(vault, fetchImpl);
     const events = await g.listUpcomingEvents('2026-11-24T13:00:00Z', '2026-11-24T18:00:00Z');
     expect(events).toHaveLength(1);
-    expect(events[0].summary).toBe('Board Prep - Priya');
+    expect(events[0].summary).toBe('Board Prep - Investor');
 
     const sent = await g.sendThreadedReply({ threadId: 'gthr-1', bodyText: 'Shifting 15m', draftOnly: false });
-    expect(sent.recipient).toBe('priya@tvm.example');
+    expect(sent.recipient).toBe('investor@sample.example');
     expect(state.sentEmails).toBe(1);
   });
 
@@ -332,7 +332,7 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
     const tasks = await notion.queryOpenTasks();
     expect(tasks[0].title).toBe('Send metrics deck');
 
-    const created = await notion.createTask('Follow up with Priya');
+    const created = await notion.createTask('Follow up with Investor');
     expect(created.pageId).toBe('nt-page-created');
     expect(state.createdNotionTasks).toBe(1);
 
@@ -398,7 +398,7 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
       defaultSelection: 'NO',
       cardId: card.id,
       summaryLines: [],
-      operations: [{ provider: 'GMAIL', op: 'SEND_REPLY', targetLabel: 'priya@tvm.example', afterValue: 'ok' }],
+      operations: [{ provider: 'GMAIL', op: 'SEND_REPLY', targetLabel: 'investor@sample.example', afterValue: 'ok' }],
       safetyChecks: { calendarConflictFree: true, threadFresh: true, recipientVerified: true, factGuardPassed: true },
     });
     expect(thrConflict?.code).toBe('CONFLICT_THREAD_UPDATED');
@@ -441,7 +441,7 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
         {
           provider: 'GMAIL',
           op: 'SAVE_DRAFT',
-          targetLabel: 'priya@tvm.example',
+          targetLabel: 'investor@sample.example',
           afterValue: 'Shifting 15m',
         },
       ],
@@ -518,7 +518,7 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
       'DTSTART:20991124T140000Z',
       'DTEND:20991124T143000Z',
       'SUMMARY:Investor Check-in',
-      'ATTENDEE;CN=Maya:mailto:maya@fund.example',
+      'ATTENDEE;CN=Fund contact:mailto:fund@sample.example',
       'END:VEVENT',
       'END:VCALENDAR',
     ].join('\r\n');
@@ -590,7 +590,7 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
     const stage1 = await fetch(`${srv.url}/api/actions/stage`, {
       method: 'POST',
       headers: auth,
-      body: JSON.stringify({ commandText: 'Push 15m and tell Priya', cardId: 'card-vc-priya' }),
+      body: JSON.stringify({ commandText: 'Push 15m and tell Investor', cardId: 'card-vc-priya' }),
     });
     expect(stage1.status).toBe(409);
 
@@ -600,7 +600,7 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
       await fetch(`${srv.url}/api/actions/stage`, {
         method: 'POST',
         headers: auth,
-        body: JSON.stringify({ commandText: 'Push 15m and tell Priya', cardId: 'card-vc-priya' }),
+        body: JSON.stringify({ commandText: 'Push 15m and tell Investor', cardId: 'card-vc-priya' }),
       })
     ).json() as { previewToken: string };
 
@@ -741,7 +741,7 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
         operations: [],
         safetyChecks: { calendarConflictFree: true, threadFresh: true, recipientVerified: true, factGuardPassed: true },
       },
-      operations: [{ provider: 'GMAIL', op: 'SEND_REPLY', targetLabel: 'priya@tvm.example', afterValue: 'On my way' }],
+      operations: [{ provider: 'GMAIL', op: 'SEND_REPLY', targetLabel: 'investor@sample.example', afterValue: 'On my way' }],
     });
     expect(state.sentEmails).toBe(1);
     expect(receipt.canUndo).toBe(false);
@@ -882,7 +882,7 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
     const res = await fetch(`${srv.url}/api/actions/stage`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${sessionToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ commandText: 'What did Priya ask?', cardId: 'card-vc-priya' }),
+      body: JSON.stringify({ commandText: 'What did Investor ask?', cardId: 'card-vc-priya' }),
     });
     expect(res.status).toBe(200);
     const json = (await res.json()) as { readOnlyAnswer: boolean; lines: string[] };
@@ -966,7 +966,7 @@ describe('Live Providers, Neon Postgres Ledger, ICS & Companion Controls', () =>
     const tasks = await notion.queryOpenTasks();
     expect(tasks).toHaveLength(1);
     expect(tasks[0].title).toBe('Send Q4 metrics');
-    const created = await notion.createTask('Follow up Priya', '2026-11-27');
+    const created = await notion.createTask('Follow up Investor', '2026-11-27');
     expect(created.pageId).toBe('pg-new-2026');
     await notion.archivePage(created.pageId);
 

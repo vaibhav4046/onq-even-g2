@@ -34,6 +34,33 @@
         align-items: center;
         gap: 16px;
       }
+      #g2-preview { max-width: 100%; }
+      #link-status {
+        margin: 8px 0 0;
+        font-size: 14px;
+        color: #f5c542;
+        min-height: 1.2em;
+      }
+      #plain-controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        max-width: 576px;
+        margin-top: 12px;
+      }
+      #plain-controls[hidden] { display: none; }
+      #plain-controls button {
+        min-height: 64px;
+        font: inherit;
+        font-size: 18px;
+        color: #34f57e;
+        background: #06110b;
+        border: 1px solid #1a261f;
+        border-radius: 8px;
+        touch-action: manipulation;
+      }
+      #plain-controls button:active { background: #0e2a1a; }
+      #pc-talk { grid-column: 1 / -1; min-height: 88px; }
       #ring-img {
         width: 76px;
         height: 76px;
@@ -54,6 +81,14 @@
         <img id="ring-img" alt="OnQ 525nm monochrome green optical sprite" />
         <pre id="lens-text">ONQ | INITIALIZING...</pre>
       </div>
+    </div>
+    <p id="link-status" role="status" aria-live="polite"></p>
+    <div id="plain-controls" hidden>
+      <button id="pc-prev" type="button">Previous</button>
+      <button id="pc-next" type="button">Next</button>
+      <button id="pc-tap" type="button">Tap (select)</button>
+      <button id="pc-back" type="button">Back</button>
+      <button id="pc-talk" type="button">Hold to talk</button>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

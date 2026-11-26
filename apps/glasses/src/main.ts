@@ -33,12 +33,62 @@ import type {
   HudState,
   LiveUiSurface,
   MeetingSessionState,
+  OutboxUiStatus,
   SourceMode,
 } from '@onq/core';
 
-const RELAY_BASE =
+import {
+  authHeaders,
+  normalizeDeviceToken,
+  normalizeHostUrl,
+  resolveHostConfig,
+  STORAGE_DEVICE_KEY,
+  STORAGE_HOST_KEY,
+} from './hostConfig';
+import { createBrowserMic } from './browserVoice';
+import { DIAG, LinkSupervisor, PollTransport, runDiagnosis, backoffMs } from './linkDiag';
+import type { Diag, PollReply, StreamState } from './linkDiag';
+import { claimPairing, deviceLabel } from './pairClaim';
+
+const DEFAULT_RELAY =
   (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_ONQ_RELAY ??
   'http://127.0.0.1:8787';
+
+function safeLocalStorage(): Storage | null {
+  try {
+    return typeof localStorage === 'undefined' ? null : localStorage;
+  } catch {
+    return null;
+  }
+}
+
+const hostCfg = resolveHostConfig({
+  search: typeof location === 'undefined' ? '' : location.search,
+  stored: {
+    host: safeLocalStorage()?.getItem(STORAGE_HOST_KEY),
+    device: safeLocalStorage()?.getItem(STORAGE_DEVICE_KEY),
+  },
+  defaultBase: DEFAULT_RELAY,
+  page: typeof location === 'undefined' ? null : { origin: location.origin, pathname: location.pathname },
+});
+/** One-use code from the pairing link. Held in memory only; the address bar is cleaned right below. */
+let pendingPairCode: string | null = hostCfg.pairCode;
+/** Loopback relay by default. A paired build points at the computer (host) and carries its device token. */
+let RELAY_BASE = hostCfg.base;
+let deviceToken: string | null = hostCfg.deviceToken;
+let hostRevision = 0;
+if (hostCfg.fromQuery) {
+  // Remember the pairing, then take the token out of the address bar.
+  const ls = safeLocalStorage();
+  try {
+    if (deviceToken) ls?.setItem(STORAGE_DEVICE_KEY, deviceToken);
+    if (hostCfg.base !== DEFAULT_RELAY && !hostCfg.servedByHost) ls?.setItem(STORAGE_HOST_KEY, hostCfg.base);
+    // Removes ?pair= (and ?device=) from the address bar AND the history entry, before any network call.
+    history.replaceState(null, '', location.pathname);
+  } catch {
+    // storage or history unavailable: pairing still works for this session
+  }
+}
 
 const TEXT_CONTAINER_ID = 1;
 const LIST_CONTAINER_ID = 2;
@@ -55,8 +105,15 @@ let activeLiveUi: LiveUiSurface | null = null;
 let avatarTick = 0;
 const paintQueue = new BlePaintQueue(250);
 const pcmBuffer = new PcmRingBuffer();
+const browserMic = createBrowserMic((pcm) => {
+  pcmBuffer.push(pcm);
+  if (controller.getState().phase === 'listening') controller.setListening(Math.min(1, pcmBuffer.getRms() * 4), '');
+});
+let streamState: StreamState | null = typeof EventSource === 'undefined' ? 'unsupported' : null;
+let upFailures = 0;
 
 async function ensureSession(): Promise<string> {
+  if (deviceToken) return deviceToken; // paired: the computer already trusts this device, no demo session to mint
   if (sessionToken) return sessionToken;
   if (bridge) {
     try {
@@ -84,14 +141,21 @@ async function ensureSession(): Promise<string> {
 
 async function apiJson<T>(path: string, init: RequestInit = {}): Promise<{ status: number; data: T }> {
   const tok = await ensureSession();
-  const res = await fetch(`${RELAY_BASE}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${tok}`,
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${RELAY_BASE}${path}`, {
+      ...init,
+      headers: {
+        ...authHeaders(deviceToken, tok),
+        'Content-Type': 'application/json',
+        ...(init.headers ?? {}),
+      },
+    });
+  } catch (e) {
+    linkSupervisor.reportFailure(); // network trouble: find out which stage broke, with backoff
+    throw e;
+  }
+  if ((res.status === 401 || res.status === 423) && deviceToken) linkSupervisor.reportFailure();
   const data = (await res.json()) as T;
   return { status: res.status, data };
 }
@@ -355,7 +419,7 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
     if (opt?.commandText === '__START_LIVE_SCRIBE__') {
       await apiJson('/api/meeting/start', {
         method: 'POST',
-        body: JSON.stringify({ attendees: ['Priya Nair', 'Alex Chen'] }),
+        body: JSON.stringify({ attendees: ['Investor contact', 'Partner contact'] }),
       });
       const { data: meeting } = await apiJson<MeetingSessionState>('/api/meeting/turn', {
         method: 'POST',
@@ -444,7 +508,7 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
       method: 'POST',
       body: JSON.stringify({
         cardId: card.id,
-        commandText: opt?.commandText ?? 'Push 15m and tell Priya',
+        commandText: opt?.commandText ?? 'Push 15m and tell Investor',
       }),
     });
     if (status === 409) return data as ConflictLockDetail;
@@ -478,7 +542,13 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
     if (status >= 400) {
       throw new Error(`HTTP ${status}: ${(data as { status?: string }).status ?? 'Commit failed'}`);
     }
-    return data as CommitReceipt;
+    const receipt = data as CommitReceipt;
+    // Queued or sending in the background: re-read once after the card is shown, in case progress arrived before it.
+    if (receipt.outbox && receipt.outbox.status !== 'done') {
+      const obId = receipt.outbox.id;
+      queueMicrotask(() => void reconcileOutbox(obId).catch(() => undefined));
+    }
+    return receipt;
   },
   onUndoReceipt: async (receipt) => {
     const { data } = await apiJson<CommitReceipt>('/api/actions/undo', {
@@ -491,11 +561,18 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
     pcmBuffer.reset();
     if (bridge) {
       void bridge.audioControl(true, AudioInputSource.Glasses);
+    } else {
+      // Plain browser / non-Even glasses: use the device microphone (needs https or localhost).
+      void browserMic.start().then((ok) => {
+        if (!ok) controller.showError('MIC NEEDS HTTPS AND PERMISSION');
+      });
     }
   },
   onStopVoice: async () => {
     if (bridge) {
       void bridge.audioControl(false, AudioInputSource.Glasses);
+    } else {
+      browserMic.stop();
     }
     const gate = pcmBuffer.passesSilenceGate();
     if (!gate.ok) {
@@ -505,7 +582,7 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
     const tok = await ensureSession();
     const res = await fetch(`${RELAY_BASE}/api/stt`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${tok}` },
+      headers: authHeaders(deviceToken, tok),
       body: new Blob([new Uint8Array(pcmBuffer.toWav())], { type: 'audio/wav' }),
     });
     if (!res.ok) {
@@ -560,11 +637,70 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
   },
 });
 
+interface HostProfileLite {
+  revision: number;
+  locked?: boolean;
+  routing?: { active?: { label?: string } };
+  harnesses?: { items?: Array<{ status: string }> };
+}
+
+/** One request refreshes the model / harness line (corridor Card 3 carries it) when the host revision moved. */
+async function refreshHostLine(): Promise<void> {
+  if (!deviceToken) return;
+  const { status, data } = await apiJson<HostProfileLite | { unchanged: true; revision: number }>(
+    `/api/host/profile${hostRevision ? `?since=${hostRevision}` : ''}`,
+  );
+  if (status !== 200 || 'unchanged' in data) return;
+  hostRevision = data.revision;
+  const connected = (data.harnesses?.items ?? []).filter((h) => h.status === 'connected').length;
+  (window as unknown as Record<string, unknown>).__ONQ_HOST__ = {
+    revision: data.revision,
+    line: clipLine42(`${data.routing?.active?.label ?? 'Rules'} | ${connected} ready`, 42),
+    locked: Boolean(data.locked),
+  };
+  if (controller.getState().phase !== 'idle' || activeLiveUi) return;
+  const corr = await apiJson<{
+    cards: CorridorCard[];
+    sourceMode: SourceMode;
+    provenanceLabel: string;
+    syncedAtIso: string;
+  }>('/api/corridor');
+  if (corr.status === 200 && controller.getState().phase === 'idle' && !activeLiveUi) {
+    controller.setCorridor(corr.data.cards, corr.data.sourceMode, corr.data.provenanceLabel, corr.data.syncedAtIso);
+  }
+}
+
+/** Reads the outbox item and updates the result card with its final state, receipt lines and reason. */
+async function reconcileOutbox(id: string): Promise<void> {
+  const { data } = await apiJson<{ items?: Array<{ id: string; status: OutboxUiStatus; reason: string | null; result: { receiptId: string; summaryLines: string[]; canUndo: boolean } | null }> }>('/api/outbox');
+  const it = data.items?.find((i) => i.id === id);
+  if (it) controller.updateOutbox({ id, status: it.status, reason: it.reason ?? undefined, summaryLines: it.result?.summaryLines, canUndo: it.result?.canUndo, receiptId: it.result?.receiptId });
+}
+
 function startSseSync(tok: string): void {
   if (typeof EventSource === 'undefined') return;
   try {
     sseSource?.close();
-    sseSource = new EventSource(`${RELAY_BASE}/api/stream?token=${encodeURIComponent(tok)}`);
+    const source = new EventSource(`${RELAY_BASE}/api/stream?token=${encodeURIComponent(tok)}`);
+    sseSource = source;
+    streamState = 'connecting';
+    let sseErrors = 0;
+    source.onopen = () => {
+      streamState = 'open';
+      sseErrors = 0;
+      pollTransport.stop();
+    };
+    source.onerror = () => {
+      // The browser retries by itself while CONNECTING. Two misses in a row, or CLOSED, means the stream is blocked:
+      // fall back to long-polling (no tight loop: PollTransport backs off by itself).
+      sseErrors += 1;
+      if (source.readyState === 2 || sseErrors >= 2) {
+        source.close();
+        streamState = 'closed';
+        linkSupervisor.reportFailure();
+        void bringUp(DIAG.STREAM_DOWN);
+      }
+    };
     sseSource.addEventListener('corridor', () => {
       if (activeLiveUi) return;
       void apiJson<{
@@ -577,6 +713,17 @@ function startSseSync(tok: string): void {
           controller.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso);
         }
       });
+    });
+    // A write that went to the computer's background outbox: show QUEUED / SENDING / DONE (or why it failed) on the result card.
+    sseSource.addEventListener('outbox', (ev) => {
+      try {
+        const { id, status } = JSON.parse((ev as MessageEvent).data) as { id: string; status: OutboxUiStatus };
+        controller.updateOutbox({ id, status });
+        if (status !== 'done' && status !== 'failed') return;
+        void reconcileOutbox(id).catch(() => undefined);
+      } catch {
+        // ignore malformed SSE outbox frame
+      }
     });
     sseSource.addEventListener('meeting', (ev) => {
       try {
@@ -628,7 +775,7 @@ function startSseSync(tok: string): void {
               id: 'qa-proactive-stage',
               label: 'Stage Proactive Harness',
               intent: 'RESCHEDULE_AND_NOTIFY',
-              commandText: activeHarness.suggestedCommand ?? 'Push 15m and tell Priya',
+              commandText: activeHarness.suggestedCommand ?? 'Push 15m and tell Investor',
             },
           ],
         };
@@ -656,6 +803,21 @@ function startSseSync(tok: string): void {
         }
       });
     });
+    if (deviceToken) {
+      // Paired build only: the computer says its model / harness / connectors changed, so refetch the one profile.
+      sseSource.addEventListener('host', () => void refreshHostLine());
+      sseSource.addEventListener('locked', () => controller.showError('HOST LOCKED - KILL SWITCH ON'));
+      sseSource.addEventListener('revoked', () => {
+        try {
+          safeLocalStorage()?.removeItem(STORAGE_DEVICE_KEY);
+        } catch {
+          // ignore
+        }
+        deviceToken = null;
+        sseSource?.close();
+        controller.showError('DEVICE REVOKED - PAIR AGAIN');
+      });
+    }
     sseSource.addEventListener('liveui', (ev) => {
       try {
         const parsed = JSON.parse((ev as MessageEvent).data) as { surface?: LiveUiSurface | null };
@@ -695,6 +857,105 @@ function startSseSync(tok: string): void {
   } catch {
     // ignore SSE unavailability
   }
+}
+
+function showLinkStatus(diag: Diag): void {
+  const w = window as unknown as Record<string, unknown>;
+  w.__ONQ_LINK__ = { code: diag.code, stage: diag.stage, hud: diag.hud, detail: diag.detail, ok: diag.ok };
+  const el = document.getElementById('link-status');
+  if (el) {
+    el.textContent = diag.ok && diag.code === 'OK' ? '' : diag.detail;
+    el.dataset.code = diag.code;
+  }
+  if (diag.ok) return;
+  const phase = controller.getState().phase;
+  // Never cover a preview, a countdown or a recording with a connection notice.
+  if (phase === 'idle' || phase === 'stale' || phase === 'error') controller.showError(diag.hud);
+}
+
+async function loadCorridor(): Promise<void> {
+  const { status, data } = await apiJson<{
+    cards: CorridorCard[];
+    sourceMode: SourceMode;
+    provenanceLabel: string;
+    syncedAtIso: string;
+  }>('/api/corridor');
+  if (status !== 200 || !Array.isArray(data.cards)) throw new Error(`corridor HTTP ${status}`);
+  controller.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso);
+}
+
+/** Link is up: start the right transport (stream, or long-poll when the stream is blocked) and load the corridor. */
+async function bringUp(diag: Diag): Promise<void> {
+  try {
+    const tok = await ensureSession();
+    if (diag.transport === 'poll') {
+      sseSource?.close();
+      pollTransport.start();
+    } else if (!sseSource || sseSource.readyState === 2) {
+      startSseSync(tok);
+    }
+    void refreshHostLine().catch(() => undefined);
+    await loadCorridor();
+    upFailures = 0;
+  } catch {
+    // Diagnosis said fine but data did not load: show stale cache, retry with backoff (never a tight loop).
+    if (controller.getState().cards.length === 0) controller.setCorridor([], 'STALE', 'OFFLINE CACHE');
+    window.setTimeout(() => void linkSupervisor.check(), backoffMs(upFailures++));
+  }
+}
+
+const pollTransport = new PollTransport({
+  poll: async (since): Promise<PollReply | null> => {
+    const { status, data } = await apiJson<PollReply>(`/api/poll?wait=20${since === null ? '' : `&since=${since}`}`);
+    return status === 200 && typeof data.revision === 'number' ? data : null;
+  },
+  onChange: (event) => {
+    if (activeLiveUi || event === 'locked') return;
+    void refreshHostLine().catch(() => undefined);
+    void loadCorridor().catch(() => undefined);
+  },
+  onFailure: (n) => {
+    if (n >= 3) showLinkStatus(DIAG.ALL_BLOCKED);
+    else linkSupervisor.reportFailure();
+  },
+  onRecovered: () => void loadCorridor().catch(() => undefined),
+  clock: { schedule: (fn, ms) => window.setTimeout(fn, ms), clear: (h) => window.clearTimeout(h as number) },
+  now: () => Date.now(),
+});
+
+const linkSupervisor = new LinkSupervisor({
+  diagnose: () =>
+    runDiagnosis({
+      fetchImpl: (...a) => fetch(...a),
+      base: RELAY_BASE,
+      deviceToken,
+      pageOrigin: typeof location === 'undefined' ? null : location.origin,
+      onLine: typeof navigator === 'undefined' ? undefined : navigator.onLine,
+      stream: streamState,
+    }),
+  onStatus: showLinkStatus,
+  onUp: bringUp,
+  clock: { schedule: (fn, ms) => window.setTimeout(fn, ms), clear: (h) => window.clearTimeout(h as number) },
+});
+
+/** Big tap / voice buttons for devices that are not Even glasses (any phone, Meta, other browser glasses). */
+function wirePlainControls(show: boolean): void {
+  const box = document.getElementById('plain-controls');
+  if (!box || !show) return;
+  box.hidden = false;
+  const press = (id: string, ev: Parameters<typeof controller.handleEvent>[0]) =>
+    document.getElementById(id)?.addEventListener('click', () => void controller.handleEvent(ev));
+  press('pc-prev', { kind: 'SCROLL_UP' });
+  press('pc-next', { kind: 'SCROLL_DOWN' });
+  press('pc-tap', { kind: 'CLICK' });
+  press('pc-back', { kind: 'DOUBLE_CLICK' });
+  const talk = document.getElementById('pc-talk');
+  const end = () => void controller.handleEvent({ kind: 'LONG_PRESS_RELEASE' });
+  talk?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    void controller.handleEvent({ kind: 'LONG_PRESS' });
+  });
+  for (const n of ['pointerup', 'pointerleave', 'pointercancel'] as const) talk?.addEventListener(n, end);
 }
 
 async function bootstrap(): Promise<void> {
@@ -748,19 +1009,56 @@ async function bootstrap(): Promise<void> {
     });
   }
 
-  try {
-    const tok = await ensureSession();
-    startSseSync(tok);
-    const { data } = await apiJson<{
-      cards: CorridorCard[];
-      sourceMode: SourceMode;
-      provenanceLabel: string;
-      syncedAtIso: string;
-    }>('/api/corridor');
-    controller.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso);
-  } catch {
-    controller.setCorridor([], 'STALE', 'OFFLINE CACHE');
+  if (bridge && !deviceToken) {
+    // A paired glasses build keeps its pairing in the bridge storage when localStorage is unavailable.
+    try {
+      const dev = normalizeDeviceToken(await bridge.getLocalStorage(STORAGE_DEVICE_KEY));
+      const host = normalizeHostUrl(await bridge.getLocalStorage(STORAGE_HOST_KEY));
+      if (dev) {
+        deviceToken = dev;
+        if (host) RELAY_BASE = host;
+      }
+    } catch {
+      // stay on the loopback path
+    }
   }
+  if (bridge && deviceToken && hostCfg.fromQuery) {
+    try {
+      await bridge.setLocalStorage(STORAGE_DEVICE_KEY, deviceToken);
+      if (RELAY_BASE !== DEFAULT_RELAY) await bridge.setLocalStorage(STORAGE_HOST_KEY, RELAY_BASE);
+    } catch {
+      // ignore storage failure
+    }
+  }
+
+  wirePlainControls(!bridge);
+
+  // One link pairs: a ?pair= code in the link is claimed once here, then forgotten.
+  if (pendingPairCode) {
+    const code = pendingPairCode;
+    pendingPairCode = null;
+    const claimed = await claimPairing(
+      (...a) => fetch(...a),
+      RELAY_BASE,
+      code,
+      deviceLabel(Boolean(bridge), typeof navigator === 'undefined' ? '' : navigator.userAgent),
+    );
+    if (claimed.ok) {
+      deviceToken = claimed.deviceToken;
+      try {
+        safeLocalStorage()?.setItem(STORAGE_DEVICE_KEY, claimed.deviceToken);
+        if (bridge) await bridge.setLocalStorage(STORAGE_DEVICE_KEY, claimed.deviceToken);
+      } catch {
+        // storage unavailable: pairing still works for this session
+      }
+    } else if (!deviceToken) {
+      showLinkStatus(DIAG.PAIR_EXPIRED);
+      return;
+    }
+    // A failed claim with an existing pairing keeps the old token; the diagnosis below tells the user if it is dead.
+  }
+
+  await linkSupervisor.check();
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown') void controller.handleEvent({ kind: 'SCROLL_DOWN' });

@@ -70,6 +70,9 @@ async function captureGlasses(autoBase, filename) {
   const res = await fetch(`${autoBase}/api/screenshot/glasses`);
   if (!res.ok) throw new Error(`GET /api/screenshot/glasses failed: ${res.status}`);
   const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.byteLength <= 4500) {
+    throw new Error(`[sim:FAIL] Blank/empty simulator screenshot for ${filename} (${buf.byteLength} bytes)`);
+  }
   const out = path.join(SCREENSHOT_DIR, filename);
   fs.writeFileSync(out, buf);
   console.log(`[sim] Captured ${out} (${buf.byteLength} bytes)`);
@@ -77,7 +80,13 @@ async function captureGlasses(autoBase, filename) {
 
 async function main() {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onq-sim-'));
-  const relay = await createOnQServer({ port: 8787, dataDir, allowTestFaultControls: true });
+  const relay = await createOnQServer({
+    port: 8787,
+    dataDir,
+    allowTestFaultControls: true,
+    disableProactiveTimer: true,
+    llmConfig: { preferredProvider: 'rules' },
+  });
   const staticSrv = await startStaticGlassesServer();
 
   const simBin = path.join(ROOT, 'node_modules', '@evenrealities', 'evenhub-simulator', 'bin', 'index.js');
@@ -98,7 +107,7 @@ async function main() {
       await new Promise((r) => setTimeout(r, 350));
     }
 
-    // 1. Corridor Dossier (READ - Card 1: VC Sync - Priya Nair)
+    // 1. Corridor Dossier (READ - Card 1: Investor call)
     await captureGlasses(autoBase, 'sim-01-dossier.png');
 
     // 2. Scroll through Card 2 (Notion), Card 3 (Telegram), Card 4 (Proactive AI + Computer), then return to Card 1
@@ -112,10 +121,11 @@ async function main() {
     await sendInput(autoBase, 'up');
     await sendInput(autoBase, 'up');
 
-    // 3. Open Card 1 Actions -> Stage Default-NO Preview ("Push 15m + Reply Priya")
+    // 3. Open Card 1 Actions -> Stage Default-NO Preview ("Push 15m + Reply Investor")
     await sendInput(autoBase, 'click');
     await captureGlasses(autoBase, 'sim-03-detail.png');
     await sendInput(autoBase, 'click');
+    await new Promise((r) => setTimeout(r, 350));
     await captureGlasses(autoBase, 'sim-04-preview-no.png');
 
     // 4. Swipe to YES -> Arm 2.0s Countdown Ring -> Capture Ring + Commit Receipt
@@ -144,7 +154,7 @@ async function main() {
     const startRes = await fetch('http://127.0.0.1:8787/api/meeting/start', {
       method: 'POST',
       headers: authHeaders,
-      body: JSON.stringify({ attendees: ['Priya Nair', 'Alex Chen'] }),
+      body: JSON.stringify({ attendees: ['Investor contact', 'Partner contact'] }),
     });
     if (!startRes.ok) throw new Error(`POST /api/meeting/start failed: ${startRes.status}`);
     const turnRes = await fetch('http://127.0.0.1:8787/api/meeting/turn', {
@@ -221,7 +231,11 @@ async function main() {
     }
     await staticSrv.close();
     await relay.close();
-    fs.rmSync(dataDir, { recursive: true, force: true });
+    try {
+      fs.rmSync(dataDir, { recursive: true, force: true, maxRetries: 6, retryDelay: 250 });
+    } catch {
+      // ignore Windows SQLite WAL handle release lag on temp dir cleanup
+    }
   }
 }
 

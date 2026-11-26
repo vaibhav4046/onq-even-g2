@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import {
   ApplePixelTile,
   AssemblyAiPixelSvg,
@@ -16,10 +16,14 @@ import {
   ShieldPixelSvg,
   TelegramPixelSvg,
 } from './EcosystemIcons';
-import { GlyphDecodeHeading, ScrollReveal } from './MotionPrimitives';
+import { GlyphDecodeHeading, ScrollReveal, Stagger, StaggerItem } from './MotionPrimitives';
 import { NotionScan } from './connect/NotionScan';
-import { ProviderScanner } from './connect/ProviderScanner';
+import type { ApiSetupSlot } from './connect/SourceCards';
+import type { SourceId } from './connect/hostModel';
 import { TelegramScan } from './connect/TelegramScan';
+
+// Host-first top of Connect (this computer, pairing, sources, outbox) loads on demand so it stays out of the entry chunk.
+const ConnectHost = lazy(() => import('./connect/ConnectHost').then((m) => ({ default: m.ConnectHost })));
 
 export interface ConnectorHubProps {
   sessionToken: string | null;
@@ -93,6 +97,10 @@ type ConnectorProviderId =
 
 type ConnectorDrawerId = null | 'account' | 'bulk' | ConnectorProviderId;
 
+/** These three set-ups live inside their source card (under API key setup), not in the shared drawer. */
+const IN_CARD_SETUP: ConnectorDrawerId[] = ['googleWorkspace', 'notion', 'telegram'];
+const SOURCE_CARD_ID: Partial<Record<ConnectorProviderId, string>> = { googleWorkspace: 'calendar', notion: 'notion', telegram: 'telegram' };
+
 const SANDBOX_NOTION_DB_ID = '423373c508ea81b495c7f09c82c0e809';
 
 const fmtIcsUtc = (minsAhead: number) =>
@@ -104,22 +112,82 @@ const QUICK_SAMPLE_ICS = [
   'PRODID:-//OnQ//Corridor//EN',
   'BEGIN:VEVENT',
   'UID:onq-live-1@local',
-  'SUMMARY:VC Sync - Priya Nair',
+  'SUMMARY:Investor call',
   `DTSTART:${fmtIcsUtc(20)}`,
   `DTEND:${fmtIcsUtc(50)}`,
-  'ATTENDEE;CN="Priya Nair":mailto:priya@tvm.example',
+  'ATTENDEE;CN="Investor contact":mailto:investor@sample.example',
   'END:VEVENT',
   'BEGIN:VEVENT',
   'UID:onq-live-2@local',
-  'SUMMARY:Product Review - Alex Chen',
+  'SUMMARY:Team sync',
   `DTSTART:${fmtIcsUtc(85)}`,
   `DTEND:${fmtIcsUtc(115)}`,
-  'ATTENDEE;CN="Alex Chen":mailto:alex@partner.example',
+  'ATTENDEE;CN="Partner contact":mailto:partner@sample.example',
   'END:VEVENT',
   'END:VCALENDAR',
 ].join('\r\n');
 
 const GOOGLE_REDIRECT_URI = 'http://127.0.0.1:8787/api/auth/google/callback';
+
+type BadgeTone = 'ok' | 'warn' | 'off' | 'bad' | 'info';
+
+interface TrueState {
+  label: string;
+  tone: BadgeTone;
+  hint: string;
+}
+
+const IDLE_HINT: Record<ConnectorProviderId, string> = {
+  googleWorkspace: 'Not connected. Upload your Google OAuth JSON, then sign in. Or load a calendar file.',
+  notion: 'Not connected. Paste a Notion token.',
+  telegram: 'Not connected. Paste a BotFather token.',
+  claude: 'Not connected. Paste an Anthropic API key.',
+  openrouter: 'Not connected. Use Connect with OpenRouter.',
+  grok: 'Not connected. Paste an xAI key.',
+  omniroute: 'Not connected. Needs an OmniRoute gateway running on this computer.',
+  chatgpt: 'Not connected. Paste an OpenAI API key.',
+  assemblyai: 'Not connected. Voice uses the local fallback until you add a key.',
+};
+
+const BADGE_CLASS: Record<BadgeTone, string> = {
+  ok: 'border-[var(--g2-phosphor)]/60 text-[var(--g2-phosphor)] bg-[var(--g2-phosphor)]/10',
+  warn: 'border-[var(--warning)]/60 text-[var(--warning)] bg-[var(--warning)]/10',
+  bad: 'border-[var(--danger)]/60 text-[var(--danger)] bg-[var(--danger)]/10',
+  info: 'border-white/25 text-[var(--bright)] bg-white/10',
+  off: 'border-white/15 text-[var(--lightgray)] bg-white/5',
+};
+
+/**
+ * What a card may honestly claim. "Saved" is only a stored key. Only a passing test in this page
+ * (or a clearly labelled sample/file) earns more than that.
+ */
+function describeConnector(
+  id: ConnectorProviderId,
+  state: ConnectorCardStatus | undefined,
+  probe: ConnectorTestResult | undefined,
+  googleOAuthConfigured: boolean,
+  sampleCalendar: boolean,
+): TrueState {
+  const connected = Boolean(state?.connected);
+  if (state?.mode === 'COOLDOWN') return { label: 'COOLDOWN', tone: 'warn', hint: state.detail };
+  if (!connected) {
+    if (id === 'googleWorkspace' && googleOAuthConfigured) {
+      return { label: 'NEEDS SIGN-IN', tone: 'warn', hint: 'Google app saved. Press Sign in with Google.' };
+    }
+    return { label: 'NOT CONNECTED', tone: 'off', hint: IDLE_HINT[id] };
+  }
+  if (probe && !probe.ok) {
+    const signIn = /sign.?in|auth|expired|unauthori|401|403/i.test(probe.detail);
+    return { label: signIn ? 'NEEDS SIGN-IN' : 'TEST FAILED', tone: 'bad', hint: probe.detail };
+  }
+  if (probe?.ok) return { label: 'LIVE · TESTED', tone: 'ok', hint: probe.detail };
+  if (id === 'googleWorkspace' && state?.mode === 'ICS') {
+    return sampleCalendar
+      ? { label: 'SAMPLE CALENDAR', tone: 'info', hint: 'Made-up sample events are loaded. This is not your Google account.' }
+      : { label: 'CALENDAR FILE', tone: 'info', hint: 'A calendar file is loaded. This is not a Google sign-in.' };
+  }
+  return { label: 'SAVED · NOT TESTED', tone: 'warn', hint: 'Saved. Press Test Connection to confirm it works.' };
+}
 
 /**
  * Clean 1-Click Connectors Hub:
@@ -142,6 +210,7 @@ export function ConnectorsHub({
   const [copiedUri, setCopiedUri] = useState(false);
   const [testingId, setTestingId] = useState<ConnectorProviderId | null>(null);
   const [testResults, setTestResults] = useState<Partial<Record<ConnectorProviderId, ConnectorTestResult>>>({});
+  const [sampleCalendar, setSampleCalendar] = useState(false);
 
   const [accountName, setAccountName] = useState('');
   const [accountEmail, setAccountEmail] = useState('');
@@ -367,6 +436,12 @@ export function ConnectorsHub({
       });
       const json = (await res.json()) as { status?: ConnectorStatusResponse };
       if (json.status) setStatus(json.status);
+      setTestResults((prev) => {
+        const next = { ...prev };
+        delete next[provider as ConnectorProviderId];
+        return next;
+      });
+      if (provider === 'googleWorkspace') setSampleCalendar(false);
       setFeedback(`Disconnected ${provider}.`);
     } finally {
       setBusy(false);
@@ -502,6 +577,75 @@ export function ConnectorsHub({
 
   const connectedCards = cards.filter((x) => x.state?.connected);
 
+  const openDrawerAndScroll = (id: ConnectorDrawerId) => {
+    setOpenDrawer(id);
+    const card = id && id !== 'account' && id !== 'bulk' ? SOURCE_CARD_ID[id] : undefined;
+    window.requestAnimationFrame(() =>
+      document.getElementById(card ? `source-card-${card}` : 'connector-drawer')?.scrollIntoView({ block: 'nearest' }),
+    );
+  };
+
+  /** The three things only the owner can do, in order. Each button starts the real flow; no credential is read or stored here. */
+  const ownerActions = [
+    {
+      id: 'notion' as const,
+      state: status?.connectors.notion,
+      title: 'Paste your Notion token',
+      body: 'Create an integration at notion.so/profile/integrations, paste its token, press Save and connect. OnQ finds your database.',
+      actions: (
+        <button type="button" onClick={() => openDrawerAndScroll('notion')} className="retro-btn-primary px-3.5 py-1.5 text-xs font-semibold cursor-pointer">
+          Paste Notion token
+        </button>
+      ),
+    },
+    {
+      id: 'googleWorkspace' as const,
+      state: status?.connectors.googleWorkspace,
+      title: 'Upload Google OAuth JSON, then sign in',
+      body: 'Download client_secret.json from Google Cloud, upload it, save it, then press Sign in with Google.',
+      actions: (
+        <>
+          <label className="retro-btn-glass px-3.5 py-1.5 text-xs font-semibold text-[var(--g2-phosphor)] hover:text-[var(--lime)] cursor-pointer focus-within:outline focus-within:outline-2 focus-within:outline-[var(--lime)]">
+            1. Upload OAuth JSON
+            <input
+              type="file"
+              accept=".json,application/json"
+              className="sr-only"
+              onChange={(e) => {
+                handleGoogleJsonFile(e.target.files?.[0]);
+                openDrawerAndScroll('googleWorkspace');
+              }}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => void startGoogleSignIn()}
+            className="retro-btn-primary px-3.5 py-1.5 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
+          >
+            <GooglePixelSvg className="w-3.5 h-3.5" />
+            <span>2. Sign in with Google</span>
+          </button>
+        </>
+      ),
+    },
+    {
+      id: 'openrouter' as const,
+      state: status?.connectors.openrouter,
+      title: 'Connect with OpenRouter',
+      body: 'One click. You approve on openrouter.ai and OnQ stores the key encrypted. No copy and paste.',
+      actions: (
+        <button
+          type="button"
+          onClick={startOpenRouterOAuth}
+          className="retro-btn-primary px-3.5 py-1.5 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
+        >
+          <OpenRouterPixelSvg className="w-3.5 h-3.5" />
+          <span>Connect with OpenRouter</span>
+        </button>
+      ),
+    },
+  ];
+
   /** Runs the existing per-provider test for every connected card and returns a one-line summary. */
   const testAllConnected = async (): Promise<string> => {
     if (connectedCards.length === 0) return 'Nothing is connected yet, so there is nothing to test.';
@@ -536,17 +680,274 @@ export function ConnectorsHub({
     void loadStatus();
   };
 
+  const slotToggle = (id: ConnectorDrawerId) => (open: boolean) => setOpenDrawer((cur) => (open ? id : cur === id ? null : cur));
+  const googleSetup = (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
+                    CONNECT GOOGLE
+                  </span>
+                  <a
+                    href="https://console.cloud.google.com/apis/credentials"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-[var(--lime)] underline decoration-dashed underline-offset-2"
+                  >
+                    Google Cloud credentials -&gt;
+                  </a>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--lightgray)]">
+                  <span>Redirect URI:</span>
+                  <code className="bg-[var(--ink)] border border-[var(--hairline)] px-2 py-0.5 text-[var(--bright)]">
+                    {GOOGLE_REDIRECT_URI}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => void copyRedirectUri()}
+                    className="px-2 py-0.5 border border-[var(--hairline)] hover:border-[var(--lime)] cursor-pointer"
+                  >
+                    {copiedUri ? 'Copied!' : 'Copy URI'}
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void startGoogleSignIn('identity')}
+                    className="px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] font-semibold cursor-pointer"
+                  >
+                    Sign in only
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      void postConnect({ provider: 'ics', icsText: QUICK_SAMPLE_ICS }, 'Sample calendar loaded.').then(() => setSampleCalendar(true))
+                    }
+                    className="px-4 py-2 border border-[var(--g2-phosphor)] text-[var(--g2-phosphor)] font-semibold cursor-pointer hover:bg-[var(--g2-phosphor)] hover:text-[#0a0a0a]"
+                  >
+                    Load sample calendar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void startGoogleSignIn('workspace')}
+                    className="px-3 py-2 border border-[var(--hairline)] text-[var(--lightgray)] hover:text-[var(--bright)] font-semibold cursor-pointer"
+                  >
+                    Allow Gmail, Calendar and Drive
+                  </button>
+                </div>
+                <p className="text-[11px] text-[var(--lightgray)]">
+                  Sign in only confirms who you are, with no Google warning. Allowing Gmail, Calendar and Drive shows an unverified-app warning until Google finishes its review.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <input
+                    type="text"
+                    placeholder="Client ID"
+                    value={oauthClientId}
+                    onChange={(e) => setOauthClientId(e.target.value)}
+                    className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Client secret"
+                    value={oauthClientSecret}
+                    onChange={(e) => setOauthClientSecret(e.target.value)}
+                    className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
+                  />
+                </div>
+                <textarea
+                  rows={2}
+                  placeholder="Or paste your own .ics calendar text"
+                  value={icsText}
+                  onChange={(e) => setIcsText(e.target.value)}
+                  className="w-full bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
+                />
+                    <div className="flex flex-wrap gap-2">
+                      {oauthClientId.trim() && oauthClientSecret.trim() && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            void postConnect(
+                              {
+                                provider: oauthJsonText ? 'google_oauth_json' : 'google_oauth',
+                                googleOAuthJson: oauthJsonText || undefined,
+                                googleClientId: oauthClientId,
+                                googleClientSecret: oauthClientSecret,
+                              },
+                              'Saved. Now sign in with Google.',
+                            )
+                          }
+                          className="px-4 py-2 bg-[var(--bright)] text-[#0a0a0a] font-semibold cursor-pointer"
+                        >
+                          Save Google app
+                        </button>
+                      )}
+                      <label className="px-3 py-2 border border-[var(--hairline)] hover:border-[var(--g2-phosphor)] text-[var(--g2-phosphor)] font-semibold cursor-pointer">
+                        Import client_secret.json
+                        <input
+                          type="file"
+                          accept=".json,application/json"
+                          className="sr-only"
+                          onChange={(e) => handleGoogleJsonFile(e.target.files?.[0])}
+                        />
+                      </label>
+                      {icsText.trim() && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void postConnect({ provider: 'ics', icsText }, 'Calendar connected.')}
+                          className="px-4 py-2 border border-[var(--lime)] text-[var(--lime)] font-semibold cursor-pointer"
+                        >
+                          Connect my calendar
+                        </button>
+                      )}
+                    </div>
+              </>
+  );
+  const notionSetup = (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
+                    CONNECT NOTION
+                  </span>
+                  <a
+                    href="https://www.notion.so/profile/integrations"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-[var(--lime)] underline decoration-dashed underline-offset-2"
+                  >
+                    Create Integration Token -&gt;
+                  </a>
+                </div>
+                <NotionScan sessionToken={sessionToken} onSelected={afterScanChange} />
+                {status?.notionOAuthConfigured && (
+                  <div>
+                    <a
+                      href="/api/auth/notion/start"
+                      className="inline-block px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] font-semibold mb-2"
+                    >
+                      Sign in with Notion
+                    </a>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    type="password"
+                    placeholder="Notion token (ntn_...)"
+                    value={notionToken}
+                    onChange={(e) => setNotionToken(e.target.value)}
+                    className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Database ID (optional)"
+                    value={notionDbId}
+                    onChange={(e) => setNotionDbId(e.target.value)}
+                    className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    void postConnect(
+                      { provider: 'notion', notionToken, notionDatabaseId: notionDbId },
+                      'Notion database connected.',
+                    )
+                  }
+                  className="px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] font-semibold cursor-pointer"
+                >
+                  Save and connect
+                </button>
+              </>
+  );
+  const telegramSetup = (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[#26A5E4]">
+                    CONNECT TELEGRAM
+                  </span>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <a
+                      href="https://t.me/onq_g2_copilot_bot"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-[var(--lime)] underline decoration-dashed underline-offset-2"
+                    >
+                      Open the OnQ bot -&gt;
+                    </a>
+                    <a
+                      href="https://t.me/BotFather"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-[#26A5E4] underline decoration-dashed underline-offset-2"
+                    >
+                      @BotFather -&gt;
+                    </a>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    type="password"
+                    placeholder="Bot token"
+                    value={telegramBotToken}
+                    onChange={(e) => setTelegramBotToken(e.target.value)}
+                    className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Chat ID (optional)"
+                    value={telegramChatId}
+                    onChange={(e) => setTelegramChatId(e.target.value)}
+                    className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    void postConnect(
+                      { provider: 'telegram', telegramBotToken, telegramChatId },
+                      'Telegram is connected. Your token is stored encrypted.',
+                    )
+                  }
+                  className="retro-btn-primary px-4 py-2 cursor-pointer"
+                >
+                  Save and connect
+                </button>
+                <TelegramScan
+                  sessionToken={sessionToken}
+                  tokenSaved={Boolean(status?.connectors.telegram?.connected)}
+                  onChanged={afterScanChange}
+                />
+              </>
+  );
+  const mailSetup = (
+    <>
+      <p className="text-[11px] text-[var(--lightgray)]">Mail uses the same Google sign-in as Calendar.</p>
+      <button type="button" onClick={() => openDrawerAndScroll('googleWorkspace')} className="retro-btn-glass px-3 py-1.5 text-[11px] font-semibold cursor-pointer">
+        Open Google setup
+      </button>
+    </>
+  );
+  const apiSetup: Partial<Record<SourceId, ApiSetupSlot>> = {
+    calendar: { node: googleSetup, open: openDrawer === 'googleWorkspace', onToggle: slotToggle('googleWorkspace') },
+    gmail: { node: mailSetup },
+    notion: { node: notionSetup, open: openDrawer === 'notion', onToggle: slotToggle('notion') },
+    telegram: { node: telegramSetup, open: openDrawer === 'telegram', onToggle: slotToggle('telegram') },
+  };
+
   return (
     <section id="connectors" className="section-rule py-20 sm:py-24">
       <div className="container-page space-y-8">
         <ScrollReveal className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div className="space-y-2 max-w-2xl">
             <p className="font-pixel text-[11px] uppercase tracking-[0.22em] text-[var(--lightgray)]">
-              CONNECT ONCE
+              THIS COMPUTER IS THE HOST
             </p>
             <h2 className="font-dots font-black leading-[0.95] tracking-[-0.01em] text-[2rem] sm:text-[2.75rem] lg:text-[3.4rem]">
-              <span className="block text-[var(--lightgray)]">Sign in once.</span>
-              <GlyphDecodeHeading text="Everything links automatically." className="block text-[var(--bright)]" />
+              <span className="block text-[var(--lightgray)]">Pair once.</span>
+              <GlyphDecodeHeading text="Your computer holds everything." className="block text-[var(--bright)]" />
             </h2>
           </div>
 
@@ -561,7 +962,8 @@ export function ConnectorsHub({
                   : 'Encrypted local vault'}
               </div>
               <div className="font-pixel text-[9px] uppercase tracking-[0.14em] text-[var(--g2-phosphor)]">
-                {mode === 'DEMO' ? 'DEMO' : mode} · {cards.filter((x) => x.state?.connected).length}/{cards.length} connected · {status?.activeLlmProvider ?? 'Built-in rules'}
+                {mode === 'LIVE' ? 'LIVE DATA' : mode === 'DEMO' ? 'SAMPLE DATA' : mode} · {connectedCards.length} saved ·{' '}
+                {Object.values(testResults).filter((r) => r?.ok).length} tested ok · AI: {status?.activeLlmProvider ?? 'Built-in rules'}
               </div>
             </div>
             <button
@@ -585,7 +987,7 @@ export function ConnectorsHub({
               className="retro-btn-glass px-3 py-1.5 text-[var(--g2-phosphor)] font-semibold cursor-pointer inline-flex items-center gap-1.5"
             >
               <OpenRouterPixelSvg className="w-3.5 h-3.5" />
-              <span>Quick OpenRouter</span>
+              <span>Connect with OpenRouter</span>
             </button>
             <button
               type="button"
@@ -605,13 +1007,60 @@ export function ConnectorsHub({
           </div>
         </ScrollReveal>
 
-        <ProviderScanner
-          sessionToken={sessionToken}
-          fallbackAiLabel={status?.activeLlmProvider ?? 'fixed rules'}
-          fallbackConnected={{ connected: connectedCards.length, total: cards.length }}
-          onTestAll={testAllConnected}
-          onModelChanged={afterScanChange}
-        />
+        {!sessionToken && (
+          <p className="text-xs text-[var(--warning)] border border-dashed border-[var(--warning)]/40 px-4 py-2.5" role="status">
+            Cannot reach the OnQ server on this computer, so nothing can be connected yet. Start OnQ, then reload.
+          </p>
+        )}
+
+        <Suspense
+          fallback={
+            <p className="text-xs text-[var(--lightgray)]" role="status">
+              Loading this computer...
+            </p>
+          }
+        >
+          <ConnectHost
+            sessionToken={sessionToken}
+            apiSetup={apiSetup}
+            fallbackAiLabel={status?.activeLlmProvider ?? 'fixed rules'}
+            fallbackConnected={{ connected: connectedCards.length, total: cards.length }}
+            onTestAll={testAllConnected}
+            onModelChanged={afterScanChange}
+          />
+        </Suspense>
+
+        <section aria-labelledby="one-time-heading" className="space-y-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 id="one-time-heading" className="font-pixel text-[11px] uppercase tracking-[0.2em] text-[var(--g2-phosphor)]">
+              Optional: make it faster
+            </h3>
+            <p className="text-[11px] text-[var(--lightgray)]">API keys and sign-ins are the fastest route. You can skip all three. Each card shows its real state.</p>
+          </div>
+          <Stagger className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {ownerActions.map((a, i) => {
+              const truth = describeConnector(a.id, a.state, testResults[a.id], Boolean(status?.googleOAuthConfigured), sampleCalendar);
+              return (
+                <StaggerItem key={a.id} className="h-full">
+                  <div className="retro-glass-card h-full p-5 flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">Optional {i + 1}</span>
+                      <span
+                        className={`font-pixel text-[9px] uppercase tracking-[0.14em] px-2.5 py-0.5 rounded-full border whitespace-nowrap ${BADGE_CLASS[truth.tone]}`}
+                      >
+                        {truth.label}
+                      </span>
+                    </div>
+                    <h4 className="font-display text-lg font-bold text-[var(--bright)] leading-tight">{a.title}</h4>
+                    <p className="text-xs text-[var(--lightgray)] leading-relaxed">{a.body}</p>
+                    <div className="mt-auto flex flex-wrap gap-2 pt-1">{a.actions}</div>
+                  </div>
+                </StaggerItem>
+              );
+            })}
+          </Stagger>
+        </section>
+
 
         {openDrawer === 'bulk' && (
           <div className="retro-glass-panel p-5 space-y-4 text-xs">
@@ -663,7 +1112,7 @@ export function ConnectorsHub({
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() => void postConnect({ provider: 'ics', icsText: QUICK_SAMPLE_ICS }, 'Sample calendar loaded.')}
+                    onClick={() => void postConnect({ provider: 'ics', icsText: QUICK_SAMPLE_ICS }, 'Sample calendar loaded.').then(() => setSampleCalendar(true))}
                     className="px-2.5 py-1 border border-[var(--g2-phosphor)] text-[var(--g2-phosphor)] text-[11px] cursor-pointer"
                   >
                     Load sample calendar
@@ -886,13 +1335,15 @@ export function ConnectorsHub({
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {cards.map((c) => {
             const connected = Boolean(c.state?.connected);
             const active = openDrawer === c.id;
             const latestProbe = testResults[c.id];
+            const truth = describeConnector(c.id, c.state, latestProbe, Boolean(status?.googleOAuthConfigured), sampleCalendar);
             return (
-              <div key={c.id} className="retro-glass-card p-5 flex flex-col justify-between space-y-4">
+              <StaggerItem key={c.id} className="h-full">
+              <div className="retro-glass-card h-full p-5 flex flex-col justify-between space-y-4">
                 <div className="space-y-2.5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-3">
@@ -903,19 +1354,13 @@ export function ConnectorsHub({
                       </div>
                     </div>
                     <span
-                      className={`font-pixel text-[9px] uppercase tracking-[0.14em] px-2.5 py-0.5 rounded-full border ${
-                        c.state?.mode === 'COOLDOWN'
-                          ? 'border-[var(--warning)]/60 text-[var(--warning)] bg-[var(--warning)]/10'
-                          : connected
-                            ? 'border-[var(--g2-phosphor)]/60 text-[var(--g2-phosphor)] bg-[var(--g2-phosphor)]/10'
-                            : 'border-white/15 text-[var(--lightgray)] bg-white/5'
-                      }`}
+                      className={`font-pixel text-[9px] uppercase tracking-[0.14em] px-2.5 py-0.5 rounded-full border whitespace-nowrap ${BADGE_CLASS[truth.tone]}`}
                     >
-                      {c.state?.mode ?? 'READY'}
+                      {truth.label}
                     </span>
                   </div>
                   <p className="text-xs text-[var(--lightgray)]">{c.sub}</p>
-                  {c.state?.detail && <p className="text-[11px] text-[var(--bright)]/80">{c.state.detail}</p>}
+                  <p className="text-[11px] text-[var(--bright)]/80">{truth.hint}</p>
                   {c.id === 'googleWorkspace' && status && !status.googleOAuthConfigured && !connected && (
                     <ol className="text-[11px] text-[var(--lightgray)] list-decimal pl-4 space-y-0.5">
                       <li>Google sign-in is not set up yet. Create an OAuth client in Google Cloud.</li>
@@ -942,7 +1387,7 @@ export function ConnectorsHub({
                       if (c.id === 'googleWorkspace' && status?.googleOAuthConfigured && !connected) {
                         void startGoogleSignIn();
                       } else {
-                        setOpenDrawer(active ? null : c.id);
+                        openDrawerAndScroll(active ? null : c.id);
                       }
                     }}
                     className={`px-3.5 py-1.5 text-xs font-semibold cursor-pointer ${
@@ -974,193 +1419,14 @@ export function ConnectorsHub({
                   )}
                 </div>
               </div>
+              </StaggerItem>
             );
           })}
-        </div>
+        </Stagger>
 
-        {openDrawer && openDrawer !== 'account' && openDrawer !== 'bulk' && (
-          <div className="retro-glass-panel p-5 space-y-3 text-xs">
-            {openDrawer === 'googleWorkspace' && (
-              <>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                    CONNECT GOOGLE
-                  </span>
-                  <a
-                    href="https://console.cloud.google.com/apis/credentials"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] text-[var(--lime)] underline decoration-dashed underline-offset-2"
-                  >
-                    Google Cloud credentials -&gt;
-                  </a>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--lightgray)]">
-                  <span>Redirect URI:</span>
-                  <code className="bg-[var(--ink)] border border-[var(--hairline)] px-2 py-0.5 text-[var(--bright)]">
-                    {GOOGLE_REDIRECT_URI}
-                  </code>
-                  <button
-                    type="button"
-                    onClick={() => void copyRedirectUri()}
-                    className="px-2 py-0.5 border border-[var(--hairline)] hover:border-[var(--lime)] cursor-pointer"
-                  >
-                    {copiedUri ? 'Copied!' : 'Copy URI'}
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void startGoogleSignIn('identity')}
-                    className="px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] font-semibold cursor-pointer"
-                  >
-                    Sign in only
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() =>
-                      void postConnect({ provider: 'ics', icsText: QUICK_SAMPLE_ICS }, 'Sample calendar loaded.')
-                    }
-                    className="px-4 py-2 border border-[var(--g2-phosphor)] text-[var(--g2-phosphor)] font-semibold cursor-pointer hover:bg-[var(--g2-phosphor)] hover:text-[#0a0a0a]"
-                  >
-                    Load sample calendar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void startGoogleSignIn('workspace')}
-                    className="px-3 py-2 border border-[var(--hairline)] text-[var(--lightgray)] hover:text-[var(--bright)] font-semibold cursor-pointer"
-                  >
-                    Allow Gmail, Calendar and Drive
-                  </button>
-                </div>
-                <p className="text-[11px] text-[var(--lightgray)]">
-                  Sign in only confirms who you are, with no Google warning. Allowing Gmail, Calendar and Drive shows an unverified-app warning until Google finishes its review.
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                  <input
-                    type="text"
-                    placeholder="Client ID"
-                    value={oauthClientId}
-                    onChange={(e) => setOauthClientId(e.target.value)}
-                    className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
-                  />
-                  <input
-                    type="password"
-                    placeholder="Client secret"
-                    value={oauthClientSecret}
-                    onChange={(e) => setOauthClientSecret(e.target.value)}
-                    className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
-                  />
-                </div>
-                <textarea
-                  rows={2}
-                  placeholder="Or paste your own .ics calendar text"
-                  value={icsText}
-                  onChange={(e) => setIcsText(e.target.value)}
-                  className="w-full bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
-                />
-                    <div className="flex flex-wrap gap-2">
-                      {oauthClientId.trim() && oauthClientSecret.trim() && (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() =>
-                            void postConnect(
-                              {
-                                provider: oauthJsonText ? 'google_oauth_json' : 'google_oauth',
-                                googleOAuthJson: oauthJsonText || undefined,
-                                googleClientId: oauthClientId,
-                                googleClientSecret: oauthClientSecret,
-                              },
-                              'Saved. Now sign in with Google.',
-                            )
-                          }
-                          className="px-4 py-2 bg-[var(--bright)] text-[#0a0a0a] font-semibold cursor-pointer"
-                        >
-                          Save Google app
-                        </button>
-                      )}
-                      <label className="px-3 py-2 border border-[var(--hairline)] hover:border-[var(--g2-phosphor)] text-[var(--g2-phosphor)] font-semibold cursor-pointer">
-                        Import client_secret.json
-                        <input
-                          type="file"
-                          accept=".json,application/json"
-                          className="sr-only"
-                          onChange={(e) => handleGoogleJsonFile(e.target.files?.[0])}
-                        />
-                      </label>
-                      {icsText.trim() && (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void postConnect({ provider: 'ics', icsText }, 'Calendar connected.')}
-                          className="px-4 py-2 border border-[var(--lime)] text-[var(--lime)] font-semibold cursor-pointer"
-                        >
-                          Connect my calendar
-                        </button>
-                      )}
-                    </div>
-              </>
-            )}
+        {openDrawer && !IN_CARD_SETUP.includes(openDrawer) && openDrawer !== 'account' && openDrawer !== 'bulk' && (
+          <div id="connector-drawer" className="retro-glass-panel p-5 space-y-3 text-xs">
 
-            {openDrawer === 'notion' && (
-              <>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--lime)]">
-                    CONNECT NOTION
-                  </span>
-                  <a
-                    href="https://www.notion.so/profile/integrations"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] text-[var(--lime)] underline decoration-dashed underline-offset-2"
-                  >
-                    Create Integration Token -&gt;
-                  </a>
-                </div>
-                <NotionScan sessionToken={sessionToken} onSelected={afterScanChange} />
-                {status?.notionOAuthConfigured && (
-                  <div>
-                    <a
-                      href="/api/auth/notion/start"
-                      className="inline-block px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] font-semibold mb-2"
-                    >
-                      Sign in with Notion
-                    </a>
-                  </div>
-                )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <input
-                    type="password"
-                    placeholder="Notion token (ntn_...)"
-                    value={notionToken}
-                    onChange={(e) => setNotionToken(e.target.value)}
-                    className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Database ID (optional)"
-                    value={notionDbId}
-                    onChange={(e) => setNotionDbId(e.target.value)}
-                    className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
-                  />
-                </div>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() =>
-                    void postConnect(
-                      { provider: 'notion', notionToken, notionDatabaseId: notionDbId },
-                      'Notion database connected.',
-                    )
-                  }
-                  className="px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] font-semibold cursor-pointer"
-                >
-                  Save and connect
-                </button>
-              </>
-            )}
 
             {openDrawer === 'claude' && (
               <>
@@ -1379,67 +1645,6 @@ export function ConnectorsHub({
               </>
             )}
 
-            {openDrawer === 'telegram' && (
-              <>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[#26A5E4]">
-                    CONNECT TELEGRAM
-                  </span>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <a
-                      href="https://t.me/onq_g2_copilot_bot"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[11px] text-[var(--lime)] underline decoration-dashed underline-offset-2"
-                    >
-                      Open the OnQ bot -&gt;
-                    </a>
-                    <a
-                      href="https://t.me/BotFather"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[11px] text-[#26A5E4] underline decoration-dashed underline-offset-2"
-                    >
-                      @BotFather -&gt;
-                    </a>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <input
-                    type="password"
-                    placeholder="Bot token"
-                    value={telegramBotToken}
-                    onChange={(e) => setTelegramBotToken(e.target.value)}
-                    className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Chat ID (optional)"
-                    value={telegramChatId}
-                    onChange={(e) => setTelegramChatId(e.target.value)}
-                    className="bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
-                  />
-                </div>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() =>
-                    void postConnect(
-                      { provider: 'telegram', telegramBotToken, telegramChatId },
-                      'Telegram is connected. Your token is stored encrypted.',
-                    )
-                  }
-                  className="retro-btn-primary px-4 py-2 cursor-pointer"
-                >
-                  Save and connect
-                </button>
-                <TelegramScan
-                  sessionToken={sessionToken}
-                  tokenSaved={Boolean(status?.connectors.telegram?.connected)}
-                  onChanged={afterScanChange}
-                />
-              </>
-            )}
 
             {openDrawer === 'assemblyai' && (
               <>

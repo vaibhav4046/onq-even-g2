@@ -76,7 +76,7 @@ describe('Real OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harnes
     expect(json.sandboxAvailable).toBe(true);
   });
 
-  it('4. Full Google OAuth2 PKCE + CSRF flow sets signed HttpOnly cookie and authenticates /api/corridor + signout wipe', async () => {
+  it('4. Full Google OAuth2 PKCE + CSRF flow sets signed HttpOnly cookie and authenticates /api/corridor + signout keeps saved credentials', async () => {
     const prevId = process.env.GOOGLE_CLIENT_ID;
     const prevSec = process.env.GOOGLE_CLIENT_SECRET;
     process.env.GOOGLE_CLIENT_ID = 'test-client-id.apps.googleusercontent.com';
@@ -157,14 +157,14 @@ describe('Real OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harnes
       });
       expect(connRes.status).toBe(200);
 
-      // Sign out wipes vault + revokes session + clears cookie
+      // Sign out revokes the session + clears the cookie but must NOT wipe saved connector credentials (only 'disconnect all' may)
       const outRes = await fetch(`${srv.url}/api/auth/signout`, {
         method: 'POST',
         headers: { Cookie: cookiePair },
       });
       expect(outRes.status).toBe(200);
       expect(outRes.headers.get('set-cookie') ?? '').toContain('Max-Age=0');
-      expect(srv.vault.load().googleRefreshToken).toBeUndefined();
+      expect(srv.vault.load().googleRefreshToken).toBeTruthy();
 
       // Reused revoked cookie returns 401
       const afterRevoke = await fetch(`${srv.url}/api/connectors/status`, {
@@ -229,11 +229,11 @@ describe('Real OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harnes
   it('6. routeModelCompletion cascades Claude 429 -> OpenRouter 200 OK', async () => {
     const out = await routeModelCompletion(
       {
-        recipientName: 'Priya Nair',
-        recipientEmail: 'priya@tvm.example',
-        allowedRecipients: ['priya@tvm.example'],
+        recipientName: 'Investor contact',
+        recipientEmail: 'investor@sample.example',
+        allowedRecipients: ['investor@sample.example'],
         sourceEmailText: 'Can we push 15m?',
-        userUtterance: 'Push 15m and tell Priya',
+        userUtterance: 'Push 15m and tell Investor',
         computedFacts: ['14:15'],
         fallbackDraft: 'Pushing to 14:15.',
       },
@@ -261,11 +261,11 @@ describe('Real OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harnes
   it('7. routeModelCompletion cascades Claude 401 + OpenRouter 503 -> ChatGPT 200 OK', async () => {
     const out = await routeModelCompletion(
       {
-        recipientName: 'Priya Nair',
-        recipientEmail: 'priya@tvm.example',
-        allowedRecipients: ['priya@tvm.example'],
+        recipientName: 'Investor contact',
+        recipientEmail: 'investor@sample.example',
+        allowedRecipients: ['investor@sample.example'],
         sourceEmailText: 'Can we push 15m?',
-        userUtterance: 'Push 15m and tell Priya',
+        userUtterance: 'Push 15m and tell Investor',
         computedFacts: ['14:15'],
         fallbackDraft: 'Pushing to 14:15.',
       },
@@ -291,11 +291,11 @@ describe('Real OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harnes
   it('8. routeModelCompletion cascades timeout + malformed JSON + 500 cleanly to Rules engine', async () => {
     const out = await routeModelCompletion(
       {
-        recipientName: 'Priya Nair',
-        recipientEmail: 'priya@tvm.example',
-        allowedRecipients: ['priya@tvm.example'],
+        recipientName: 'Investor contact',
+        recipientEmail: 'investor@sample.example',
+        allowedRecipients: ['investor@sample.example'],
         sourceEmailText: 'Can we push 15m?',
-        userUtterance: 'Push 15m and tell Priya',
+        userUtterance: 'Push 15m and tell Investor',
         computedFacts: ['14:15'],
         fallbackDraft: 'Running slightly behind, pushing VC Sync to 14:15.',
       },
@@ -334,11 +334,11 @@ describe('Real OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harnes
   it('9. routeModelCompletion Code-Guard rejects prompt-injection draft and cascades safely', async () => {
     const out = await routeModelCompletion(
       {
-        recipientName: 'Priya Nair',
-        recipientEmail: 'priya@tvm.example',
-        allowedRecipients: ['priya@tvm.example'],
+        recipientName: 'Investor contact',
+        recipientEmail: 'investor@sample.example',
+        allowedRecipients: ['investor@sample.example'],
         sourceEmailText: 'Can we push 15m?',
-        userUtterance: 'Push 15m and tell Priya',
+        userUtterance: 'Push 15m and tell Investor',
         computedFacts: ['14:15'],
         fallbackDraft: 'Running slightly behind, pushing VC Sync to 14:15.',
       },
@@ -372,7 +372,7 @@ describe('Real OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harnes
 
     // 10a: Full 6-step committed trace
     const okRun = await runOrchestrationHarness({
-      utterance: 'Push 15m and tell Priya',
+      utterance: 'Push 15m and tell Investor',
       provider,
       ledger: srv.ledger,
       sessionHash: 'hash_eval',
@@ -421,7 +421,7 @@ describe('Real OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harnes
     const runRes = await fetch(`${srv.url}/api/harness/run`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${sessionToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ utterance: 'Push 15m and tell Priya' }),
+      body: JSON.stringify({ utterance: 'Push 15m and tell Investor' }),
     });
     expect(runRes.status).toBe(200);
     const runJson = (await runRes.json()) as { outcome: string; steps: unknown[] };

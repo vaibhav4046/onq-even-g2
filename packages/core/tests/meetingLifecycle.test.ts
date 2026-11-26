@@ -15,16 +15,16 @@ const CARD_MEETING: CorridorCard = {
   id: 'card-1',
   sourceMode: 'DEMO',
   syncedAtIso: '2026-11-24T13:48:00.000Z',
-  provenanceLabel: 'DEMO · SANDBOX',
+  provenanceLabel: 'DEMO · SAMPLE',
   kind: 'MEETING',
-  title: 'VC Sync - Priya Nair',
+  title: 'Investor call',
   timeMeta: '14:00 (12m)',
   contextLine1: 'Can we push 15m? Q4 deck ready?',
   contextLine2: 'Q4_Metrics_v3 | 2 comments',
   triageRule: 'IMMINENT_MTG',
   etag: 'etag-1',
   quickActions: [
-    { id: 'q1', label: 'Push 15m + Reply', intent: 'RESCHEDULE_AND_NOTIFY', commandText: 'Push 15m and tell Priya' },
+    { id: 'q1', label: 'Push 15m + Reply', intent: 'RESCHEDULE_AND_NOTIFY', commandText: 'Push 15m and tell Investor' },
   ],
 };
 
@@ -37,7 +37,7 @@ const WRAP_PREVIEW: ActionPreview = {
   summaryLines: [
     '1) NOTION: Send Q4 metrics deck',
     '2) GCAL: Follow-up 17:00 (30m)',
-    '3) MAIL: Draft Priya Nair',
+    '3) MAIL: Draft Investor contact',
   ],
   operations: [
     { provider: 'NOTION', op: 'CREATE_TASK', targetLabel: 'Meeting Notes', afterValue: 'Send Q4 metrics deck' },
@@ -63,24 +63,24 @@ describe('meetingLifecycle.ts (Before / During / After)', () => {
   it('3. distinguishes confirm, cancel, question, and action commands', () => {
     expect(parseWakeCommand('OnQ, confirm action').kind).toBe('CONFIRM');
     expect(parseWakeCommand('Cancel').kind).toBe('CANCEL');
-    expect(parseWakeCommand('What did Priya decide?').kind).toBe('ASK');
-    expect(parseWakeCommand('Push 15m and tell Priya').kind).toBe('ACTION');
+    expect(parseWakeCommand('What did Investor decide?').kind).toBe('ASK');
+    expect(parseWakeCommand('Push 15m and tell Investor').kind).toBe('ACTION');
   });
 
   it('4. maps <1s PENDING speaker label safely without fabricating identity', () => {
-    const mapped = mapSpeakerToAttendee('PENDING', ['Priya Nair', 'Alex Chen']);
+    const mapped = mapSpeakerToAttendee('PENDING', ['Investor contact', 'Partner contact']);
     expect(mapped.attendeeName).toBe('Speaker...');
     expect(mapped.isWearer).toBe(false);
     expect(mapped.shortCode).toBe('S?');
   });
 
   it('5. maps wearer Speaker A vs attendees Speaker B and Speaker C', () => {
-    const s1 = mapSpeakerToAttendee('Speaker A', ['Priya Nair', 'Alex Chen']);
-    const s2 = mapSpeakerToAttendee('Speaker B', ['Priya Nair', 'Alex Chen']);
-    const s3 = mapSpeakerToAttendee('Speaker C', ['Priya Nair', 'Alex Chen']);
+    const s1 = mapSpeakerToAttendee('Speaker A', ['Investor contact', 'Partner contact']);
+    const s2 = mapSpeakerToAttendee('Speaker B', ['Investor contact', 'Partner contact']);
+    const s3 = mapSpeakerToAttendee('Speaker C', ['Investor contact', 'Partner contact']);
     expect(s1).toEqual({ attendeeName: 'You', isWearer: true, shortCode: 'S1' });
-    expect(s2).toEqual({ attendeeName: 'Priya', isWearer: false, shortCode: 'S2' });
-    expect(s3).toEqual({ attendeeName: 'Alex', isWearer: false, shortCode: 'S3' });
+    expect(s2).toEqual({ attendeeName: 'Investor', isWearer: false, shortCode: 'S2' });
+    expect(s3).toEqual({ attendeeName: 'Partner', isWearer: false, shortCode: 'S3' });
   });
 
   it('6. voice confirmation guard blocks silent audio and non-wearer speakers', () => {
@@ -114,7 +114,7 @@ describe('meetingLifecycle.ts (Before / During / After)', () => {
       {
         id: 't0',
         speakerLabel: 'Speaker B',
-        attendeeName: 'Priya',
+        attendeeName: 'Investor',
         text: 'Agreed: partial thought',
         atIso: '2026-11-24T14:01:00.000Z',
         isWearer: false,
@@ -132,8 +132,8 @@ describe('meetingLifecycle.ts (Before / During / After)', () => {
       {
         id: 't2',
         speakerLabel: 'Speaker B',
-        attendeeName: 'Priya',
-        text: 'Action: send Q4 metrics deck to Alex by Thursday 15:00.',
+        attendeeName: 'Investor',
+        text: 'Action: send Q4 metrics deck to Partner by Thursday 15:00.',
         atIso: '2026-11-24T14:03:00.000Z',
         isWearer: false,
         isFinal: true,
@@ -143,7 +143,7 @@ describe('meetingLifecycle.ts (Before / During / After)', () => {
     expect(decisions).toHaveLength(1);
     expect(decisions[0].speaker).toBe('You');
     expect(actions).toHaveLength(1);
-    expect(actions[0].owner).toBe('Priya');
+    expect(actions[0].owner).toBe('Investor');
     expect(actions[0].dueIso).toBeDefined();
   });
 
@@ -151,7 +151,7 @@ describe('meetingLifecycle.ts (Before / During / After)', () => {
     const buf = new MeetingTranscriptBuffer(10);
     buf.start({
       providerMode: 'DEMO_SANDBOX',
-      attendees: ['Priya Nair', 'Alex Chen'],
+      attendees: ['Investor contact', 'Partner contact'],
       startedAtIso: '2026-11-24T14:00:00.000Z',
     });
     buf.pushTurn({ speakerLabel: 'Speaker B', text: 'Send Q4', isFinal: false, atIso: '2026-11-24T14:01:00.000Z' });
@@ -171,12 +171,12 @@ describe('meetingLifecycle.ts (Before / During / After)', () => {
     const buf = new MeetingTranscriptBuffer();
     const meeting = buf.start({
       providerMode: 'LIVE_ASSEMBLYAI',
-      attendees: ['Priya Nair', 'Alex Chen'],
+      attendees: ['Investor contact', 'Partner contact'],
       startedAtIso: '2026-11-24T14:00:00.000Z',
     });
     buf.pushTurn({
       speakerLabel: 'Speaker B',
-      text: 'Agreed: approve Q4 rollout and send final metrics deck to Alex by Thursday morning.',
+      text: 'Agreed: approve Q4 rollout and send final metrics deck to Partner by Thursday morning.',
       isFinal: true,
       atIso: '2026-11-24T14:02:00.000Z',
     });
@@ -207,7 +207,7 @@ describe('meetingLifecycle.ts (Before / During / After)', () => {
   it('11. OnQHudController transitions to meeting_live and back to corridor on wipe', () => {
     const ctrl = new OnQHudController(createInitialHudState([CARD_MEETING], 'DEMO'));
     const buf = new MeetingTranscriptBuffer();
-    const meeting = buf.start({ providerMode: 'DEMO_SANDBOX', attendees: ['Priya Nair'] });
+    const meeting = buf.start({ providerMode: 'DEMO_SANDBOX', attendees: ['Investor contact'] });
     ctrl.setMeetingSession(meeting);
     expect(ctrl.getState().phase).toBe('meeting_live');
 

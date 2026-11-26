@@ -71,7 +71,7 @@ describe('Connector Hub & Multi-Model Inference Harness', () => {
     const cRes = await fetch(`${srv.url}/api/connectors/connect`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ provider: 'claude', apiKey: synthClaude, accountName: 'Alex' }),
+      body: JSON.stringify({ provider: 'claude', apiKey: synthClaude, accountName: 'Partner' }),
     });
     const cText = await cRes.text();
     expect(cRes.status).toBe(200);
@@ -109,7 +109,7 @@ describe('Connector Hub & Multi-Model Inference Harness', () => {
         chatgpt: { connected: boolean };
       };
     };
-    expect(status.accountName).toBe('Alex');
+    expect(status.accountName).toBe('Partner');
     expect(status.connectors.claude.connected).toBe(true);
     expect(status.connectors.openrouter.connected).toBe(true);
     expect(status.connectors.openrouter.detail).toContain('gemini-2.0-flash-exp:free');

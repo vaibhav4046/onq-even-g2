@@ -118,7 +118,7 @@ try {
   const spoofRes = await fetch(`${srv.url}/api/actions/stage`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${sessionToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ commandText: 'Push 15m and tell Priya', to: 'evil@attacker.io' }),
+    body: JSON.stringify({ commandText: 'Push 15m and tell Investor', to: 'evil@attacker.io' }),
   });
   checks.push({ domain: '6. Server-Bound Recipient Guard', status: spoofRes.status === 400 ? 'PASS' : 'FAIL', detail: `Spoofed "to" -> HTTP ${spoofRes.status}` });
 
