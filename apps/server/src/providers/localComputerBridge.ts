@@ -6,6 +6,7 @@ import { clipLine42 } from '@onq/core';
 import { runCliPrompt } from '../harness/cliRunner.js';
 import { routeModelCompletion } from '../harness/modelRouter.js';
 import type { LlmConfig } from '../harness/modelRouter.js';
+import { binarySearchDirs } from './providerScanner.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -129,8 +130,7 @@ const TOOL_SPECS: Array<{
 ];
 
 function findBinaryOnPath(binary: string): string | null {
-  const envPath = process.env.PATH ?? '';
-  const dirs = envPath.split(path.delimiter).filter(Boolean);
+  const dirs = binarySearchDirs({ env: process.env, platform: process.platform, homedir: process.env.USERPROFILE ?? process.env.HOME ?? '' });
   const exts = process.platform === 'win32' ? ['.exe', '.cmd', '.bat', ''] : [''];
 
   for (const dir of dirs) {

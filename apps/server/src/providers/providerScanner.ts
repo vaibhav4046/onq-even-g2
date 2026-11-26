@@ -1,7 +1,11 @@
+import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { runCliPrompt } from '../harness/cliRunner.js';
+
+const execFileAsync = promisify(execFile);
 import {
   cliArgs,
   OPENROUTER_FREE_FALLBACK_MODELS,
@@ -186,22 +190,38 @@ const CLI_SPECS: CliSpec[] = [
     defaultModel: 'default',
     models: [DEFAULT_MODEL],
   },
+  {
+    id: 'openclaw_cli',
+    name: 'OpenClaw CLI',
+    binaries: ['openclaw'],
+    configDirs: ['.openclaw'],
+    install: 'Install: npm i -g openclaw',
+    login: 'Run `openclaw` once to complete setup',
+    routable: false,
+    defaultModel: 'default',
+    models: [DEFAULT_MODEL],
+  },
 ];
 
 function pathApi(platform: NodeJS.Platform) {
   return platform === 'win32' ? path.win32 : path.posix;
 }
 
-/** PATH plus the standard per-user / Homebrew install dirs, so CLIs are found even on a minimal PATH. */
+/** PATH plus the standard per-user / Homebrew / Windows desktop AI install dirs, so CLIs are found even outside PATH. */
 export function binarySearchDirs(deps: Pick<ScannerDeps, 'env' | 'platform' | 'homedir'>): string[] {
   const p = pathApi(deps.platform);
   const envPath = deps.env.PATH ?? deps.env.Path ?? '';
   const home = deps.env.USERPROFILE ?? deps.env.HOME ?? deps.homedir;
+  const localApp = deps.env.LOCALAPPDATA ?? (deps.platform === 'win32' ? p.join(home, 'AppData', 'Local') : undefined);
   const extra =
     deps.platform === 'win32'
       ? [
           deps.env.APPDATA && p.join(deps.env.APPDATA, 'npm'),
-          deps.env.LOCALAPPDATA && p.join(deps.env.LOCALAPPDATA, 'Programs'),
+          localApp && p.join(localApp, 'Programs'),
+          localApp && p.join(localApp, 'Programs', 'Ollama'),
+          localApp && p.join(localApp, 'OpenAI', 'Codex', 'bin'),
+          localApp && p.join(localApp, 'cursor-agent'),
+          p.join(home, '.cursor', 'bin'),
           p.join(home, '.local', 'bin'),
           p.join(home, '.claude', 'local'),
           p.join(home, '.opencode', 'bin'),
@@ -416,11 +436,9 @@ function resolveDeps(partial: Partial<ScannerDeps>): ScannerDeps {
   };
 }
 
-/** One full scan of local CLIs, local model servers and saved API keys. All I/O comes from deps. */
-export async function scanProviders(keys: ScanKeys, partialDeps: Partial<ScannerDeps> = {}): Promise<ProviderScanResult> {
-  const deps = resolveDeps(partialDeps);
-  const omniBase = omniRouteBase(keys, deps.env);
-  const servers: ServerSpec[] = [
+function buildLocalServerSpecs(keys: ScanKeys, env: NodeJS.ProcessEnv): ServerSpec[] {
+  const omniBase = omniRouteBase(keys, env);
+  return [
     {
       id: 'ollama',
       name: 'Ollama',
@@ -453,10 +471,85 @@ export async function scanProviders(keys: ScanKeys, partialDeps: Partial<Scanner
       parse: parseOpenAiModels,
     },
   ];
+}
 
-  const [cliResults, serverResults, orModels] = await Promise.all([
+async function scanOpenBot(deps: ScannerDeps): Promise<ScannedProvider> {
+  const base = { id: 'openbot', name: 'OpenBot Desktop', kind: 'local_server' as const };
+  const p = pathApi(deps.platform);
+  const home = deps.env.USERPROFILE ?? deps.env.HOME ?? deps.homedir;
+  const localApp = deps.env.LOCALAPPDATA ?? (deps.platform === 'win32' ? p.join(home, 'AppData', 'Local') : undefined);
+  const cliPath = localApp ? p.join(localApp, 'Programs', 'OpenBot', 'resources', 'cli', 'openbot-cli.mjs') : '';
+  if (!cliPath || !deps.exists(cliPath)) {
+    return {
+      ...base,
+      state: 'not_installed',
+      selectable: false,
+      defaultModel: null,
+      models: [],
+      detail: 'OpenBot desktop not installed',
+      fixHint: 'Install OpenBot desktop and turn on Local scripts for your agent',
+    };
+  }
+  const t0 = Date.now();
+  try {
+    const { stdout, stderr } = await execFileAsync(process.execPath, [cliPath, 'list', '--json'], {
+      timeout: Math.max(1500, deps.serverTimeoutMs),
+      maxBuffer: 64 * 1024,
+      windowsHide: true,
+    });
+    const probeMs = Date.now() - t0;
+    const raw = (stdout || stderr || '').trim();
+    const parsed = JSON.parse(raw) as { ok?: boolean; agents?: Array<{ id?: string; name?: string }>; error?: string };
+    const agents = Array.isArray(parsed.agents) ? parsed.agents : [];
+    if (parsed.ok && agents.length > 0) {
+      const models = agents.map((a) => ({ id: a.id ?? a.name ?? 'agent', name: a.name ?? a.id ?? 'OpenBot agent', local: true }));
+      return {
+        ...base,
+        state: 'connected',
+        selectable: false,
+        defaultModel: models[0].id,
+        models,
+        detail: `OpenBot running locally with ${models.length} agent(s)`,
+        fixHint: '',
+        probeMs,
+      };
+    }
+    return {
+      ...base,
+      state: 'error',
+      selectable: false,
+      defaultModel: null,
+      models: [],
+      detail: 'Installed, but OpenBot is closed or no agent has Local scripts on',
+      fixHint: 'Open OpenBot desktop and enable Local scripts for an agent, then Rescan',
+      probeMs,
+    };
+  } catch (err) {
+    const e = err as { stdout?: string; stderr?: string };
+    const raw = `${e.stdout ?? ''} ${e.stderr ?? ''}`;
+    const notRunning = /not running|local scripts|exitCode":5/i.test(raw);
+    return {
+      ...base,
+      state: 'error',
+      selectable: false,
+      defaultModel: null,
+      models: [],
+      detail: notRunning ? 'Installed, not running (or Local scripts off)' : 'Installed, local status check failed',
+      fixHint: 'Open OpenBot desktop and turn on Local scripts for at least one agent',
+      probeMs: Date.now() - t0,
+    };
+  }
+}
+
+/** One full scan of local CLIs, local model servers and saved API keys. All I/O comes from deps. */
+export async function scanProviders(keys: ScanKeys, partialDeps: Partial<ScannerDeps> = {}): Promise<ProviderScanResult> {
+  const deps = resolveDeps(partialDeps);
+  const servers = buildLocalServerSpecs(keys, deps.env);
+
+  const [cliResults, serverResults, openBotResult, orModels] = await Promise.all([
     Promise.all(CLI_SPECS.map((spec) => scanCli(spec, deps))),
     Promise.all(servers.map((s) => scanServer(s, deps))),
+    scanOpenBot(deps),
     keys.openRouterKey ? openRouterModels(deps) : Promise.resolve({ models: CURATED_OPENROUTER, live: false }),
   ]);
 
@@ -466,6 +559,7 @@ export async function scanProviders(keys: ScanKeys, partialDeps: Partial<Scanner
   const providers: ScannedProvider[] = [
     ...cliResults,
     ...serverResults,
+    openBotResult,
     openrouter,
     apiProvider('claude', 'Claude API', Boolean(keys.anthropicKey), 'claude-3-5-haiku-latest', [
       { id: 'claude-3-5-haiku-latest', name: 'Claude 3.5 Haiku' },
@@ -557,6 +651,39 @@ export class ProviderScanner {
   cached(): ProviderScanResult | null {
     if (!this.inflight && (!this.last || Date.now() - this.lastAtMs >= SCAN_TTL_MS)) void this.scan().catch(() => undefined);
     return this.last;
+  }
+
+  /** Fast auto-sync pass for local HTTP servers + OpenBot desktop (zero paid CLI quota used). */
+  async refreshLocalServers(): Promise<boolean> {
+    if (this.inflight || !this.last) return false;
+    const deps = resolveDeps(this.deps);
+    const keys = this.getKeys();
+    const servers = buildLocalServerSpecs(keys, deps.env);
+    const [serverResults, openBotResult] = await Promise.all([
+      Promise.all(servers.map((s) => scanServer(s, deps))),
+      scanOpenBot(deps),
+    ]);
+    const updates = new Map([...serverResults, openBotResult].map((p) => [p.id, p]));
+    let changed = false;
+    const nextProviders = this.last.providers.map((prev) => {
+      const next = updates.get(prev.id);
+      if (!next) return prev;
+      const same =
+        prev.state === next.state &&
+        prev.selectable === next.selectable &&
+        prev.models.map((m) => m.id).join(',') === next.models.map((m) => m.id).join(',');
+      if (!same) changed = true;
+      return next;
+    });
+    if (!changed) return false;
+    this.last = { scannedAt: new Date().toISOString(), providers: nextProviders };
+    this.lastAtMs = Date.now();
+    try {
+      this.onScanned?.();
+    } catch {
+      // listener errors never break refresh
+    }
+    return true;
   }
 
   /** Connected local CLIs / servers the router can run, with the model picked per provider. */

@@ -410,7 +410,14 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
   }, opts.scannerDeps, () => {
     if (hostReady) syncHost();
   });
-  if (localDetectEnabled && !underTest) void providerScanner.scan().catch(() => undefined);
+  let hostAutoSyncTimer: NodeJS.Timeout | null = null;
+  if (localDetectEnabled && !underTest) {
+    void providerScanner.scan().catch(() => undefined);
+    hostAutoSyncTimer = setInterval(() => {
+      if (hostReady) void providerScanner.refreshLocalServers().catch(() => undefined);
+    }, 30_000);
+    hostAutoSyncTimer.unref();
+  }
 
   /** A test-injected llmConfig wins as before, but still feeds the metrics ledger. */
   function injectedOrResolvedLlmConfig(): LlmConfig {
@@ -6133,6 +6140,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     vault,
     demoProvider,
     close: async () => {
+      if (hostAutoSyncTimer) clearInterval(hostAutoSyncTimer);
       remote.dispose();
       wakePollers('closing');
       telegramCentre.stopPolling();

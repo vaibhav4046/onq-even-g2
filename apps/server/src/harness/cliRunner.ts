@@ -20,9 +20,18 @@ export function runCliPrompt(
   return new Promise<string>((resolve, reject) => {
     const isShim = process.platform === 'win32' && /\.(cmd|bat)$/i.test(binaryPath);
     // .cmd shims need a shell on Windows; safe here because the command line is constant and the prompt goes via stdin.
-    // args are constant flags or catalog-validated model ids (never user text), so joining them into the command line is safe.
+    // Collapse `['--tools', '']` to `--tools=` so cmd.exe `%*` forwarding never drops an empty trailing value.
+    const shimArgs: string[] = [];
+    for (let i = 0; i < args.length; i += 1) {
+      if (args[i].startsWith('-') && args[i + 1] === '') {
+        shimArgs.push(`${args[i]}=`);
+        i += 1;
+      } else {
+        shimArgs.push(args[i] === '' ? '""' : args[i]);
+      }
+    }
     const child = isShim
-      ? spawn(`"${binaryPath}" ${args.map((a) => (a === '' ? '""' : a)).join(' ')}`, { shell: true, windowsHide: true })
+      ? spawn(`"${binaryPath}" ${shimArgs.join(' ')}`, { shell: true, windowsHide: true })
       : spawn(binaryPath, args, { windowsHide: true });
     let out = '';
     let err = '';
