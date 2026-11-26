@@ -68,8 +68,8 @@ Even Realities judges **Read + Write** first:
 ---
 
 ## Slide 8 — Business Model & Unit Economics (10% Judging Weight)
-- **Pricing:** Free Tier (Sandbox + BYO keys) → **OnQ Pro ($7/mo)** (Managed OAuth relay, multi-model routing, priority STT, multi-workspace Notion/Telegram sync) → **Team ($19/seat/mo)** (Shared audit receipts & team workspace connectors).
-- **Margins:** Short-context brief + triage prompts average **~$0.001 per brief**, yielding **>85% gross margin** at typical daily glance cadence (~30 briefs/day).
+- **Pricing:** Free Tier (Sandbox + Hosted PC Local AI at `$0.0000` marginal LLM token cost via Ollama / user subscriptions) → **OnQ Pro ($7/mo)** (Managed HTTPS remote relay so traveling users skip `cloudflared` setup, AssemblyAI voice quota, multi-workspace Notion/Google/Telegram sync) → **Team ($19/seat/mo)** (Shared audit receipts, L5 policy controls, instant device revocation).
+- **Margins:** Hosted-PC local inference (`Ollama qwen3:1.7b`, measured live at `1.76 s` wrap-up) + deterministic `31 ms` 409 busy-slot pre-check (`0` LLM calls) keep marginal LLM API cost at **$0.0000** for PC-hosted users (`>90%` modeled gross margin on Pro managed relay) and **~$0.001/brief** (`>85%` modeled gross margin) on optional cloud fallback. *Pre-revenue hackathon build (0 paying customers yet).*
 - **Wedge:** First-mover productivity layer for camera-free everyday smart eyewear (Even G2 & next-gen waveguide glasses).
 
 ---
@@ -89,12 +89,12 @@ Even Realities judges **Read + Write** first:
 
 ---
 
-## Verified Facts Behind This Deck (full run, 2026-11-26)
+## Verified Facts Behind This Deck (final run, 2026-11-26)
 
-- `npm test`: `503` tests across `51` files, all passing. `npm run eval:harness`: `32/32` intents, `5/5` injections blocked, `3/3` 409 locks, `5/5` RMS silence rejections, `4` failover scenarios.
-- `dist/onq.ehpk`: `57,359` bytes, SDK `0.0.16`. `npm run verify:geometry`: `11/11` PASS plus the Check 11 negative control (`97.4%–97.9%` black optical field). `npm run verify:sim`: `15` real EvenHub Simulator `0.9.5` captures. `npm run verify:security`: `10/10` PASS, `0` vulnerabilities, `164` files at last run.
-- Web entry chunk `272.76 kB` raw / `70.72 kB` gzip (`apps/glasses`: `140.00 kB` raw / `52.40 kB` gzip). Studio is 3 workspaces (Glasses Live, Personal OS, Meeting Scribe) with a 60-second guided tour.
-- Live connectors, exactly: verified locally in Sandbox mode and with real upstream credentials when configured in the AES-256-GCM local vault; `AssemblyAI` `STT-3.7` + `TTS-1`, Telegram bot/group polling, Google OAuth PKCE, Notion `2026-03-11`, and local CLI/browser agents all remain honestly labelled `LIVE` vs `SAMPLE DATA` / `Rules`.
-- Optional local skills (music, market signals, PC tools, YouTube scouting) are not part of the Track 04 pitch. Grok and OmniRoute are optional model routes and are not pitched.
-- **Not done:** physical Even G2 glasses and R1 ring testing (simulator, Chromium geometry gate and automated suites only).
-- Launch video: emerald anime film `media/out/onq-film-v3.mp4` (`2:40`, `26.35 MB`, `1080p @ 30fps`, dual-voice AssemblyAI TTS-1); technical walkthrough `media/out/onq-launch-demo.mp4` (`2:05`).
+- `npm test`: `515` tests across `53` files, all passing. `npm run eval:harness`: `32/32` intents, `5/5` injections blocked, `3/3` 409 locks, `5/5` RMS silence rejections, `4` failover scenarios.
+- `dist/onq.ehpk`: `57,865` bytes, SDK `0.0.16`. `npm run verify:geometry`: `11/11` PASS plus the Check 11 negative control (`97.4%–98.0%` black optical field). `npm run verify:sim`: `15` real EvenHub Simulator `0.9.5` captures (`0` console errors). `npm run verify:security`: `10/10` PASS, `0` vulnerabilities, `167` source files + `.ehpk`.
+- Web entry chunk `272.89 kB` raw / `70.80 kB` gzip (`apps/glasses`: `141.68 kB` raw / `52.89 kB` gzip). `modern-web-guidance legacy-scan`: `0` findings across `41` files.
+- Live connectors, exactly: durable `~/.onq/vault.enc` auto-reconnected `Telegram=LIVE` (`@onq_g2_copilot_bot`, `28 ms`) and `AssemblyAI=LIVE` (`633 ms`, `47` TTS chunks); local `Ollama qwen3:1.7b` LIVE (`$0` API cost, `1,759 ms` wrap-up, `31 ms` zero-LLM 409 lock) + `OmniRoute` (`295` models) + `8` local MCP server names. Google Workspace and Notion run honestly in `SANDBOX` (`1 ms`) until credentials are connected in `#connectors`.
+- Optional local skills (music, market signals, PC tools, YouTube scouting) are not part of the Track 04 pitch and sit behind a collapsed `<details>` disclosure.
+- **Not done:** physical Even G2 glasses and R1 ring testing (simulator, Chromium geometry gate, live Playwright check, clean-room zero-env build, and automated suites only).
+- Launch video: emerald cyber-anime film `media/out/onq-film-v4.mp4` (`2:40`, `26.10 MB`, `1080p @ 30fps`, `-17.88 LUFS`, dual-voice AssemblyAI TTS-1); technical walkthrough `media/out/onq-launch-demo.mp4` (`2:05`).

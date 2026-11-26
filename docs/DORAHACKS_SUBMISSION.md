@@ -21,16 +21,16 @@ People who live in Google Calendar, Gmail, Notion and Telegram and move between 
 
 **Telegram (Best Telegram Integration):**
 - Reads new messages only from the chats you pick; ignores everything else.
-- One tap gets an AI-drafted reply, staged as NO until you approve it on the glasses, the web app or Telegram's inline buttons.
-- Only your paired chat can control OnQ (`/myid` pairs it in one paste); the bot stays silent in groups.
+- One tap gets an AI-drafted reply, staged as NO until you approve it on the glasses, the web app, or Telegram's inline `[Approve Once]` / `[Reject]` / `[Kill Switch (Pause All)]` buttons.
+- Only your paired chat can control OnQ (`/myid` pairs it in one paste); full slash-command parity (`/apps`, `/inference`, `/use`, `/run`, `/inbox`, `/calendar`, `/task`, `/status`, `/pause`, `/resume`); the bot stays silent in groups.
 
-**Built with:** Even Hub SDK 0.0.16, Google Workspace (Calendar, Gmail, Drive), Notion, Telegram Bot API, Claude / ChatGPT / OpenRouter with a fixed-rules fallback, AssemblyAI voice (STT and TTS to earbuds; G2 has no speaker).
+**Built with:** Even Hub SDK 0.0.16, Computer-as-AI-Power-Source (`Ollama qwen3:1.7b` local `$0` hosting + optional `Claude` / `ChatGPT` / `OpenRouter` APIs + `Rules` fallback + `npm run tunnel` remote HTTPS bridge), Google Workspace (Calendar, Gmail, Drive), Notion (`2026-03-11`), Telegram Bot API, AssemblyAI voice (`STT-3.7` and `TTS-1` to earbuds; G2 has no speaker), durable `~/.onq/vault.enc` AES-256-GCM (`0600`) storage.
 
 **What existed before Nov 23:** nothing. The repository's first commit is 2026-11-24; everything was built in the hackathon window on open-source libraries listed in the README.
 
-**Verified (re-run before submitting):** 503 automated tests across 51 files, 32/32 eval intents with 5/5 prompt-injection blocks, 11/11 display geometry checks, 15 captures in the official Even Hub simulator 0.9.5, 10/10 security checks (`164` source files, `0` vulnerabilities), `dist/onq.ehpk` (`57,359` bytes), `media/out/onq-film-v3.mp4` (`2:40`, `26.35 MB`, `1080p`), clean clone with zero keys. Not yet tested on physical G2 glasses.
+**Verified (2026-11-26 full gate + clean-room clone):** `515` automated tests across `53` files, `32/32` eval intents with `5/5` prompt-injection blocks, `11/11` display geometry checks (`97.4%–98.0%` dark pixels), `15` real captures in the official Even Hub simulator `0.9.5` (`0` console errors), `10/10` security checks (`167` source files, `0` prod vulnerabilities), `dist/onq.ehpk` (`57,865` bytes), `media/out/onq-film-v4.mp4` (`2:40`, `26.10 MB`, `1080p`), live Ollama `qwen3:1.7b` (`1.76 s` wrap-up, `31 ms` zero-LLM 409 lock), live Telegram `@onq_g2_copilot_bot` (`28 ms`), live AssemblyAI (`633 ms`), `0` `modern-web-guidance` legacy findings, clean-room build with zero env vars. **Not yet tested on physical G2 glasses.**
 
-**Business:** Pro $7/month, Team $19/seat. Most steps run on fixed rules, so model cost per brief stays low (estimate). Tokens stay encrypted on the user's computer; nothing sends without approval.
+**Business:** Free BYO-PC local tier (`$0.0000` marginal LLM cost on hosted Ollama/local AI), Pro `$7/month` (managed HTTPS remote relay, AssemblyAI voice, multi-workspace sync), Team `$19/seat`. Deterministic `31 ms` 409 locks run before any LLM call; tokens stay encrypted in `~/.onq/vault.enc`; nothing sends without approval.
 
 **Links:**
 - GitHub: https://github.com/vaibhav4046/onq-even-g2

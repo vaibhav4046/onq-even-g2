@@ -256,7 +256,7 @@ export function ProofStrip() {
     { value: '32/32', label: 'eval intents' },
     { value: '11/11', label: 'display geometry gates' },
     { value: '10/10', label: 'security checks' },
-    { value: '13', label: 'simulator captures' },
+    { value: '15', label: 'simulator captures' },
   ];
   return (
     <section id="proof" aria-label="Proof" className="py-16 sm:py-20">

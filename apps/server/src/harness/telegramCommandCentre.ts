@@ -100,6 +100,7 @@ export class TelegramCommandCentre {
           { text: 'Approve Once', callback_data: `approve:${item.id}` },
           { text: 'Reject', callback_data: `reject:${item.id}` },
         ],
+        [{ text: 'Kill Switch (Pause All)', callback_data: `killswitch:${item.id}` }],
       ],
       chatId,
     );
@@ -117,6 +118,21 @@ export class TelegramCommandCentre {
     if (update.callbackQuery) {
       const cq = update.callbackQuery;
       const [verb, approvalId] = cq.data.split(':');
+      if (verb === 'killswitch') {
+        const owner = this.deps.getCredentials().chatId?.trim();
+        if (!owner || cq.chatId !== owner) {
+          if (client) await client.answerCallbackQuery(cq.id, 'Owner DM required').catch(() => null);
+          return { handled: false, reply: 'Owner DM required' };
+        }
+        this.deps.osHarness.setKillSwitch(true, 'Engaged via Telegram inline Kill Switch');
+        const notice = 'KILL SWITCH ENGAGED: All autonomous routines, crews, and remote devices paused.';
+        if (client) {
+          await client.answerCallbackQuery(cq.id, 'Kill Switch ON').catch(() => null);
+          await client.sendMessage(notice, cq.chatId).catch(() => null);
+        }
+        this.processedCount += 1;
+        return { handled: true, reply: notice };
+      }
       if ((verb === 'approve' || verb === 'reject') && approvalId) {
         const res = await this.deps.osHarness.decideApproval(approvalId, verb, {
           surface: 'telegram',
@@ -216,6 +232,7 @@ export class TelegramCommandCentre {
                   { text: 'Approve Once', callback_data: `approve:${outcome.approval.id}` },
                   { text: 'Reject', callback_data: `reject:${outcome.approval.id}` },
                 ],
+                [{ text: 'Kill Switch (Pause All)', callback_data: `killswitch:${outcome.approval.id}` }],
               ],
               msg.chatId,
             )
@@ -271,6 +288,10 @@ export class TelegramCommandCentre {
     await client
       .setMyCommands([
         { command: 'status', description: 'OnQ status and pending approvals' },
+        { command: 'apps', description: 'PC hosted AI apps and agents' },
+        { command: 'inference', description: 'Switch computer, api, or auto inference' },
+        { command: 'use', description: 'Pick active AI app (ollama, claude, openrouter)' },
+        { command: 'run', description: 'Run a prompt on a PC AI app' },
         { command: 'calendar', description: 'Your next meetings' },
         { command: 'inbox', description: 'Email that needs you' },
         { command: 'task', description: 'Stage a task (waits for your approval)' },

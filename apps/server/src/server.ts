@@ -99,6 +99,13 @@ import {
   routeModelCompletion,
 } from './harness/modelRouter.js';
 import type { InferenceMode } from './harness/modelRouter.js';
+import {
+  buildPcPowerSourceSnapshot,
+  discoverLocalMcpServers,
+  wakeLocalService,
+  type WakeableLocalService,
+} from './harness/pcPowerSource.js';
+import { buildRemoteBridgeState } from './remote/tunnelBridge.js';
 import { findCliBinary, ProviderScanner, publicProviders } from './providers/providerScanner.js';
 import type { ScannerDeps } from './providers/providerScanner.js';
 import { AgentTaskEngine } from './harness/agentTaskEngine.js';
@@ -1980,6 +1987,27 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       });
       summaryLines.push(`1) GCAL: ${targetCard.startIso.slice(11, 16)} -> ${newHhMm}`);
 
+      // Deterministic 409 conflict pre-check BEFORE LLM draft generation (zero wasted inference on busy slots)
+      const earlyConflict = await provider.checkLiveConflicts({
+        previewToken: 'precheck',
+        idempotencyKey: 'precheck',
+        expiresAtIso: new Date(nowFn() + 45_000).toISOString(),
+        intent: parsed.kind,
+        defaultSelection: 'NO',
+        cardId: targetCard.id,
+        summaryLines,
+        operations,
+        safetyChecks: {
+          calendarConflictFree: false,
+          threadFresh: true,
+          recipientVerified: true,
+          factGuardPassed: true,
+        },
+      });
+      if (earlyConflict) {
+        return { status: 409, conflict: earlyConflict };
+      }
+
       if (targetCard.attendeeEmail && targetCard.gmailThreadId) {
         const grounded = await generateGroundedDraft(
           {
@@ -2106,6 +2134,11 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     try {
       if (req.method === 'GET' && pathname === '/api/remote/status') {
         jsonResponse(res, 200, await remote.status());
+        return;
+      }
+      if (req.method === 'GET' && pathname === '/api/remote/bridge') {
+        const portNow = (server.address() as { port?: number } | null)?.port ?? opts.port ?? 8787;
+        jsonResponse(res, 200, await buildRemoteBridgeState(remote, configuredPublicUrl, portNow));
         return;
       }
       if (req.method === 'POST' && pathname === '/api/remote/start') {
@@ -2608,13 +2641,19 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           const altLocalApp = readyLocalApps.find((a) => a.id !== activeAi.id);
           const shortAi = activeAi.label.replace(/\s*\(your subscription\)\s*/i, '').replace(/\s*\(local\)\s*/i, '').trim();
           const appNames = readyLocalApps.map((a) => a.id.replace('_cli', '').toUpperCase()).slice(0, 4);
+          const remotePublic = effectivePublicUrl();
           const activeH = proactiveHarness.getStatus().activeHarness;
           enrichedCards.push({
             id: 'card-computer-proactive',
             sourceMode: data.sourceMode,
             syncedAtIso: nowIso,
-            provenanceLabel:
-              inferenceMode === 'computer' ? 'PC HOST · LOCAL' : inferenceMode === 'api' ? 'PC HOST · API' : 'PC HOST · AUTO',
+            provenanceLabel: remotePublic
+              ? 'REMOTE TUNNEL'
+              : inferenceMode === 'computer'
+                ? 'PC ONLINE · LOCAL'
+                : inferenceMode === 'api'
+                  ? 'PC HOST · API'
+                  : 'PC HOST · AUTO',
             kind: 'MEETING',
             title: clipLine42(activeH?.goal ?? `PC Host: ${shortAi}`, 42),
             timeMeta:
@@ -4439,6 +4478,43 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       }
 
       // 14g. Zero-API-Key Local Computer AI & Dev Tool Bridge + Default-NO Agent Delegation
+      if (req.method === 'GET' && pathname === '/api/computer/power-source') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const creds = vault.load();
+        const llmCfg = resolveLlmConfig();
+        const mcpServers = !underTest ? discoverLocalMcpServers() : [];
+        const snapshot = buildPcPowerSourceSnapshot({
+          hostname: os.hostname(),
+          platform: process.platform,
+          inferenceMode: (creds.inferenceMode ?? 'auto') as InferenceMode,
+          active: resolveActiveProvider(llmCfg),
+          scan: providerScanner.peek(),
+          mcpServers,
+        });
+        jsonResponse(res, 200, snapshot);
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/computer/wake') {
+        if (!(await requireOwner(req, res))) return;
+        const body = await readJsonBody<{ service?: unknown }>(req);
+        const svc = body.service;
+        if (svc !== 'ollama' && svc !== 'omniroute') {
+          jsonResponse(res, 400, { error: 'service must be "ollama" or "omniroute"' });
+          return;
+        }
+        const out = wakeLocalService(svc as WakeableLocalService);
+        if (out.ok && localDetectEnabled && !underTest) {
+          setTimeout(() => {
+            void providerScanner.refreshLocalServers().catch(() => undefined);
+          }, 2500).unref();
+        }
+        recordAudit('COMPUTER_INSPECT', `Wake ${svc}: ${out.detail}`);
+        jsonResponse(res, out.ok ? 202 : 409, out);
+        return;
+      }
+
       if (req.method === 'GET' && pathname === '/api/computer/tools') {
         const session = await requireAuth(req, res);
         if (!session) return;
@@ -6132,6 +6208,36 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
   hostReady = true;
   syncHost(); // baseline (or bump, if something changed while the server was down)
 
+  // Phase 1: Silent boot auto-reconnect + 45m Google OAuth token keepalive (zero prompts on restart).
+  let tokenKeepaliveTimer: NodeJS.Timeout | null = null;
+  const runSilentReconnect = async () => {
+    const creds = loadCreds();
+    const statuses: string[] = [];
+    if (creds.googleRefreshToken && creds.googleClientId && creds.googleClientSecret) {
+      try {
+        const gClient = new GoogleWorkspaceClient(vault, opts.fetchImpl);
+        await gClient.getAccessToken();
+        statuses.push('Google=LIVE');
+      } catch {
+        statuses.push('Google=REFRESH_PENDING');
+      }
+    }
+    if (creds.notionToken) statuses.push('Notion=READY');
+    if (creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN) statuses.push('Telegram=LIVE');
+    if (resolveAssemblyAiKey()) statuses.push('AssemblyAI=LIVE');
+    if (statuses.length > 0) {
+      logInfo('boot', `Auto-reconnect: ${statuses.join(' | ')}`);
+      if (hostReady) syncHost();
+    }
+  };
+  if (!underTest) {
+    void runSilentReconnect().catch(() => undefined);
+    tokenKeepaliveTimer = setInterval(() => {
+      void runSilentReconnect().catch(() => undefined);
+    }, 45 * 60_000);
+    tokenKeepaliveTimer.unref();
+  }
+
   return {
     server,
     url,
@@ -6140,6 +6246,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     vault,
     demoProvider,
     close: async () => {
+      if (tokenKeepaliveTimer) clearInterval(tokenKeepaliveTimer);
       if (hostAutoSyncTimer) clearInterval(hostAutoSyncTimer);
       remote.dispose();
       wakePollers('closing');

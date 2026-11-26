@@ -823,6 +823,7 @@ export async function routeModelCompletion(
   const res = await runCascadingJsonProviders<string>({
     systemPrompt: SYSTEM_PROMPT,
     userPrompt,
+    maxTokens: 120,
     cfg,
     validateParsed: (parsed) => {
       const json = parsed as { draft?: unknown } | null;

@@ -1,9 +1,8 @@
-import os from 'node:os';
-import path from 'node:path';
 import { createOnQServer } from './server.js';
+import { resolveDefaultDataDir } from './tokenVault.js';
 
 const port = Number(process.env.PORT ?? 8787);
-const dataDir = process.env.ONQ_DATA_DIR ?? path.join(os.homedir(), '.onq');
+const dataDir = resolveDefaultDataDir();
 
 createOnQServer({ port, dataDir }).catch((err) => {
   console.error('Failed to start OnQ server:', err);

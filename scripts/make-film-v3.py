@@ -36,26 +36,26 @@ SLOTS = ['pair', 'card', 'draft', 'ring', 'done', 'telegram', 'coding', 'summary
 VOICE_WEARER = 'aai-kyla'
 VOICE_ONQ = 'aai-titus'
 CAPTIONS = [
-    (3.0, VOICE_WEARER, 'Wearer: "Morning. Let me put on and pair the glasses."', 'Morning. Let me put on and pair the glasses.'),
-    (18.2, VOICE_ONQ, 'OnQ: "Paired to your computer. Zero accounts stored on your lenses."', 'Paired to your computer. Zero accounts stored on your lenses.'),
-    (32.2, VOICE_WEARER, 'Wearer: "What is waiting in my morning brief?"', 'What is waiting in my morning brief?'),
-    (36.0, VOICE_ONQ, 'OnQ: "Investor call at two, priority email on Q4 metrics. Draft ready."', 'Investor call at two, priority email on Q4 metrics. Draft ready.'),
+    (3.0, VOICE_WEARER, 'Wearer: "My PC runs all my AI. Let me project it onto Even G2."', 'My PC runs all my AI. Let me project it onto Even G2.'),
+    (18.2, VOICE_ONQ, 'OnQ: "Paired to your computer power source. Zero accounts on the lenses."', 'Paired to your computer power source. Zero accounts on the lenses.'),
+    (32.2, VOICE_WEARER, 'Wearer: "Auto-sync local Ollama and show my morning brief."', 'Auto-sync local Ollama and show my morning brief.'),
+    (36.0, VOICE_ONQ, 'OnQ: "Ollama Qwen3 live at zero cost. Investor call at two; draft ready."', 'Ollama Qwen three live at zero cost. Investor call at two; draft ready.'),
     (43.2, VOICE_WEARER, 'Wearer: "Push fifteen and confirm."', 'Push fifteen and confirm.'),
-    (46.2, VOICE_ONQ, 'OnQ: "Two-second undo ring armed. Calendar moved and reply sent."', 'Two-second undo ring armed. Calendar moved and reply sent.'),
-    (56.5, VOICE_ONQ, 'OnQ: "Founders Telegram group asks for Q4 metrics and the glasses build."', 'Founders Telegram group asks for Q4 metrics and the glasses build.'),
-    (63.2, VOICE_WEARER, 'Wearer: "Stage a reply for watched groups only."', 'Stage a reply for watched groups only.'),
-    (67.2, VOICE_ONQ, 'OnQ: "Staged Default-NO on your lens. Confirm with a single tap."', 'Staged Default-NO on your lens. Confirm with a single tap.'),
+    (46.2, VOICE_ONQ, 'OnQ: "Two-second Gray4 undo ring armed. Calendar moved and reply sent."', 'Two-second Gray four undo ring armed. Calendar moved and reply sent.'),
+    (56.5, VOICE_ONQ, 'OnQ: "Telegram bot alert: Founders group asks for Q4 metrics and the build."', 'Telegram bot alert: Founders group asks for Q4 metrics and the build.'),
+    (63.2, VOICE_WEARER, 'Wearer: "Stage a reply for watched groups only; keep optional API off."', 'Stage a reply for watched groups only; keep optional API off.'),
+    (67.2, VOICE_ONQ, 'OnQ: "Staged Default-NO with inline Approve and Kill Switch on Telegram."', 'Staged Default-NO with inline Approve and Kill Switch on Telegram.'),
     (74.8, VOICE_WEARER, 'Wearer: "Looks right. Send it."', 'Looks right. Send it.'),
-    (85.4, VOICE_WEARER, 'Wearer: "How is our repo pull request looking?"', 'How is our repo pull request looking?'),
-    (89.6, VOICE_ONQ, 'OnQ: "Tests pass with one open review note. Prompt suggestions ready."', 'Tests pass with one open review note. Prompt suggestions ready.'),
-    (98.5, VOICE_WEARER, 'Wearer: "Stage the PR recap for afternoon check-in."', 'Stage the PR recap for afternoon check-in.'),
-    (112.4, VOICE_WEARER, 'Wearer: "OnQ, compare our two Friday launch plans while I walk."', 'OnQ, compare our two Friday launch plans while I walk.'),
-    (118.0, VOICE_ONQ, 'OnQ: "Plan A ships today with real simulator proof; staying hands-free."', 'Plan A ships today with real simulator proof; staying hands-free.'),
-    (128.8, VOICE_WEARER, 'Wearer: "Keep Plan A ready and remind me at four."', 'Keep Plan A ready and remind me at four.'),
-    (138.6, VOICE_ONQ, 'OnQ: "Evening recap: one committed write, zero unconfirmed sends."', 'Evening recap: one committed write, zero unconfirmed sends.'),
-    (150.2, VOICE_ONQ, 'OnQ. Your computer, on your glasses.', 'OnQ. Your computer, on your glasses.'),
+    (85.4, VOICE_WEARER, 'Wearer: "Ask my computer to run our repo check and L4 crew."', 'Ask my computer to run our repo check and L4 crew.'),
+    (89.6, VOICE_ONQ, 'OnQ: "Five hundred fifteen tests pass. Auditor verified safe; zero writes."', 'Five hundred fifteen tests pass. Auditor verified safe; zero writes.'),
+    (98.5, VOICE_WEARER, 'Wearer: "Remote tunnel ready for travel. Stage the PR summary."', 'Remote tunnel ready for travel. Stage the PR summary.'),
+    (112.4, VOICE_WEARER, 'Wearer: "OnQ, start Live Meeting Scribe while I walk."', 'OnQ, start Live Meeting Scribe while I walk.'),
+    (118.0, VOICE_ONQ, 'OnQ: "AssemblyAI voice active with monochrome avatar; staying hands-free."', 'AssemblyAI voice active with monochrome avatar; staying hands-free.'),
+    (128.8, VOICE_WEARER, 'Wearer: "Wrap up behind Default-NO and keep conflict lock active."', 'Wrap up behind Default-NO and keep conflict lock active.'),
+    (138.6, VOICE_ONQ, 'OnQ: "Evening recap: one committed write, Kill Switch verified on lens."', 'Evening recap: one committed write, Kill Switch verified on lens.'),
+    (150.2, VOICE_ONQ, 'OnQ. Your computer is the AI brain. Even G2 is the window.', 'OnQ. Your computer is the AI brain. Even G2 is the window.'),
 ]
-TITLE = ('OnQ.', 'Your computer, on your glasses.', 'Verified in the Even Hub simulator · 24/7 Local Relay')
+TITLE = ('OnQ.', 'Your PC AI brain, on Even G2.', '515 Tests · 15 Sim PNGs · 11/11 Geometry · 10/10 Security · Sim-Verified')
 
 
 def ease(x):

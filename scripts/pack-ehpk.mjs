@@ -13,10 +13,10 @@ const buildDir = path.join(root, 'apps', 'glasses', 'dist');
 const customOut = process.env.ONQ_PACK_OUT?.trim();
 const outEhpk = customOut ? path.resolve(customOut) : path.join(distDir, 'onq.ehpk');
 
-// Optional: ONQ_RELAY_URL adds the user's own relay (https tunnel or LAN address) to the network whitelist
-// for a paired physical-glasses build. The committed app.json stays loopback-only.
+// Optional: ONQ_RELAY_ORIGIN (or ONQ_RELAY_URL) adds the user's own relay (https tunnel or LAN address)
+// to the network whitelist for a paired physical-glasses build. The committed app.json stays loopback-only.
 let manifestPath = baseManifestPath;
-const relayRaw = process.env.ONQ_RELAY_URL?.trim();
+const relayRaw = process.env.ONQ_RELAY_ORIGIN?.trim() || process.env.ONQ_RELAY_URL?.trim();
 if (relayRaw) {
   let origin;
   try {
@@ -24,7 +24,7 @@ if (relayRaw) {
     if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error('protocol');
     origin = u.origin;
   } catch {
-    console.error(`[pack] ONQ_RELAY_URL is not a valid http(s) URL: ${relayRaw}`);
+    console.error(`[pack] ONQ_RELAY_ORIGIN / ONQ_RELAY_URL is not a valid http(s) URL: ${relayRaw}`);
     process.exit(1);
   }
   const manifest = JSON.parse(fs.readFileSync(baseManifestPath, 'utf8'));

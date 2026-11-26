@@ -161,6 +161,8 @@ function compositePngOnBlack(buf) {
   ]);
 }
 
+let capturedCount = 0;
+
 async function captureGlasses(autoBase, filename) {
   const res = await fetch(`${autoBase}/api/screenshot/glasses`);
   if (!res.ok) throw new Error(`GET /api/screenshot/glasses failed: ${res.status}`);
@@ -171,6 +173,7 @@ async function captureGlasses(autoBase, filename) {
   const buf = compositePngOnBlack(raw);
   const out = path.join(SCREENSHOT_DIR, filename);
   fs.writeFileSync(out, buf);
+  capturedCount += 1;
   console.log(`[sim] Captured ${out} (${buf.byteLength} bytes)`);
 }
 
@@ -356,7 +359,7 @@ async function main() {
     if (errors.length > 0) {
       throw new Error(`Simulator console errors detected:\n${JSON.stringify(errors, null, 2)}`);
     }
-    console.log(`[sim:PASS] Captured 13 real simulator screenshots with 0 console/uncaught errors.`);
+    console.log(`[sim:PASS] Captured ${capturedCount} real simulator screenshots with 0 console/uncaught errors.`);
   } finally {
     try {
       if (process.platform === 'win32' && simProc.pid) {

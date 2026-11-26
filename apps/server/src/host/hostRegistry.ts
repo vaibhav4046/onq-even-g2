@@ -231,7 +231,7 @@ export function isOwnerMachineRequest(remoteAddress: string | undefined, headers
  * The kill switch may be engaged from a device but never released (see the route), and devices are locked while it is on.
  */
 const DEVICE_ALLOW: ReadonlyArray<readonly [string, RegExp]> = [
-  ['GET', /^\/api\/(health|host\/profile|sources|outbox|corridor|stream|workspace\/state|connectors\/status|connectors\/scan-models|computer\/tools|os\/state|harness\/metrics|liveui|kanban|memory|proactive\/status|browser\/runs|tts\/voices|poll)$/],
+  ['GET', /^\/api\/(health|host\/profile|sources|outbox|corridor|stream|workspace\/state|connectors\/status|connectors\/scan-models|computer\/tools|computer\/power-source|os\/state|harness\/metrics|liveui|kanban|memory|proactive\/status|browser\/runs|tts\/voices|poll)$/],
   ['GET', /^\/api\/voice\/stream$/], // WebSocket upgrade
   ['POST', /^\/api\/(stt|tts\/speak|actions\/(stage|commit|undo)|meeting\/(start|turn|ask|wrapup|wipe)|proactive\/synthesize|os\/(command|pipeline\/run|music\/curate|routines\/run|killswitch)|liveui\/interact|browser\/run)$/],
   ['POST', /^\/api\/os\/approvals\/[a-zA-Z0-9_-]+\/decide$/],

@@ -290,9 +290,11 @@ export function formatLensFrame(state: HudState): FormattedLensFrame {
             : card.id === 'card-unified-os'
               ? ['OS:', 'NEXT:']
               : ['ASK:', 'DOC:'];
+      const fmtCtx = (tag: string, text: string | undefined, fallback: string) =>
+        !text ? `${tag} ${fallback}` : /^[A-Z]{2,6}:\s/.test(text) ? text : `${tag} ${text}`;
       body.push(clipLine42(`${card.timeMeta} | ${card.title}`));
-      body.push(clipLine42(card.contextLine1 ? `${l1Tag} ${card.contextLine1}` : `${l1Tag} Ready`));
-      body.push(clipLine42(card.contextLine2 ? `${l2Tag} ${card.contextLine2}` : `${l2Tag} Clear`));
+      body.push(clipLine42(fmtCtx(l1Tag, card.contextLine1, 'Ready')));
+      body.push(clipLine42(fmtCtx(l2Tag, card.contextLine2, 'Clear')));
     } else if (state.answerLines.length > 0) {
       for (const ln of state.answerLines.slice(0, 3)) {
         body.push(clipLine42(ln));

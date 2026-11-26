@@ -19,7 +19,8 @@
     "verify:security": "node scripts/security-scan.mjs",
     "dev:server": "npm run dev -w @onq/server",
     "dev:web": "npm run dev -w @onq/web",
-    "dev": "node scripts/dev.mjs"
+    "dev": "node scripts/dev.mjs",
+    "tunnel": "node scripts/tunnel.mjs"
   },
   "devDependencies": {
     "@evenrealities/evenhub-cli": "0.2.0",

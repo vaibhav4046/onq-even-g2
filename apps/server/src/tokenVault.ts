@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { registerSecretForRedaction } from './logger.js';
 import type { InferenceMode, PreferredLlmProvider } from './harness/modelRouter.js';
@@ -42,8 +43,14 @@ function stripUndefined(creds: StoredCredentials): StoredCredentials {
   return Object.fromEntries(Object.entries(creds).filter(([, v]) => v !== undefined)) as StoredCredentials;
 }
 
+export function resolveDefaultDataDir(): string {
+  return process.env.ONQ_DATA_DIR?.trim() || path.join(os.homedir(), '.onq');
+}
+
 /**
  * AES-256-GCM local encrypted token vault written at mode 0600.
+ * Defaults to durable `~/.onq/vault.enc` (overridable via `ONQ_VAULT_PATH` or explicit path for tests/CI)
+ * and migrates legacy `tokens.vault.json` seamlessly without losing stored tokens.
  * Never persists email bodies or voice recordings to disk.
  */
 export class EncryptedTokenVault {
@@ -51,21 +58,57 @@ export class EncryptedTokenVault {
   private readonly vaultPath: string;
   private readonly backupPath: string;
 
-  constructor(dataDir: string, explicitKeyHex?: string) {
+  constructor(dataDir: string = resolveDefaultDataDir(), explicitKeyHex?: string, explicitVaultPath?: string) {
+    const isDefaultHome = path.resolve(dataDir) === path.resolve(resolveDefaultDataDir());
+    const envVaultPath = isDefaultHome ? process.env.ONQ_VAULT_PATH?.trim() : undefined;
+    const resolvedVault = explicitVaultPath?.trim()
+      ? path.resolve(explicitVaultPath.trim())
+      : envVaultPath
+        ? path.resolve(envVaultPath)
+        : path.join(dataDir, 'vault.enc');
+    const vaultDir = path.dirname(resolvedVault);
     fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-    this.vaultPath = path.join(dataDir, 'tokens.vault.json');
+    fs.mkdirSync(vaultDir, { recursive: true, mode: 0o700 });
+    this.vaultPath = resolvedVault;
     this.backupPath = `${this.vaultPath}.bak`;
 
     const keySource = explicitKeyHex ?? process.env.ONQ_VAULT_KEY;
     if (keySource && /^[0-9a-fA-F]{64}$/.test(keySource)) {
       this.key = Buffer.from(keySource, 'hex');
     } else {
-      const keyFile = path.join(dataDir, 'vault.key');
+      const keyFile = path.join(vaultDir, 'vault.key');
+      const fallbackKeyFile = path.join(dataDir, 'vault.key');
       if (fs.existsSync(keyFile)) {
         this.key = Buffer.from(fs.readFileSync(keyFile, 'utf8').trim(), 'hex');
+      } else if (fs.existsSync(fallbackKeyFile)) {
+        this.key = Buffer.from(fs.readFileSync(fallbackKeyFile, 'utf8').trim(), 'hex');
       } else {
         this.key = crypto.randomBytes(32);
         fs.writeFileSync(keyFile, this.key.toString('hex'), { mode: 0o600 });
+      }
+    }
+
+    this.migrateLegacyIfNeeded(dataDir, vaultDir, isDefaultHome);
+  }
+
+  /** Seamlessly copies a readable legacy `tokens.vault.json` into durable `vault.enc` once on upgrade. */
+  private migrateLegacyIfNeeded(dataDir: string, vaultDir: string, isDefaultHome: boolean): void {
+    if (fs.existsSync(this.vaultPath)) return;
+    const candidates = [
+      path.join(vaultDir, 'tokens.vault.json'),
+      path.join(dataDir, 'tokens.vault.json'),
+      ...(isDefaultHome ? [path.resolve(process.cwd(), 'apps', 'server', 'data', 'tokens.vault.json')] : []),
+    ];
+    for (const legacy of new Set(candidates)) {
+      if (path.resolve(legacy) === path.resolve(this.vaultPath) || !fs.existsSync(legacy)) continue;
+      try {
+        const creds = this.decryptFile(legacy);
+        if (hasAnyValue(creds)) {
+          this.copyPrivate(legacy, this.vaultPath);
+          return;
+        }
+      } catch {
+        // Legacy file unreadable with this key; keep searching other candidates
       }
     }
   }

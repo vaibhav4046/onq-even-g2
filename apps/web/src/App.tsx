@@ -1160,13 +1160,13 @@ export function App() {
   const resetSandbox = async () => {
     const tok = tokenRef.current;
     if (!tok) return;
+    ctrlRef.current?.disarmToUndone();
+    await ctrlRef.current?.handleEvent({ kind: 'CLICK' });
     await fetch('/api/workspace/reset', {
       method: 'POST',
       headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
       body: '{}',
     });
-    ctrlRef.current?.disarmToUndone();
-    await ctrlRef.current?.handleEvent({ kind: 'CLICK' });
     await refreshCorridor(tok);
     setVoiceFeedback('Sandbox workspace reset to initial 14:00 Investor call state.');
   };
@@ -1517,7 +1517,7 @@ export function App() {
                   </span>
                 </h1>
                 <p className="text-base md:text-lg leading-relaxed text-[var(--lightgray)] max-w-xl">
-                  Read, decide and reply from your glasses. Nothing sends until you confirm.
+                  Your computer&rsquo;s AI brain, projected cleanly onto Even G2 &mdash; hosted on your PC, controlled hands-free from anywhere. Nothing sends until you confirm.
                 </p>
 
                 {/* The read-and-write loop, in order */}
@@ -1532,7 +1532,7 @@ export function App() {
                   ))}
                 </ol>
                 <p className="text-xs sm:text-sm text-[var(--lightgray)]">
-                  Telegram too. Only chats you pick, replies approved on the glasses.
+                  Google Workspace, Notion &amp; Telegram &mdash; only chats you pick, replies approved on the glasses.
                 </p>
 
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-1">

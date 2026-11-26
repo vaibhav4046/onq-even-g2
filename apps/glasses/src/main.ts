@@ -239,7 +239,13 @@ async function paintToGlasses(state: HudState): Promise<void> {
         return;
       }
       avatarTick += 1;
-      const mode = cur.phase === 'listening' ? 'listening' : 'speaking';
+      const topAnswer = cur.answerLines?.[0] ?? '';
+      const mode =
+        cur.phase === 'listening'
+          ? 'listening'
+          : /WORKING|SYNCING|SWITCHING/i.test(topAnswer)
+            ? 'thinking'
+            : 'speaking';
       const png = encodePixelAvatarPng(mode, { tick: avatarTick, rmsLevel: Math.max(0.42, cur.rmsLevel), style: 'muse', size: 76 });
       if (bridge) {
         void paintQueue.enqueueImage(async () => {
@@ -474,6 +480,7 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
       return null;
     }
     if (opt?.commandText === '__OS_COMPUTER_APPS__') {
+      controller.showAnswer(['PC HOST | SYNCING...', 'Reading hosted AI apps', 'on your computer...']);
       const { data: appsRes } = await apiJson<{ g2Lines?: string[] }>('/api/os/command', {
         method: 'POST',
         body: JSON.stringify({ text: '/apps', surface: 'glasses' }),
@@ -484,7 +491,8 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
       return null;
     }
     if (opt?.commandText === '__OS_TOGGLE_INFERENCE__') {
-      const nextMode = /LOCAL/i.test(card.provenanceLabel ?? '') ? 'api' : 'computer';
+      const nextMode = /LOCAL|TUNNEL/i.test(card.provenanceLabel ?? '') ? 'api' : 'computer';
+      controller.showAnswer(['PC HOST | SWITCHING...', `Route -> ${nextMode.toUpperCase()}`, 'Updating glasses mirror']);
       const { data: infRes } = await apiJson<{ g2Lines?: string[] }>('/api/os/command', {
         method: 'POST',
         body: JSON.stringify({ text: `/inference ${nextMode}`, surface: 'glasses' }),
@@ -676,10 +684,11 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
     }
     if (
       stt.transcript.startsWith('/') ||
-      /\b(kill switch|pause all|resume os|curate music|focus music|run crew|specialist crew|computer apps|pc apps|my ai apps|list ai apps|switch to computer|switch to api|switch to auto|use computer|use api|use claude|use codex|use gemini|use ollama|use opencode|ask claude|ask codex|ask gemini|ask ollama|ask computer)\b/i.test(
+      /\b(kill switch|pause all|resume os|curate music|focus music|run crew|specialist crew|computer apps|pc apps|my ai apps|list ai apps|switch to computer|switch to api|switch to auto|use computer|use api|use claude|use codex|use gemini|use ollama|use opencode|ask openbot|ask claude|ask codex|ask gemini|ask ollama|ask computer|ask my computer)\b/i.test(
         stt.transcript,
       )
     ) {
+      controller.showAnswer(['PC HOST | WORKING...', clipLine42(stt.transcript), 'Hosted on your computer']);
       const osOut = await apiJson<{ g2Lines?: string[] }>('/api/os/command', {
         method: 'POST',
         body: JSON.stringify({ text: stt.transcript, surface: 'glasses' }),

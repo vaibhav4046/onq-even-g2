@@ -7,6 +7,7 @@ import type { WorkspaceSnapshot } from '../providers/types.js';
 import type { SafeInspectKind, SafeInspectResult } from '../providers/localComputerBridge.js';
 import type { InferenceMode, LlmConfig, PreferredLlmProvider } from './modelRouter.js';
 import { INFERENCE_MODES, orchestrateStructuredJson } from './modelRouter.js';
+import { invokeOpenBotAgent } from './pcPowerSource.js';
 import type { MetricsLedger } from './metricsLedger.js';
 import type { CitedKnowledgeEngine } from './ragEngine.js';
 import type { MarketResearchBotEngine } from './marketBotEngine.js';
@@ -1835,14 +1836,46 @@ export class UnifiedOsHarness {
       });
     }
 
-    // 14e. /run <app> <prompt> or "ask <app> to <prompt>" -> run prompt through a specific computer AI app
+    // 14e. /run <app> <prompt> or "ask <app> to <prompt>" -> run prompt through a specific computer AI app (incl. OpenBot)
     const runMatch =
       cmd === '/run'
         ? arg.match(/^([a-z0-9_.-]+)\s+([\s\S]+)$/i)
-        : raw.match(/\bask\s+(claude|codex|gemini|opencode|ollama|lm ?studio|openrouter|chatgpt|grok|computer|pc)\s+(?:to\s+)?([\s\S]+)$/i);
+        : raw.match(/\bask\s+(openbot|claude|codex|gemini|opencode|ollama|lm ?studio|openrouter|chatgpt|grok|computer|pc)\s+(?:to\s+)?([\s\S]+)$/i);
     if (runMatch) {
       const alias = runMatch[1].toLowerCase().replace(/\s+/g, '');
       const subPrompt = runMatch[2].trim();
+      if (alias === 'openbot') {
+        const host = this.deps.computerHost?.getHostApps();
+        const obApp = host?.apps.find((a) => a.id === 'openbot' && a.status === 'connected');
+        const firstAgent = obApp ? 'default' : '';
+        if (!obApp) {
+          return recordOutcome({
+            ok: false,
+            command: '/run openbot',
+            domain: 'COMPUTER_APPS',
+            specialistId: 'developer',
+            autonomyLevel: 'L1_PREPARE',
+            reply: 'OpenBot desktop is in standby. Open OpenBot and enable Local scripts for an agent to invoke it from glasses.',
+            g2Lines: ['OPENBOT STANDBY', 'Open OpenBot on your PC', 'Turn ON Local scripts'],
+            recommendedTab: 'computer',
+          });
+        }
+        const obOut = await invokeOpenBotAgent(firstAgent, subPrompt);
+        return recordOutcome({
+          ok: obOut.ok,
+          command: '/run openbot',
+          domain: 'COMPUTER_APPS',
+          specialistId: 'developer',
+          autonomyLevel: obOut.status === 'needs_person' ? 'L2_APPROVAL' : 'L1_PREPARE',
+          reply: obOut.reply,
+          g2Lines: [
+            clipLine42(obOut.ok ? 'AI: OpenBot (PC Agent)' : `OPENBOT: ${obOut.status.toUpperCase()}`),
+            clipLine42(obOut.reply.slice(0, 42)),
+            clipLine42(obOut.reply.slice(42, 84) || 'Hosted on your computer'),
+          ],
+          recommendedTab: 'computer',
+        });
+      }
       const aliasMap: Record<string, PreferredLlmProvider> = {
         claude: 'claude_cli',
         claude_cli: 'claude_cli',
