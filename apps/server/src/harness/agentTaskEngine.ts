@@ -99,6 +99,9 @@ export class AgentTaskEngine {
     }
     if (!target) return null;
     if (params.previewToken && target.previewToken !== params.previewToken) return null;
+    if (target.status !== 'STAGED_DEFAULT_NO') {
+      throw new Error(`Task ${target.id} already ${target.status}`);
+    }
 
     target.status = 'RUNNING';
     target.updatedAtIso = new Date(this.nowFn()).toISOString();
@@ -119,6 +122,9 @@ export class AgentTaskEngine {
     try {
       result = this.metrics ? await this.metrics.runWith({ runId: taskId, taskId }, exec) : await exec();
     } catch (err) {
+      target.status = 'FAILED';
+      target.outputLines = [err instanceof Error ? err.message : 'Delegated task failed'];
+      target.updatedAtIso = new Date(this.nowFn()).toISOString();
       span?.end({ ok: false, error: err instanceof Error ? err.message : 'task failed' });
       throw err;
     }

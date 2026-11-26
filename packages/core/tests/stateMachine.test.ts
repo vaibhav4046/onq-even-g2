@@ -269,4 +269,19 @@ describe('stateMachine.ts', () => {
     await ctrl.handleEvent({ kind: 'DOUBLE_CLICK' });
     expect(ctrl.getState().phase).toBe('undone');
   });
+
+  it('19. showAnswer retains corridor cards and double-tap clears answer without shutdown', async () => {
+    let shutdownCount = 0;
+    const ctrl = new OnQHudController(createInitialHudState([CARD_A], 'DEMO'), {
+      onRequestShutdown: () => {
+        shutdownCount += 1;
+      },
+    });
+    ctrl.showAnswer(['Morning brief ready', '0 unread blockers']);
+    expect(ctrl.getState().cards).toHaveLength(1);
+    expect(ctrl.getState().answerLines).toHaveLength(2);
+    await ctrl.handleEvent({ kind: 'DOUBLE_CLICK' });
+    expect(ctrl.getState().answerLines).toEqual([]);
+    expect(shutdownCount).toBe(0);
+  });
 });

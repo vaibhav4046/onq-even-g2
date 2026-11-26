@@ -17,30 +17,43 @@ const hand = (x, y, r = 1, flip = 1, curl = 0) => `<g transform="translate(${x} 
   <path d="M-22 10 C-24 26 -16 42 -4 50 C-12 36 -14 22 -12 8Z" fill="${C.skinSh}" opacity=".8"/>
 </g>`;
 
-// ---- forearm + hand reaching in from the right (optionally holding the G2) ---
+// ---- forearm + hand reaching in from the right (proper ergonomic temple pinch grip for Even G2) ---
 export function handReach({ glasses = false } = {}) {
   const W = 900, H = 460;
-  const g = glasses ? `<g transform="translate(70 118) rotate(-12)">
-      <g fill="#cfe9e4" opacity=".28"><rect x="0" y="0" width="86" height="64" rx="24"/><rect x="104" y="0" width="86" height="64" rx="24"/></g>
-      <g fill="none" stroke="#2b2c36" stroke-width="7"><rect x="0" y="0" width="86" height="64" rx="24"/><rect x="104" y="0" width="86" height="64" rx="24"/><path d="M86 20 Q95 12 104 20"/></g>
-      <path d="M190 14 L300 -8" stroke="#2b2c36" stroke-width="13" stroke-linecap="round"/><path d="M0 14 L-40 0" stroke="#2b2c36" stroke-width="9" stroke-linecap="round"/>
-      <circle cx="212" cy="10" r="5" fill="#39ff88"/><circle cx="212" cy="10" r="18" fill="#39ff88" opacity=".25"/></g>` : '';
-  const finger = (x, y, a, l = 120) => `<g transform="translate(${x} ${y}) rotate(${a})"><rect x="${-l}" y="-17" width="${l}" height="34" rx="17" fill="${C.skin}" stroke="${C.ink}" stroke-width="3.4"/><path d="M${-l + 22} -3 H-10" stroke="${C.skinSh2}" stroke-width="2.4" opacity=".7"/></g>`;
+  // Temple arm passes directly through (310..420, y=155..170) between forefinger above and thumb below.
+  const g = glasses ? `<g transform="translate(88 158) rotate(-5)">
+      <g fill="#7cebb0" opacity=".18"><rect x="0" y="0" width="88" height="66" rx="24"/><rect x="106" y="0" width="88" height="66" rx="24"/></g>
+      <g fill="#ffffff" opacity=".16"><polygon points="18,54 38,8 50,8 30,54"/><polygon points="124,54 144,8 156,8 136,54"/></g>
+      <g fill="none" stroke="${C.frame}" stroke-width="7.5" stroke-linejoin="round"><rect x="0" y="0" width="88" height="66" rx="24"/><rect x="106" y="0" width="88" height="66" rx="24"/><path d="M88 22 Q97 14 106 22"/></g>
+      <path d="M194 18 L344 -2" stroke="${C.frame}" stroke-width="14" stroke-linecap="round"/>
+      <path d="M196 15 L292 2" stroke="#537864" stroke-width="3" stroke-linecap="round" opacity=".75"/>
+      <path d="M0 16 L-36 4" stroke="${C.frame}" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="218" cy="14" r="4.5" fill="${C.green}"/><circle cx="218" cy="14" r="16" fill="${C.green}" opacity=".25"/></g>` : '';
+  const backFinger = (x, y, a, l = 112) => `<g transform="translate(${x} ${y}) rotate(${a})"><rect x="${-l}" y="-15" width="${l}" height="30" rx="15" fill="${C.skinSh}" stroke="${C.ink}" stroke-width="3.2"/><path d="M${-l + 18} -2 H-10" stroke="${C.skinSh2}" stroke-width="2.2" opacity=".7"/></g>`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
-  <path d="M900 90 L560 100 C500 100 470 170 476 230 C482 300 520 340 570 346 L900 380Z" fill="${C.jacket}" stroke="${C.ink}" stroke-width="4" stroke-linejoin="round"/>
-  <path d="M900 90 L560 100 C520 104 500 140 494 176 L900 190Z" fill="${C.jacketHi}" opacity=".55"/>
-  <path d="M900 300 L560 330 C530 320 506 290 492 252 L900 250Z" fill="${C.jacketSh2}" opacity=".55"/>
-  <path d="M470 120 C440 160 436 260 468 320 L520 316 C500 260 500 170 520 112Z" fill="${C.jacketSh}" stroke="${C.ink}" stroke-width="4" stroke-linejoin="round"/>
-  <path d="M470 150 C400 150 340 160 300 190 C280 220 290 270 320 290 C380 316 430 312 470 304Z" fill="${C.skin}" stroke="${C.ink}" stroke-width="3.6" stroke-linejoin="round"/>
-  ${finger(330, 176, -6, 150)}${finger(320, 214, 2, 160)}${finger(324, 252, 8, 140)}
-  <path d="M420 290 C380 330 330 350 280 340 C262 336 262 316 280 312 C320 306 350 292 372 270Z" fill="${C.skin}" stroke="${C.ink}" stroke-width="3.6" stroke-linejoin="round"/>
-  <path d="M470 150 C440 160 420 180 410 200" fill="none" stroke="${C.skinSh}" stroke-width="10" opacity=".6"/>
-  ${g}</svg>`;
+  <!-- forearm sleeve -->
+  <path d="M900 108 L552 116 C496 116 468 176 474 236 C480 300 520 338 570 344 L900 374Z" fill="${C.jacket}" stroke="${C.ink}" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M900 108 L552 116 C514 120 496 150 490 184 L900 198Z" fill="${C.jacketHi}" opacity=".5"/>
+  <path d="M900 298 L560 326 C530 318 506 290 492 256 L900 256Z" fill="${C.jacketSh2}" opacity=".55"/>
+  <path d="M472 132 C446 168 442 260 472 318 L522 314 C502 260 502 178 522 126Z" fill="${C.jacketSh}" stroke="${C.ink}" stroke-width="4" stroke-linejoin="round"/>
+  <!-- back curled middle/ring/pinky fingers -->
+  ${backFinger(410, 218, 12, 108)}${backFinger(416, 250, 18, 100)}${backFinger(424, 280, 24, 88)}
+  <!-- palm base -->
+  <path d="M472 158 C422 154 382 172 356 206 C344 234 362 282 406 298 C442 310 462 308 474 300Z" fill="${C.skin}" stroke="${C.ink}" stroke-width="3.6" stroke-linejoin="round"/>
+  <!-- G2 glasses positioned naturally along temple pinch line -->
+  ${g}
+  <!-- foreground index finger resting gently over the top of the temple arm -->
+  <path d="M412 162 C380 144 338 140 296 148 C278 152 276 172 296 176 C332 180 368 176 404 186Z" fill="${C.skin}" stroke="${C.ink}" stroke-width="3.6" stroke-linejoin="round"/>
+  <path d="M356 156 Q336 164 316 158" fill="none" stroke="${C.skinSh2}" stroke-width="2.2" opacity=".75" stroke-linecap="round"/>
+  <!-- foreground thumb bracing underneath the temple arm -->
+  <path d="M430 256 C394 238 358 214 328 192 C310 180 296 196 310 212 C338 242 374 274 414 292Z" fill="${C.skin}" stroke="${C.ink}" stroke-width="3.6" stroke-linejoin="round"/>
+  <path d="M360 220 Q344 226 330 214" fill="none" stroke="${C.skinSh2}" stroke-width="2.2" opacity=".7" stroke-linecap="round"/>
+  </svg>`;
   return { svg, w: W, h: H };
 }
 
 // ---- standing, waist-up, slight 3/4 left ------------------------------------
-export function standing({ rim = '#ffd7a8', armUp = false, id = 'bs' } = {}) {
+export function standing({ rim = '#86ffaf', armUp = false, id = 'bs' } = {}) {
   const W = 700, H = 820, ax = 352, ay = 84;
   const sleeveL = 'M118 270 C70 330 54 470 60 640 C78 676 118 684 152 664 C156 560 166 440 186 340Z';
   const sleeveR = 'M600 270 C650 330 668 470 660 640 C640 676 596 684 566 664 C566 560 552 440 536 340Z';

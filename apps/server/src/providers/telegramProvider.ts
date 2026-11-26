@@ -159,18 +159,34 @@ export class TelegramWorkspaceClient {
     const envelopes: TelegramUpdateEnvelope[] = [];
     for (const upd of json.result ?? []) {
       const env: TelegramUpdateEnvelope = { updateId: upd.update_id };
-      if (upd.message?.text) {
-        const msg = upd.message;
-        const text = msg.text ?? '';
+      const msgObj = upd.message as
+        | {
+            date: number;
+            text?: string;
+            caption?: string;
+            voice?: { duration?: number };
+            reply_to_message?: { text?: string };
+            chat?: { id: number | string; type?: string; title?: string; username?: string; first_name?: string };
+            from?: { first_name?: string; username?: string };
+          }
+        | undefined;
+      const bodyText =
+        msgObj?.text ??
+        msgObj?.caption ??
+        (msgObj?.voice ? `[Voice note ${msgObj.voice.duration ?? 0}s]` : undefined);
+      if (msgObj && bodyText) {
+        const replyPrefix = msgObj.reply_to_message?.text
+          ? `[Re: ${msgObj.reply_to_message.text.slice(0, 40)}] `
+          : '';
         env.message = {
           updateId: upd.update_id,
-          chatId: String(msg.chat?.id ?? this.defaultChatId ?? ''),
-          chatType: msg.chat?.type ?? 'private',
-          chatUsername: msg.chat?.username,
-          chatTitle: msg.chat?.title ?? msg.chat?.first_name ?? msg.chat?.username ?? 'Telegram Chat',
-          fromName: msg.from?.first_name ?? msg.from?.username ?? 'Contact',
-          text: text.slice(0, 500),
-          atIso: new Date((msg.date || Math.floor(Date.now() / 1000)) * 1000).toISOString(),
+          chatId: String(msgObj.chat?.id ?? this.defaultChatId ?? ''),
+          chatType: msgObj.chat?.type ?? 'private',
+          chatUsername: msgObj.chat?.username,
+          chatTitle: msgObj.chat?.title ?? msgObj.chat?.first_name ?? msgObj.chat?.username ?? 'Telegram Chat',
+          fromName: msgObj.from?.first_name ?? msgObj.from?.username ?? 'Contact',
+          text: `${replyPrefix}${bodyText}`.slice(0, 500),
+          atIso: new Date((msgObj.date || Math.floor(Date.now() / 1000)) * 1000).toISOString(),
           mode: 'LIVE',
         };
       }
@@ -192,7 +208,7 @@ export class TelegramWorkspaceClient {
   }
 
   async getRecentMessages(limit = 5): Promise<TelegramDigestMessage[]> {
-    const raw = await this.getUpdatesRaw(undefined, Math.min(20, Math.max(1, limit)));
+    const raw = await this.getUpdatesRaw(undefined, Math.max(20, Math.min(50, limit * 5)));
     const items = raw
       .map((u) => u.message)
       .filter((m): m is TelegramDigestMessage & { chatType?: string; chatUsername?: string } => Boolean(m))

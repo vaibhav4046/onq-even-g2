@@ -103,14 +103,20 @@ export function TelegramScan({
                   </div>
                   {c.lastText && <div className="text-[10.5px] text-[var(--lightgray)] truncate">{c.lastText}</div>}
                 </div>
-                <button
-                  type="button"
-                  disabled={busy || ownerId === c.chatId}
-                  onClick={() => void setOwner(c)}
-                  className={smallBtnClass}
-                >
-                  {ownerId === c.chatId ? 'Owner' : 'Set as owner'}
-                </button>
+                {c.type === 'private' ? (
+                  <button
+                    type="button"
+                    disabled={busy || ownerId === c.chatId}
+                    onClick={() => void setOwner(c)}
+                    className={smallBtnClass}
+                  >
+                    {ownerId === c.chatId ? 'Owner' : 'Set as owner'}
+                  </button>
+                ) : (
+                  <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)] px-2 py-1 border border-[var(--hairline)]">
+                    Group · Watch only
+                  </span>
+                )}
                 <button
                   type="button"
                   aria-pressed={isWatched}

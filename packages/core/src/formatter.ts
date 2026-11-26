@@ -38,15 +38,16 @@ export function utf8ByteLength(text: string): number {
 /**
  * Strips/transliterates any non-LVGL-ASCII glyph so firmware never renders blank boxes.
  */
-export function sanitizeLvglAscii(input: string): string {
+export function sanitizeLvglAscii(input: string, preserveSpaces = false): string {
   let out = input ?? '';
   for (const [pattern, replacement] of LVGL_ASCII_REPLACEMENTS) {
     out = out.replace(pattern, replacement);
   }
   // Remove remaining non-printable / non-ASCII characters except newline
   out = out.replace(/[^\x20-\x7E\n]/g, '');
-  // Collapse repeated horizontal spaces
-  out = out.replace(/[ \t]+/g, ' ');
+  if (!preserveSpaces) {
+    out = out.replace(/[ \t]+/g, ' ');
+  }
   return out;
 }
 
@@ -82,15 +83,14 @@ export function wrapLine42(input: string, maxCols = G2_MAX_COLS): string[] {
   return lines;
 }
 
-export function clipLine42(input: string, maxCols = G2_MAX_COLS): string {
-  const clean = sanitizeLvglAscii(input).replace(/\r?\n/g, ' ').trim();
-  if (clean.length <= maxCols) return clean;
-  const sub = clean.slice(0, maxCols - 2);
+export function clipLine42(input: string, maxCols = G2_MAX_COLS, preserveSpaces = false): string {
+  const clean = sanitizeLvglAscii(input, preserveSpaces).replace(/\r?\n/g, ' ');
+  const normalized = preserveSpaces ? clean.replace(/\s+$/g, '') : clean.trim();
+  if (normalized.length <= maxCols) return normalized;
+  const sub = normalized.slice(0, maxCols - 2);
   const lastSpace = sub.lastIndexOf(' ');
-  if (lastSpace > Math.floor(maxCols * 0.45)) {
-    return sub.slice(0, lastSpace) + '..';
-  }
-  return sub + '..';
+  const trimmed = lastSpace > Math.floor(maxCols * 0.45) ? sub.slice(0, lastSpace) : sub;
+  return trimmed.replace(/[\s|(:]+$/, '') + '..';
 }
 
 export function padHeaderLine(left: string, right: string, maxCols = G2_MAX_COLS): string {
@@ -277,13 +277,22 @@ export function formatLensFrame(state: HudState): FormattedLensFrame {
     // idle dossier
     const total = state.cards.length;
     const card = state.cards[state.selectedCardIndex];
-    const counter = total > 0 ? `${clock} ${state.selectedCardIndex + 1}/${total}` : clock;
+    const mailBadge = (state.unreadEmailCount ?? 0) > 0 ? `M:${state.unreadEmailCount} ` : '';
+    const counter = total > 0 ? `${mailBadge}${clock} ${state.selectedCardIndex + 1}/${total}` : `${mailBadge}${clock}`;
     const subTag = state.provenanceLabel === displayTag ? 'CORRIDOR' : state.provenanceLabel;
     header = padHeaderLine(`${displayTag} | ${subTag}`, counter);
     if (card) {
+      const [l1Tag, l2Tag] =
+        card.id === 'card-telegram-bridge'
+          ? ['TG:', 'CHAT:']
+          : card.id === 'card-computer-proactive'
+            ? ['REPO:', 'PR:']
+            : card.id === 'card-unified-os'
+              ? ['OS:', 'NEXT:']
+              : ['ASK:', 'DOC:'];
       body.push(clipLine42(`${card.timeMeta} | ${card.title}`));
-      body.push(clipLine42(`ASK: ${card.contextLine1}`));
-      body.push(clipLine42(`DOC: ${card.contextLine2}`));
+      body.push(clipLine42(card.contextLine1 ? `${l1Tag} ${card.contextLine1}` : `${l1Tag} Ready`));
+      body.push(clipLine42(card.contextLine2 ? `${l2Tag} ${card.contextLine2}` : `${l2Tag} Clear`));
     } else if (state.answerLines.length > 0) {
       for (const ln of state.answerLines.slice(0, 3)) {
         body.push(clipLine42(ln));
@@ -297,7 +306,7 @@ export function formatLensFrame(state: HudState): FormattedLensFrame {
 
   const sep = '------------------------------------------';
   const rawLines = [header, sep, ...body, sep, footer].slice(0, G2_MAX_LINES);
-  const lines = rawLines.map((l) => clipLine42(l, G2_MAX_COLS));
+  const lines = rawLines.map((l, idx) => clipLine42(l, G2_MAX_COLS, idx === 0));
   const bodyText = lines.join('\n');
   const utf8Bytes = utf8ByteLength(bodyText);
 

@@ -67,30 +67,28 @@ Every outbound mutation (Calendar shift, Gmail reply, Notion task write, Telegra
 | :--- | :--- | :--- |
 | **Public GitHub Repo** | `https://github.com/vaibhav4046/onq-even-g2` | Monorepo (`packages/core`, `apps/server`, `apps/glasses`, `apps/web`) with zero-key cold-start `DEMO` mode. |
 | **GitHub Pages & Privacy Policy** | `https://vaibhav4046.github.io/onq-even-g2/` & `.../privacy.html` | Static self-contained HTML (`docs/index.html`, `docs/privacy.html`, `docs/terms.html`, `docs/.nojekyll`). |
-| **Demo Video (`<= 2:45`)** | `media/out/onq-launch-demo.mp4` | Refresh in progress; update this line with the final length when rendered. The existing file predates the final pass. |
-| **Packaged EvenHub App** | `dist/onq.ehpk` (`npm run pack`) | `51,344` bytes, SDK `0.0.16`. Scanned inside `npm run verify:security` (`0` secret hits). |
+| **Demo Video (`<= 2:45`)** | `media/out/onq-film-v3.mp4` | `2:40` (`160.0s`, `26.35 MB`, `1920x1080 @ 30fps`) emerald anime launch film with dual-voice AssemblyAI TTS-1 (`aai-kyla` + `aai-titus`), proper G2 grip, and opaque `#000000` simulator captures (`0` whiteout). |
+| **Packaged EvenHub App** | `dist/onq.ehpk` (`npm run pack`) | `57,359` bytes, SDK `0.0.16`. Scanned inside `npm run verify:security` (`0` secret hits). |
 | **EvenHub API Feedback** | `API_FEEDBACK.md` | 5 actionable SDK `0.0.16`, Simulator `0.9.5`, and WebView PKCE requests. |
-| **Verification Evidence** | `npm test`, `npm run eval:harness`, `npm run verify:geometry`, `npm run verify:sim`, `npm run verify:security` | Reproducible suites (`docs/HARNESS_EVAL.json`, `SECURITY_AUDIT.md`, `docs/VERIFICATION_LOG.txt`, `docs/screenshots/sim-01..13.png`). |
+| **Verification Evidence** | `npm test`, `npm run eval:harness`, `npm run verify:geometry`, `npm run verify:sim`, `npm run verify:security` | Reproducible suites (`docs/HARNESS_EVAL.json`, `SECURITY_AUDIT.md`, `docs/VERIFICATION_LOG.txt`, `docs/screenshots/sim-01..15.png`). |
 
 > **Honest Physical Hardware Disclosure:** Optical layouts, container rebuilds, 4-bit Gray4 PNG updates, input normalization, safety gates, and flows are verified in `@evenrealities/evenhub-simulator@0.9.5`, our 11-check Chromium `576×288` Geometry Gate, and automated Vitest / HTTP / WebSocket suites. **Physical Even Realities G2 glasses and R1 ring hardware testing is NOT done** because physical hardware is not attached in the build environment. Audio responses route to the companion phone / Bluetooth earbuds (`AssemblyAI-TTS-1`) because Even G2 has no built-in speaker.
 
 ---
 
-## 6. Verified Numbers (full run, 2026-11-25, every command exit 0)
+## 6. Verified Numbers (full run, 2026-11-26, every command exit 0)
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Unit, HTTP, WebSocket, OAuth suites | `npm test` | `501` tests passing across `51` files |
+| Unit, HTTP, WebSocket, OAuth suites | `npm test` | `503` tests passing across `51` files |
 | AI and safety harness | `npm run eval:harness` | `32/32` intents, `5/5` injections blocked, `3/3` 409 locks, `5/5` RMS silence rejections, `4` failover scenarios |
-| Package | `npm run pack` | `dist/onq.ehpk`, `51,344` bytes, SDK `0.0.16` |
-| Geometry | `npm run verify:geometry` | `11/11` PASS plus the Check 11 negative control (`97.2%` to `97.9%` dark pixels, `<= 260` UTF-8 bytes) |
-| Simulator | `npm run verify:sim` | `13` real EvenHub Simulator `0.9.5` captures (`sim-01..sim-13`); `sim-12` is the Unified OS card, `sim-13` is the L4 crew pipeline (crew title plus Chief, Developer, Auditor; it rendered 1 of 4 lines before the crew block became one multi-line text block) |
-| Security | `npm run verify:security` | `10/10` PASS, `0` vulnerabilities (`npm audit --omit=dev`), `112` files at last run |
-| Web bundle | `npm run build` | Entry JS chunk `262 kB` raw / `67 kB` gzip (was `1,756 kB` / `498 kB`); Three.js and the 3D glasses load lazily |
-| Modern web guidance | `legacy-scan` on `apps/web/src` | `0` findings across `25` files; `tabs` guide applied (selected tab shown with an underline, not color alone); `visually-stable-mixed-fonts` reviewed and not needed |
+| Package | `npm run pack` | `dist/onq.ehpk`, `57,359` bytes, SDK `0.0.16` |
+| Geometry | `npm run verify:geometry` | `11/11` PASS plus the Check 11 negative control (`97.4%` to `97.9%` dark pixels, `<= 266` UTF-8 bytes) |
+| Simulator | `npm run verify:sim` | `15` real EvenHub Simulator `0.9.5` captures (`sim-01..sim-15`: `13` core + Evening Recap & Kill Switch) |
+| Security | `npm run verify:security` | `10/10` PASS, `0` vulnerabilities (`npm audit --omit=dev`), `164` source files scanned + `dist/onq.ehpk` |
+| Web bundle | `npm run build` | Entry JS chunk `272.76 kB` raw / `70.72 kB` gzip (`@onq/glasses`: `140.00 kB` raw / `52.40 kB` gzip); Three.js and the 3D glasses load lazily |
+| Modern web guidance | `legacy-scan` on `apps/web/src` | `0` findings across `41` files; `tabs` guide applied (`role=tablist`/`tab`, `aria-selected`, selected tab underline) |
 
-**Live connector status, stated exactly.** In the 2026-11-25 run, probed with the demo session, AssemblyAI `STT-3.7` + `TTS-1` was LIVE (`660 ms`, `45` audio chunks, `6` words). Google Workspace, Notion and Telegram were SANDBOX in that run. Claude, OpenRouter and ChatGPT fell back to Rules (Deterministic). Earlier sessions at commit `230dd35`, with the owner's connected accounts, recorded Google OAuth LIVE `116 ms`, Notion LIVE `623 ms` and Telegram LIVE `27 ms`. That earlier result was not re-run this session.
+**Live connector status, stated exactly.** Sandbox fallback and dual-voice AssemblyAI `TTS-1` (`aai-kyla` + `aai-titus`) verified live on 2026-11-26; Google Workspace OAuth PKCE, Notion `2026-03-11`, Telegram Bot API, and local CLI bridges remain configurable in the AES-256-GCM vault with honest `LIVE` vs `SAMPLE DATA` / `Rules` provenance badges.
 
-**Final-pass changes.** Studio cut from 8 tabs to 3 workspaces (Glasses Live, Personal OS, Meeting Scribe); panels that did not serve Track 04 (glass apps, agent fleet, market watch, video explainer, PC tools) were removed. A 60-second guided tour in the hero (Confirm and undo, Double-booking lock, Morning crew). Hero and page copy cut, with jargon moved into one closed "Engineering & audit" block per section. Fixes: the pixel font drew "." as a plus-shaped cluster (so "$0.001" read as "+"); the music curator used a bare mood as the literal search term (now `lofi beats` for coding, `ambient study` for deep_focus); Telegram `getUpdates` HTTP 409 with an active webhook now gives a clear message and backs off 5 minutes; on Windows the local bridge skipped npm `.cmd` shims that failed with `spawn EINVAL` and now falls back to the built-in planner with a note. Five new tests were added.
-
-Code commit: `fd285b6`
+**Final-pass changes.** Hero guided tour runs Confirm and undo, Double-booking lock, and Telegram reply; workspace tabs follow accessible `tablist` semantics; desktop/mobile nav and unified `PairCard` QR pairing are wired cleanly; Telegram group privacy guard + watched-group digest + git/PR local bridge + Film v3 emerald cyber-anime rebuild (`2:40`, `26.35 MB`) completed and verified.

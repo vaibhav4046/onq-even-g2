@@ -80,7 +80,7 @@ export function RemoteAdvanced({ sessionToken, remote }: { sessionToken: string 
             <button type="button" onClick={() => void download()} className={smallBtnClass}>
               Download package
             </button>
-            <p>Install: evenhub-cli upload {out.file}, or sideload with its QR tool. A new quick-tunnel address needs a new package.</p>
+            <p>Install: <code>evenhub create {out.file}</code> then <code>evenhub upload -m {out.file}</code>, or sideload with its QR tool. A new quick-tunnel address needs a new package.</p>
           </div>
         )}
       </div>

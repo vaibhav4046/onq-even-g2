@@ -103,6 +103,7 @@ let containerMode: 'text-only' | 'detail-list' | 'ring-split' | null = null;
 let sseSource: EventSource | null = null;
 let activeLiveUi: LiveUiSurface | null = null;
 let avatarTick = 0;
+let avatarAnimTimer: number | null = null;
 const paintQueue = new BlePaintQueue(250);
 const pcmBuffer = new PcmRingBuffer();
 const browserMic = createBrowserMic((pcm) => {
@@ -218,8 +219,41 @@ async function paintToGlasses(state: HudState): Promise<void> {
 
   const frame = formatLensFrame(state);
   const wantRing = state.phase === 'armed' && frame.ringProgress01 !== undefined;
-  const wantAvatar = state.phase === 'listening' || state.phase === 'meeting_live';
+  const wantAvatar =
+    state.phase === 'listening' ||
+    state.phase === 'meeting_live' ||
+    (state.phase === 'idle' && state.cards.length === 0 && (state.answerLines?.length ?? 0) > 0);
   const wantImage = wantRing || wantAvatar;
+  if (wantAvatar && avatarAnimTimer === null) {
+    avatarAnimTimer = window.setInterval(() => {
+      const cur = controller.getState();
+      const stillAvatar =
+        cur.phase === 'listening' ||
+        cur.phase === 'meeting_live' ||
+        (cur.phase === 'idle' && cur.cards.length === 0 && (cur.answerLines?.length ?? 0) > 0);
+      if (!stillAvatar) {
+        if (avatarAnimTimer !== null) {
+          window.clearInterval(avatarAnimTimer);
+          avatarAnimTimer = null;
+        }
+        return;
+      }
+      avatarTick += 1;
+      const mode = cur.phase === 'listening' ? 'listening' : 'speaking';
+      const png = encodePixelAvatarPng(mode, { tick: avatarTick, rmsLevel: Math.max(0.42, cur.rmsLevel), style: 'muse', size: 76 });
+      if (bridge) {
+        void paintQueue.enqueueImage(async () => {
+          if (!bridge) return;
+          await bridge.updateImageRawData(
+            new ImageRawDataUpdate({ containerID: RING_CONTAINER_ID, containerName: 'undo-ring', imageData: Array.from(png) }),
+          );
+        }, false);
+      }
+    }, 350);
+  } else if (!wantAvatar && avatarAnimTimer !== null) {
+    window.clearInterval(avatarAnimTimer);
+    avatarAnimTimer = null;
+  }
   const wantList = state.phase === 'detail' && (state.cards[state.selectedCardIndex]?.quickActions.length ?? 0) > 0;
   const desiredMode: 'text-only' | 'detail-list' | 'ring-split' = wantImage
     ? 'ring-split'
@@ -818,7 +852,7 @@ function startSseSync(tok: string): void {
         controller.showError('DEVICE REVOKED - PAIR AGAIN');
       });
     }
-    sseSource.addEventListener('liveui', (ev) => {
+    sseSource.addEventListener('liveui', async (ev) => {
       try {
         const parsed = JSON.parse((ev as MessageEvent).data) as { surface?: LiveUiSurface | null };
         if (parsed?.surface) {
@@ -837,17 +871,21 @@ function startSseSync(tok: string): void {
             ringImgEl.style.display = 'block';
           }
           if (bridge) {
-            void paintQueue.enqueueOp(async () => {
-              if (!bridge) return;
-              await bridge.textContainerUpgrade(
-                new TextContainerUpgrade({
-                  containerID: TEXT_CONTAINER_ID,
-                  contentOffset: 0,
-                  contentLength: 1000,
-                  content: formatted.bodyText,
-                }),
-              );
-            });
+            if (containerMode === 'detail-list') {
+              await paintToGlasses({ ...controller.getState(), phase: 'idle', answerLines: formatted.lines, cards: [] });
+            } else {
+              void paintQueue.enqueueOp(async () => {
+                if (!bridge) return;
+                await bridge.textContainerUpgrade(
+                  new TextContainerUpgrade({
+                    containerID: TEXT_CONTAINER_ID,
+                    contentOffset: 0,
+                    contentLength: Math.min(999, new TextEncoder().encode(formatted.bodyText).length),
+                    content: formatted.bodyText,
+                  }),
+                );
+              });
+            }
           }
         }
       } catch {
@@ -1052,6 +1090,10 @@ async function bootstrap(): Promise<void> {
         // storage unavailable: pairing still works for this session
       }
     } else if (!deviceToken) {
+      if (claimed.status === 0) {
+        await linkSupervisor.check();
+        return;
+      }
       showLinkStatus(DIAG.PAIR_EXPIRED);
       return;
     }

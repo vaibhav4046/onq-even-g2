@@ -152,6 +152,9 @@ export class TelegramCommandCentre {
       const word = (msg.text.trim().split(/\s+/)[0] ?? '').toLowerCase().split('@')[0];
       const isCommand = word.startsWith('/');
       const watched = this.deps.getWatchedChats?.() ?? [];
+      const isGroup = msg.chatType === 'group' || msg.chatType === 'supergroup';
+      const isWatchedGroup = isGroup && Boolean(msg.chatId) && watched.includes(msg.chatId);
+      const READ_ONLY_GROUP_CMDS = new Set(['/help', '/status', '/brief', '/morning', '/evening', '/recap']);
       // Read side: remember new messages only from chats the owner picked (and the owner chat) for the digest.
       if (!isCommand && msg.chatId && (msg.chatId === owner || watched.includes(msg.chatId))) {
         this.recentMessages = [{ ...msg }, ...this.recentMessages].slice(0, 50);
@@ -161,15 +164,34 @@ export class TelegramCommandCentre {
         return { handled: false };
       }
       if (word === '/myid' || word === '/start') {
-        const reply = `Your chat ID is ${msg.chatId}. In OnQ, open Connectors, Telegram, and paste it as the owner chat.`;
+        const reply = isGroup
+          ? `Group chat ID is ${msg.chatId}. In OnQ -> Connect -> Telegram, click Watch to monitor this group (owner must be a private DM).`
+          : `Your chat ID is ${msg.chatId}. In OnQ, open Connectors, Telegram, and paste it as the owner chat.`;
         if (client && msg.chatId) await client.sendMessage(reply, msg.chatId).catch(() => null);
         return { handled: true, reply };
       }
+      if (isWatchedGroup && READ_ONLY_GROUP_CMDS.has(word)) {
+        const outcome = await this.deps.osHarness.handleCommand({
+          text: msg.text,
+          surface: 'telegram',
+          chatId: msg.chatId,
+          chatType: msg.chatType,
+        });
+        this.processedCount += 1;
+        if (client && msg.chatId) await client.sendMessage(outcome.reply, msg.chatId).catch(() => null);
+        return { handled: true, reply: outcome.reply };
+      }
       if (!owner || msg.chatId !== owner) {
         this.deps.onLog?.(`Ignored Telegram message from unpaired chat ${msg.chatId}`);
-        const inGroup = msg.chatType === 'group' || msg.chatType === 'supergroup';
-        const refusal = inGroup
-          ? 'Group privacy guard: OnQ only runs in your private owner DM with the bot, not in group chats.'
+        if (isGroup && !isWatchedGroup) {
+          // Never spam live unwatched Telegram groups, while still returning the guard reason to webhook-test callers.
+          return {
+            handled: false,
+            reply: 'Group privacy guard: only your owner DM may run OnQ commands.',
+          };
+        }
+        const refusal = isGroup
+          ? 'Group privacy guard: OnQ only runs read-only checks (/status, /brief, /evening) in watched groups.'
           : owner
             ? 'This bot is private.'
             : 'Not paired yet. Send /myid and paste the number into OnQ.';

@@ -95,6 +95,7 @@ interface LiveVoiceStudioProps {
   onWipeMeeting?: () => void;
   onPreviewStaged?: (preview: ActionPreview) => void;
   onLiveUiUpdate?: (surface: LiveUiSurface) => void;
+  onPlayTts?: (text: string) => void;
 }
 
 /**
@@ -128,6 +129,7 @@ export function LiveVoiceStudio({
   onWipeMeeting,
   onPreviewStaged,
   onLiveUiUpdate,
+  onPlayTts,
 }: LiveVoiceStudioProps) {
   const reduced = useReducedMotion();
   const [studioTab, setStudioTab] = useState<StudioTab>('call');
@@ -468,7 +470,7 @@ export function LiveVoiceStudio({
       credentials: 'include',
       body: JSON.stringify({ verbosity }),
     });
-    setStudioMsg(`Hermes Taste Profile updated: ${verbosity.toUpperCase()}.`);
+    setStudioMsg(`Response style updated: ${verbosity === 'caveman' ? 'SHORT' : verbosity.toUpperCase()}.`);
   };
 
   const triggerSilentChip = async (chip: SilentQuickChipDto) => {
@@ -551,7 +553,11 @@ export function LiveVoiceStudio({
       if (nextTab) setStudioTab(nextTab);
       if (!customText) setPartnerInput('');
 
-      const words = (j.spokenText ?? j.reply ?? '').split(/\s+/).filter(Boolean).slice(0, 18);
+      const spokenLine = (j.spokenText ?? j.reply ?? '').trim();
+      if (spokenLine && onPlayTts) {
+        void onPlayTts(spokenLine);
+      }
+      const words = spokenLine.split(/\s+/).filter(Boolean).slice(0, 18);
       if (words.length > 0 && !reduced) {
         setPartnerSpeaking(true);
         words.forEach((w, idx) => {
@@ -911,7 +917,11 @@ export function LiveVoiceStudio({
                             onClick={() => setExpandedCodeId(expandedCodeId === tk.id ? null : tk.id)}
                             className="text-[10px] text-[#34F57E] hover:underline cursor-pointer"
                           >
-                            {expandedCodeId === tk.id ? 'Hide script' : 'View generated Python bot'}
+                            {expandedCodeId === tk.id
+                              ? 'Hide script'
+                              : tk.kind === 'WRITE_CODE_BOT' || tk.toolUsed.toLowerCase().includes('python')
+                                ? 'View generated automation script'
+                                : 'View generated snippet'}
                           </button>
                           {expandedCodeId === tk.id && (
                             <pre className="max-h-28 overflow-auto bg-[#030a06] border border-white/10 p-2 text-[9.5px] text-[#86FFAF]">

@@ -1,19 +1,19 @@
 // OnQ film v3 - the recurring character (hand-authored SVG, cel-shaded).
 // head(): 520x640 sprite, chin anchor at (262,516). Bodies live in body.js.
 export const C = {
-  ink: '#1c1727', inkSoft: '#3a2b3c',
-  skin: '#f8d8c6', skinSh: '#ebae9f', skinSh2: '#d98d86', blush: '#ff8f95',
-  hair: '#1b1e33', hairMid: '#2a3050', hairHi: '#7385c9', hairHi2: '#a5b3ee',
-  jacket: '#869b90', jacketSh: '#5f766b', jacketSh2: '#465b54', jacketHi: '#b7c9be',
-  tee: '#f1ece3', teeSh: '#cfc8d6',
-  frame: '#2b2c36', green: '#39ff88',
+  ink: '#09140e', inkSoft: '#1c3328',
+  skin: '#dfede2', skinSh: '#b4cbb9', skinSh2: '#89a892', blush: '#4fa87d',
+  hair: '#0c1814', hairMid: '#182b24', hairHi: '#42996d', hairHi2: '#86ffaf',
+  jacket: '#4f6e5d', jacketSh: '#334a3e', jacketSh2: '#203129', jacketHi: '#7aa88e',
+  tee: '#cfe6d6', teeSh: '#94b39f',
+  frame: '#1a211e', green: '#34f57e',
 };
 
 const defs = (id) => `
 <defs>
   <linearGradient id="iris${id}" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0" stop-color="#17203a"/><stop offset=".38" stop-color="#2f5d80"/>
-    <stop offset=".78" stop-color="#58b3b8"/><stop offset="1" stop-color="#a8f0d8"/>
+    <stop offset="0" stop-color="#0b1814"/><stop offset=".38" stop-color="#1c4a38"/>
+    <stop offset=".78" stop-color="#34a872"/><stop offset="1" stop-color="#86ffaf"/>
   </linearGradient>
   <linearGradient id="hairg${id}" gradientUnits="userSpaceOnUse" x1="140" y1="60" x2="430" y2="430">
     <stop offset="0" stop-color="${C.hairMid}"/><stop offset="1" stop-color="${C.hair}"/>
@@ -109,7 +109,7 @@ function mouth(kind, open, cx = 262, cy = 452) {
 }
 
 // ---- head ------------------------------------------------------------------
-export function head({ expr = 'neutral', blink = false, talk = false, glasses = true, look = 0, glow = 0, rim = '#ffd7a8', rimA = 0.85, id = 'h' } = {}) {
+export function head({ expr = 'neutral', blink = false, talk = false, glasses = true, look = 0, glow = 0, rim = '#86ffaf', rimA = 0.85, id = 'h' } = {}) {
   const E = { ...EXPR[expr] };
   if (blink && !E.closed) { E.closed = true; }
   const faceD = 'M152 236 C144 334 168 428 224 488 Q244 510 262 502 C334 476 384 414 392 330 L394 236 Z';

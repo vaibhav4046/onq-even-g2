@@ -232,8 +232,6 @@ export function ConnectorsHub({
   const [telegramBotToken, setTelegramBotToken] = useState('');
   const [telegramChatId, setTelegramChatId] = useState('');
 
-  const [showPhysicalPair, setShowPhysicalPair] = useState(false);
-  const [g2Code, setG2Code] = useState<string | null>(null);
   const [computerTools, setComputerTools] = useState<DetectedComputerTool[]>([]);
 
   const authHeaders = useCallback((): Record<string, string> => {
@@ -580,9 +578,10 @@ export function ConnectorsHub({
   const openDrawerAndScroll = (id: ConnectorDrawerId) => {
     setOpenDrawer(id);
     const card = id && id !== 'account' && id !== 'bulk' ? SOURCE_CARD_ID[id] : undefined;
-    window.requestAnimationFrame(() =>
-      document.getElementById(card ? `source-card-${card}` : 'connector-drawer')?.scrollIntoView({ block: 'nearest' }),
-    );
+    window.setTimeout(() => {
+      const target = document.getElementById(card ? `source-card-${card}` : 'connector-drawer');
+      target?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 35);
   };
 
   /** The three things only the owner can do, in order. Each button starts the real flow; no credential is read or stored here. */
@@ -1221,6 +1220,26 @@ export function ConnectorsHub({
                   className="w-full bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
                 />
               </div>
+              <div className="space-y-1">
+                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">9. TELEGRAM BOT TOKEN</span>
+                <input
+                  type="password"
+                  placeholder="123456:ABC... (optional)"
+                  value={telegramBotToken}
+                  onChange={(e) => setTelegramBotToken(e.target.value)}
+                  className="w-full bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">10. TELEGRAM OWNER CHAT ID</span>
+                <input
+                  type="text"
+                  placeholder="Owner DM ID (from /myid)"
+                  value={telegramChatId}
+                  onChange={(e) => setTelegramChatId(e.target.value)}
+                  className="w-full bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
+                />
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
@@ -1326,7 +1345,25 @@ export function ConnectorsHub({
               <button
                 type="button"
                 disabled={busy || testingId !== null}
-                onClick={() => void runTestConnection('claude')}
+                onClick={() => {
+                  const active = (status?.activeLlmProvider ?? '').toLowerCase();
+                  const targetProvider: ConnectorProviderId = active.includes('openrouter')
+                    ? 'openrouter'
+                    : active.includes('chatgpt') || active.includes('openai')
+                      ? 'chatgpt'
+                      : active.includes('grok')
+                        ? 'grok'
+                        : active.includes('omniroute')
+                          ? 'omniroute'
+                          : status?.connectors.openrouter?.connected
+                            ? 'openrouter'
+                            : status?.connectors.chatgpt?.connected
+                              ? 'chatgpt'
+                              : status?.connectors.claude?.connected
+                                ? 'claude'
+                                : 'openrouter';
+                  void runTestConnection(targetProvider);
+                }}
                 className="px-3 py-2 border border-[var(--hairline)] hover:border-[var(--verified)] cursor-pointer"
               >
                 Test AI model
@@ -1742,40 +1779,14 @@ export function ConnectorsHub({
           </div>
         )}
 
-        <div className="pt-1 text-xs text-[var(--lightgray)]">
-          <button
-            type="button"
-            onClick={async () => {
-              const next = !showPhysicalPair;
-              setShowPhysicalPair(next);
-              if (next && !g2Code) {
-                const res = await fetch('/api/pair/start', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ mode: 'LIVE' }),
-                });
-                const j = (await res.json()) as { code?: string };
-                if (j.code) setG2Code(j.code);
-              }
-            }}
-            className="inline-flex items-center gap-2 hover:text-[var(--bright)] underline decoration-dashed underline-offset-4 cursor-pointer"
+        <div id="connector-drawer" className="pt-1 text-xs text-[var(--lightgray)]">
+          <a
+            href="#pair-heading"
+            className="inline-flex items-center gap-2 hover:text-[var(--bright)] underline decoration-dashed underline-offset-4"
           >
             <EvenG2PixelSvg className="w-5 h-3" />
-            <span>Link Even G2 Glasses</span>
-          </button>
-          {showPhysicalPair && (
-            <div className="mt-3 p-4 border border-dashed border-[var(--hairline)] bg-[var(--surface)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="space-y-1">
-                <div>
-                  Enter this code in the Even Hub app:{' '}
-                  <strong className="font-pixel text-[var(--lime)]">{g2Code ?? '...'}</strong>
-                </div>
-                <div className="text-[11px] text-[var(--lightgray)]">
-                  Google sign-in does not work inside the glasses app, so you pair here once.
-                </div>
-              </div>
-            </div>
-          )}
+            <span>Pair physical Even G2 glasses via QR / Link above</span>
+          </a>
         </div>
 
         <details className="border border-dashed border-[var(--hairline)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--lightgray)]">

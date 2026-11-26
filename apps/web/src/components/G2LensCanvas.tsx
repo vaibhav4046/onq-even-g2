@@ -27,11 +27,12 @@ export function G2LensCanvas({
   }, [hudState.phase, frame.ringProgress01]);
 
   const avatarDataUrl = useMemo(() => {
-    if (hudState.phase !== 'listening' && hudState.phase !== 'meeting_live') return null;
+    const isAnswering = hudState.phase === 'idle' && hudState.answerLines.length > 0;
+    if (hudState.phase !== 'listening' && hudState.phase !== 'meeting_live' && !isAnswering) return null;
     const pngBytes = encodePixelAvatarPng(
-      hudState.phase === 'meeting_live' ? 'speaking' : 'listening',
+      hudState.phase === 'meeting_live' || isAnswering ? 'speaking' : 'listening',
       {
-        tick: hudState.meeting?.turns.length ?? 2,
+        tick: hudState.avatarTick ?? hudState.meeting?.turns.length ?? 2,
         rmsLevel: Math.max(0.35, hudState.rmsLevel),
         style: 'muse',
         size: 76,
@@ -42,7 +43,7 @@ export function G2LensCanvas({
       bin += String.fromCharCode(pngBytes[i]);
     }
     return `data:image/png;base64,${btoa(bin)}`;
-  }, [hudState.phase, hudState.rmsLevel, hudState.meeting?.turns.length]);
+  }, [hudState.phase, hudState.rmsLevel, hudState.avatarTick, hudState.answerLines.length, hudState.meeting?.turns.length]);
 
   const sideImgUrl = ringDataUrl ?? avatarDataUrl;
 

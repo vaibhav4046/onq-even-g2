@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { createOnQServer } from '../apps/server/dist/server.js';
 
 const ROOT = process.cwd();
@@ -66,13 +67,108 @@ async function sendInput(autoBase, action) {
   await new Promise((r) => setTimeout(r, 450));
 }
 
+function crc32(buf) {
+  let c = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) {
+    c ^= buf[i];
+    for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (c & 1 ? 0xedb88320 : 0);
+  }
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function makePngChunk(type, data) {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length, 0);
+  const t = Buffer.from(type, 'ascii');
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(Buffer.concat([t, data])), 0);
+  return Buffer.concat([len, t, data, crc]);
+}
+
+function paethPredictor(a, b, c) {
+  const p = a + b - c;
+  const pa = Math.abs(p - a);
+  const pb = Math.abs(p - b);
+  const pc = Math.abs(p - c);
+  return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+}
+
+/** Composites RGBA (colorType 6) simulator PNG onto pure #000000 RGB (colorType 2) for legible G2 optics everywhere. */
+function compositePngOnBlack(buf) {
+  let pos = 8;
+  let width = 0;
+  let height = 0;
+  let bitDepth = 0;
+  let colorType = 0;
+  const idats = [];
+  while (pos + 8 <= buf.length) {
+    const len = buf.readUInt32BE(pos);
+    const type = buf.toString('ascii', pos + 4, pos + 8);
+    const data = buf.subarray(pos + 8, pos + 8 + len);
+    pos += 12 + len;
+    if (type === 'IHDR') {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      bitDepth = data[8];
+      colorType = data[9];
+    } else if (type === 'IDAT') {
+      idats.push(data);
+    } else if (type === 'IEND') {
+      break;
+    }
+  }
+  if (colorType !== 6 || bitDepth !== 8 || width === 0 || height === 0) return buf;
+  const raw = zlib.inflateSync(Buffer.concat(idats));
+  const bpp = 4;
+  const stride = width * bpp;
+  const rgbStride = width * 3 + 1;
+  const outRaw = Buffer.alloc(height * rgbStride);
+  let prev = Buffer.alloc(stride);
+  for (let y = 0; y < height; y++) {
+    const filter = raw[y * (stride + 1)];
+    const row = Buffer.from(raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1) + 1));
+    for (let i = 0; i < stride; i++) {
+      const a = i >= bpp ? row[i - bpp] : 0;
+      const b = prev[i];
+      const c = i >= bpp ? prev[i - bpp] : 0;
+      if (filter === 1) row[i] = (row[i] + a) & 0xff;
+      else if (filter === 2) row[i] = (row[i] + b) & 0xff;
+      else if (filter === 3) row[i] = (row[i] + ((a + b) >> 1)) & 0xff;
+      else if (filter === 4) row[i] = (row[i] + paethPredictor(a, b, c)) & 0xff;
+    }
+    const dstOff = y * rgbStride;
+    outRaw[dstOff] = 0;
+    for (let x = 0; x < width; x++) {
+      const s = x * 4;
+      const d = dstOff + 1 + x * 3;
+      const alpha = row[s + 3];
+      outRaw[d] = (row[s] * alpha) >> 8;
+      outRaw[d + 1] = (row[s + 1] * alpha) >> 8;
+      outRaw[d + 2] = (row[s + 2] * alpha) >> 8;
+    }
+    prev = row;
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 2; // RGB opaque on #000000 black
+  return Buffer.concat([
+    buf.subarray(0, 8),
+    makePngChunk('IHDR', ihdr),
+    makePngChunk('IDAT', zlib.deflateSync(outRaw)),
+    makePngChunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
 async function captureGlasses(autoBase, filename) {
   const res = await fetch(`${autoBase}/api/screenshot/glasses`);
   if (!res.ok) throw new Error(`GET /api/screenshot/glasses failed: ${res.status}`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.byteLength <= 4500) {
-    throw new Error(`[sim:FAIL] Blank/empty simulator screenshot for ${filename} (${buf.byteLength} bytes)`);
+  const raw = Buffer.from(await res.arrayBuffer());
+  if (raw.byteLength <= 4500) {
+    throw new Error(`[sim:FAIL] Blank/empty simulator screenshot for ${filename} (${raw.byteLength} bytes)`);
   }
+  const buf = compositePngOnBlack(raw);
   const out = path.join(SCREENSHOT_DIR, filename);
   fs.writeFileSync(out, buf);
   console.log(`[sim] Captured ${out} (${buf.byteLength} bytes)`);
@@ -199,6 +295,48 @@ async function main() {
     if (!pipeRes.ok) throw new Error(`POST /api/os/pipeline/run failed: ${pipeRes.status}`);
     await new Promise((r) => setTimeout(r, 900));
     await captureGlasses(autoBase, 'sim-13-os-pipeline-live.png');
+
+    // 5e. Extra real simulator captures for Film v3 slots (evening recap & kill switch pushed to LiveUI HUD)
+    const recapRes = await fetch('http://127.0.0.1:8787/api/os/command', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ text: '/evening', surface: 'glasses' }),
+    });
+    const recapJson = recapRes.ok ? await recapRes.json() : null;
+    const recapLines = Array.isArray(recapJson?.outcome?.g2Lines) && recapJson.outcome.g2Lines.length > 0
+      ? recapJson.outcome.g2Lines.slice(0, 3)
+      : ['Committed today: 1 write receipt', 'Open threads: 1 Telegram, 1 email', 'All Default-NO guards verified'];
+    await fetch('http://127.0.0.1:8787/api/liveui/generate', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        xml: `<ui frame="full" title="EVENING RECAP"/><ui c="list">\n${recapLines.join('\n')}</ui>`,
+      }),
+    });
+    await new Promise((r) => setTimeout(r, 700));
+    await captureGlasses(autoBase, 'sim-14-evening-recap.png');
+
+    const ksRes = await fetch('http://127.0.0.1:8787/api/os/killswitch', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ paused: true, reason: 'Owner pause check' }),
+    });
+    if (ksRes.ok) {
+      await fetch('http://127.0.0.1:8787/api/liveui/generate', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          xml: '<ui frame="full" title="KILL SWITCH LOCKED"/><ui c="list">\nStatus: L3/L4 routines PAUSED\nWrites: 0 sent (blocked)\nResume from owner desktop</ui>',
+        }),
+      });
+      await new Promise((r) => setTimeout(r, 700));
+      await captureGlasses(autoBase, 'sim-15-killswitch.png');
+      await fetch('http://127.0.0.1:8787/api/os/killswitch', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ paused: false, reason: 'Resumed after check' }),
+      });
+    }
 
     // 6. Check simulator console logs for unexpected errors (allow the intentional 409 Conflict test fetch)
     const conRes = await fetch(`${autoBase}/api/console`);

@@ -155,9 +155,13 @@ export function OnQVoiceOrb({
           ? 1.02
           : 1;
 
-  const browTilt = state === 'conflict' || state === 'armed' ? 3 : state === 'thinking' ? -2 : 0;
-  const eyeShiftX = state === 'thinking' ? 2.2 : state === 'listening' ? (pulseTick % 2 === 0 ? -0.6 : 0.6) : 0;
-  const eyeShiftY = state === 'thinking' ? -1.4 : 0;
+  const moodBrowShift =
+    aliveMood === 'curious' ? -2.2 : aliveMood === 'focused' || aliveMood === 'determined' ? 2.4 : aliveMood === 'amused' || aliveMood === 'proud' ? -1.2 : 0;
+  const browTilt =
+    state === 'conflict' || state === 'armed' ? 3 : state === 'thinking' ? -2 + moodBrowShift : moodBrowShift;
+  const eyeShiftX = state === 'thinking' ? 2.2 : state === 'listening' ? (pulseTick % 2 === 0 ? -0.6 : 0.6) : aliveMood === 'curious' ? 1.4 : 0;
+  const eyeShiftY = state === 'thinking' || aliveMood === 'curious' ? -1.4 : 0;
+  const mouthSmileY = aliveMood === 'amused' || aliveMood === 'proud' ? -3 : aliveMood === 'focused' || aliveMood === 'determined' ? 1 : 0;
   const ringCircumference = 2 * Math.PI * 121;
   const ringOffset =
     state === 'armed'
@@ -332,7 +336,7 @@ export function OnQVoiceOrb({
               {/* 4-Viseme Real-Time Speaking & Listening Mouth */}
               <g id="avatar-mouth">
                 <g id="mouth-closed" opacity={viseme === 'closed' ? 1 : 0}>
-                  <path d="M 117 154 Q 128 156 139 153" fill="none" stroke="#34F57E" strokeWidth="2.4" strokeLinecap="round" />
+                  <path d={`M 117 ${154 + mouthSmileY * 0.4} Q 128 ${156 - mouthSmileY} 139 ${153 + mouthSmileY * 0.4}`} fill="none" stroke="#34F57E" strokeWidth="2.4" strokeLinecap="round" />
                   <path d="M 124 159 L 132 159" stroke="#187A3F" strokeWidth="1.2" />
                 </g>
                 <g id="mouth-small" opacity={viseme === 'small' ? 1 : 0}>

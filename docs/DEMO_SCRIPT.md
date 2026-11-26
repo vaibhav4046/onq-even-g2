@@ -2,7 +2,7 @@
 
 **The one idea to land:** between meetings, OnQ shows one thing on your glasses and lets you act on it in seconds, safely. Judges score read-and-write first, so it opens the video.
 
-Setup: `npm run dev`, then the Even Hub simulator (`node node_modules/@evenrealities/evenhub-simulator/bin/index.js http://localhost:5174 --automation-port 9898 --no-glow`). Web app at http://127.0.0.1:5173 with "SDK Live" showing the simulator. Telegram bot paired (`/myid`) and one chat added to the watch list. One AI route working if you want "AI draft" rather than the smart default. Do one dry run first so the first load is warm.
+Setup: `npm run dev`, then the Even Hub simulator (`npx evenhub-simulator http://localhost:5174 --automation-port 9898 --no-glow`). Web app at http://127.0.0.1:5173 with "SDK Live" showing the simulator. Telegram bot paired (`/myid`) and one chat added to the watch list. One AI route working if you want "AI draft" rather than the smart default. Do one dry run first so the first load is warm.
 
 | Time | Show (simulator first) | Say (short) |
 | :--- | :--- | :--- |

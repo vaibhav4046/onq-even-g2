@@ -108,10 +108,14 @@ export function ClipCards() {
 
 export interface DayStoryActions {
   openLens: () => void;
+  pairGlasses: () => void;
+  runMorning: () => void;
+  runCodingPr: () => void;
   runLate: () => void;
   startScribe: () => void;
   tryLock: () => void;
   stageTelegram: () => void;
+  runEvening: () => void;
 }
 
 interface Chapter {
@@ -125,44 +129,60 @@ interface Chapter {
 
 const CHAPTERS: Chapter[] = [
   {
-    time: '07:30',
-    title: 'Morning brief',
-    body: 'Your next meeting, the email that needs you and the doc. One glance.',
+    time: '07:15',
+    title: 'Pair & install once',
+    body: 'Scan one QR from your computer. Your accounts stay off the glasses; only signed bursts reach the lenses.',
     img: '/stills/sim-01-dossier.png',
-    imgAlt: 'Simulator capture: meeting brief for Investor call',
-    cta: { label: 'See it on the lens', run: 'openLens' },
+    imgAlt: 'Simulator capture: paired OnQ corridor ready on glasses',
+    cta: { label: 'Open pairing QR', run: 'pairGlasses' },
+  },
+  {
+    time: '08:00',
+    title: 'Morning brief & unread email',
+    body: 'First meeting countdown, priority email alerts, and unread summary waiting quietly on the top corridor.',
+    img: '/stills/sim-01-dossier.png',
+    imgAlt: 'Simulator capture: morning brief and email alert on G2',
+    cta: { label: 'Run Morning Brief', run: 'runMorning' },
   },
   {
     time: '09:50',
-    title: 'Running late',
-    body: 'Say "Push 15m and tell Investor". Nothing sends until you confirm.',
-    img: '/stills/sim-05-armed-ring.png',
-    imgAlt: 'Simulator capture: 2-second confirm ring',
-    cta: { label: 'Run Shift + Reply', run: 'runLate' },
+    title: 'Office coding & PR status',
+    body: 'Check branch health, open pull requests, and ask OnQ to draft review notes or local automation scripts.',
+    img: '/stills/sim-11-computer.png',
+    imgAlt: 'Simulator capture: computer and PR check on lens',
+    cta: { label: 'Check PR & Repo', run: 'runCodingPr' },
   },
   {
-    time: '10:30',
-    title: 'Meeting scribe',
-    body: 'Tells speakers apart and keeps notes in memory only. Wrap up into tasks.',
-    img: '/clips/meeting-scribe.jpg',
-    imgAlt: 'Pixel film frame with a real simulator capture of the meeting scribe',
-    cta: { label: 'Start Live Meeting Scribe', run: 'startScribe' },
+    time: '11:30',
+    title: 'Telegram groups on the lens',
+    body: 'Only chats and groups you explicitly watch reach the glasses. Read the group digest, stage the reply, confirm with R1.',
+    img: '/stills/sim-10-telegram.png',
+    imgAlt: 'Simulator capture: Telegram group card on the lens',
+    cta: { label: 'Stage Telegram Brief', run: 'stageTelegram' },
   },
   {
     time: '13:00',
-    title: 'Double-booking lock',
-    body: 'Someone asks for a taken slot. OnQ blocks it and offers the next free time.',
-    img: '/stills/sim-07-conflict-409.png',
-    imgAlt: 'Simulator capture: slot busy, next free time offered',
-    cta: { label: 'Try the lock', run: 'tryLock' },
+    title: 'Hands-free lunch AI talk',
+    body: 'Tap Talking Avatar to ask across calendar, email, Notion, and Telegram while the 2-second ring guards every write.',
+    img: '/stills/sim-05-armed-ring.png',
+    imgAlt: 'Simulator capture: 2-second confirm ring while speaking',
+    cta: { label: 'Run Shift + Reply', run: 'runLate' },
   },
   {
-    time: '15:00',
-    title: 'Telegram reply',
-    body: 'Only chats you pick reach the lens. OnQ drafts the reply. You approve it on the glasses.',
-    img: '/stills/sim-10-telegram.png',
-    imgAlt: 'Simulator capture: Telegram card on the lens',
-    cta: { label: 'Stage Telegram Brief', run: 'stageTelegram' },
+    time: '14:30',
+    title: 'Meeting scribe & 409 lock',
+    body: 'RAM-only speaker diarization wraps into tasks, while double-booked slots trigger an instant 409 conflict fence.',
+    img: '/stills/sim-07-conflict-409.png',
+    imgAlt: 'Simulator capture: slot busy, next free time offered',
+    cta: { label: 'Try Conflict Lock', run: 'tryLock' },
+  },
+  {
+    time: '20:00',
+    title: 'Evening recap & Kill Switch',
+    body: 'One-tap summary of receipts committed, open threads left, and global pause for scheduled automations.',
+    img: '/stills/sim-14-evening-recap.png',
+    imgAlt: 'Simulator capture: evening recap on G2 lens',
+    cta: { label: 'Run Evening Recap', run: 'runEvening' },
   },
 ];
 
@@ -177,7 +197,7 @@ export function DayStory({ actions }: { actions: DayStoryActions }) {
           <GlyphDecodeHeading text="Your day" />
         </h2>
         <p className="text-sm sm:text-base text-[var(--lightgray)] leading-relaxed max-w-sm">
-          Five moments. Each one runs here in your browser. Tap to try.
+          Seven moments from pairing to evening recap. Each one runs here in your browser. Tap to try.
         </p>
       </ScrollReveal>
 

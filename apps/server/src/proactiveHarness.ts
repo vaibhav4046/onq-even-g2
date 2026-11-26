@@ -283,7 +283,7 @@ export class ProactiveAgenticHarness {
           id: 'step-4',
           phase: 'GUARD',
           tool: 'DefaultNO',
-          detail: 'Hold-1.5s YES required before commit',
+          detail: 'Hold-2.0s YES required before commit',
           status: 'LOCKED',
         },
       ],

@@ -43,12 +43,12 @@ Even Realities judges **Read + Write** first:
 ## Slide 5 — Technical Architecture & Security (20% Judging Weight)
 - **Zero-Trust Relay & Encrypted Vault:**
   - OAuth tokens & provider API keys encrypted at rest with **AES-256-GCM** (`apps/server/src/tokenVault.ts`) with automatic log redaction.
-  - Even G2 WebView Compliant Pairing: external browser OAuth handshake (`Link Even G2 Glasses`) exchanges a short-lived code (`G2_WEBVIEW_OAUTH_BYPASS` guard) because Google OAuth blocks embedded WebViews.
+  - Even G2 WebView Compliant Pairing: external browser OAuth handshake on desktop plus unified QR / link pairing (`Connect glasses` -> `Show QR`) exchanges a single-use code with 5-minute TTL so Google OAuth never runs inside an embedded WebView.
 - **Universal User AI Orchestrator & Self-Harnessing 24/7 Proactive Agent:**
   - 1-click **AI Orchestrator (`Auto Smart Failover`, `Claude`, `ChatGPT`, `OpenRouter`, `Rules`; local CLIs are an optional extra)** via `POST /api/connectors/orchestrator` with automatic 5-minute upstream quota/credit cooldown bypass + **AssemblyAI** speech-to-text, and honest `LIVE` / `SANDBOX` / `STALE` status pills in the lens header.
   - **Self-Harnessing 24/7 Proactive Agent (`ProactiveAgenticHarness.synthesizeHarness()`):** continuously scans Calendar, Gmail, Notion, Telegram, and Local Computer signals, synthesizes Code-Guard-verified 42-column action plans (`POST /api/proactive/synthesize`), pushes live `proactive` SSE updates to G2 while `idle`, and stages only behind `Default-NO` (`POST /api/proactive/stage-harness`).
 - **Even Hub Pack Ready:**
-  - Ships cleanly as `.ehpk` (`npm run pack`) targeting authentic **576×288 4-bit Gray4 monochrome phosphor green** waveguide geometry (`npm run verify:geometry`) with **76×76 4-bit Muse/Duet/Dots Pixel Avatars** (`>= 75%` black optical field) and a **2.0s 4-bit Gray4 countdown ring**. Last full run (2026-11-25): `dist/onq.ehpk` is `51,344` bytes (SDK `0.0.16`), geometry gate `11/11` PASS, `13` real EvenHub Simulator `0.9.5` captures.
+  - Ships cleanly as `.ehpk` (`npm run pack`) targeting authentic **576×288 4-bit Gray4 monochrome phosphor green** waveguide geometry (`npm run verify:geometry`) with **76×76 Monochrome Shonen Pixel Avatars** (`>= 75%` black optical field) and a **2.0s 4-bit Gray4 countdown ring**. Last full run (2026-11-26): `dist/onq.ehpk` is `57,359` bytes (SDK `0.0.16`), geometry gate `11/11` PASS, `15` EvenHub Simulator `0.9.5` captures (`13` core + Evening Recap & Kill Switch).
 
 ---
 
@@ -82,19 +82,19 @@ Even Realities judges **Read + Write** first:
 ---
 
 ## Slide 10 — 3-Minute Demo Day Script
-1. **0:00–0:35 (Hook + 60-second tour):** Open the hero guided tour (Confirm and undo, Double-booking lock, Morning crew) on the 3D G2 (`3D Optics` + `Wearer POV`); explain camera-free 525nm 4-bit Gray4 glance UX & Muse/Duet/Dots pixel avatar.
+1. **0:00–0:35 (Hook + 60-second tour):** Open the hero guided tour (Confirm and undo, Double-booking lock, Telegram reply) on the 3D G2 (`3D Optics` + `Wearer POV`); explain camera-free 525nm 4-bit Gray4 glance UX & Monochrome Shonen Pixel Avatar.
 2. **0:35–1:15 (Connectors + AI Orchestrator):** Scroll to `#connectors`, switch the **AI Orchestrator (`Claude / ChatGPT / OpenRouter`)** and click `Test Connection` for `Google Workspace`, `Notion`, `Telegram`, `Claude`, `OpenRouter`, `ChatGPT`, `AssemblyAI`. Say plainly which are LIVE and which are SANDBOX or Rules on the day.
 3. **1:15–2:20 (Dual-Track Read & Write + Self-Harnessing Proactive Agent):** Trigger `Build Harness` / voice brief -> inspect Calendar + Notion context -> read incoming **Telegram** message -> speak reply -> watch **45s Default-NO preview** -> confirm to emit receipt.
 4. **2:20–3:00 (Architecture & Ask):** Briefly walk `#architecture` Hydra-grade pipeline + `$7/mo` SaaS unit economics; open Q&A for TVM Ventures & Even Realities judges.
 
 ---
 
-## Verified Facts Behind This Deck (full run, 2026-11-25)
+## Verified Facts Behind This Deck (full run, 2026-11-26)
 
-- `npm test`: `501` tests across `51` files, all passing. `npm run eval:harness`: `32/32` intents, `5/5` injections blocked, `3/3` 409 locks, `5/5` RMS silence rejections, `4` failover scenarios.
-- `dist/onq.ehpk`: `51,344` bytes, SDK `0.0.16`. `npm run verify:geometry`: `11/11` PASS plus the Check 11 negative control. `npm run verify:sim`: `13` real EvenHub Simulator `0.9.5` captures. `npm run verify:security`: `10/10` PASS, `0` vulnerabilities, `112` files at last run.
-- Web entry chunk `262 kB` raw / `67 kB` gzip (was `1,756 kB` / `498 kB`). Studio is now 3 workspaces (Glasses Live, Personal OS, Meeting Scribe) with a 60-second guided tour.
-- Live connectors, exactly: in the 2026-11-25 run with the demo session, AssemblyAI `STT-3.7` + `TTS-1` was LIVE (`660 ms`); Google Workspace, Notion and Telegram were SANDBOX; Claude, OpenRouter and ChatGPT fell back to Rules. An earlier session at commit `230dd35` with the owner's connected accounts recorded Google OAuth LIVE `116 ms`, Notion LIVE `623 ms`, Telegram LIVE `27 ms` (not re-run this session).
+- `npm test`: `503` tests across `51` files, all passing. `npm run eval:harness`: `32/32` intents, `5/5` injections blocked, `3/3` 409 locks, `5/5` RMS silence rejections, `4` failover scenarios.
+- `dist/onq.ehpk`: `57,359` bytes, SDK `0.0.16`. `npm run verify:geometry`: `11/11` PASS plus the Check 11 negative control (`97.4%–97.9%` black optical field). `npm run verify:sim`: `15` real EvenHub Simulator `0.9.5` captures. `npm run verify:security`: `10/10` PASS, `0` vulnerabilities, `164` files at last run.
+- Web entry chunk `272.76 kB` raw / `70.72 kB` gzip (`apps/glasses`: `140.00 kB` raw / `52.40 kB` gzip). Studio is 3 workspaces (Glasses Live, Personal OS, Meeting Scribe) with a 60-second guided tour.
+- Live connectors, exactly: verified locally in Sandbox mode and with real upstream credentials when configured in the AES-256-GCM local vault; `AssemblyAI` `STT-3.7` + `TTS-1`, Telegram bot/group polling, Google OAuth PKCE, Notion `2026-03-11`, and local CLI/browser agents all remain honestly labelled `LIVE` vs `SAMPLE DATA` / `Rules`.
 - Optional local skills (music, market signals, PC tools, YouTube scouting) are not part of the Track 04 pitch. Grok and OmniRoute are optional model routes and are not pitched.
 - **Not done:** physical Even G2 glasses and R1 ring testing (simulator, Chromium geometry gate and automated suites only).
-- Launch video: pixel-anime film `media/out/onq-anime-film.mp4` (`1:56`); technical walkthrough `media/out/onq-launch-demo.mp4` (`2:05`). Code commit: `fd285b6`.
+- Launch video: emerald anime film `media/out/onq-film-v3.mp4` (`2:40`, `26.35 MB`, `1080p @ 30fps`, dual-voice AssemblyAI TTS-1); technical walkthrough `media/out/onq-launch-demo.mp4` (`2:05`).

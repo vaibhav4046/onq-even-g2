@@ -117,7 +117,7 @@ def section_level(t, scenes):
     """0 calm, 1 lift (drums in), 2 focus groove, 3 warm outro. scenes: list of (name, start, end)"""
     for n, s, e in scenes:
         if s <= t < e:
-            return {'wake': 0, 'send': 1, 'telegram': 1, 'pair': 1, 'code': 2, 'video': 2, 'recap': 3}.get(n, 1)
+            return {'wake': 0, 'pair': 1, 'morning': 1, 'send': 1, 'telegram': 1, 'coding': 2, 'code': 2, 'talk': 2, 'video': 2, 'recap': 3}.get(n, 1)
     return 3
 
 
@@ -315,17 +315,23 @@ def mix(root, work, total, scenes, sfx_events, voice_clips, ff, out_wav):
     """voice_clips: list of (start_seconds, wav_path). Returns dict of stats."""
     nn = int(total * SR)
     music = make_music(total, scenes)
-    music = music / (np.sqrt((music ** 2).mean()) + 1e-9) * 10 ** (-17 / 20)
+    music = music / (np.sqrt((music ** 2).mean()) + 1e-9) * 10 ** (-18 / 20)
     fx = make_sfx(total, sfx_events)
     voice = np.zeros(nn)
     for t0, p in voice_clips:
         v = read_wav(p)
-        v = v / (np.abs(v).max() + 1e-9) * 0.9
+        # RMS normalize each speaker line so wearer (aai-kyla) and OnQ (aai-titus) match level smoothly.
+        rms = float(np.sqrt((v ** 2).mean()) + 1e-9)
+        v = v * (0.20 / rms)
+        pk = float(np.abs(v).max() + 1e-9)
+        if pk > 0.92:
+            v = v * (0.92 / pk)
         a = int(t0 * SR)
-        voice[a:a + len(v)] += v[: nn - a]
+        if 0 <= a < nn:
+            voice[a:a + len(v)] += v[: nn - a]
     duck = smooth_env(voice)
-    gain = 1 - (1 - 10 ** (-8 / 20)) * duck  # music ~8 dB under captions
-    mixed = music * gain[:, None] + fx * 0.8 + voice[:, None] * 1.0
+    gain = 1 - (1 - 10 ** (-9 / 20)) * duck  # music ~9 dB under dialogue
+    mixed = music * gain[:, None] + fx * 0.72 + voice[:, None] * 1.05
     raw = os.path.join(work, 'mix_raw.wav')
     _to_wav(raw, mixed * 0.7)
     # two-pass loudnorm to -16 LUFS

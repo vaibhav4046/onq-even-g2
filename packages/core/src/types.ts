@@ -215,6 +215,8 @@ export interface HudState {
   meeting?: MeetingSessionState | null;
   voiceEngineLabel?: string;
   ttsVoiceId?: string;
+  unreadEmailCount?: number;
+  avatarTick?: number;
 }
 
 export type NormalizedEvenEventKind =

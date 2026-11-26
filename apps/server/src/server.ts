@@ -714,7 +714,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         title: `Computer: ${gitSt.ok ? 'Workspace Ready' : 'Check Needed'}`,
         detail: gitSt.summary,
         suggestedCommand: 'Check git status and open GitHub PRs',
-        sourceMode: 'DEMO',
+        sourceMode: (loadCreds().googleRefreshToken || loadCreds().notionToken) ? 'LIVE' : 'DEMO',
       };
     },
     synthesizeHarnessPlan: async ({ insights, focusHint, sourceMode }) => {
@@ -775,7 +775,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
             id: 'step-4',
             phase: 'GUARD',
             tool: 'DefaultNO',
-            detail: 'Hold-1.5s YES required before commit',
+            detail: 'Hold-2.0s YES required before commit',
             status: 'LOCKED',
           },
         ] satisfies ProactiveHarnessStep[],
@@ -1030,7 +1030,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       }
       return {
         ok: true,
-        detail: `[${modeLabel}] Verified & logged ${item.destination} action: "${item.title}"`,
+        detail: `[LOCAL QUEUED] Logged ${item.destination} action for corridor review: "${item.title}"`,
       };
     },
     onApprovalCreated: async (item) => {
@@ -1074,10 +1074,23 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
    * through processUpdate). getUpdates cannot be called a second time while the poller long-polls (Telegram answers
    * 409), so the corridor reads the poller's own buffer instead of asking Telegram again.
    */
-  function latestPolledOwnerMessage(): { title: string; detail: string; updateId: number } | null {
+  function latestPolledOwnerMessage(): { title: string; detail: string; updateId: number; chatId: string; isGroup: boolean } | null {
     const owner = vault.load().telegramChatId ?? process.env.TELEGRAM_CHAT_ID;
-    const msg = telegramCentre.getRecentMessages(50).find((m) => !owner || m.chatId === owner);
-    return msg ? { title: `TG · ${msg.fromName}`, detail: msg.text, updateId: msg.updateId } : null;
+    const watched = watchedTelegramChats();
+    const allowed = new Set([...(owner ? [owner] : []), ...watched]);
+    const msg = telegramCentre
+      .getRecentMessages(50)
+      .find((m) => (allowed.size === 0 ? true : allowed.has(m.chatId)));
+    if (!msg) return null;
+    const isGroup = Boolean(owner && msg.chatId !== owner);
+    const prefix = isGroup ? `[${msg.chatTitle || 'Group'}] ` : '';
+    return {
+      title: `TG · ${prefix}${msg.fromName}`,
+      detail: msg.text,
+      updateId: msg.updateId,
+      chatId: msg.chatId,
+      isGroup,
+    };
   }
 
   /** Chats the owner picked to read and reply to (vault + TELEGRAM_WATCH_CHATS). */
@@ -1361,9 +1374,10 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     for (const top of telegramOps) {
       const creds = vault.load();
       const botToken = creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN;
+      const ownerChat = creds.telegramChatId ?? process.env.TELEGRAM_CHAT_ID;
       let tgNote = 'SAMPLE SENT';
       // Reply into the chosen chat when it is the owner chat or a watched chat; otherwise the owner chat.
-      const targetChat = isSendableTelegramChat(top.targetLabel) ? top.targetLabel : creds.telegramChatId;
+      const targetChat = isSendableTelegramChat(top.targetLabel) ? top.targetLabel : ownerChat;
       if (routeOfOp(top) === 'api' && botToken && targetChat) {
         const tgClient = new TelegramWorkspaceClient(botToken, targetChat, opts.fetchImpl);
         try {
@@ -1373,6 +1387,11 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           tgNote = err instanceof Error ? `TG ERR: ${err.message.slice(0, 60)}` : 'TELEGRAM SEND ERR';
         }
       }
+      receipt.summaryLines = [
+        `TG: "${top.afterValue.slice(0, 34)}"`,
+        `CHAT: ${targetChat ?? 'Sandbox'} (${tgNote.startsWith('LIVE') ? 'LIVE' : tgNote})`,
+        ...receipt.summaryLines,
+      ].slice(0, 3);
       receipt.operations.push({
         ...top,
         reversible: false,
@@ -1382,7 +1401,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         kind: 'telegram',
         title: 'Telegram Message',
         summary: `${top.afterValue} (${tgNote})`,
-        source: creds.telegramChatId ? `chat ${creds.telegramChatId}` : 'Telegram Sandbox',
+        source: targetChat ? `chat ${targetChat}` : 'Telegram Sandbox',
       });
     }
 
@@ -1477,7 +1496,13 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     const rows = resolveSourceRoutes();
     const eff = (s: SnapshotSource) => rows.find((r) => r.source === s)?.effective ?? 'off';
     const useSnapshots = sessionMode === 'LIVE' && WORKSPACE_SOURCES.some((s) => eff(s) !== 'sample');
-    if (!useSnapshots) return { ...(await provider.fetchCorridor(nowIso)), oldestFetchedAt: null as number | null };
+    if (!useSnapshots) {
+      return {
+        ...(await provider.fetchCorridor(nowIso)),
+        unreadEmailCount: provider.getSnapshot().gmailThreads.length,
+        oldestFetchedAt: null as number | null,
+      };
+    }
 
     const slices: Partial<Record<WorkspaceSource, WorkspaceSlice | GmailSlice>> = {};
     let oldest: number | null = null;
@@ -1505,10 +1530,37 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     syncWorker.prefetch(['gmail', 'telegram']); // the next cards' data, so it is warm when the glasses move on
     const cal = slices.calendar as WorkspaceSlice | undefined;
     const nt = slices.notion as WorkspaceSlice | undefined;
+    const gm = slices.gmail as GmailSlice | undefined;
+    const unreadEmailCount = gm?.threads?.length ?? 0;
+    const gmailCards =
+      (cal?.cards?.length ?? 0) === 0 && unreadEmailCount > 0 && gm?.threads[0]
+        ? [
+            {
+              id: `card-gmail-${gm.threads[0].threadId}`,
+              sourceMode: 'LIVE' as const,
+              syncedAtIso: nowIso,
+              provenanceLabel: 'GMAIL LIVE',
+              kind: 'EMAIL_ASK' as const,
+              title: `${gm.threads[0].fromName}: ${gm.threads[0].subject}`.slice(0, 60),
+              timeMeta: `${unreadEmailCount} UNREAD`,
+              startIso: nowIso,
+              endIso: new Date(Date.parse(nowIso) + 15 * 60_000).toISOString(),
+              contextLine1: gm.threads[0].snippet.slice(0, 80) || gm.threads[0].subject.slice(0, 80),
+              contextLine2: `${unreadEmailCount} email(s) ready for triage`,
+              attendeeName: gm.threads[0].fromName,
+              attendeeEmail: gm.threads[0].fromEmail,
+              gmailThreadId: gm.threads[0].threadId,
+              triageRule: 'ASK_DEADLINE' as const,
+              etag: gm.threads[0].threadId,
+              quickActions: [],
+            },
+          ]
+        : [];
     const meta = cal ?? nt;
     return {
-      cards: rankCorridorCards([...(cal?.cards ?? []), ...(nt?.cards ?? [])], nowIso),
+      cards: rankCorridorCards([...(cal?.cards ?? []), ...gmailCards, ...(nt?.cards ?? [])], nowIso),
       busySlots: [],
+      unreadEmailCount,
       sourceMode: (meta?.sourceMode ?? 'LIVE') as SourceMode,
       provenanceLabel: meta?.provenanceLabel ?? 'LIVE',
       syncedAtIso: meta?.syncedAtIso ?? nowIso,
@@ -1555,7 +1607,8 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         platform: opts.scannerDeps?.platform ?? process.platform,
         exists: opts.scannerDeps?.exists ?? ((p: string) => fs.existsSync(p)),
       });
-    const driver: 'injected' | 'chrome' | 'none' = injected ? 'injected' : chrome && canResolvePlaywright() ? 'chrome' : 'none';
+    const rulesOnly = resolveLlmConfig().preferredProvider === 'rules';
+    const driver: 'injected' | 'chrome' | 'none' = injected ? 'injected' : !rulesOnly && chrome && canResolvePlaywright() ? 'chrome' : 'none';
     return {
       wired: Boolean(browserAgent),
       driver,
@@ -1838,7 +1891,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       summaryLines.push(`1) NOTION: Mark "${title.slice(0, 22)}" done`);
     } else if (parsed.kind === 'TELEGRAM_ACTION') {
       const creds = vault.load();
-      const chat = (creds.telegramChatId ?? 'tg-grp-even').trim();
+      const chat = (creds.telegramChatId ?? process.env.TELEGRAM_CHAT_ID ?? 'tg-grp-even').trim();
       const msg = parsed.replyMessage ?? 'Running slightly behind, joining shortly.';
       operations.push({
         provider: 'TELEGRAM',
@@ -3546,6 +3599,9 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           if (prov === 'telegram') {
             delete next.telegramBotToken;
             delete next.telegramChatId;
+            delete next.telegramWatchChats;
+            telegramCentre.stopPolling();
+            cachedTelegramInsight = null;
           }
           if (prov === 'googleWorkspace') {
             delete next.googleRefreshToken;
@@ -4347,7 +4403,11 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
               : (body.action ?? 'brief_push');
 
         const creds = vault.load();
-        const targetChat = (body.chatId ?? creds.telegramChatId ?? 'tg-grp-even').trim();
+        const targetChat = (body.chatId ?? creds.telegramChatId ?? process.env.TELEGRAM_CHAT_ID ?? 'tg-grp-even').trim();
+        if (body.chatId && !isSendableTelegramChat(targetChat)) {
+          jsonResponse(res, 403, { error: 'OnQ only replies in your own chat or chats you picked to watch.' });
+          return;
+        }
         const provider = resolveProvider(session.mode);
         const { cards } = await provider.fetchCorridor();
         const snap = provider.getSnapshot();
@@ -4461,7 +4521,11 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           return;
         }
         const creds = vault.load();
-        const targetChat = (body.chatId ?? creds.telegramChatId ?? 'tg-grp-even').trim();
+        const targetChat = (body.chatId ?? creds.telegramChatId ?? process.env.TELEGRAM_CHAT_ID ?? 'tg-grp-even').trim();
+        if (body.chatId && !isSendableTelegramChat(targetChat)) {
+          jsonResponse(res, 403, { error: 'OnQ only replies in your own chat or chats you picked to watch.' });
+          return;
+        }
         if (body.chatId && !isSendableTelegramChat(targetChat)) {
           jsonResponse(res, 403, { error: 'OnQ only replies in your own chat or chats you picked to watch.' });
           return;
@@ -4547,7 +4611,11 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         if (!session) return;
         const body = await readJsonBody<{ chatId?: string; messageText?: string; fromName?: string; hint?: string }>(req);
         const creds = vault.load();
-        const targetChat = (body.chatId ?? creds.telegramChatId ?? 'tg-grp-even').trim();
+        const targetChat = (body.chatId ?? creds.telegramChatId ?? process.env.TELEGRAM_CHAT_ID ?? 'tg-grp-even').trim();
+        if (body.chatId && !isSendableTelegramChat(targetChat)) {
+          jsonResponse(res, 403, { error: 'OnQ only replies in your own chat or chats you picked to watch.' });
+          return;
+        }
         const incoming = (body.messageText ?? '').trim().slice(0, 600);
         if (!incoming) {
           jsonResponse(res, 400, { error: 'messageText required' });

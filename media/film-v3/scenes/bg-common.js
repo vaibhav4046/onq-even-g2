@@ -16,7 +16,7 @@ export const rg = (id, stops, cx = 0.5, cy = 0.5, r = 0.5) =>
 export function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
 
 // skyline of buildings with lit windows
-export function skyline({ seed, y, h, color, win = '#ffd9a0', winP = 0.25, x0 = -50, x1 = W + 50, minW = 60, maxW = 160, hMin = 0.4 }) {
+export function skyline({ seed, y, h, color, win = '#6ef5a4', winP = 0.25, x0 = -50, x1 = W + 50, minW = 60, maxW = 160, hMin = 0.4 }) {
   const r = rng(seed); let x = x0, out = '';
   while (x < x1) {
     const w = minW + r() * (maxW - minW), bh = h * (hMin + r() * (1 - hMin));

@@ -139,6 +139,8 @@ describe('Dual-Track Telegram Bot Integration (Track 01 + Best Telegram Prize)',
         }),
       });
       expect(commitRes.status).toBe(200);
+      const commitJson = (await commitRes.json()) as { summaryLines: string[] };
+      expect(commitJson.summaryLines.length).toBeGreaterThan(0);
       expect(sentPayloads.length).toBe(1);
       expect(sentPayloads[0]).toEqual({
         chat_id: '-100777888',

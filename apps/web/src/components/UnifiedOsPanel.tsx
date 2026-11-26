@@ -629,7 +629,7 @@ export function UnifiedOsPanel({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         <div className="lg:col-span-6 border border-white/10 bg-black/55 p-3 space-y-2.5">
           <div className="font-pixel text-[9px] uppercase tracking-wider text-[var(--g2-phosphor)]">
-            GROK-BOT SKILLS &amp; 24/7 ROUTINES ({osState.routines.length})
+            REUSABLE SKILLS &amp; 24/7 ROUTINES ({osState.routines.length})
           </div>
           <div className="space-y-1.5 max-h-[210px] overflow-y-auto pr-1">
             {osState.routines.map((rtn) => (

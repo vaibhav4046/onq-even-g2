@@ -159,7 +159,6 @@ export class OnQHudController {
     this.setState({
       phase: 'idle',
       answerLines: lines,
-      cards: [],
     });
   }
 
@@ -454,6 +453,10 @@ export class OnQHudController {
 
     // phase === 'idle' (root dossier)
     if (ev.kind === 'DOUBLE_CLICK') {
+      if ((this.state.answerLines?.length ?? 0) > 0) {
+        this.setState({ answerLines: [] });
+        return;
+      }
       this.hooks.onRequestShutdown?.();
       return;
     }

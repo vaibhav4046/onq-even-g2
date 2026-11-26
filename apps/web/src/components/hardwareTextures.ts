@@ -240,8 +240,7 @@ export function drawLeftLensHudCanvas(
   ctx.clearRect(0, 0, w, h);
 
   const t = opts.timeSec ?? 0;
-  const reelStage = opts.phase === 'idle' && t > 0 ? Math.floor((t % 12) / 3) : -1;
-  const pal = getPhosphorPalette(reelStage === 2 ? 'armed' : opts.phase);
+  const pal = getPhosphorPalette(opts.phase);
 
   // Feather-light waveguide shimmer keeping optical glass crystal clear see-through
   const grad = ctx.createRadialGradient(w * 0.5, h * 0.5, 10, w * 0.5, h * 0.5, w * 0.46);
@@ -254,18 +253,8 @@ export function drawLeftLensHudCanvas(
   ctx.shadowColor = pal.glow;
   ctx.shadowBlur = 12;
 
-  const headerText =
-    reelStage === 0
-      ? 'LIVE · CORRIDOR (12M)'
-      : reelStage === 1
-        ? 'STT-3.7 · 16KHZ STREAM'
-        : reelStage === 2
-          ? 'DEFAULT-NO · ARMED 2.0S'
-          : reelStage === 3
-            ? 'RECEIPT · 409 SHIELD OK'
-            : opts.headerLine.slice(0, 24).toUpperCase();
-
-  const decode = lensDecodeProgress(canvas, `${opts.phase}|${headerText}|${opts.primaryLine}|${reelStage}`, opts.animate ?? false);
+  const headerText = opts.headerLine.slice(0, 24).toUpperCase();
+  const decode = lensDecodeProgress(canvas, `${opts.phase}|${headerText}|${opts.primaryLine}`, opts.animate ?? false);
   const decodeTick = Math.floor(performance.now() / 70);
 
   ctx.fillStyle = pal.secondary;
@@ -287,13 +276,7 @@ export function drawLeftLensHudCanvas(
           ? 'WRAP-UP DEFAULT: NO'
           : opts.phase === 'done'
             ? 'COMMITTED · RECEIPT OK'
-            : reelStage === 1
-              ? '"Shift +15m & reply"'
-              : reelStage === 2
-                ? '> [YES] SWEEPING 2.0S'
-                : reelStage === 3
-                  ? 'GCAL +15M · TG+MAIL OK'
-                  : opts.primaryLine;
+            : opts.primaryLine;
 
   ctx.fillStyle = pal.primary;
   ctx.font = '700 28px "JetBrains Mono", Consolas, monospace';
@@ -310,15 +293,7 @@ export function drawLeftLensHudCanvas(
             ? '0 EDITS · FREE 15:45'
             : opts.phase === 'stale'
               ? 'STALE CACHE · OFFLINE'
-              : reelStage === 0
-                ? 'CAL · MAIL · TG VERIFIED'
-                : reelStage === 1
-                  ? 'NO HALLUCINATIONS · GUARD'
-                  : reelStage === 2
-                    ? 'ANY TAP = 0 WRITES SENT'
-                    : reelStage === 3
-                      ? '24/7 HARNESS WATCHING'
-                      : '42-COL · <=999B · G2';
+              : '42-COL · <=999B · G2';
 
   ctx.fillStyle = pal.secondary;
   ctx.font = '700 20px "JetBrains Mono", Consolas, monospace';
@@ -327,8 +302,8 @@ export function drawLeftLensHudCanvas(
   // Subtle animated signal / audio bars along bottom of lens
   const bars = 12;
   for (let i = 0; i < bars; i++) {
-    const wave = 0.28 + 0.72 * Math.abs(Math.sin(t * (reelStage === 1 ? 7.5 : 2.6) + i * 0.55));
-    const bh = Math.round((reelStage === 1 ? 22 : 10) * wave);
+    const wave = 0.28 + 0.72 * Math.abs(Math.sin(t * 2.6 + i * 0.55));
+    const bh = Math.round(10 * wave);
     ctx.fillStyle = i % 3 === 0 ? pal.secondary : pal.primary;
     ctx.globalAlpha = 0.55 + 0.35 * wave;
     ctx.fillRect(38 + i * 16, 224 - bh, 10, bh);
@@ -349,6 +324,7 @@ export function drawRightLensHudCanvas(
     phase: HudPhase;
     orbState?: VoiceOrbState;
     activeWord?: string;
+    headerLine?: string;
     ringProgress: number;
     rmsLevel: number;
     timeSec: number;
@@ -361,8 +337,15 @@ export function drawRightLensHudCanvas(
   ctx.clearRect(0, 0, w, h);
 
   const pal = getPhosphorPalette(opts.phase);
+  if (opts.headerLine) {
+    ctx.save();
+    ctx.fillStyle = pal.secondary;
+    ctx.font = '700 18px "JetBrains Mono", Consolas, monospace';
+    ctx.fillText(opts.headerLine.slice(0, 24).toUpperCase(), 38, 42);
+    ctx.restore();
+  }
   const cx = w * 0.5;
-  const cy = h * 0.43;
+  const cy = h * 0.45;
 
   const grad = ctx.createRadialGradient(cx, cy, 8, cx, cy, w * 0.44);
   grad.addColorStop(0, opts.phase === 'conflict' ? 'rgba(65, 36, 4, 0.16)' : 'rgba(10, 62, 30, 0.14)');
@@ -374,25 +357,19 @@ export function drawRightLensHudCanvas(
   ctx.shadowColor = pal.glow;
   ctx.shadowBlur = 12;
 
-  const idleReelStage = opts.phase === 'idle' && opts.timeSec > 0 ? Math.floor((opts.timeSec % 12) / 3) : -1;
   const orbMode: VoiceOrbState =
     opts.orbState && opts.orbState !== 'idle'
       ? opts.orbState
-      : idleReelStage === 1
-        ? 'listening'
-        : idleReelStage === 2
+      : opts.phase === 'conflict' || opts.phase === 'error'
+        ? 'conflict'
+        : opts.phase === 'armed'
           ? 'armed'
-          : (opts.orbState ??
-            (opts.phase === 'conflict' || opts.phase === 'error'
-              ? 'conflict'
-              : opts.phase === 'armed'
-                ? 'armed'
-                : opts.phase === 'listening' || opts.phase === 'meeting_live'
-                  ? 'listening'
-                  : 'idle'));
+          : opts.phase === 'listening' || opts.phase === 'meeting_live'
+            ? 'listening'
+            : 'idle';
 
   // 1. Sleek Monochrome 525nm Green Anime Dots Companion inside right G2 waveguide lens
-  const amp = Math.max(idleReelStage === 1 ? 0.62 : 0, Math.min(1, Math.max(0, opts.rmsLevel * 6.5)));
+  const amp = Math.min(1, Math.max(0, opts.rmsLevel * 6.5));
   const breathe = 0.5 + 0.5 * Math.sin(opts.timeSec * (orbMode === 'speaking' ? 7 : 2.1));
   const showAnimeFace = orbMode === 'idle' || orbMode === 'listening' || orbMode === 'speaking' || orbMode === 'conflict';
 
@@ -510,7 +487,7 @@ export function drawRightLensHudCanvas(
       }
     }
 
-    // Real-time JJK lip-sync mouth driven by activeWord / speech wave / RMS
+    // Real-time lip-sync mouth driven by activeWord / speech wave / RMS
     if (orbMode === 'conflict') {
       ctx.globalAlpha = 1;
       ctx.strokeStyle = pal.bright;
@@ -590,17 +567,14 @@ export function drawRightLensHudCanvas(
   // 2. Concentric 24-dot phosphor reticle / 2.0s Undo Countdown Ring around orb
   const segments = 24;
   const radius = 64;
-  const reelRingProg = idleReelStage === 2 ? ((opts.timeSec % 3) / 3) : 0;
   const activeProg =
     opts.phase === 'armed'
       ? Math.max(0.08, Math.min(1, opts.ringProgress))
-      : idleReelStage === 2
-        ? Math.max(0.1, reelRingProg)
-        : opts.phase === 'done' || idleReelStage === 3
-          ? 1
-          : orbMode === 'thinking'
-            ? 0.5
-            : 0.78;
+      : opts.phase === 'done'
+        ? 1
+        : orbMode === 'thinking'
+          ? 0.5
+          : 0.78;
   const litCount = Math.round(segments * activeProg);
   const spinOffset = orbMode === 'thinking' ? Math.floor(opts.timeSec * 8) : 0;
 
@@ -624,19 +598,15 @@ export function drawRightLensHudCanvas(
         ? 'TTS-1 · EARBUDS'
         : opts.phase === 'armed'
           ? `ARMED ${((1 - activeProg) * 2).toFixed(1)}S · CANCEL`
-          : idleReelStage === 2
-            ? `ARMED ${((1 - activeProg) * 2).toFixed(1)}S · RING`
-            : orbMode === 'listening'
-              ? opts.phase === 'meeting_live'
-                ? 'STT-3.7 DIARIZING'
-                : 'STT-3.7 · 16KHZ'
-              : orbMode === 'thinking'
-                ? 'ONQ THINKING...'
-                : orbMode === 'conflict'
-                  ? 'HTTP 409 · LOCKED'
-                  : idleReelStage === 3
-                    ? 'COMMITTED · OK'
-                    : 'SAY "ONQ, ..."';
+          : orbMode === 'listening'
+            ? opts.phase === 'meeting_live'
+              ? 'STT-3.7 DIARIZING'
+              : 'STT-3.7 · 16KHZ'
+            : orbMode === 'thinking'
+              ? 'ONQ THINKING...'
+              : orbMode === 'conflict'
+                ? 'HTTP 409 · LOCKED'
+                : 'SAY "ONQ, ..."';
   ctx.fillText(caption.slice(0, 20), cx, 224);
 
   ctx.restore();

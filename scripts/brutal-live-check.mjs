@@ -103,9 +103,9 @@ async function main() {
     await page.waitForTimeout(500);
 
     console.log('[live-check] Meeting Scribe');
-    await page.getByRole('button', { name: /Start Live Meeting Scribe/ }).click({ noWaitAfter: true });
-    await page.waitForTimeout(400);
     await page.getByRole('tab', { name: 'Meeting Scribe', exact: true }).first().click({ noWaitAfter: true });
+    await page.waitForTimeout(400);
+    await page.getByRole('button', { name: /Start Live Meeting Scribe/ }).click({ noWaitAfter: true });
     await page.waitForTimeout(400);
     await page.getByRole('button', { name: /Wrap Up/ }).first().click({ noWaitAfter: true });
     await page.getByRole('button', { name: 'Confirm & Arm 2.0s Ring' }).waitFor({ state: 'visible', timeout: 10000 });
@@ -133,8 +133,9 @@ async function main() {
     );
     const verifiedBadges = await page.locator('#connectors').getByText(/^VERIFIED\b/).count();
 
-    // Link Even G2 Glasses pairing modal
-    await page.getByRole('button', { name: /Link Even G2 Glasses/ }).click({ noWaitAfter: true });
+    // Unified PairCard QR / link generation
+    const qrBtn = page.getByRole('button', { name: /Show QR|Make a new QR/i }).first();
+    await qrBtn.click({ noWaitAfter: true });
     await page.waitForTimeout(500);
 
     console.log('[live-check] Overflow');

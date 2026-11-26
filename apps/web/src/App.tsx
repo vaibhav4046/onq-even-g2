@@ -333,6 +333,7 @@ export function App() {
   const [emulatorRunning, setEmulatorRunning] = useState(false);
   const [emulatorTick, setEmulatorTick] = useState(() => Date.now());
   const [emulatorBusy, setEmulatorBusy] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Live workspace mutation inputs
   const [newBusyTitle, setNewBusyTitle] = useState('');
@@ -833,6 +834,19 @@ export function App() {
     }
   };
 
+  const speakCompanionReply = useCallback((text: string) => {
+    const clean = text.trim();
+    if (!clean || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(clean);
+      u.rate = 1.04;
+      window.speechSynthesis.speak(u);
+    } catch {
+      // ignore speech synthesis restrictions in headless browsers
+    }
+  }, []);
+
   const runLiveMeetingDemo = async () => {
     const tok = tokenRef.current;
     if (!tok) return;
@@ -1161,7 +1175,8 @@ export function App() {
     e.preventDefault();
     const tok = tokenRef.current;
     if (!tok || !newBusyTitle.trim()) return;
-    const startIso = `2026-11-24T${newBusyTime}:00.000Z`;
+    const datePrefix = workspace?.calendarEvents[0]?.startIso.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
+    const startIso = `${datePrefix}T${newBusyTime}:00.000Z`;
     const endIso = new Date(Date.parse(startIso) + 30 * 60_000).toISOString();
     await fetch('/api/workspace/calendar/add', {
       method: 'POST',
@@ -1313,7 +1328,9 @@ export function App() {
                       <button
                         type="button"
                         onClick={async () => {
-                          await ctrlRef.current?.handleEvent({ kind: 'SCROLL_DOWN' });
+                          if (ctrlRef.current?.getState().previewSelection !== 'YES') {
+                            await ctrlRef.current?.handleEvent({ kind: 'SCROLL_DOWN' });
+                          }
                           await ctrlRef.current?.handleEvent({ kind: 'CLICK' });
                         }}
                         className="px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] text-xs font-semibold cursor-pointer"
@@ -1400,13 +1417,50 @@ export function App() {
             </a>
             <button
               type="button"
-              onClick={() => void runVoicePreset('Push 15m and tell Investor')}
+              onClick={() => {
+                void runVoicePreset('Push 15m and tell Investor');
+                document.getElementById('experience-workbench')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }}
               className="retro-btn-primary px-4 py-2 text-xs sm:text-sm cursor-pointer whitespace-nowrap shrink-0"
             >
               Talk Now
             </button>
+            <button
+              type="button"
+              aria-label="Toggle navigation menu"
+              aria-expanded={mobileNavOpen}
+              onClick={() => setMobileNavOpen((v) => !v)}
+              className="lg:hidden retro-btn-glass px-2.5 py-2 text-xs text-[var(--bright)] cursor-pointer"
+            >
+              {mobileNavOpen ? 'Close' : 'Menu'}
+            </button>
           </div>
         </div>
+        {mobileNavOpen && (
+          <nav
+            aria-label="Mobile navigation"
+            className="lg:hidden border-t border-[var(--hairline)] bg-[var(--ink)]/95 backdrop-blur-md px-4 py-3 flex flex-wrap gap-3 text-xs text-[var(--lightgray)]"
+          >
+            {[
+              ['#experience', 'Lens'],
+              ['#clips', 'Watch'],
+              ['#use-cases', 'Your day'],
+              ['#safety', 'Safety'],
+              ['#connectors', 'Connect'],
+              ['#architecture', 'How it works'],
+              ['#faq', 'FAQ'],
+            ].map(([href, label]) => (
+              <a
+                key={href}
+                href={href}
+                onClick={() => setMobileNavOpen(false)}
+                className="px-2 py-1 hover:text-[var(--lime)]"
+              >
+                {label}
+              </a>
+            ))}
+          </nav>
+        )}
       </header>
 
       {/* Hero: Full-Size 360° 3D Glasses Artifact + HydraDB-inspired Rotating-Word Tagline */}
@@ -1446,16 +1500,16 @@ export function App() {
                   Verified in the simulator
                 </p>
                 <h1 className="font-dots font-black leading-[0.95] tracking-[-0.02em] text-[2.6rem] sm:text-[4rem] lg:text-[4.75rem]">
-                  <span className="block text-[var(--bright)]">Your glasses that</span>
-                  <span className="block min-h-[1.08em] text-[var(--g2-phosphor)]">
-                    <AnimatePresence initial={false}>
+                  <span className="block text-[var(--bright)]">Your glasses that{' '}</span>
+                  <span className="block relative min-h-[1.08em] text-[var(--g2-phosphor)]">
+                    <AnimatePresence initial={false} mode="wait">
                       <motion.span
                         key={HERO_WORDS[heroWordIdx]}
                         className="inline-block"
                         initial={reducedMotion ? false : { opacity: 0.25, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={reducedMotion ? undefined : { opacity: 0, position: 'absolute' }}
-                        transition={{ duration: 0.18, ease: MOTION_EASE }}
+                        exit={reducedMotion ? undefined : { opacity: 0, y: -4 }}
+                        transition={{ duration: 0.16, ease: MOTION_EASE }}
                       >
                         {HERO_WORDS[heroWordIdx]}
                       </motion.span>
@@ -1484,7 +1538,10 @@ export function App() {
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
                   <button
                     type="button"
-                    onClick={() => void runVoicePreset('Push 15m and tell Investor')}
+                    onClick={() => {
+                      void runVoicePreset('Push 15m and tell Investor');
+                      document.getElementById('experience-workbench')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }}
                     className="retro-btn-primary px-5 py-2.5 text-xs sm:text-sm cursor-pointer"
                   >
                     Talk Now
@@ -1502,9 +1559,30 @@ export function App() {
                   <p className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lightgray)]">60-SECOND TOUR</p>
                   <ol className="flex flex-wrap justify-center gap-2 text-xs">
                     {[
-                      { n: 1, label: 'Confirm and undo', run: () => void runVoicePreset('Push 15m and tell Investor') },
-                      { n: 2, label: 'Double-booking lock', run: () => void stageCommand('Move VC sync to 14:45') },
-                      { n: 3, label: 'Telegram reply', run: () => void stageTelegramBrief() },
+                      {
+                        n: 1,
+                        label: 'Confirm and undo',
+                        run: () => {
+                          void runVoicePreset('Push 15m and tell Investor');
+                          document.getElementById('experience-workbench')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        },
+                      },
+                      {
+                        n: 2,
+                        label: 'Double-booking lock',
+                        run: () => {
+                          void stageCommand('Move VC sync to 14:45');
+                          document.getElementById('experience-workbench')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        },
+                      },
+                      {
+                        n: 3,
+                        label: 'Telegram reply',
+                        run: () => {
+                          void stageTelegramBrief();
+                          document.getElementById('experience-workbench')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        },
+                      },
                     ].map((step) => (
                       <li key={step.n}>
                         <button
@@ -1522,6 +1600,7 @@ export function App() {
               </motion.div>
 
               <motion.div
+                id="experience-workbench"
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, delay: 0.08, ease: MOTION_EASE }}
@@ -1640,7 +1719,10 @@ export function App() {
                               EVENHUB EMULATOR :9898 OFFLINE
                             </span>
                             <span>
-                              Start with: <code className="text-[var(--bright)]">npm run verify:sim</code> or attach evenhub-simulator on :9898
+                              Start with:{' '}
+                              <code className="text-[var(--bright)]">
+                                npx evenhub-simulator http://localhost:5174 --automation-port 9898 --no-glow
+                              </code>
                             </span>
                           </div>
                         )}
@@ -1725,7 +1807,9 @@ export function App() {
                       <button
                         type="button"
                         onClick={async () => {
-                          await ctrlRef.current?.handleEvent({ kind: 'SCROLL_DOWN' });
+                          if (ctrlRef.current?.getState().previewSelection !== 'YES') {
+                            await ctrlRef.current?.handleEvent({ kind: 'SCROLL_DOWN' });
+                          }
                           await ctrlRef.current?.handleEvent({ kind: 'CLICK' });
                         }}
                         className="px-3.5 py-1.5 bg-[var(--lime)] text-[#0a0a0a] text-xs font-semibold cursor-pointer"
@@ -1883,7 +1967,11 @@ export function App() {
                   </div>
 
                   {/* Minimal Smoked-Glass 4-Tab Bar */}
-                  <div className="grid grid-cols-4 gap-1 rounded-[10px] border border-white/10 bg-black/70 p-1 text-[10px] font-pixel uppercase">
+                  <div
+                    role="tablist"
+                    aria-label="Workspace panels"
+                    className="grid grid-cols-4 gap-1 rounded-[10px] border border-white/10 bg-black/70 p-1 text-[10px] font-pixel uppercase"
+                  >
                     {(
                       [
                         { id: 'schedule', label: 'Schedule' },
@@ -1891,20 +1979,25 @@ export function App() {
                         { id: 'notes', label: 'Notes' },
                         { id: 'activity', label: `Activity (${receipts.length})` },
                       ] as const
-                    ).map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => setWorkspaceTab(t.id)}
-                        className={`py-1.5 px-1.5 rounded-[7px] truncate cursor-pointer transition-colors ${
-                          workspaceTab === t.id
-                            ? 'bg-[var(--lime)] text-[#0a0a0a] font-bold'
-                            : 'text-[var(--lightgray)] hover:text-[var(--bright)]'
-                        }`}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
+                    ).map((t) => {
+                      const active = workspaceTab === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={active}
+                          onClick={() => setWorkspaceTab(t.id)}
+                          className={`py-1.5 px-1.5 rounded-[7px] truncate cursor-pointer transition-colors border-b-2 ${
+                            active
+                              ? 'bg-[var(--lime)] text-[#0a0a0a] font-bold border-[#0a0a0a]'
+                              : 'text-[var(--lightgray)] hover:text-[var(--bright)] border-transparent'
+                          }`}
+                        >
+                          {t.label}
+                        </button>
+                      );
+                    })}
                   </div>
 
                   {/* 24/7 Proactive Agentic Harness Live Pulse */}
@@ -2067,6 +2160,41 @@ export function App() {
 
                       {workspaceTab === 'inbox' && (
                         <>
+                          <div className="border border-[var(--hairline)] bg-[var(--ink)] p-4 space-y-2.5">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="inline-flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.18em] text-[#26A5E4]">
+                                <TelegramPixelSvg className="w-4 h-4" />
+                                <span>TELEGRAM &amp; DAILY ROUTINES</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => void stageTelegramBrief()}
+                                className="font-pixel text-[9px] px-2.5 py-1 border border-[#26A5E4]/60 text-[#26A5E4] hover:bg-[#26A5E4] hover:text-[#041209] cursor-pointer"
+                              >
+                                Stage Group Digest
+                              </button>
+                            </div>
+                            <p className="text-[11px] text-[var(--lightgray)]">
+                              Run daily G2 glances straight from Inbox or trigger Telegram group review (Default-NO):
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {[
+                                { label: 'Morning Brief', cmd: 'Morning brief' },
+                                { label: 'Check PR Status', cmd: 'Check PR status' },
+                                { label: 'Evening Recap', cmd: 'Evening report' },
+                              ].map((act) => (
+                                <button
+                                  key={act.label}
+                                  type="button"
+                                  onClick={() => void runVoicePreset(act.cmd)}
+                                  className="px-2.5 py-1 border border-[var(--hairline)] text-[10.5px] text-[var(--bright)] hover:border-[var(--g2-phosphor)] hover:text-[var(--g2-phosphor)] cursor-pointer"
+                                >
+                                  {act.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
                           <div className="border border-[var(--hairline)] bg-[var(--ink)] p-4 space-y-2">
                             <div className="flex items-center justify-between gap-2">
                               <span className="inline-flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.2em] text-[var(--lime)]">
@@ -2274,6 +2402,7 @@ export function App() {
                   }
                   ctrlRef.current?.showAnswer([`LIVEUI | ${surface.title.toUpperCase()}`, 'Interactive surface synced to G2']);
                 }}
+                onPlayTts={(spokenText) => speakCompanionReply(spokenText)}
               />
             </div>
           </div>
@@ -2293,10 +2422,36 @@ export function App() {
             <DayStory
               actions={{
                 openLens: () => setLensPovOpen(true),
-                runLate: () => void runVoicePreset('Push 15m and tell Investor'),
-                startScribe: () => void runLiveMeetingDemo(),
-                tryLock: () => void stageCommand('Move VC sync to 14:45'),
-                stageTelegram: () => void stageTelegramBrief(),
+                pairGlasses: () =>
+                  document.getElementById('pair-heading')?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+                runMorning: () => {
+                  void runVoicePreset('Morning brief');
+                  setLensPovOpen(true);
+                },
+                runCodingPr: () => {
+                  void runVoicePreset('Check PR status');
+                  setLensPovOpen(true);
+                },
+                runLate: () => {
+                  void runVoicePreset('Push 15m and tell Investor');
+                  setLensPovOpen(true);
+                },
+                startScribe: () => {
+                  void runLiveMeetingDemo();
+                  setLensPovOpen(true);
+                },
+                tryLock: () => {
+                  void stageCommand('Move VC sync to 14:45');
+                  setLensPovOpen(true);
+                },
+                stageTelegram: () => {
+                  void stageTelegramBrief();
+                  setLensPovOpen(true);
+                },
+                runEvening: () => {
+                  void runVoicePreset('Evening report');
+                  setLensPovOpen(true);
+                },
               }}
             />
           </div>

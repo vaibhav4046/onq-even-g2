@@ -372,6 +372,11 @@ export class BrowserAgentEngine {
 
         const action = plan.action;
         if (action.type === 'done') {
+          const unavailable = plan.reason === 'no model' || /no ai model is reachable/i.test(action.answer ?? '');
+          if (unavailable) {
+            run.steps.push({ n: run.steps.length + 1, action: 'finish', reason: plan.reason, outcome: 'failed: no model' });
+            return await this.finish(run, 'FAILED', action.answer || 'No AI model is reachable.');
+          }
           run.steps.push({ n: run.steps.length + 1, action: 'finish', reason: plan.reason, outcome: 'done' });
           return await this.finish(run, 'DONE', action.answer || 'Done.');
         }

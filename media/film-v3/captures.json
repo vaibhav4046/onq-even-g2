@@ -1,12 +1,12 @@
 {
  "_note": "slot -> PNG path (relative to media/film-v3). Replace PNGs with real simulator captures (576x288) and re-render.",
  "slots": {
+  "pair": "captures/pair.png",
   "card": "captures/card.png",
   "draft": "captures/draft.png",
   "ring": "captures/ring.png",
   "done": "captures/done.png",
   "telegram": "captures/telegram.png",
-  "pair": "captures/pair.png",
   "coding": "captures/coding.png",
   "summary": "captures/summary.png",
   "video": "captures/video.png",

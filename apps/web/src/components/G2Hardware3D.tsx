@@ -397,7 +397,7 @@ export function G2Hardware3D({
   className = '',
 }: G2Hardware3DProps) {
   const [mode, setMode] = useState<HardwareViewMode>(defaultMode);
-  const [autoTour, setAutoTour] = useState(true);
+  const [autoTour, setAutoTour] = useState(false);
   const [resetSeq, setResetSeq] = useState(0);
   const [lensOverlayOpen, setLensOverlayOpen] = useState(false);
   const [inView, setInView] = useState(true);

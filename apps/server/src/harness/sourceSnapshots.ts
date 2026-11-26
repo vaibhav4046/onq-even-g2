@@ -110,6 +110,9 @@ export function normalizeBrowserAnswer(source: SnapshotSource, answer: string, n
     return { threads };
   }
   if (lines.length === 0) throw new Error('Browser answer was empty');
+  if (/no ai model is reachable|fixed rules cannot browse/i.test(lines[0] ?? '')) {
+    throw new Error('No AI model available for browser read');
+  }
   return { title: `TG · ${lines[0]}`.slice(0, 60), detail: (lines[1] ?? '').slice(0, 120) };
 }
 

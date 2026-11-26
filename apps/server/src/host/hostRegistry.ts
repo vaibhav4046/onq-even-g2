@@ -296,10 +296,16 @@ export function extractDeviceToken(
 }
 
 export function lanIPv4(): string | null {
-  for (const list of Object.values(os.networkInterfaces())) {
-    for (const ni of list ?? []) if (ni.family === 'IPv4' && !ni.internal) return ni.address;
+  const candidates: string[] = [];
+  for (const [iface, list] of Object.entries(os.networkInterfaces())) {
+    if (/vEthernet|VMnet|WSL|Docker|VirtualBox|Loopback/i.test(iface)) continue;
+    for (const ni of list ?? []) {
+      if (ni.family === 'IPv4' && !ni.internal && !ni.address.startsWith('169.254.')) {
+        candidates.push(ni.address);
+      }
+    }
   }
-  return null;
+  return candidates[0] ?? null;
 }
 
 /** URL a client should pair against: tunnel URL if configured, else the LAN address when LAN is on, else loopback. */

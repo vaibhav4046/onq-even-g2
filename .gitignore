@@ -18,3 +18,5 @@ docs/screenshots/*.tmp.png
 .DS_Store
 Thumbs.db
 !.env.example
+__pycache__/
+*.pyc

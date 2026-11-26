@@ -127,7 +127,7 @@ export function renderPixelAvatar(
       drawSparkle(cx + 23, cy + 16, 14);
     }
 
-    // 3. Spiky Jujutsu Kaisen hair crown, jagged bangs, side locks & high-collar coat outline
+    // 3. Spiky anime hair crown, jagged bangs, side locks & high-collar coat outline
     const spikes: Array<[number, number, number]> = [
       [-150, 25, 6],
       [-132, 29, 8],

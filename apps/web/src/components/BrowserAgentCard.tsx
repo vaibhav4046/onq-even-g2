@@ -96,7 +96,7 @@ export function BrowserAgentCard({ sessionToken, onStatusMsg, onDecideApproval }
     void loadRuns();
   }, [loadRuns]);
 
-  const sorted = [...runs].sort((a, b) => b.startedAtIso.localeCompare(a.startedAtIso));
+  const sorted = runs.toSorted((a, b) => b.startedAtIso.localeCompare(a.startedAtIso));
   const current = sorted[0];
   const anyActive = runs.some(isActive);
 

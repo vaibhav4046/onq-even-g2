@@ -246,4 +246,22 @@ describe('PollTransport', () => {
     expect(h.p.consecutiveFailures).toBe(0);
     h.p.stop();
   });
+
+  it('runDiagnosis returns LOCKED when /api/host/profile reports locked: true on HTTP 200', async () => {
+    const { runDiagnosis, DIAG } = await import('../src/linkDiag');
+    const res = await runDiagnosis({
+      base: 'https://demo.trycloudflare.com',
+      pageOrigin: 'https://demo.trycloudflare.com',
+      deviceToken: 'dev_tok_123',
+      onLine: true,
+      stream: 'open',
+      fetchImpl: (async (url: string) => {
+        if (String(url).includes('/api/host/profile')) {
+          return new Response(JSON.stringify({ locked: true }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }) as typeof fetch,
+    });
+    expect(res.code).toBe(DIAG.LOCKED.code);
+  });
 });

@@ -444,6 +444,18 @@ const DEFAULT_ROUTINES: OsRoutine[] = [
     lastStatus: 'IDLE',
     lastSummary: 'Reviews active applications, VC pitches & deliverables.',
   },
+  {
+    id: 'evening_recap',
+    title: 'Evening Recap & Unread Digest',
+    skillId: 'skill_evening_recap',
+    specialistId: 'chief_of_staff',
+    scheduleLabel: 'Daily · 20:00',
+    intervalMs: 600_000,
+    paused: false,
+    lastRunAtIso: null,
+    lastStatus: 'IDLE',
+    lastSummary: 'Summarizes today emails, Telegram replies, coding PRs & tomorrow top block.',
+  },
 ];
 
 export function detectL5BlockedRequest(rawText: string): string | null {
@@ -801,7 +813,7 @@ export class UnifiedOsHarness {
     }
 
     const expectedOwnerChat = this.deps.getSummary().telegramChatId?.trim();
-    if (actor.surface === 'telegram' && expectedOwnerChat && actor.chatId && actor.chatId !== expectedOwnerChat) {
+    if (actor.surface === 'telegram' && (!expectedOwnerChat || !actor.chatId || actor.chatId !== expectedOwnerChat)) {
       this.deps.onAudit(`Blocked unauthorized Telegram approval ${id} from chat ${actor.chatId}`, 'APPROVAL');
       return { ok: false, error: 'Unauthorized Telegram chat ID for L2 approval', statusCode: 403 };
     }
@@ -911,6 +923,13 @@ export class UnifiedOsHarness {
           mus.tracks.length > 0
             ? `${mus.catalogStatus}: ${mus.tracks.length} tracks ready (first: ${mus.tracks[0].title})`
             : 'Offline fallback — live tracks unavailable offline.';
+      } else if (routine.id === 'evening_recap' || routine.skillId === 'skill_evening_recap') {
+        const { snapshot, sourceMode } = this.deps.getSnapshot();
+        const gitInsp = await this.deps.runInspect('git_status');
+        const unread = snapshot.gmailThreads.length;
+        const openTasks = snapshot.notionTasks.filter((t) => !t.completed).length;
+        const pendingCount = this.state.approvals.filter((a) => a.status === 'PENDING').length;
+        detail = `[${sourceMode}] Evening Recap: ${unread} email(s), ${openTasks} open task(s), ${pendingCount} pending approvals, Repo: ${gitInsp.summary}`;
       } else {
         const memories = await this.deps.listMemories(10);
         const rag = this.deps.citedKnowledge.query(
@@ -1257,6 +1276,34 @@ export class UnifiedOsHarness {
         autonomyLevel: 'L0_EXPLAIN',
         reply,
         g2Lines: ['ONQ COMMANDS', '/status /calendar /inbox', '/music /focus /research', '/approve /pause /resume'],
+        recommendedTab: 'os',
+      });
+    }
+
+    // 1b. /morning, /brief, /evening, /recap
+    if (cmd === '/morning' || cmd === '/brief') {
+      const rtn = await this.runRoutine('morning_brief');
+      return recordOutcome({
+        ok: rtn.ok,
+        command: cmd,
+        domain: 'MORNING_BRIEF',
+        specialistId: 'chief_of_staff',
+        autonomyLevel: 'L1_PREPARE',
+        reply: rtn.detail,
+        g2Lines: rtn.g2Lines,
+        recommendedTab: 'os',
+      });
+    }
+    if (cmd === '/evening' || cmd === '/recap') {
+      const rtn = await this.runRoutine('evening_recap');
+      return recordOutcome({
+        ok: rtn.ok,
+        command: cmd,
+        domain: 'EVENING_RECAP',
+        specialistId: 'chief_of_staff',
+        autonomyLevel: 'L1_PREPARE',
+        reply: rtn.detail,
+        g2Lines: rtn.g2Lines,
         recommendedTab: 'os',
       });
     }

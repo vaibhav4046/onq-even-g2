@@ -19,19 +19,43 @@ DRAFT = '--draft' in sys.argv
 S = 0.5 if DRAFT else 1.0
 OW, OH = int(1920 * S), int(1080 * S)
 C0 = (1152.0, 648.0)  # world rest centre of the 2304x1296 plates
-GREEN = (136, 255, 57)  # BGR of #39ff88
+GREEN = (126, 245, 52)  # BGR of #34f57e
 
 # ------------------------------------------------------------------ timeline
-SCENES = [('wake', 0, 24), ('send', 24, 46), ('telegram', 46, 62), ('pair', 62, 88), ('code', 88, 118), ('video', 118, 140), ('recap', 140, 163)]
-SLOTS = ['card', 'draft', 'ring', 'done', 'telegram', 'pair', 'coding', 'summary', 'video', 'recap', 'killswitch']
-CAPTIONS = [  # (start, text)  five lines in the whole film
-    (12.2, 'Your day starts on your glasses.'),
-    (35.2, 'You speak. You confirm. You can undo.'),
-    (68.6, 'The computer does the work. The glasses just ask.'),
-    (124.0, 'Even a video. Just ask.'),
-    (154.6, 'You stay in control.'),
+SCENES = [
+    ('wake', 0.0, 17.5),
+    ('pair', 17.5, 31.5),
+    ('morning', 31.5, 55.5),
+    ('telegram', 55.5, 84.5),
+    ('coding', 84.5, 111.5),
+    ('talk', 111.5, 137.5),
+    ('recap', 137.5, 160.0),
 ]
-TITLE = ('OnQ.', 'Your computer, on your glasses.', 'Verified in the Even Hub simulator, not yet on physical glasses.')
+SLOTS = ['pair', 'card', 'draft', 'ring', 'done', 'telegram', 'coding', 'summary', 'video', 'recap', 'killswitch']
+# (start_sec, voice_id, subtitle_text, spoken_text)
+VOICE_WEARER = 'aai-kyla'
+VOICE_ONQ = 'aai-titus'
+CAPTIONS = [
+    (3.0, VOICE_WEARER, 'Wearer: "Morning. Let me put on and pair the glasses."', 'Morning. Let me put on and pair the glasses.'),
+    (18.2, VOICE_ONQ, 'OnQ: "Paired to your computer. Zero accounts stored on your lenses."', 'Paired to your computer. Zero accounts stored on your lenses.'),
+    (32.2, VOICE_WEARER, 'Wearer: "What is waiting in my morning brief?"', 'What is waiting in my morning brief?'),
+    (36.0, VOICE_ONQ, 'OnQ: "Investor call at two, priority email on Q4 metrics. Draft ready."', 'Investor call at two, priority email on Q4 metrics. Draft ready.'),
+    (43.2, VOICE_WEARER, 'Wearer: "Push fifteen and confirm."', 'Push fifteen and confirm.'),
+    (46.2, VOICE_ONQ, 'OnQ: "Two-second undo ring armed. Calendar moved and reply sent."', 'Two-second undo ring armed. Calendar moved and reply sent.'),
+    (56.5, VOICE_ONQ, 'OnQ: "Founders Telegram group asks for Q4 metrics and the glasses build."', 'Founders Telegram group asks for Q4 metrics and the glasses build.'),
+    (63.2, VOICE_WEARER, 'Wearer: "Stage a reply for watched groups only."', 'Stage a reply for watched groups only.'),
+    (67.2, VOICE_ONQ, 'OnQ: "Staged Default-NO on your lens. Confirm with a single tap."', 'Staged Default-NO on your lens. Confirm with a single tap.'),
+    (74.8, VOICE_WEARER, 'Wearer: "Looks right. Send it."', 'Looks right. Send it.'),
+    (85.4, VOICE_WEARER, 'Wearer: "How is our repo pull request looking?"', 'How is our repo pull request looking?'),
+    (89.6, VOICE_ONQ, 'OnQ: "Tests pass with one open review note. Prompt suggestions ready."', 'Tests pass with one open review note. Prompt suggestions ready.'),
+    (98.5, VOICE_WEARER, 'Wearer: "Stage the PR recap for afternoon check-in."', 'Stage the PR recap for afternoon check-in.'),
+    (112.4, VOICE_WEARER, 'Wearer: "OnQ, compare our two Friday launch plans while I walk."', 'OnQ, compare our two Friday launch plans while I walk.'),
+    (118.0, VOICE_ONQ, 'OnQ: "Plan A ships today with real simulator proof; staying hands-free."', 'Plan A ships today with real simulator proof; staying hands-free.'),
+    (128.8, VOICE_WEARER, 'Wearer: "Keep Plan A ready and remind me at four."', 'Keep Plan A ready and remind me at four.'),
+    (138.6, VOICE_ONQ, 'OnQ: "Evening recap: one committed write, zero unconfirmed sends."', 'Evening recap: one committed write, zero unconfirmed sends.'),
+    (150.2, VOICE_ONQ, 'OnQ. Your computer, on your glasses.', 'OnQ. Your computer, on your glasses.'),
+]
+TITLE = ('OnQ.', 'Your computer, on your glasses.', 'Verified in the Even Hub simulator · 24/7 Local Relay')
 
 
 def ease(x):
@@ -47,61 +71,55 @@ def lerp(a, b, k):
 def _shots():
     R = 'room'
     return [
-        (R, 9.0, dict(bg='bedroom', char=dict(x=1130, y=800, s=1.12, rot=-4), cam=((1152, 700, 1.0), (1160, 690, 1.16)), fade=1.4, vignette=0.55,
-                      keys=[(0, 'sleep', 0, 0), (6.4, 'neutral', 0, 0), (8.0, 'neutral', 0, -1)], sfx=[(6.2, 'alarm')], motes=True, speed=[(6.5, 6.9)])),
+        # 1. wake (0.0 -> 17.5s)
+        (R, 7.5, dict(bg='bedroom', char=dict(x=1130, y=800, s=1.12, rot=-4), cam=((1152, 700, 1.0), (1160, 690, 1.16)), fade=1.2, vignette=0.55,
+                      keys=[(0, 'sleep', 0, 0), (5.0, 'neutral', 0, 0), (6.5, 'neutral', 0, -1)], sfx=[(4.8, 'alarm')], motes=True, speed=[(5.1, 5.5)])),
         ('night', 6.0, dict(sfx=[(0.2, 'whoosh')])),
-        (R, 3.5, dict(bg='bedroom', char=dict(x=1130, y=800, s=1.12, rot=-4), cam=((1160, 720, 1.25), (1140, 640, 1.7)), fade=0.35,
-                      keys=[(0, 'neutral', 0, 0), (0.5, 'neutral', 1, 0), (1.5, 'smile', 1, 0)], flash=0.5, glow=[(1.2, 3.5, 0.9)], motes=True)),
-        ('lens', 5.5, dict(slot='card', bg='bedroom', cam=((1500, 520, 1.0), (1500, 520, 1.08)), iris=(1000, 380), sfx=[(0.5, 'chime')])),
-        (R, 4.5, dict(bg='bedroom', char=dict(x=1130, y=800, s=1.12, rot=-3), cam=((1150, 690, 1.3), (1150, 690, 1.2)), fade=0.4,
-                      keys=[(0, 'focused', 1, 0), (0.1, 'focused', 1, 0)], talk=[(0.8, 3.4)], glow=[(0, 4.5, 0.55)], sfx=[(0.5, 'listen')], speed=[(1.0, 1.35)], wave=(0.8, 3.4))),
-        ('lens', 5.0, dict(slot='draft', bg='bedroom', cam=((1500, 520, 1.05), (1500, 520, 1.1)), iris=(1000, 380), sfx=[(0.5, 'chime')])),
-        (R, 1.5, dict(bg='bedroom', char=dict(x=1130, y=800, s=1.12, rot=-5), cam=((1150, 690, 1.2), (1150, 690, 1.3)), fade=0.3,
-                      keys=[(0, 'smile', 1, 0)], glow=[(0, 1.5, 0.5)], speed=[(0.5, 0.85)], sfx=[(0.5, 'tick')])),
-        ('lens', 4.0, dict(slot='ring', bg='bedroom', cam=((1500, 520, 1.1), (1500, 520, 1.12)), iris=(1000, 380),
-                           sfx=[(0.5, 'tick'), (1.0, 'tick'), (1.5, 'tick'), (2.0, 'tick')])),
-        ('lens', 4.0, dict(slot='done', bg='bedroom', cam=((1500, 520, 1.12), (1500, 520, 1.15)), iris=None, sfx=[(0.3, 'ding')])),
-        (R, 3.0, dict(bg='bedroom', char=dict(x=1130, y=800, s=1.12, rot=-3), cam=((1150, 690, 1.35), (1152, 660, 1.0)), fade=0.4,
-                      keys=[(0, 'smile', 1, 0)], motes=True, glow=[(0, 1.2, 0.4)])),
-        # telegram
-        (R, 4.5, dict(bg='street', walk=False, char=dict(x=1152, y=745, s=1.15, rot=0), cam=((1152, 648, 1.0), (1152, 640, 1.08)), fade=0.5, strt=0.55, scroll_v=0,
-                      keys=[(0, 'neutral', 1, 0), (1.0, 'surprised', 1, 0), (2.6, 'neutral', 1, -1)], sfx=[(1.0, 'notify')], glow=[(1.0, 4.5, 0.7)])),
-        ('lens', 6.0, dict(slot='telegram', bg='street', cam=((1500, 520, 1.0), (1500, 520, 1.06)), iris=(1000, 380), sfx=[(0.5, 'chime')])),
-        (R, 5.5, dict(bg='street', walk=False, char=dict(x=1152, y=745, s=1.15, rot=0), cam=((1152, 640, 1.1), (1152, 648, 1.0)), fade=0.4, strt=0.55, scroll_v=0,
-                      keys=[(0, 'smile', 1, 0)], sfx=[(0.4, 'ding')], glow=[(0, 1.2, 0.5)], speed=[(0.3, 0.65)])),
-        # pair
-        (R, 6.0, dict(bg='desk', char=dict(x=900, y=640, s=1.15, rot=-2), cam=((1152, 600, 1.0), (1100, 590, 1.1)), fade=0.5,
-                      keys=[(0, 'neutral', 1, 1), (2.2, 'focused', 1, -1)], motes=True)),
-        ('screen', 6.0, dict(state='code', sfx=[(0.1, 'whoosh')])),
-        ('lens', 6.0, dict(slot='pair', bg='desk', cam=((1300, 560, 1.0), (1300, 560, 1.06)), iris=(1000, 380), sfx=[(0.5, 'chime'), (1.3, 'pair')])),
-        ('screen', 4.0, dict(state='paired', sfx=[(0.2, 'pair')])),
-        (R, 4.0, dict(bg='desk', char=dict(x=900, y=640, s=1.15, rot=-2), cam=((1100, 590, 1.1), (1152, 620, 1.0)), fade=0.5,
-                      keys=[(0, 'smile', 1, 0)], motes=True)),
-        # code
-        (R, 5.5, dict(bg='street', walk=True, k=0.1, char=dict(x=1152, y=745, s=1.15, rot=0), cam=((1152, 648, 1.0), (1152, 648, 1.06)), fade=0.5,
-                      keys=[(0, 'neutral', 1, 0), (1.3, 'focused', 1, 0)], talk=[(1.0, 3.5)], sfx=[(1.0, 'listen')], glow=[(0, 5.5, 0.4)], wave=(1.0, 3.5), speed=[(1.1, 1.45)])),
-        ('screen', 5.5, dict(state='term', sfx=[(0.2, 'whoosh')])),
-        ('lens', 5.0, dict(slot='coding', bg='desk', cam=((1300, 560, 1.0), (1300, 560, 1.05)), iris=None, sfx=[(0.5, 'chime')])),
-        (R, 3.0, dict(bg='street', walk=True, k=0.4, char=dict(x=1152, y=745, s=1.15, rot=0), cam=((1152, 648, 1.06), (1152, 648, 1.0)), fade=0.4,
-                      keys=[(0, 'neutral', 1, 0), (0.8, 'smile', 1, 0)], glow=[(0, 1.0, 0.5)])),
-        ('lens', 6.0, dict(slot='summary', bg='street', cam=((1500, 520, 1.0), (1500, 520, 1.06)), iris=(1000, 380), sfx=[(0.5, 'chime')])),
-        (R, 5.0, dict(bg='street', walk=True, k=0.7, char=dict(x=1152, y=745, s=1.15, rot=0), cam=((1152, 648, 1.0), (1152, 648, 1.12)), fade=0.5,
-                      keys=[(0, 'smile', 1, 0)], motes=False)),
-        # video
-        (R, 5.5, dict(bg='street', walk=True, k=0.9, char=dict(x=1152, y=745, s=1.15, rot=0), cam=((1152, 648, 1.05), (1152, 648, 1.0)), fade=0.5,
-                      keys=[(0, 'neutral', 1, 0), (1.0, 'focused', 1, 0)], talk=[(1.0, 4.2)], sfx=[(1.0, 'listen')], glow=[(0, 5.5, 0.4)], wave=(1.0, 4.2), speed=[(1.1, 1.45)])),
-        ('screen', 6.0, dict(state='render', sfx=[(0.2, 'whoosh'), (1.0, 'render'), (3.4, 'render')])),
-        ('lens', 6.0, dict(slot='video', bg='street', cam=((1500, 520, 1.0), (1500, 520, 1.06)), iris=None, sfx=[(0.5, 'chime')])),
-        (R, 4.5, dict(bg='street', walk=True, k=0.55, char=dict(x=1152, y=745, s=1.15, rot=0), cam=((1152, 648, 1.0), (1152, 648, 1.1)), fade=0.5,
-                      keys=[(0, 'surprised', 1, 0), (1.0, 'smile', 1, 0)], speed=[(0.1, 0.5)], sfx=[(0.2, 'ding')])),
-        # recap
-        (R, 5.5, dict(bg='balcony', char=dict(x=1060, y=700, s=1.15, rot=0), cam=((1152, 670, 1.0), (1120, 650, 1.1)), fade=0.7,
+        (R, 4.0, dict(bg='bedroom', char=dict(x=1130, y=800, s=1.12, rot=-4), cam=((1160, 720, 1.25), (1140, 640, 1.65)), fade=0.35,
+                      keys=[(0, 'neutral', 0, 0), (0.6, 'neutral', 1, 0), (1.8, 'smile', 1, 0)], flash=0.6, glow=[(1.2, 4.0, 0.8)], motes=True)),
+        # 2. pair (17.5 -> 31.5s)
+        ('screen', 4.5, dict(state='code', sfx=[(0.2, 'whoosh')])),
+        ('lens', 5.0, dict(slot='pair', bg='desk', cam=((1300, 560, 1.0), (1300, 560, 1.05)), iris=(1000, 380), sfx=[(0.4, 'chime'), (1.2, 'pair')])),
+        ('screen', 4.5, dict(state='paired', sfx=[(0.2, 'pair')])),
+        # 3. morning brief + email + send (31.5 -> 55.5s)
+        (R, 4.0, dict(bg='bedroom', char=dict(x=1130, y=800, s=1.12, rot=-3), cam=((1150, 690, 1.22), (1150, 690, 1.18)), fade=0.4,
+                      keys=[(0, 'focused', 1, 0)], talk=[(0.6, 3.2)], glow=[(0, 4.0, 0.5)], sfx=[(0.4, 'listen')], wave=(0.6, 3.2))),
+        ('lens', 5.0, dict(slot='card', bg='bedroom', toast='MAIL: Priority · Q4 Metrics v3', cam=((1500, 520, 1.0), (1500, 520, 1.08)), iris=(1000, 380), sfx=[(0.4, 'chime'), (1.6, 'notify')])),
+        ('lens', 5.0, dict(slot='draft', bg='bedroom', cam=((1500, 520, 1.04), (1500, 520, 1.1)), iris=None, sfx=[(0.4, 'chime')])),
+        ('lens', 4.0, dict(slot='ring', bg='bedroom', cam=((1500, 520, 1.08), (1500, 520, 1.12)), iris=(1000, 380),
+                           sfx=[(0.4, 'tick'), (0.9, 'tick'), (1.4, 'tick'), (1.9, 'tick')])),
+        ('lens', 3.5, dict(slot='done', bg='bedroom', cam=((1500, 520, 1.1), (1500, 520, 1.14)), iris=None, sfx=[(0.3, 'ding')])),
+        (R, 2.5, dict(bg='bedroom', char=dict(x=1130, y=800, s=1.12, rot=-3), cam=((1150, 690, 1.25), (1152, 660, 1.0)), fade=0.35,
+                      keys=[(0, 'smile', 1, 0)], motes=True, glow=[(0, 1.5, 0.4)])),
+        # 4. telegram groups & DM (55.5 -> 84.5s)
+        (R, 5.5, dict(bg='street', walk=True, k=0.12, char=dict(x=1152, y=745, s=1.15, rot=0), cam=((1152, 648, 1.0), (1152, 640, 1.08)), fade=0.5, strt=0.55,
+                      keys=[(0, 'neutral', 1, 0), (1.0, 'surprised', 1, 0), (3.0, 'focused', 1, 0)], sfx=[(1.0, 'notify')], glow=[(1.0, 5.5, 0.7)], talk=[(1.4, 4.0)], wave=(1.4, 4.0))),
+        ('screen', 6.5, dict(state='telegram_ui', sfx=[(0.2, 'whoosh'), (1.2, 'notify')])),
+        ('lens', 7.0, dict(slot='telegram', bg='street', toast='TG WATCH · Founders Group (+3)', cam=((1500, 520, 1.0), (1500, 520, 1.06)), iris=(1000, 380), sfx=[(0.4, 'chime')])),
+        ('lens', 5.0, dict(slot='ring', bg='street', cam=((1500, 520, 1.06), (1500, 520, 1.1)), iris=None, sfx=[(0.4, 'tick'), (0.9, 'tick')])),
+        (R, 5.0, dict(bg='street', walk=True, k=0.25, char=dict(x=1152, y=745, s=1.15, rot=0), cam=((1152, 640, 1.08), (1152, 648, 1.0)), fade=0.4, strt=0.55,
+                      keys=[(0, 'smile', 1, 0)], talk=[(0.2, 2.5)], sfx=[(0.4, 'ding')], glow=[(0, 2.0, 0.5)], speed=[(0.2, 0.7)])),
+        # 5. coding & PR suggestions (84.5 -> 111.5s)
+        (R, 5.0, dict(bg='desk', char=dict(x=900, y=640, s=1.15, rot=-2), cam=((1152, 600, 1.0), (1100, 590, 1.1)), fade=0.5,
+                      keys=[(0, 'focused', 1, 1)], talk=[(0.8, 3.8)], glow=[(0, 5.0, 0.45)], sfx=[(0.6, 'listen')], wave=(0.8, 3.8), motes=True)),
+        ('screen', 7.5, dict(state='term', sfx=[(0.2, 'whoosh')])),
+        ('lens', 6.0, dict(slot='coding', bg='desk', cam=((1300, 560, 1.0), (1300, 560, 1.05)), iris=(1000, 380), sfx=[(0.4, 'chime')])),
+        ('lens', 5.0, dict(slot='summary', bg='desk', cam=((1300, 560, 1.05), (1300, 560, 1.09)), iris=None, sfx=[(0.4, 'chime')])),
+        (R, 3.5, dict(bg='desk', char=dict(x=900, y=640, s=1.15, rot=-2), cam=((1100, 590, 1.1), (1152, 620, 1.0)), fade=0.4,
+                      keys=[(0, 'smile', 1, 0)], talk=[(0.2, 2.2)], motes=True)),
+        # 6. hands-free lunch AI talk + talking avatar (111.5 -> 137.5s)
+        (R, 6.0, dict(bg='street', walk=True, k=0.5, char=dict(x=1152, y=745, s=1.15, rot=0), cam=((1152, 648, 1.0), (1152, 648, 1.08)), fade=0.5,
+                      keys=[(0, 'neutral', 1, 0), (1.0, 'focused', 1, 0)], talk=[(0.8, 4.5)], sfx=[(0.8, 'listen')], glow=[(0, 6.0, 0.55)], wave=(0.8, 4.5))),
+        ('screen', 7.0, dict(state='avatar', sfx=[(0.2, 'whoosh'), (1.0, 'chime')])),
+        ('lens', 7.5, dict(slot='video', bg='street', cam=((1500, 520, 1.0), (1500, 520, 1.06)), iris=(1000, 380), sfx=[(0.4, 'chime')])),
+        (R, 5.5, dict(bg='street', walk=True, k=0.72, char=dict(x=1152, y=745, s=1.15, rot=0), cam=((1152, 648, 1.06), (1152, 648, 1.0)), fade=0.45,
+                      keys=[(0, 'smile', 1, 0)], talk=[(0.5, 3.0)], speed=[(0.1, 0.55)], sfx=[(0.3, 'ding')])),
+        # 7. evening recap & killswitch (137.5 -> 160.0s)
+        (R, 5.5, dict(bg='balcony', char=dict(x=1060, y=700, s=1.15, rot=0), cam=((1152, 670, 1.0), (1120, 650, 1.1)), fade=0.65,
                       keys=[(0, 'neutral', 1, 0), (3.0, 'smile', 1, 0)], motes=True)),
-        ('lens', 6.0, dict(slot='recap', bg='balcony', cam=((1500, 520, 1.0), (1500, 520, 1.06)), iris=(1000, 380), sfx=[(0.5, 'chime')])),
-        (R, 2.5, dict(bg='balcony', char=dict(x=1060, y=700, s=1.15, rot=1), cam=((1120, 650, 1.1), (1100, 640, 1.2)), fade=0.4,
-                      keys=[(0, 'focused', 1, 0), (1.0, 'neutral', 1, 0)], motes=True, glow=[(0, 2.5, 0.5)])),
-        ('lens', 4.0, dict(slot='killswitch', bg='balcony', cam=((1500, 520, 1.0), (1500, 520, 1.05)), iris=(1000, 380), sfx=[(0.4, 'kill')])),
-        ('title', 5.0, dict(bg='balcony')),
+        ('lens', 6.5, dict(slot='recap', bg='balcony', cam=((1500, 520, 1.0), (1500, 520, 1.06)), iris=(1000, 380), sfx=[(0.4, 'chime')])),
+        ('lens', 5.0, dict(slot='killswitch', bg='balcony', cam=((1500, 520, 1.0), (1500, 520, 1.05)), iris=(1000, 380), sfx=[(0.4, 'kill')])),
+        ('title', 5.5, dict(bg='balcony')),
     ]
 
 
@@ -116,8 +134,8 @@ NFRAMES = int(round(TOTAL * FPS))
 # ------------------------------------------------------------------ assets
 _cache = {}
 MAN = None
-BGR_TINT = {  # BGR multipliers per scene (grade)
-    'bedroom': (0.96, 0.97, 1.03), 'street': (1.0, 1.0, 1.0), 'desk': (0.88, 0.95, 1.06), 'balcony': (1.02, 0.95, 0.96),
+BGR_TINT = {  # Balanced emerald anime lighting grade
+    'bedroom': (0.98, 1.04, 0.94), 'street': (0.98, 1.04, 0.94), 'desk': (0.96, 1.04, 0.94), 'balcony': (0.98, 1.04, 0.94),
 }
 
 
@@ -154,14 +172,18 @@ def load(name, tint=None, scale=None):
 
 
 def over(dst, src, opacity=1.0):
-    a = src[..., 3:4].astype(np.uint16)
+    # Vectorized uint8-safe premultiplied alpha composite avoiding full-frame float32 allocations.
+    if opacity <= 0:
+        return
+    a = src[..., 3]
     s = src[..., :3]
     if opacity < 1.0:
-        a = (a * opacity).astype(np.uint16)
-        s = (s.astype(np.float32) * opacity).astype(np.uint8)
-    out = (dst.astype(np.uint16) * (255 - a) + 127) // 255 + s
-    np.minimum(out, 255, out=out)
-    dst[:] = out.astype(np.uint8)
+        a = (a.astype(np.uint16) * int(round(opacity * 256)) >> 8).astype(np.uint8)
+        s = cv2.multiply(s, (opacity, opacity, opacity, 1.0)) if opacity < 0.999 else s
+    inv = (255 - a)
+    inv3 = cv2.merge([inv, inv, inv])
+    bg_part = cv2.multiply(dst, inv3, scale=1.0 / 255.0)
+    cv2.add(bg_part, s, dst=dst)
 
 
 def add(dst, src, k=1.0):
@@ -335,24 +357,23 @@ def post_masks(bg):
 def noise_bank():
     if 'noise' not in _post:
         rng = np.random.default_rng(3)
-        _post['noise'] = [rng.normal(0, 5.5, (OH, OW)).astype(np.float32) for _ in range(6)]
+        _post['noise'] = [np.clip(rng.normal(0, 4.5, (OH, OW)), 0, 12).astype(np.uint8) for _ in range(6)]
     return _post['noise']
 
 
 def post(dst, i, bg='bedroom', bloom=0.35, grain=1.0, vignette=True):
     small = cv2.resize(dst, (OW // 4, OH // 4), interpolation=cv2.INTER_AREA)
-    hi = cv2.subtract(small, np.full_like(small, 200))
-    hi = cv2.GaussianBlur(hi, (0, 0), 9)
+    hi = cv2.subtract(small, np.full_like(small, 212))
+    hi = cv2.GaussianBlur(hi, (0, 0), 8)
     up = cv2.resize(hi, (OW, OH), interpolation=cv2.INTER_LINEAR)
-    cv2.addWeighted(dst, 1.0, up, bloom * 1.7, 0, dst=dst)
+    cv2.addWeighted(dst, 1.0, up, bloom * 1.15, 0, dst=dst)
     if vignette:
         dst[:] = cv2.multiply(dst, post_masks(bg), scale=1 / 128.0)
     if grain:
         nb = noise_bank()[i % 6]
         dx, dy = (i * 37) % OW, (i * 91) % OH
-        n = np.roll(nb, (dy, dx), (0, 1)) * grain
-        t = dst.astype(np.float32) + n[..., None]
-        dst[:] = np.clip(t, 0, 255).astype(np.uint8)
+        n = np.roll(nb, (dy, dx), (0, 1))
+        cv2.add(dst, cv2.merge([n, n, n]), dst=dst)
 
 
 def speed_lines(dst, t, a, b):
@@ -446,16 +467,19 @@ _capcache = {}
 
 def caption_layer(i):
     if i not in _capcache:
-        _capcache[i] = pil_to_pm(text_rgba(CAPTIONS[i][1], font('ui', 50)))
+        _, voice, sub_txt, _ = CAPTIONS[i]
+        col = (134, 255, 175) if voice == VOICE_ONQ else (238, 252, 242)
+        bg = (6, 28, 16, 185) if voice == VOICE_ONQ else (10, 20, 16, 175)
+        _capcache[i] = pil_to_pm(text_rgba(sub_txt, font('ui', 44), color=col, bg=bg))
     return _capcache[i]
 
 
 def draw_caption(dst, t, clip_len, low=False):
-    for i, (t0, _) in enumerate(CAPTIONS):
+    for i, (t0, _, _, _) in enumerate(CAPTIONS):
         d = clip_len.get(i, 2.5)
-        t1 = t0 + d + 0.9
-        if t0 - 0.2 <= t <= t1 + 0.4:
-            a = min(ease((t - (t0 - 0.2)) / 0.5), ease((t1 + 0.4 - t) / 0.5))
+        t1 = t0 + d + 0.55
+        if t0 - 0.15 <= t <= t1 + 0.35:
+            a = min(ease((t - (t0 - 0.15)) / 0.35), ease((t1 + 0.35 - t) / 0.35))
             im = caption_layer(i)
             h, w = im.shape[:2]
             x = (OW - w) // 2
@@ -480,9 +504,13 @@ def get_capture(slot):
     if key not in _cache:
         rel = read_captures()[slot]
         p = rel if os.path.isabs(rel) else os.path.join(FILM, rel)
-        im = cv2.imread(p, cv2.IMREAD_COLOR)
+        im = cv2.imread(p, cv2.IMREAD_UNCHANGED)
         if im is None:
             im = np.zeros((288, 576, 3), np.uint8)
+        elif im.ndim == 3 and im.shape[2] == 4:
+            # Composite RGBA simulator captures cleanly over pure #000000 black so alpha never leaks raw flood fill.
+            a = im[..., 3:4].astype(np.float32) / 255.0
+            im = (im[..., :3].astype(np.float32) * a).astype(np.uint8)
         h, w = im.shape[:2]
         sc = min(576 / w, 288 / h)
         im = cv2.resize(im, (max(1, int(w * sc)), max(1, int(h * sc))), interpolation=cv2.INTER_AREA if sc < 1 else cv2.INTER_CUBIC)
@@ -556,40 +584,59 @@ def draw_lens(dst, shot, t, i):
     sub = dict(shot, walk=False, scroll_v=0, k=0.6)
     draw_plates(world, bg, cam, 0.0, sub, with_char=False)
     sm = cv2.resize(world, (OW // 4, OH // 4), interpolation=cv2.INTER_AREA)
-    sm = cv2.GaussianBlur(sm, (0, 0), 4.2)
+    sm = cv2.GaussianBlur(sm, (0, 0), 4.0)
     bgb = cv2.resize(sm, (OW, OH), interpolation=cv2.INTER_CUBIC)
-    bgb = (bgb.astype(np.float32) * 0.62).astype(np.uint8)
+    bgb = (bgb.astype(np.float32) * 0.48).astype(np.uint8)
     # HUD
     hud = hud_layer(shot['slot'])
     hh, ww = hud.shape[:2]
     k = ease(t / 0.45)
-    flick = 1.0 if t > 0.5 else (0.75 + 0.25 * math.sin(t * 90)) * k
-    off = 8 * S * math.sin(t * 0.8)
-    x = int(OW / 2 - ww / 2 + 6 * S * math.sin(t * 0.5))
-    y = int(OH * 0.5 - hh / 2 + off)
-    scale = 0.96 + 0.04 * k
+    flick = 1.0 if t > 0.4 else (0.82 + 0.18 * math.sin(t * 75)) * k
+    off = 6 * S * math.sin(t * 0.8)
+    scale = 0.97 + 0.03 * k
     hudz = cv2.resize(hud, (int(ww * scale), int(hh * scale)), interpolation=cv2.INTER_LINEAR) if scale != 1 else hud
     h2, w2 = hudz.shape[:2]
-    x, y = int(OW / 2 - w2 / 2), int(OH * 0.5 - h2 / 2 + off)
+    x, y = int(OW / 2 - w2 / 2 + 5 * S * math.sin(t * 0.5)), int(OH * 0.5 - h2 / 2 + off)
     layer = np.zeros((OH, OW, 3), np.uint8)
     layer[y:y + h2, x:x + w2] = (hudz.astype(np.float32) * flick).astype(np.uint8)
-    # scan sweep
-    if t < 0.9:
-        sy = int(y + (h2) * (t / 0.9))
-        cv2.rectangle(layer, (x, max(0, sy - int(3 * S))), (x + w2, sy + int(3 * S)), tuple(int(c * 0.9) for c in GREEN), -1)
-    g1 = cv2.GaussianBlur(layer, (0, 0), 9 * S)
-    g2 = cv2.GaussianBlur(layer, (0, 0), 34 * S)
-    # dark glass pane behind the HUD so it reads
-    pane = np.zeros((OH, OW), np.float32)
-    cv2.rectangle(pane, (x - int(26 * S), y - int(26 * S)), (x + w2 + int(26 * S), y + h2 + int(26 * S)), 1.0, -1)
-    pane = cv2.GaussianBlur(pane, (0, 0), 22 * S) * 0.45 * k
+    # Subtle notification toast banner when active (email/telegram notification)
+    toast = shot.get('toast')
+    if toast and t > 0.6:
+        ta = ease((t - 0.6) / 0.35)
+        tw = int(520 * S)
+        th = int(42 * S)
+        tx0 = int(OW / 2 - tw / 2)
+        ty0 = max(int(18 * S), y - th - int(18 * S))
+        cv2.rectangle(layer, (tx0, ty0), (tx0 + tw, ty0 + th), (24, 96, 44), -1)
+        cv2.rectangle(layer, (tx0, ty0), (tx0 + tw, ty0 + th), GREEN, max(1, int(2 * S)))
+        im_t = text_rgba(toast, font('mono', 22), color=(184, 255, 209), shadow=False, pad=6, bg=None)
+        pm_t = pil_to_pm(im_t)
+        ph, pw = pm_t.shape[:2]
+        tx_i = tx0 + max(8, (tw - pw) // 2)
+        ty_i = ty0 + max(2, (th - ph) // 2)
+        roi = layer[ty_i:ty_i + ph, tx_i:tx_i + pw]
+        if roi.shape[:2] == (ph, pw):
+            over(roi, pm_t, ta)
+            layer[ty_i:ty_i + ph, tx_i:tx_i + pw] = roi
+    # Scan sweep on boot
+    if t < 0.75:
+        sy = int(y + h2 * (t / 0.75))
+        cv2.rectangle(layer, (x, max(0, sy - int(2 * S))), (x + w2, sy + int(2 * S)), tuple(int(c * 0.7) for c in GREEN), -1)
+    # 1/4-res optical phosphor glow (crisp text + restrained bloom, zero whiteout)
+    l_sm = cv2.resize(layer, (OW // 4, OH // 4), interpolation=cv2.INTER_AREA)
+    g1 = cv2.resize(cv2.GaussianBlur(l_sm, (0, 0), 2.5 * S), (OW, OH), interpolation=cv2.INTER_LINEAR)
+    g2 = cv2.resize(cv2.GaussianBlur(l_sm, (0, 0), 8.5 * S), (OW, OH), interpolation=cv2.INTER_LINEAR)
+    pane = np.zeros((OH // 4, OW // 4), np.float32)
+    cv2.rectangle(pane, (max(0, (x - int(28 * S)) // 4), max(0, (y - int(28 * S)) // 4)),
+                  (min(OW // 4 - 1, (x + w2 + int(28 * S)) // 4), min(OH // 4 - 1, (y + h2 + int(28 * S)) // 4)), 1.0, -1)
+    pane = cv2.resize(cv2.GaussianBlur(pane, (0, 0), 5.5 * S), (OW, OH), interpolation=cv2.INTER_LINEAR) * 0.78 * k
     bgb = (bgb.astype(np.float32) * (1 - pane[..., None])).astype(np.uint8)
     cv2.addWeighted(bgb, 1.0, layer, 1.0, 0, dst=bgb)
-    cv2.addWeighted(bgb, 1.0, g1, 0.9, 0, dst=bgb)
-    cv2.addWeighted(bgb, 1.0, g2, 0.8, 0, dst=bgb)
+    cv2.addWeighted(bgb, 1.0, g1, 0.28, 0, dst=bgb)
+    cv2.addWeighted(bgb, 1.0, g2, 0.14, 0, dst=bgb)
     ov, glare = lens_overlay()
     over(bgb, ov)
-    add(bgb, cv2.merge([glare] * 3), 1.0)
+    add(bgb, cv2.merge([glare] * 3), 0.75)
     dst[:] = bgb
 
 
@@ -619,9 +666,9 @@ def screen_frame(shot, t):
     d.text((px(660), px(8)), 'OnQ Host', font=font('ui', 24 * z), fill=(150, 165, 175))
     if st in ('code', 'paired'):
         code = '4 8 2   9 1 7'
-        d.text((px(140), px(120)), 'Pair your glasses' if st == 'code' else 'Glasses connected', font=font('uib', 54 * z), fill=(232, 240, 236))
-        d.text((px(140), px(200)), 'Open OnQ on the glasses and type this code.' if st == 'code' else 'Paired with this computer.', font=font('light', 34 * z), fill=(140, 160, 160))
-        shown = int(min(1, max(0, (t - 0.7) / 2.0)) * 6) if st == 'code' else 6
+        d.text((px(140), px(120)), 'Pair your glasses' if st == 'code' else 'Glasses connected', font=font('uib', 54 * z), fill=(216, 255, 228))
+        d.text((px(140), px(200)), 'Scan QR or enter single-use code · zero credentials stored on lenses.' if st == 'code' else 'Paired to this computer · encrypted local vault active.', font=font('light', 30 * z), fill=(134, 210, 165))
+        shown = int(min(1, max(0, (t - 0.5) / 1.8)) * 6) if st == 'code' else 6
         x = 140
         digits = [c for c in code if c != ' ']
         fnt = font('monob', 170 * z)
@@ -629,69 +676,129 @@ def screen_frame(shot, t):
             if n == 3:
                 x += 70
             a = n < shown or st == 'paired'
-            col = (57, 255, 136) if a else (36, 52, 48)
+            col = (52, 245, 126) if a else (22, 48, 34)
             d.text((px(x), px(300)), c if a else '-', font=fnt, fill=col)
             x += 150
         if st == 'code':
             dots = '.' * (1 + int(t * 2) % 3)
-            d.text((px(140), px(600)), 'Waiting for glasses' + dots, font=font('mono', 32 * z), fill=(120, 140, 150))
+            d.text((px(140), px(600)), 'Waiting for glasses handshake' + dots, font=font('mono', 32 * z), fill=(120, 175, 145))
         else:
             k = ease((t - 0.2) / 0.5)
             cx_, cy_, r = px(300), px(660), int(px(52) * k)
-            d.ellipse([cx_ - r, cy_ - r, cx_ + r, cy_ + r], outline=(57, 255, 136), width=max(2, px(6)))
+            d.ellipse([cx_ - r, cy_ - r, cx_ + r, cy_ + r], outline=(52, 245, 126), width=max(2, px(6)))
             if k > 0.6:
-                d.line([cx_ - px(24), cy_, cx_ - px(6), cy_ + px(20), cx_ + px(28), cy_ - px(20)], fill=(57, 255, 136), width=max(2, px(8)))
-            d.text((px(390), px(630)), 'Ready for voice commands', font=font('light', 36 * z), fill=(160, 190, 180))
-    elif st == 'term':
-        lines = [
-            ('$ onq run "fix the failing test"', (200, 215, 220)),
-            ('harness  coding agent attached', (120, 150, 160)),
-            ('tests    FAIL  auth.test.ts  1 failing', (255, 110, 110)),
-            ('edit     src/auth.ts  +4 -2', (200, 215, 220)),
-            ('tests    PASS  24 passed', (57, 255, 136)),
-            ('summary  sent to glasses', (120, 255, 190)),
+                d.line([cx_ - px(24), cy_, cx_ - px(6), cy_ + px(20), cx_ + px(28), cy_ - px(20)], fill=(52, 245, 126), width=max(2, px(8)))
+            d.text((px(390), px(630)), 'Ready · Default-NO write gate armed', font=font('light', 34 * z), fill=(160, 230, 185))
+    elif st == 'telegram_ui':
+        d.text((px(80), px(86)), 'TELEGRAM GROUPS & WATCHED CHATS', font=font('uib', 40 * z), fill=(52, 245, 126))
+        d.rounded_rectangle([px(1080), px(82), px(1420), px(132)], radius=px(18), fill=(12, 46, 28), outline=(52, 245, 126), width=max(1, px(2)))
+        d.text((px(1105), px(94)), 'OWNER WRITE GUARD', font=font('mono', 24 * z), fill=(134, 255, 175))
+        chats = [
+            ('[WATCHED] Founders Group · 3 new', 'Investor asks: Share Q4 metrics + OnQ .ehpk', True),
+            ('[WATCHED] Build Release Alerts', 'CI green on master · 0 console errors', False),
+            ('[MUTED] Public Community Lobby', 'Group privacy guard: ignore unsolicited cmds', False),
         ]
-        fnt = font('mono', 38 * z)
-        y = 90
-        nch = int(t * 34)
+        for idx, (title_c, sub_c, sel) in enumerate(chats):
+            y0 = 176 + idx * 145
+            fill_c = (12, 38, 24) if sel else (10, 22, 16)
+            out_c = (52, 245, 126) if sel else (26, 60, 42)
+            d.rounded_rectangle([px(80), px(y0), px(1420), px(y0 + 122)], radius=px(16), fill=fill_c, outline=out_c, width=max(1, px(3 if sel else 1)))
+            d.text((px(112), px(y0 + 20)), title_c, font=font('uib', 30 * z), fill=(134, 255, 175) if sel else (165, 200, 180))
+            d.text((px(112), px(y0 + 68)), sub_c, font=font('mono', 26 * z), fill=(220, 245, 228) if sel else (120, 155, 138))
+        if t > 1.2:
+            d.rounded_rectangle([px(80), px(626), px(1420), px(792)], radius=px(16), fill=(8, 30, 18), outline=(134, 255, 175), width=max(1, px(3)))
+            d.text((px(112), px(648)), 'STAGED REPLY (DEFAULT-NO · SENT TO GLASSES)', font=font('mono', 26 * z), fill=(52, 245, 126))
+            d.text((px(112), px(698)), '"Metrics attached — sharing fresh simulator .ehpk next."   [TAP R1 TO SEND]', font=font('ui', 28 * z), fill=(228, 252, 236))
+    elif st == 'term':
+        d.text((px(70), px(76)), 'CODING · PR STATUS & PROMPT SUGGESTIONS', font=font('uib', 38 * z), fill=(52, 245, 126))
+        lines = [
+            ('$ onq repo pr-status --branch master', (200, 230, 210)),
+            ('branch   master · clean build · 0 TS errors', (134, 210, 165)),
+            ('tests    PASS  All Vitest & Eval suites green', (52, 245, 126)),
+            ('pr #42   1 review note -> stage summary on G2', (184, 255, 209)),
+        ]
+        fnt = font('mono', 34 * z)
+        y = 148
+        nch = int(t * 68)
         for txt, col in lines:
             if nch <= 0:
                 break
             d.text((px(70), px(y)), txt[:nch], font=fnt, fill=col)
-            nch -= len(txt) + 6
-            y += 82
-        if int(t * 2) % 2 == 0:
-            d.rectangle([px(70), px(y + 4), px(96), px(y + 44)], fill=(57, 255, 136))
-    elif st == 'render':
-        d.text((px(70), px(80)), "Standup  today", font=font('uib', 46 * z), fill=(232, 240, 236))
-        prog = min(1.0, max(0, (t - 0.8) / 3.6))
-        d.rounded_rectangle([px(70), px(190), px(1430), px(240)], radius=px(25), fill=(30, 40, 46))
-        if prog > 0:
-            d.rounded_rectangle([px(70), px(190), px(70 + 1360 * prog), px(240)], radius=px(25), fill=(57, 255, 136))
-        txt = 'Rendering %d%%' % int(prog * 100) if prog < 1 else 'Video ready  0:20'
-        d.text((px(70), px(262)), txt, font=font('mono', 36 * z), fill=(180, 200, 195))
-        cols = [(70, 110, 160), (180, 100, 120), (90, 160, 140), (200, 160, 90), (120, 100, 180)]
-        for n in range(5):
-            x0 = 70 + n * 270
-            d.rounded_rectangle([px(x0), px(360), px(x0 + 250), px(560)], radius=px(14), fill=cols[n])
-            d.rectangle([px(x0), px(540), px(x0 + 250 * min(1, max(0, prog * 5 - n))), px(560)], fill=(57, 255, 136))
-        d.rectangle([px(70), px(640), px(1430), px(700)], fill=(24, 30, 38))
-        d.rectangle([px(70 + 1360 * prog - 3), px(620), px(70 + 1360 * prog + 3), px(720)], fill=(255, 255, 255))
+            nch -= len(txt) + 4
+            y += 72
+        # Suggested prompt chips
+        d.text((px(70), px(470)), 'SUGGESTED PROMPTS READY ON GLASSES:', font=font('mono', 26 * z), fill=(134, 255, 175))
+        chips = ['Stage PR recap', 'Draft reviewer reply', 'Check evening diff']
+        for ci, ch_lbl in enumerate(chips):
+            cx0 = 70 + ci * 440
+            sel_c = ci == 0 and t > 2.2
+            d.rounded_rectangle([px(cx0), px(526), px(cx0 + 410), px(612)], radius=px(14),
+                                fill=(16, 62, 36) if sel_c else (12, 28, 20),
+                                outline=(52, 245, 126) if sel_c else (42, 92, 62), width=max(1, px(3 if sel_c else 2)))
+            d.text((px(cx0 + 26), px(552)), '> ' + ch_lbl, font=font('mono', 28 * z), fill=(184, 255, 209) if sel_c else (150, 200, 170))
+        d.text((px(70), px(690)), 'Output stays read-only until wearer taps R1.', font=font('light', 30 * z), fill=(134, 185, 155))
+    elif st == 'avatar':
+        d.text((px(70), px(82)), 'ONQ VOICE PARTNER · HANDS-FREE CONVERSATION', font=font('uib', 38 * z), fill=(52, 245, 126))
+        # Styled Shonen Anime Avatar matching OnQVoiceOrb.tsx (spiky hair + collar + eyes + viseme mouth)
+        cx_, cy_, r = px(320), px(460), px(176)
+        d.ellipse([cx_ - r, cy_ - r, cx_ + r, cy_ + r], fill=(4, 18, 10), outline=(52, 245, 126), width=max(2, px(4)))
+        # Coat & high collar
+        d.polygon([
+            (cx_ - px(108), cy_ + px(136)), (cx_ - px(74), cy_ + px(58)),
+            (cx_ - px(34), cy_ + px(42)), (cx_ + px(34), cy_ + px(42)),
+            (cx_ + px(74), cy_ + px(58)), (cx_ + px(108), cy_ + px(136)),
+        ], fill=(10, 46, 23), outline=(52, 245, 126), width=max(2, px(3)))
+        # Spiky hair back crown
+        d.polygon([
+            (cx_ - px(96), cy_ - px(4)), (cx_ - px(120), cy_ - px(46)), (cx_ - px(82), cy_ - px(62)),
+            (cx_ - px(98), cy_ - px(108)), (cx_ - px(46), cy_ - px(94)), (cx_ - px(36), cy_ - px(136)),
+            (cx_, cy_ - px(104)), (cx_ + px(28), cy_ - px(140)), (cx_ + px(44), cy_ - px(94)),
+            (cx_ + px(96), cy_ - px(108)), (cx_ + px(80), cy_ - px(62)), (cx_ + px(118), cy_ - px(46)),
+            (cx_ + px(96), cy_ - px(4)),
+        ], fill=(6, 31, 16), outline=(52, 245, 126), width=max(2, px(3)))
+        # Jaw & face
+        d.polygon([
+            (cx_ - px(64), cy_ - px(44)), (cx_ + px(64), cy_ - px(44)),
+            (cx_ + px(60), cy_ + px(18)), (cx_ + px(24), cy_ + px(56)),
+            (cx_, cy_ + px(64)), (cx_ - px(24), cy_ + px(56)), (cx_ - px(60), cy_ + px(18)),
+        ], fill=(13, 59, 30), outline=(52, 245, 126), width=max(2, px(3)))
+        # Sharp shonen eyes + brows
+        d.line([(cx_ - px(52), cy_ - px(24)), (cx_ - px(14), cy_ - px(16))], fill=(184, 255, 209), width=max(2, px(4)))
+        d.line([(cx_ + px(52), cy_ - px(24)), (cx_ + px(14), cy_ - px(16))], fill=(184, 255, 209), width=max(2, px(4)))
+        d.polygon([(cx_ - px(48), cy_ - px(10)), (cx_ - px(16), cy_ - px(6)), (cx_ - px(20), cy_ + px(8)), (cx_ - px(44), cy_ + px(6))], fill=(4, 18, 10), outline=(52, 245, 126), width=max(1, px(2)))
+        d.polygon([(cx_ + px(48), cy_ - px(10)), (cx_ + px(16), cy_ - px(6)), (cx_ + px(20), cy_ + px(8)), (cx_ + px(44), cy_ + px(6))], fill=(4, 18, 10), outline=(52, 245, 126), width=max(1, px(2)))
+        d.ellipse([cx_ - px(36), cy_ - px(7), cx_ - px(22), cy_ + px(7)], fill=(52, 245, 126))
+        d.ellipse([cx_ + px(22), cy_ - px(7), cx_ + px(36), cy_ + px(7)], fill=(52, 245, 126))
+        # Front bangs
+        d.polygon([
+            (cx_ - px(68), cy_ - px(28)), (cx_ - px(50), cy_ - px(64)), (cx_ - px(34), cy_ - px(30)),
+            (cx_ - px(12), cy_ - px(68)), (cx_, cy_ - px(24)), (cx_ + px(14), cy_ - px(68)),
+            (cx_ + px(34), cy_ - px(30)), (cx_ + px(50), cy_ - px(64)), (cx_ + px(68), cy_ - px(28)),
+            (cx_ + px(56), cy_ - px(78)), (cx_, cy_ - px(94)), (cx_ - px(56), cy_ - px(78)),
+        ], fill=(6, 31, 16), outline=(52, 245, 126), width=max(1, px(2)))
+        # Animated speaking mouth viseme
+        mh = px(6 + 18 * abs(math.sin(t * 10)))
+        d.rounded_rectangle([cx_ - px(22), cy_ + px(30) - mh // 2, cx_ + px(22), cy_ + px(30) + mh // 2], radius=px(8), fill=(4, 18, 10), outline=(134, 255, 175), width=max(1, px(2)))
+        # Waveform bars
+        for bi in range(18):
+            bh = px(18 + 72 * abs(math.sin(t * 7 + bi * 0.6)))
+            bx = px(560 + bi * 46)
+            d.rectangle([bx, px(660) - bh, bx + px(28), px(660)], fill=(52, 245, 126) if bi % 2 == 0 else (134, 255, 175))
+        d.rounded_rectangle([px(560), px(230), px(1420), px(480)], radius=px(20), fill=(10, 34, 20), outline=(52, 245, 126), width=max(1, px(3)))
+        d.text((px(600), px(270)), 'ONQ (TTS-1 VOICE)', font=font('mono', 26 * z), fill=(52, 245, 126))
+        d.text((px(600), px(330)), '"Plan A ships today with verified', font=font('ui', 34 * z), fill=(224, 252, 234))
+        d.text((px(600), px(384)), 'simulator proof. Staying hands-free."', font=font('ui', 34 * z), fill=(224, 252, 234))
     arr = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
-    # bezel + soft glow, centred
+    # Bezel + fast 1/4-res emerald glow
     x0, y0 = (OW - sw) // 2, int(OH * 0.5 - sh / 2)
     bez = int(26 * S)
-    cv2.rectangle(frame, (x0 - bez, y0 - bez), (x0 + sw + bez, y0 + sh + bez), (46, 40, 52), -1)
-    glow = np.zeros_like(frame)
-    cv2.rectangle(glow, (x0, y0), (x0 + sw, y0 + sh), (200, 180, 120) if st != 'term' else (120, 160, 90), -1)
-    glow = cv2.GaussianBlur(glow, (0, 0), 50 * S)
-    cv2.addWeighted(frame, 1, glow, 0.22, 0, dst=frame)
+    cv2.rectangle(frame, (x0 - bez, y0 - bez), (x0 + sw + bez, y0 + sh + bez), (18, 36, 26), -1)
+    glow_sm = np.zeros((OH // 4, OW // 4, 3), np.uint8)
+    cv2.rectangle(glow_sm, (x0 // 4, y0 // 4), ((x0 + sw) // 4, (y0 + sh) // 4), (42, 160, 88), -1)
+    glow_sm = cv2.GaussianBlur(glow_sm, (0, 0), max(1, int(12 * S)))
+    glow = cv2.resize(glow_sm, (OW, OH), interpolation=cv2.INTER_LINEAR)
+    cv2.addWeighted(frame, 1, glow, 0.24, 0, dst=frame)
     frame[y0:y0 + sh, x0:x0 + sw] = arr
-    # glass reflection streak
-    ov = np.zeros((OH, OW), np.float32)
-    cv2.line(ov, (x0 + int(sw * 0.1), y0 + sh), (x0 + int(sw * 0.45), y0), 1.0, int(120 * S))
-    ov = cv2.GaussianBlur(ov, (0, 0), 30 * S) * 14
-    frame = np.clip(frame.astype(np.float32) + ov[..., None], 0, 255).astype(np.uint8)
     return frame
 
 
@@ -803,13 +910,20 @@ def render_shot(sh, t, i):
 
 
 def iris_blend(a, b, k, center):
-    """reveal frame b over a through a growing circle (feathered)"""
+    """reveal frame b over a through a growing circle (feathered, cached distance map)"""
     cx, cy = center[0] * S, center[1] * S
+    dkey = ('iris_d', center, OW, OH)
+    if dkey not in _cache:
+        yy, xx = np.mgrid[0:OH, 0:OW].astype(np.float32)
+        _cache[dkey] = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2)
+    d = _cache[dkey]
     R = k * math.hypot(OW, OH) * 0.95
-    yy, xx = np.mgrid[0:OH, 0:OW].astype(np.float32)
-    d = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2)
-    m = np.clip((R - d) / (60 * S) + 0.5, 0, 1)[..., None]
-    return (a.astype(np.float32) * (1 - m) + b.astype(np.float32) * m).astype(np.uint8)
+    m = np.clip((R - d) / (60 * S) + 0.5, 0, 1)
+    m_u8 = (m * 255).astype(np.uint8)
+    inv_u8 = 255 - m_u8
+    m3 = cv2.merge([m_u8, m_u8, m_u8])
+    inv3 = cv2.merge([inv_u8, inv_u8, inv_u8])
+    return cv2.add(cv2.multiply(a, inv3, scale=1.0 / 255.0), cv2.multiply(b, m3, scale=1.0 / 255.0))
 
 
 def render_frame(i):
@@ -891,8 +1005,8 @@ def build_audio(out_wav):
     au = load_audio_module()
     os.makedirs(WORK, exist_ok=True)
     clips = []
-    for n, (t0, txt) in enumerate(CAPTIONS):
-        p = au.tts(ROOT, WORK, txt)
+    for n, (t0, voice_id, _sub_txt, spoken_txt) in enumerate(CAPTIONS):
+        p = au.tts(ROOT, WORK, spoken_txt, voice=voice_id)
         clips.append((t0, p))
         CLIP_LEN[n] = len(au.read_wav(p)) / au.SR
     sfx = []
@@ -918,30 +1032,27 @@ def _work(i):
 
 def main():
     t_start = time.time()
-    if '--force-layers' in sys.argv or not os.path.exists(os.path.join(LAY, 'manifest.json')) or True:
+    if '--force-layers' in sys.argv or not os.path.exists(os.path.join(LAY, 'manifest.json')):
         args = ['node', os.path.join(ROOT, 'scripts', 'make-film-v3-layers.mjs')] + (['--force'] if '--force-layers' in sys.argv else [])
         subprocess.run(args, cwd=ROOT, check=True)
     ensure_captures()
     out_path = sys.argv[sys.argv.index('--out') + 1] if '--out' in sys.argv else None
     if '--preview' in sys.argv:
         os.makedirs(os.path.join(FILM, 'preview'), exist_ok=True)
-        # caption lengths are only needed for timing; use defaults for stills
         picks = []
-        names = ['01_wake', '02_send', '03_telegram', '04_pair', '05_code', '06_video', '07_recap']
+        names = ['01_wake', '02_pair', '03_morning', '04_telegram', '05_coding', '06_talk', '07_recap']
         for si, (name, a, b) in enumerate(SCENES):
             rooms = [s for s in SHOTS if s['kind'] == 'room' and a <= s['t0'] < b]
             lens = [s for s in SHOTS if s['kind'] == 'lens' and a <= s['t0'] < b]
-            shots = [(rooms[0], 0.5), (lens[0], 2.2)] if rooms and lens else []
             if rooms:
-                r = rooms[len(rooms) // 2 if name == 'send' else 0]
-                picks.append((names[si] + '_char', r['t0'] + min(r['dur'] * 0.55, 3.0)))
+                r = rooms[0]
+                picks.append((names[si] + '_char', r['t0'] + min(r['dur'] * 0.55, 2.5)))
             if lens:
-                picks.append((names[si] + '_lens', lens[0]['t0'] + 2.2))
-        if True:
-            picks.append(('08_title', SHOTS[-1]['t0'] + 3.0))
-            sc = [s for s in SHOTS if s['kind'] == 'screen'][0]
-            picks.append(('04_screen', sc['t0'] + 3.0))
-            picks.append(('01b_nightstand', [s for s in SHOTS if s['kind'] == 'night'][0]['t0'] + 3.6))
+                picks.append((names[si] + '_lens', lens[0]['t0'] + 2.0))
+        picks.append(('08_title', SHOTS[-1]['t0'] + 3.0))
+        for si, sc in enumerate(s for s in SHOTS if s['kind'] == 'screen'):
+            picks.append((f'0{si + 2}_screen_{sc["state"]}', sc['t0'] + min(2.8, sc['dur'] * 0.6)))
+        picks.append(('01b_nightstand_grip', [s for s in SHOTS if s['kind'] == 'night'][0]['t0'] + 3.5))
         for nm, tt in picks:
             fr = render_frame(int(tt * FPS))
             cv2.imwrite(os.path.join(FILM, 'preview', nm + '.png'), fr)
@@ -960,7 +1071,7 @@ def main():
            '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-movflags', '+faststart', '-shortest', out_path]
     pr = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     import multiprocessing as mp
-    nproc = max(1, min(int(os.environ.get('FILM_PROCS', '3')), (os.cpu_count() or 4) - 1))
+    nproc = max(1, min(int(os.environ.get('FILM_PROCS', '6')), (os.cpu_count() or 6) - 1))
     with mp.Pool(nproc, initializer=_init_worker, initargs=(dict(CLIP_LEN),)) as pool:
         for n, b in enumerate(pool.imap(_work, range(NFRAMES), chunksize=8)):
             pr.stdin.write(b)

@@ -136,6 +136,12 @@ export async function runDiagnosis(i: DiagInput): Promise<Diag> {
     if (a.res.status === 401 || a.res.status === 403) return DIAG.PAIR_EXPIRED;
     if (a.res.status === 423) return DIAG.LOCKED;
     if (!a.res.ok) return DIAG.HOST_OFFLINE;
+    try {
+      const body = (await a.res.json()) as { locked?: unknown };
+      if (body?.locked === true) return DIAG.LOCKED;
+    } catch {
+      // Ignore parse failure; profile reachability succeeded.
+    }
   } else if (!isLoopbackBase(i.base)) {
     return DIAG.NOT_PAIRED;
   }

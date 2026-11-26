@@ -351,6 +351,7 @@ export class DemoWorkspaceProvider implements WorkspaceProvider {
         const [newStart, newEnd] = op.afterValue.split('|');
         const evt = this.events.find((e) => e.eventId === 'evt-vc-priya') ?? this.events[0];
         const prevStart = evt.startIso;
+        const prevEnd = evt.endIso;
         evt.startIso = newStart;
         evt.endIso = newEnd;
         evt.etag = `etag-${Date.now()}`;
@@ -358,7 +359,7 @@ export class DemoWorkspaceProvider implements WorkspaceProvider {
         summaryLines.push(`OK GCAL: ${prevStart.slice(11, 16)}->${newStart.slice(11, 16)}`);
         committedOps.push({
           ...op,
-          beforeValue: `${prevStart}|${evt.endIso}`,
+          beforeValue: `${prevStart}|${prevEnd}`,
           reversible: true,
           externalId: evt.eventId,
         });
