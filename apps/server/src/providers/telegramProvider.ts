@@ -25,7 +25,7 @@ export interface TelegramCallbackQuery {
 
 export interface TelegramUpdateEnvelope {
   updateId: number;
-  message?: TelegramDigestMessage & { chatType?: string };
+  message?: TelegramDigestMessage & { chatType?: string; chatUsername?: string };
   callbackQuery?: TelegramCallbackQuery;
 }
 
@@ -166,6 +166,7 @@ export class TelegramWorkspaceClient {
           updateId: upd.update_id,
           chatId: String(msg.chat?.id ?? this.defaultChatId ?? ''),
           chatType: msg.chat?.type ?? 'private',
+          chatUsername: msg.chat?.username,
           chatTitle: msg.chat?.title ?? msg.chat?.first_name ?? msg.chat?.username ?? 'Telegram Chat',
           fromName: msg.from?.first_name ?? msg.from?.username ?? 'Contact',
           text: text.slice(0, 500),
@@ -194,8 +195,8 @@ export class TelegramWorkspaceClient {
     const raw = await this.getUpdatesRaw(undefined, Math.min(20, Math.max(1, limit)));
     const items = raw
       .map((u) => u.message)
-      .filter((m): m is TelegramDigestMessage & { chatType?: string } => Boolean(m))
-      .map(({ chatType: _ignored, ...rest }) => rest);
+      .filter((m): m is TelegramDigestMessage & { chatType?: string; chatUsername?: string } => Boolean(m))
+      .map(({ chatType: _ignored, chatUsername: _alsoIgnored, ...rest }) => rest);
     return items.slice(-limit).reverse();
   }
 
@@ -286,6 +287,25 @@ export class TelegramWorkspaceClient {
     if (!json.ok) throw new Error('Telegram sendMessage rejected');
     return { messageId: json.result?.message_id ?? 0, chatId: targetChat };
   }
+}
+
+export interface TelegramSeenChat {
+  chatId: string;
+  title: string;
+  username: string | null;
+  type: string;
+  lastText: string;
+}
+
+/** Chats found in raw updates (newest message per chat first). Reads only; never confirms an offset. */
+export function seenChatsFromUpdates(updates: TelegramUpdateEnvelope[]): TelegramSeenChat[] {
+  const byChat = new Map<string, TelegramSeenChat>();
+  for (const u of [...updates].reverse()) {
+    const m = u.message;
+    if (!m?.chatId || byChat.has(m.chatId)) continue;
+    byChat.set(m.chatId, { chatId: m.chatId, title: m.chatTitle, username: m.chatUsername ?? null, type: m.chatType ?? 'private', lastText: m.text.slice(0, 160) });
+  }
+  return [...byChat.values()];
 }
 
 export function getSandboxTelegramDigest(): TelegramDigestMessage[] {

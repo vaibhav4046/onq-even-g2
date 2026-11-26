@@ -56,9 +56,13 @@ import {
   clearProviderCooldowns,
   getProviderHealthStatus,
   orchestrateStructuredJson,
+  PREFERRED_LLM_PROVIDERS,
+  resolveActiveProvider,
   resolveHealthyLlmLabel,
   routeModelCompletion,
 } from './harness/modelRouter.js';
+import { findCliBinary, ProviderScanner, publicProviders } from './providers/providerScanner.js';
+import type { ScannerDeps } from './providers/providerScanner.js';
 import { AgentTaskEngine } from './harness/agentTaskEngine.js';
 import type { AgentTaskKind, AgentTaskTargetTool } from './harness/agentTaskEngine.js';
 import { runOrchestrationHarness } from './harness/orchestrationHarness.js';
@@ -77,11 +81,13 @@ import {
   runSafeReadInspection,
 } from './providers/localComputerBridge.js';
 import type { SafeInspectKind, SafeInspectResult } from './providers/localComputerBridge.js';
-import { discoverFirstNotionDatabase, NotionWorkspaceClient } from './providers/notionProvider.js';
+import { discoverFirstNotionDatabase, listNotionDatabases, NotionWorkspaceClient } from './providers/notionProvider.js';
 import {
   getSandboxTelegramDigest,
+  seenChatsFromUpdates,
   TelegramWorkspaceClient,
 } from './providers/telegramProvider.js';
+import type { TelegramSeenChat } from './providers/telegramProvider.js';
 import type { WorkspaceProvider } from './providers/types.js';
 import { MAX_WAV_UPLOAD_BYTES, transcribeWavBuffer } from './stt.js';
 import type { SttOptions } from './stt.js';
@@ -147,6 +153,11 @@ export interface ServerOptions {
   browserDriverFactory?: () => BrowserDriver;
   browserPlanner?: Planner;
   browserAllowLoopback?: boolean;
+  /**
+   * Injected I/O for the provider/model scanner. Under tests local CLI/server auto-detection is OFF unless this is
+   * passed, so routing stays offline and keyless.
+   */
+  scannerDeps?: Partial<ScannerDeps>;
 }
 
 const DEFAULT_ORIGINS = [
@@ -294,9 +305,47 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     return item;
   }
 
+  const underTest = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
+  // Local CLI / server auto-detection feeds the router only outside tests (or when a test injects scanner I/O).
+  const localDetectEnabled = !underTest || Boolean(opts.scannerDeps);
+  const providerScanner = new ProviderScanner(() => {
+    const cfg = baseLlmConfig();
+    return {
+      openRouterKey: cfg.openRouterKey,
+      anthropicKey: cfg.anthropicKey,
+      openAiKey: cfg.openAiKey,
+      xaiKey: cfg.xaiKey,
+      omniRouteUrl: cfg.omniRouteUrl,
+      omniRouteKey: cfg.omniRouteKey,
+      assemblyAiKey: resolveAssemblyAiKey(),
+    };
+  }, opts.scannerDeps);
+  if (localDetectEnabled && !underTest) void providerScanner.scan().catch(() => undefined);
+
   function resolveLlmConfig(overrideProvider?: PreferredLlmProvider): LlmConfig {
+    const cfg = baseLlmConfig(overrideProvider);
+    if (!localDetectEnabled) return cfg;
+    return {
+      ...cfg,
+      localProviders: cfg.localProviders ?? providerScanner.routable(),
+      omniRouteUrl: cfg.omniRouteUrl ?? providerScanner.detectedOmniRouteUrl(),
+    };
+  }
+
+  /**
+   * For background work (the proactive harness re-plans about every 90s): never spawn a subscription CLI there,
+   * it would quietly spend the owner's plan and hold the one-at-a-time CLI slot. Local servers stay allowed.
+   */
+  function withoutLocalClis(cfg: LlmConfig): LlmConfig {
+    return { ...cfg, localProviders: cfg.localProviders?.filter((l) => !l.binaryPath) };
+  }
+
+  function baseLlmConfig(overrideProvider?: PreferredLlmProvider): LlmConfig {
     const creds = vault.load();
     return {
+      preferredModel: opts.llmConfig?.preferredModel ?? creds.preferredModel,
+      localProviders: opts.llmConfig?.localProviders,
+      cliRunner: opts.llmConfig?.cliRunner,
       anthropicKey: opts.llmConfig?.anthropicKey ?? creds.anthropicKey ?? process.env.ANTHROPIC_API_KEY,
       openRouterKey: opts.llmConfig?.openRouterKey ?? creds.openRouterKey ?? process.env.OPENROUTER_API_KEY,
       openRouterModel: opts.llmConfig?.openRouterModel ?? creds.openRouterModel ?? process.env.OPENROUTER_MODEL,
@@ -309,6 +358,17 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       timeoutMs: opts.llmConfig?.timeoutMs,
       fetchImpl: opts.llmConfig?.fetchImpl ?? opts.fetchImpl,
     };
+  }
+
+  /** Presence of Google CLIs only (no paths); env I/O follows the injected scanner deps in tests. */
+  function googleCliTools(): { gcloud: boolean; gws: boolean } {
+    const deps = {
+      env: opts.scannerDeps?.env ?? process.env,
+      platform: opts.scannerDeps?.platform ?? process.platform,
+      homedir: opts.scannerDeps?.homedir ?? os.homedir(),
+      exists: opts.scannerDeps?.exists ?? ((p: string) => fs.existsSync(p)),
+    };
+    return { gcloud: Boolean(findCliBinary(['gcloud'], deps)), gws: Boolean(findCliBinary(['gws'], deps)) };
   }
 
   function resolveAssemblyAiKey(): string | undefined {
@@ -352,6 +412,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     const notionOAuthConfigured = Boolean(
       (process.env.NOTION_CLIENT_ID ?? '') && (process.env.NOTION_CLIENT_SECRET ?? ''),
     );
+    const listenPort = (server?.address() as { port?: number } | null)?.port ?? opts.port ?? 8787;
 
     return {
       accountName: creds.accountName ?? null,
@@ -374,6 +435,11 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         googleWorkspace: {
           connected: googleSignedIn || Boolean(activeIcsFeed),
           mode: googleSignedIn ? 'LIVE' : activeIcsFeed ? 'ICS' : 'SANDBOX',
+          oauthConfigured: googleOAuthConfigured,
+          cliTools: googleCliTools(),
+          fixHint: googleOAuthConfigured
+            ? ''
+            : `1) In Google Cloud Console create an OAuth client (type Web, redirect URI ${process.env.GOOGLE_REDIRECT_URI ?? `http://127.0.0.1:${listenPort}/api/auth/google/callback`}). 2) Put GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env (or paste the client JSON here) and restart OnQ.`,
           detail: googleSignedIn
             ? creds.googleScopeMode === 'identity'
               ? `Signed in cleanly as ${creds.accountEmail ?? 'Google account'} (Zero-Warning Instant OAuth)`
@@ -702,7 +768,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
             };
           },
         },
-        resolveLlmConfig(),
+        withoutLocalClis(resolveLlmConfig()),
       );
 
       const finalGoalGuard = checkSafe(out.data.goal, fallbackGoal);
@@ -887,6 +953,9 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     fetchImpl: opts.fetchImpl,
     nowFn,
   });
+
+  /** Chats returned by the latest /api/telegram/scan-chats (set-owner only accepts these). */
+  let lastScannedTelegramChats = new Map<string, TelegramSeenChat>();
 
   /** Chats the owner picked to read and reply to (vault + TELEGRAM_WATCH_CHATS). */
   function watchedTelegramChats(): string[] {
@@ -2339,18 +2408,10 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           openRouterModel?: string;
           omniRouteModel?: string;
         }>(req);
-        const allowedPreferred = new Set<PreferredLlmProvider>([
-          'auto',
-          'openrouter',
-          'grok',
-          'omniroute',
-          'chatgpt',
-          'claude',
-          'rules',
-        ]);
+        const allowedPreferred = new Set<PreferredLlmProvider>(PREFERRED_LLM_PROVIDERS);
         if (!body.preferredLlm || !allowedPreferred.has(body.preferredLlm as PreferredLlmProvider)) {
           jsonResponse(res, 400, {
-            error: 'preferredLlm must be one of: auto, openrouter, grok, omniroute, chatgpt, claude, rules',
+            error: `preferredLlm must be one of: ${PREFERRED_LLM_PROVIDERS.join(', ')}`,
           });
           return;
         }
@@ -2371,6 +2432,112 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         recordAudit('CONNECTOR_SAVED', `Orchestrator updated: ${next.preferredLlm}`);
         broadcastSse('corridor', { reason: 'orchestrator_updated' });
         jsonResponse(res, 200, buildConnectorStatus());
+        return;
+      }
+
+      // OpenBot-style provider + model scanner. GET = cached, POST = fresh rescan. No keys, tokens or paths in the response.
+      if (pathname === '/api/connectors/scan-models' && (req.method === 'GET' || req.method === 'POST')) {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const scan = await providerScanner.scan(req.method === 'POST');
+        const active = resolveActiveProvider(resolveLlmConfig());
+        const providers = publicProviders(scan.providers);
+        const connected = providers.filter((p) => p.state === 'connected');
+        jsonResponse(res, 200, {
+          scannedAt: scan.scannedAt,
+          activeProvider: active.id,
+          activeModel: active.model,
+          activeLabel: active.label,
+          providers: [...connected, ...providers.filter((p) => p.state !== 'connected')],
+          connectedCount: connected.length,
+          totalModels: connected.reduce((n, p) => n + p.models.length, 0),
+        });
+        return;
+      }
+
+      // One-click provider + model switch, validated against the scan and saved in the encrypted vault.
+      if (req.method === 'POST' && pathname === '/api/connectors/select-model') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ provider?: unknown; model?: unknown }>(req);
+        const provider = typeof body.provider === 'string' ? body.provider.trim() : '';
+        const model = typeof body.model === 'string' ? body.model.trim() : '';
+        const next = { ...vault.load() };
+        if (provider === 'auto' || provider === 'rules') {
+          next.preferredLlm = provider;
+          delete next.preferredModel;
+        } else {
+          const scan = providerScanner.cached() ?? (await providerScanner.scan());
+          const found = scan.providers.find((p) => p.id === provider);
+          if (!found || !(PREFERRED_LLM_PROVIDERS as readonly string[]).includes(provider)) {
+            jsonResponse(res, 400, { error: 'Unknown provider. Rescan, then pick one from the list.' });
+            return;
+          }
+          if (found.state !== 'connected' || !found.selectable) {
+            jsonResponse(res, 400, { error: `${found.name} is not ready: ${found.fixHint || found.detail}` });
+            return;
+          }
+          const chosen = model || found.defaultModel || '';
+          if (!found.models.some((m) => m.id === chosen)) {
+            jsonResponse(res, 400, { error: `${found.name} does not offer model "${chosen.slice(0, 80)}". Rescan to refresh models.` });
+            return;
+          }
+          next.preferredLlm = provider as PreferredLlmProvider;
+          next.preferredModel = chosen;
+          if (provider === 'openrouter') next.openRouterModel = chosen;
+          if (provider === 'omniroute') next.omniRouteModel = chosen;
+        }
+        vault.save(next);
+        clearProviderCooldowns();
+        recordAudit('CONNECTOR_SAVED', `Model selected: ${next.preferredLlm}${next.preferredModel ? ` / ${next.preferredModel}` : ''}`);
+        broadcastSse('corridor', { reason: 'orchestrator_updated' });
+        const active = resolveActiveProvider(resolveLlmConfig());
+        jsonResponse(res, 200, {
+          ok: true,
+          preferredProvider: next.preferredLlm,
+          preferredModel: next.preferredModel ?? null,
+          activeProvider: active.id,
+          activeModel: active.model,
+          activeLabel: active.label,
+        });
+        return;
+      }
+
+      // Notion: list databases the saved integration token can see, so nobody copies a 32-character id by hand.
+      if (req.method === 'POST' && pathname === '/api/connectors/notion/databases') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const creds = vault.load();
+        if (!creds.notionToken) {
+          jsonResponse(res, 400, { error: 'No Notion token saved yet. Connect Notion with your integration token first.' });
+          return;
+        }
+        try {
+          const databases = await listNotionDatabases(creds.notionToken, opts.fetchImpl);
+          jsonResponse(res, 200, { databases, selectedDatabaseId: creds.notionDatabaseId ?? null });
+        } catch (err) {
+          jsonResponse(res, 502, { error: redactSecrets(err instanceof Error ? err.message : 'Notion search failed') });
+        }
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/connectors/notion/select-database') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ databaseId?: unknown }>(req);
+        const databaseId = typeof body.databaseId === 'string' ? body.databaseId.trim() : '';
+        if (!/^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i.test(databaseId)) {
+          jsonResponse(res, 400, { error: 'databaseId must be a Notion database id (32 hex characters).' });
+          return;
+        }
+        const creds = vault.load();
+        if (!creds.notionToken) {
+          jsonResponse(res, 400, { error: 'No Notion token saved yet. Connect Notion with your integration token first.' });
+          return;
+        }
+        vault.save({ ...creds, notionDatabaseId: databaseId });
+        recordAudit('CONNECTOR_SAVED', `Notion database selected (...${databaseId.slice(-6)})`);
+        jsonResponse(res, 200, { ok: true, databaseId, status: buildConnectorStatus() });
         return;
       }
 
@@ -3342,6 +3509,60 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           recordAudit('OS_COMMAND', `Telegram watched chats set (${ids.length})`);
         }
         jsonResponse(res, 200, { ok: true, watchedChats: watchedTelegramChats() });
+        return;
+      }
+
+      // Chats that messaged the bot: the live poller's seen-chats index, or a getUpdates peek when idle.
+      if (req.method === 'GET' && pathname === '/api/telegram/scan-chats') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const creds = vault.load();
+        const botToken = creds.telegramBotToken ?? process.env.TELEGRAM_BOT_TOKEN;
+        if (!botToken) {
+          jsonResponse(res, 400, { error: 'Save a Telegram bot token first.' });
+          return;
+        }
+        let peeked: TelegramSeenChat[] = [];
+        let warning: string | undefined;
+        if (!telegramCentre.isPolling()) {
+          // No offset is sent, so Telegram confirms nothing: the poller still gets every update later.
+          try {
+            peeked = seenChatsFromUpdates(await new TelegramWorkspaceClient(botToken, undefined, opts.fetchImpl).getUpdatesRaw(undefined, 50));
+          } catch (err) {
+            warning = redactSecrets(err instanceof Error ? err.message : 'Telegram getUpdates failed');
+          }
+        }
+        const byId = new Map<string, TelegramSeenChat>();
+        for (const c of [...telegramCentre.getSeenChats(), ...peeked]) if (!byId.has(c.chatId)) byId.set(c.chatId, c);
+        const chats = [...byId.values()].slice(0, 50);
+        lastScannedTelegramChats = new Map(chats.map((c) => [c.chatId, c]));
+        jsonResponse(res, 200, {
+          chats,
+          ownerChatId: creds.telegramChatId ?? process.env.TELEGRAM_CHAT_ID ?? null,
+          watchedChats: watchedTelegramChats(),
+          ...(warning ? { warning } : {}),
+        });
+        return;
+      }
+
+      // Owner = the private chat allowed to run commands. Only a private chat found by scan-chats qualifies.
+      if (req.method === 'POST' && pathname === '/api/telegram/set-owner') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{ chatId?: unknown }>(req);
+        const chatId = typeof body.chatId === 'string' || typeof body.chatId === 'number' ? String(body.chatId).trim() : '';
+        const chat = lastScannedTelegramChats.get(chatId) ?? telegramCentre.getSeenChats().find((c) => c.chatId === chatId);
+        if (!chat) {
+          jsonResponse(res, 400, { error: 'Pick a chat from Scan Chats (message your bot first, then rescan).' });
+          return;
+        }
+        if (chat.type !== 'private') {
+          jsonResponse(res, 400, { error: 'The owner must be your private chat with the bot. Use Watch for groups and channels.' });
+          return;
+        }
+        vault.save({ ...vault.load(), telegramChatId: chatId });
+        recordAudit('CONNECTOR_SAVED', `Telegram owner chat set (...${chatId.slice(-4)})`);
+        jsonResponse(res, 200, { ok: true, ownerChatId: chatId, watchedChats: watchedTelegramChats() });
         return;
       }
 

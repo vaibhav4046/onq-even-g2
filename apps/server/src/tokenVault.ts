@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { registerSecretForRedaction } from './logger.js';
+import type { PreferredLlmProvider } from './harness/modelRouter.js';
 
 export interface StoredCredentials {
   googleRefreshToken?: string;
@@ -16,7 +17,9 @@ export interface StoredCredentials {
   telegramChatId?: string;
   /** Chats (groups/channels/DMs) whose new messages OnQ may read and reply to. Empty = only the owner chat. */
   telegramWatchChats?: string[];
-  preferredLlm?: 'auto' | 'claude' | 'openrouter' | 'chatgpt' | 'grok' | 'omniroute' | 'rules';
+  preferredLlm?: PreferredLlmProvider;
+  /** Model picked with select-model for preferredLlm. */
+  preferredModel?: string;
   anthropicKey?: string;
   openRouterKey?: string;
   openRouterModel?: string;

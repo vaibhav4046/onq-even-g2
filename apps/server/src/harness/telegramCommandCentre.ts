@@ -1,5 +1,5 @@
 import { TelegramConflictError, TelegramWorkspaceClient } from '../providers/telegramProvider.js';
-import type { TelegramDigestMessage, TelegramUpdateEnvelope } from '../providers/telegramProvider.js';
+import type { TelegramDigestMessage, TelegramSeenChat, TelegramUpdateEnvelope } from '../providers/telegramProvider.js';
 import type { OsApprovalItem, UnifiedOsHarness } from './unifiedOsHarness.js';
 
 const CONFLICT_BACKOFF_MS = 5 * 60_000;
@@ -26,10 +26,30 @@ export class TelegramCommandCentre {
   private lastError: string | null = null;
   private processedCount = 0;
   private recentMessages: TelegramDigestMessage[] = [];
+  /** Every chat that messaged the bot (id, title, type, last text), so the owner can pick chats before watching any. */
+  private seenChats = new Map<string, TelegramSeenChat>();
 
   /** Newest first; only watched chats and the owner chat are ever stored. */
   getRecentMessages(limit = 6): TelegramDigestMessage[] {
     return this.recentMessages.slice(0, limit).map((m) => ({ ...m }));
+  }
+
+  /** Newest first, at most 50, in memory only. */
+  getSeenChats(): TelegramSeenChat[] {
+    return [...this.seenChats.values()].reverse().map((c) => ({ ...c }));
+  }
+
+  private recordSeenChat(msg: NonNullable<TelegramUpdateEnvelope['message']>): void {
+    if (!msg.chatId) return;
+    this.seenChats.delete(msg.chatId); // re-insert so Map order stays oldest -> newest
+    this.seenChats.set(msg.chatId, {
+      chatId: msg.chatId,
+      title: msg.chatTitle,
+      username: msg.chatUsername ?? null,
+      type: msg.chatType ?? 'private',
+      lastText: msg.text.slice(0, 160),
+    });
+    if (this.seenChats.size > 50) this.seenChats.delete(this.seenChats.keys().next().value as string);
   }
 
   /** After a 409 (webhook conflict) we stop hammering Telegram until this timestamp. */
@@ -124,6 +144,7 @@ export class TelegramCommandCentre {
 
     if (update.message?.text) {
       const msg = update.message;
+      this.recordSeenChat(msg);
 
       // Owner gate: anyone can message a public bot, so only the paired owner chat may run commands.
       // /myid works anywhere so pairing is one paste; everything else from other chats gets a generic refusal.

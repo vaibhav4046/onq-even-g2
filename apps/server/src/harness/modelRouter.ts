@@ -4,6 +4,7 @@ import {
 } from '@onq/core';
 import type { ModelAttemptTrace, ModelProviderId } from '@onq/core';
 import { registerSecretForRedaction } from '../logger.js';
+import { runCliPrompt } from './cliRunner.js';
 
 export interface CompressReplyInput {
   recipientName: string;
@@ -20,12 +21,32 @@ export interface CompressReplyOutput {
   providerLabel: string;
   fallbackUsed: boolean;
   factGuardViolations: string[];
-  attempts?: ModelAttemptTrace[];
+  attempts?: RouterAttemptTrace[];
   totalLatencyMs?: number;
 }
 
-export type PreferredLlmProvider = 'auto' | 'claude' | 'openrouter' | 'chatgpt' | 'grok' | 'omniroute' | 'rules';
 export type RemoteProviderId = 'claude' | 'openrouter' | 'chatgpt' | 'grok' | 'omniroute';
+/** Local subscription CLIs and local model servers (no API key). */
+export type LocalProviderId = 'claude_cli' | 'opencode_cli' | 'codex_cli' | 'gemini_cli' | 'ollama' | 'lmstudio';
+export const LOCAL_PROVIDER_IDS: readonly LocalProviderId[] = ['claude_cli', 'opencode_cli', 'codex_cli', 'gemini_cli', 'ollama', 'lmstudio'];
+export type PreferredLlmProvider = 'auto' | 'rules' | RemoteProviderId | LocalProviderId;
+export const PREFERRED_LLM_PROVIDERS: readonly PreferredLlmProvider[] = [
+  'auto', 'rules', 'claude', 'openrouter', 'chatgpt', 'grok', 'omniroute', ...LOCAL_PROVIDER_IDS,
+];
+export type RouterProviderId = ModelProviderId | LocalProviderId;
+export type RouterAttemptTrace = Omit<ModelAttemptTrace, 'provider'> & { provider: RouterProviderId };
+
+/** A local provider detected on this PC (by the provider scanner) or injected by a test. */
+export interface LocalProviderRuntime {
+  id: LocalProviderId;
+  /** CLI binary path (for *_cli). */
+  binaryPath?: string;
+  /** OpenAI-compatible base URL ending in /v1 (for ollama / lmstudio). */
+  baseUrl?: string;
+  model?: string;
+}
+
+export type CliRunner = (binaryPath: string, args: string[], prompt: string, timeoutMs: number) => Promise<string>;
 
 export const OPENROUTER_FREE_FALLBACK_MODELS = [
   'openrouter/free',
@@ -38,7 +59,7 @@ export const OPENROUTER_FREE_FALLBACK_MODELS = [
 const COOLDOWN_MS = 5 * 60_000;
 const providerCooldowns = new Map<string, number>();
 
-function cooldownKey(provider: RemoteProviderId, key: string): string {
+function cooldownKey(provider: RouterProviderId, key: string): string {
   const tail = key.slice(-6);
   return `${provider}:${tail}`;
 }
@@ -48,7 +69,7 @@ export function clearProviderCooldowns(): void {
 }
 
 export function isProviderCooledDown(
-  provider: RemoteProviderId,
+  provider: RouterProviderId,
   key?: string,
   nowMs = Date.now(),
 ): boolean {
@@ -62,7 +83,7 @@ export function isProviderCooledDown(
   return true;
 }
 
-function markProviderCooldown(provider: RemoteProviderId, key: string): void {
+function markProviderCooldown(provider: RouterProviderId, key: string): void {
   if (!key) return;
   providerCooldowns.set(cooldownKey(provider, key), Date.now() + COOLDOWN_MS);
 }
@@ -77,9 +98,46 @@ export interface LlmConfig {
   omniRouteKey?: string;
   omniRouteModel?: string;
   preferredProvider?: PreferredLlmProvider;
+  /** Model picked for the preferred provider (from select-model). */
+  preferredModel?: string;
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
   trackCooldowns?: boolean;
+  /**
+   * Local CLIs / servers usable on this PC. Never auto-detected here: the server fills it from the provider
+   * scanner (off under tests), and tests inject it, so routing stays deterministic and offline by default.
+   */
+  localProviders?: LocalProviderRuntime[];
+  /** Runs a local CLI with the prompt on stdin (default runCliPrompt); tests inject a fake. */
+  cliRunner?: CliRunner;
+  /** Timeout for local CLIs / servers (they are slower than API calls). Default 60s. */
+  localTimeoutMs?: number;
+}
+
+const LOCAL_LABELS: Record<LocalProviderId, string> = {
+  claude_cli: 'Claude Code CLI (your subscription)',
+  opencode_cli: 'OpenCode CLI (your subscription)',
+  codex_cli: 'Codex CLI (your subscription)',
+  gemini_cli: 'Gemini CLI (your subscription)',
+  ollama: 'Ollama (local)',
+  lmstudio: 'LM Studio (local)',
+};
+
+const DEFAULT_REMOTE_MODELS: Record<Exclude<RemoteProviderId, 'openrouter' | 'omniroute'>, string> = {
+  claude: 'claude-3-5-haiku-latest',
+  chatgpt: 'gpt-4o-mini',
+  grok: 'grok-3-mini',
+};
+
+/** Model ids reach a CLI command line, so only plain ids pass. */
+const SAFE_MODEL_ID = /^[A-Za-z0-9._:/@-]{1,100}$/;
+
+function isLocalProvider(p: string): p is LocalProviderId {
+  return (LOCAL_PROVIDER_IDS as readonly string[]).includes(p);
+}
+
+function pickModel(cfg: LlmConfig, provider: RouterProviderId, fallback: string): string {
+  return cfg.preferredProvider === provider && cfg.preferredModel ? cfg.preferredModel : fallback;
 }
 
 const SYSTEM_PROMPT = [
@@ -90,7 +148,8 @@ const SYSTEM_PROMPT = [
   'Return strict JSON only: {"draft": "<single concise sentence>"}.',
 ].join(' ');
 
-function displayName(p: ModelProviderId): string {
+function displayName(p: RouterProviderId): string {
+  if (isLocalProvider(p)) return LOCAL_LABELS[p];
   if (p === 'claude') return 'Claude';
   if (p === 'openrouter') return 'OpenRouter';
   if (p === 'grok') return 'Grok (xAI)';
@@ -129,16 +188,83 @@ function getProviderOrder(
   return ['claude', 'openrouter', 'chatgpt', 'grok', 'omniroute'];
 }
 
-export function resolveHealthyLlmLabel(cfg: LlmConfig = {}): string {
+/** Try order: an explicit pick first, then API-key providers as before, then local CLIs / servers, then Rules. */
+function buildCandidateOrder(cfg: LlmConfig, preferred: PreferredLlmProvider): Array<RemoteProviderId | LocalProviderId> {
+  const remote = getProviderOrder(preferred);
+  const present = new Set((cfg.localProviders ?? []).map((l) => l.id));
+  const locals = LOCAL_PROVIDER_IDS.filter((id) => present.has(id) && id !== preferred);
+  return isLocalProvider(preferred) ? [preferred, ...remote, ...locals] : [...remote, ...locals];
+}
+
+function remoteModel(cfg: LlmConfig, p: RemoteProviderId): string {
+  if (p === 'openrouter') return pickModel(cfg, p, cfg.openRouterModel ?? process.env.OPENROUTER_MODEL ?? 'openrouter/free');
+  if (p === 'omniroute') return pickModel(cfg, p, cfg.omniRouteModel ?? process.env.OMNIROUTE_MODEL ?? 'auto');
+  return pickModel(cfg, p, DEFAULT_REMOTE_MODELS[p]);
+}
+
+/** The provider a request would use right now (first healthy one in try order), reported honestly. */
+export function resolveActiveProvider(cfg: LlmConfig = {}): { id: RouterProviderId; label: string; model: string | null } {
   const preferred = cfg.preferredProvider ?? 'auto';
-  if (preferred === 'rules') return 'Rules (Deterministic)';
-  const keys = resolveConfiguredKeys(cfg);
-  for (const provider of getProviderOrder(preferred)) {
-    if (getProviderHealthStatus(provider, keys[provider]) === 'READY') {
-      return displayName(provider);
+  if (preferred !== 'rules') {
+    const keys = resolveConfiguredKeys(cfg);
+    for (const p of buildCandidateOrder(cfg, preferred)) {
+      if (isLocalProvider(p)) {
+        const rt = cfg.localProviders?.find((l) => l.id === p);
+        if (rt && !isProviderCooledDown(p, p)) return { id: p, label: displayName(p), model: pickModel(cfg, p, rt.model ?? 'default') };
+      } else if (getProviderHealthStatus(p, keys[p]) === 'READY') {
+        return { id: p, label: displayName(p), model: remoteModel(cfg, p) };
+      }
     }
   }
-  return 'Rules (Deterministic)';
+  return { id: 'rules', label: 'Rules (Deterministic)', model: null };
+}
+
+export function resolveHealthyLlmLabel(cfg: LlmConfig = {}): string {
+  return resolveActiveProvider(cfg).label;
+}
+
+function cliArgs(id: LocalProviderId, model: string): string[] {
+  const m = model !== 'default' && SAFE_MODEL_ID.test(model) ? model : undefined;
+  const withModel = (flag: string) => (m ? [flag, m] : []);
+  if (id === 'claude_cli') {
+    // Print mode, no tools / MCP / slash commands: a pure text completion that cannot touch the PC.
+    return ['-p', ...withModel('--model'), '--strict-mcp-config', '--setting-sources', 'project', '--disable-slash-commands', '--no-session-persistence', '--tools', ''];
+  }
+  if (id === 'opencode_cli') return ['run', ...withModel('-m')];
+  if (id === 'codex_cli') return ['exec', '--skip-git-repo-check', '--sandbox', 'read-only', ...withModel('-m'), '-'];
+  return withModel('-m'); // gemini_cli reads the prompt from stdin
+}
+
+// ponytail: one local CLI call at a time (each is a full process, ~10-25s); extra calls fall through to the next provider.
+let localCliBusy = false;
+
+async function invokeLocalProvider(
+  rt: LocalProviderRuntime,
+  cfg: LlmConfig,
+  systemPrompt: string,
+  prompt: string,
+  maxTokens: number | undefined,
+  signal: AbortSignal,
+  timeoutMs: number,
+): Promise<string> {
+  const model = pickModel(cfg, rt.id, rt.model ?? 'default');
+  if (rt.id === 'ollama' || rt.id === 'lmstudio') {
+    if (!rt.baseUrl) throw new Error('Local server URL missing');
+    const { raw } = await invokeOpenAiCompat({
+      url: `${rt.baseUrl.replace(/\/+$/, '')}/chat/completions`,
+      model,
+      systemPrompt,
+      prompt,
+      maxTokens: maxTokens ?? 320,
+      f: cfg.fetchImpl ?? fetch,
+      signal,
+    });
+    return raw;
+  }
+  if (!rt.binaryPath) throw new Error('Local CLI path missing');
+  const runner = cfg.cliRunner ?? runCliPrompt;
+  // eslint-disable-next-line no-control-regex
+  return (await runner(rt.binaryPath, cliArgs(rt.id, model), `${systemPrompt}\n\n${prompt}`, timeoutMs)).replace(/\x1b\[[0-9;]*m/g, '');
 }
 
 function extractJsonPayload(raw: string): unknown {
@@ -211,7 +337,7 @@ async function invokeRemoteProvider(
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-haiku-latest',
+        model: remoteModel(cfg, 'claude'),
         max_tokens: maxTokens ?? 140,
         system: systemPrompt,
         messages: [{ role: 'user', content: prompt }],
@@ -227,7 +353,7 @@ async function invokeRemoteProvider(
 
   if (provider === 'openrouter') {
     const key = cfg.openRouterKey ?? process.env.OPENROUTER_API_KEY ?? '';
-    const primaryModel = cfg.openRouterModel ?? process.env.OPENROUTER_MODEL ?? 'openrouter/free';
+    const primaryModel = remoteModel(cfg, 'openrouter');
     const invokeOpenRouter = async (modelId: string, useJsonFormat: boolean) => {
       const payload: Record<string, unknown> = {
         model: modelId,
@@ -291,7 +417,7 @@ async function invokeRemoteProvider(
     return invokeOpenAiCompat({
       url: 'https://api.x.ai/v1/chat/completions',
       apiKey: cfg.xaiKey ?? process.env.XAI_API_KEY ?? '',
-      model: 'grok-3-mini',
+      model: remoteModel(cfg, 'grok'),
       systemPrompt,
       prompt,
       maxTokens: maxTokens ?? 240,
@@ -305,7 +431,7 @@ async function invokeRemoteProvider(
     return invokeOpenAiCompat({
       url: `${base}/chat/completions`,
       apiKey: cfg.omniRouteKey ?? process.env.OMNIROUTE_API_KEY,
-      model: cfg.omniRouteModel ?? process.env.OMNIROUTE_MODEL ?? 'auto',
+      model: remoteModel(cfg, 'omniroute'),
       systemPrompt,
       prompt,
       maxTokens: maxTokens ?? 240,
@@ -317,7 +443,7 @@ async function invokeRemoteProvider(
   return invokeOpenAiCompat({
     url: 'https://api.openai.com/v1/chat/completions',
     apiKey: cfg.openAiKey ?? process.env.OPENAI_API_KEY ?? '',
-    model: 'gpt-4o-mini',
+    model: remoteModel(cfg, 'chatgpt'),
     systemPrompt,
     prompt,
     maxTokens: maxTokens ?? 140,
@@ -341,13 +467,13 @@ async function runCascadingJsonProviders<T>(params: {
       ok: true;
       value: T;
       providerLabel: string;
-      attempts: ModelAttemptTrace[];
+      attempts: RouterAttemptTrace[];
       totalLatencyMs: number;
     }
   | {
       ok: false;
       explicitRules: boolean;
-      attempts: ModelAttemptTrace[];
+      attempts: RouterAttemptTrace[];
       allViolations: string[];
       totalLatencyMs: number;
     }
@@ -364,7 +490,7 @@ async function runCascadingJsonProviders<T>(params: {
   if (configuredKeys.omniroute) registerSecretForRedaction(configuredKeys.omniroute);
   if (configuredKeys.chatgpt) registerSecretForRedaction(configuredKeys.chatgpt);
 
-  const attempts: ModelAttemptTrace[] = [];
+  const attempts: RouterAttemptTrace[] = [];
 
   if (preferred === 'rules') {
     attempts.push({ provider: 'rules', status: 'OK', latencyMs: 1, detail: 'Explicit rules mode' });
@@ -377,16 +503,21 @@ async function runCascadingJsonProviders<T>(params: {
     };
   }
 
-  const baseOrder = getProviderOrder(preferred).filter(
-    (p) => (p !== 'grok' && p !== 'omniroute') || preferred === p || Boolean(configuredKeys[p]),
+  const localById = new Map((params.cfg.localProviders ?? []).map((l) => [l.id, l] as const));
+  const localTimeoutMs = params.cfg.localTimeoutMs ?? 60_000;
+  // A local provider's cooldown key is its own id (it has no API key).
+  const keyFor = (p: RouterProviderId): string | undefined =>
+    isLocalProvider(p) ? (localById.has(p) ? p : undefined) : configuredKeys[p as RemoteProviderId];
+  const baseOrder = buildCandidateOrder(params.cfg, preferred).filter(
+    (p) => isLocalProvider(p) || (p !== 'grok' && p !== 'omniroute') || preferred === p || Boolean(configuredKeys[p]),
   );
-  // In live auto mode (without mocked fetchImpl unless explicitly requested), deprioritize cooled-down providers
-  const trackCooldowns = params.cfg.trackCooldowns ?? !params.cfg.fetchImpl;
-  const order: RemoteProviderId[] =
+  // In live auto mode (without mocked fetchImpl / cliRunner unless explicitly requested), deprioritize cooled-down providers
+  const trackCooldowns = params.cfg.trackCooldowns ?? (!params.cfg.fetchImpl && !params.cfg.cliRunner);
+  const order: RouterProviderId[] =
     preferred === 'auto' && trackCooldowns
       ? [...baseOrder].sort((a, b) => {
-          const ac = isProviderCooledDown(a, configuredKeys[a]) ? 1 : 0;
-          const bc = isProviderCooledDown(b, configuredKeys[b]) ? 1 : 0;
+          const ac = isProviderCooledDown(a, keyFor(a)) ? 1 : 0;
+          const bc = isProviderCooledDown(b, keyFor(b)) ? 1 : 0;
           return ac - bc;
         })
       : baseOrder;
@@ -394,13 +525,14 @@ async function runCascadingJsonProviders<T>(params: {
   let allViolations: string[] = [];
 
   for (const provider of order) {
-    const key = configuredKeys[provider];
+    const key = keyFor(provider);
+    const local = isLocalProvider(provider) ? localById.get(provider) : undefined;
     if (!key) {
       attempts.push({
         provider,
         status: 'SKIPPED',
         latencyMs: 0,
-        detail: 'No API key configured',
+        detail: isLocalProvider(provider) ? 'Not detected on this PC' : 'No API key configured',
       });
       continue;
     }
@@ -410,32 +542,48 @@ async function runCascadingJsonProviders<T>(params: {
         provider,
         status: 'SKIPPED',
         latencyMs: 0,
-        detail: 'Provider in 5m cooldown after prior 400/401/402/429',
+        detail: local ? 'Local provider in 5m cooldown after a failed run' : 'Provider in 5m cooldown after prior 400/401/402/429',
       });
       continue;
     }
 
+    const usesCli = Boolean(local?.binaryPath);
+    if (usesCli && localCliBusy) {
+      attempts.push({ provider, status: 'SKIPPED', latencyMs: 0, detail: 'Local CLI busy with another request' });
+      continue;
+    }
+
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const timer = setTimeout(() => controller.abort(), local ? localTimeoutMs : timeoutMs);
     const tAttempt = Date.now();
 
     try {
-      const { raw } = await invokeRemoteProvider(
-        provider,
-        params.userPrompt,
-        {
-          ...params.cfg,
-          anthropicKey: configuredKeys.claude,
-          openRouterKey: configuredKeys.openrouter,
-          xaiKey: configuredKeys.grok,
-          omniRouteKey: configuredKeys.omniroute,
-          openAiKey: configuredKeys.chatgpt,
-        },
-        f,
-        controller.signal,
-        params.systemPrompt,
-        params.maxTokens,
-      );
+      let raw: string;
+      if (local) {
+        if (usesCli) localCliBusy = true;
+        try {
+          raw = await invokeLocalProvider(local, params.cfg, params.systemPrompt, params.userPrompt, params.maxTokens, controller.signal, localTimeoutMs);
+        } finally {
+          if (usesCli) localCliBusy = false;
+        }
+      } else {
+        ({ raw } = await invokeRemoteProvider(
+          provider as RemoteProviderId,
+          params.userPrompt,
+          {
+            ...params.cfg,
+            anthropicKey: configuredKeys.claude,
+            openRouterKey: configuredKeys.openrouter,
+            xaiKey: configuredKeys.grok,
+            omniRouteKey: configuredKeys.omniroute,
+            openAiKey: configuredKeys.chatgpt,
+          },
+          f,
+          controller.signal,
+          params.systemPrompt,
+          params.maxTokens,
+        ));
+      }
       const latencyMs = Math.max(1, Date.now() - tAttempt);
 
       let parsed: unknown;
@@ -482,10 +630,10 @@ async function runCascadingJsonProviders<T>(params: {
     } catch (err) {
       const latencyMs = Math.max(1, Date.now() - tAttempt);
       const isAbort =
-        (err instanceof Error && err.name === 'AbortError') ||
+        (err instanceof Error && (err.name === 'AbortError' || /timed out/i.test(err.message))) ||
         (err instanceof DOMException && err.name === 'AbortError');
       const httpStatus = (err as { httpStatus?: number }).httpStatus;
-      if (trackCooldowns && httpStatus && [400, 401, 402, 429].includes(httpStatus)) {
+      if (trackCooldowns && ((httpStatus && [400, 401, 402, 429].includes(httpStatus)) || local)) {
         markProviderCooldown(provider, key);
       }
       attempts.push({
@@ -509,7 +657,7 @@ async function runCascadingJsonProviders<T>(params: {
   };
 }
 
-function buildFallbackLabels(attempts: ModelAttemptTrace[]): {
+function buildFallbackLabels(attempts: RouterAttemptTrace[]): {
   providerLabel: string;
   detail: string;
 } {
@@ -548,7 +696,7 @@ export async function orchestrateStructuredJson<T>(
   providerLabel: string;
   fallbackUsed: boolean;
   latencyMs: number;
-  attempts: ModelAttemptTrace[];
+  attempts: RouterAttemptTrace[];
 }> {
   const res = await runCascadingJsonProviders<T>({
     systemPrompt: input.systemPrompt,
@@ -613,7 +761,7 @@ export async function orchestrateStructuredJson<T>(
 export async function routeModelCompletion(
   input: CompressReplyInput,
   cfg: LlmConfig = {},
-): Promise<CompressReplyOutput & { attempts: ModelAttemptTrace[]; totalLatencyMs: number }> {
+): Promise<CompressReplyOutput & { attempts: RouterAttemptTrace[]; totalLatencyMs: number }> {
   const userPrompt = [
     `User command: ${input.userUtterance}`,
     `Recipient: ${input.recipientName} <${input.recipientEmail}>`,

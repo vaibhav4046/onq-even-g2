@@ -91,6 +91,48 @@ export async function discoverFirstNotionDatabase(
   return { databaseId, title };
 }
 
+/**
+ * Lists every database the integration can see (Notion Search API), so the owner picks one instead of copying an id.
+ * Notion API 2025-09-03+ returns databases as `data_source` objects (their parent is the database), so the filter
+ * value follows the configured Notion-Version; ids are normalised to the database id like discoverFirstNotionDatabase.
+ */
+export async function listNotionDatabases(
+  token: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Array<{ id: string; title: string; url: string }>> {
+  registerSecretForRedaction(token);
+  const apiVersion = process.env.NOTION_API_VERSION ?? '2026-03-11';
+  const res = await fetchImpl('https://api.notion.com/v1/search', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Notion-Version': apiVersion,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      filter: { property: 'object', value: apiVersion >= '2025-09-03' ? 'data_source' : 'database' },
+      page_size: 100,
+    }),
+  });
+  if (!res.ok) throw Object.assign(new Error(`Notion search failed: HTTP ${res.status}`), { httpStatus: res.status });
+  const json = (await res.json()) as {
+    results?: Array<{
+      id: string;
+      url?: string;
+      parent?: { database_id?: string };
+      title?: Array<{ plain_text?: string }>;
+    }>;
+  };
+  const seen = new Map<string, { id: string; title: string; url: string }>();
+  for (const r of json.results ?? []) {
+    const id = r.parent?.database_id ?? r.id;
+    if (seen.has(id)) continue;
+    const title = (r.title ?? []).map((t) => t.plain_text ?? '').join('').trim() || 'Untitled database';
+    seen.set(id, { id, title, url: r.url ?? `https://www.notion.so/${id.replace(/-/g, '')}` });
+  }
+  return [...seen.values()];
+}
+
 export class NotionWorkspaceClient {
   private cachedSchema: DiscoveredNotionSchema | null = null;
   private cachedDataSourceId: string | null = null;

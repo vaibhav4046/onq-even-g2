@@ -211,7 +211,8 @@ export async function runOrchestrationHarness(params: RunHarnessParams): Promise
       providerUsed: modelOut.providerLabel,
       fallbackUsed: modelOut.fallbackUsed,
       steps,
-      modelAttempts: modelOut.attempts,
+      // Local CLI ids (claude_cli, ...) widen the core provider union; the trace is telemetry only.
+      modelAttempts: modelOut.attempts as HarnessRunReport['modelAttempts'],
     };
   }
 
@@ -275,6 +276,6 @@ export async function runOrchestrationHarness(params: RunHarnessParams): Promise
     providerUsed: modelOut.providerLabel,
     fallbackUsed: modelOut.fallbackUsed,
     steps,
-    modelAttempts: modelOut.attempts,
+    modelAttempts: modelOut.attempts as HarnessRunReport['modelAttempts'],
   };
 }
