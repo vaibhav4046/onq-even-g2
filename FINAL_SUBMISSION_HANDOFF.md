@@ -5,6 +5,7 @@
 > **Current Live Connectors Verified on This Machine (2026-11-26):** `Ollama qwen3:1.7b` (**LIVE**, `$0` local inference, `1,759 ms` wrap-up, `31 ms` zero-LLM 409 lock), `OmniRoute` (**LIVE**, `295` models), `Telegram @onq_g2_copilot_bot` (**LIVE**, `28 ms`, chat `...1658`), `AssemblyAI STT-3.7 + TTS-1` (**LIVE**, `633 ms`, `47` audio chunks). `Google Workspace` & `Notion` remain honestly in `SANDBOX` (`1 ms`) until credentials are saved above.
 
 **Project Root:** `C:\Users\lalwa\.gemini\antigravity\scratch\oncue-even-g2`  
+**Verified Clean-Room Code Commit:** `41b9912` (all 7 clean-room gates exit `0` with zero env vars; transcript in `docs/VERIFICATION_LOG.txt`)  
 **Public Repository:** https://github.com/vaibhav4046/onq-even-g2  
 **Live Docs & Privacy Policy:** https://vaibhav4046.github.io/onq-even-g2/ · https://vaibhav4046.github.io/onq-even-g2/privacy.html  
 **Hard Safety Stop Enforced:** Every local verification gate and clean-room zero-env clone passed with exit `0` on `2026-11-26`. **Nothing has been pushed to GitHub (`git push`), submitted to DoraHacks, published to Product Hunt, or deployed to paid hosting.** All external actions wait for your explicit final review and click.

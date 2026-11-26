@@ -1,10 +1,10 @@
-﻿LATEST FULL RUN SUMMARY (2026-11-25, every command exit 0) - see the end of this file.
-The raw clean-room transcript below is from an EARLIER run at commit 0b73a2b (213 tests, 15 files,
-45109-byte package, 84 scanned files). Its numbers are superseded by the summary at the end of this file.
-------------------------------------------------------------------------------------------------
-CLEAN_ROOM_HEAD=0b73a2b
+﻿ONQ CLEAN-ROOM FINAL VERIFICATION LOG (2026-11-26T23:08:14Z)
+CLEAN_ROOM_HEAD=41b9912
+Clean Dir: C:\Users\lalwa\AppData\Local\Temp\onq-clean-final (real git clone, 0 API/OAuth env vars, isolated ONQ_VAULT_PATH)
+------------------------------------------------------------------------
+>>> npm ci
 
-added 203 packages, and audited 214 packages in 13s
+added 203 packages, and audited 214 packages in 11s
 
 27 packages are looking for funding
   run `npm fund` for details
@@ -15,17 +15,12 @@ To address all issues (including breaking changes), run:
   npm audit fix --force
 
 Run `npm audit` for details.
-node.exe : npm warn install-scripts 2 packages have install scripts not yet covered by allowScripts:
-At line:1 char:1
-+ & "D:\/node.exe" "D:\/node_modules/npm/bin/npm-cli.js" ci
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (npm warn instal...y allowScripts::String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
+npm warn install-scripts 2 packages have install scripts not yet covered by allowScripts:
 npm warn install-scripts   esbuild@0.25.12 (postinstall: node install.js)
 npm warn install-scripts   esbuild@0.28.2 (postinstall: node install.js)
 npm warn install-scripts
 npm warn install-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.
+>>> npm test
 
 > onq-even-g2@1.0.0 pretest
 > npm run build -w @onq/core
@@ -39,201 +34,592 @@ npm warn install-scripts Run `npm install-scripts ls` to review, or `npm install
 > vitest run
 
 
-[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/lalwa/AppData/Local/Temp/onq-final-check[39m
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/lalwa/AppData/Local/Temp/onq-clean-final[39m
 
- [32m✓[39m packages/core/tests/formatter.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 14[2mms[22m[39m
- [32m✓[39m packages/core/tests/evenEvents.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 14[2mms[22m[39m
- [32m✓[39m packages/core/tests/stateMachine.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 46[2mms[22m[39m
- [32m✓[39m packages/core/tests/meetingLifecycle.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 108[2mms[22m[39m
- [32m✓[39m packages/core/tests/intentParser.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 129[2mms[22m[39m
-[90mstdout[2m | apps/server/tests/connectorsHub.test.ts[2m > [22m[2mConnector Hub & Multi-Model Inference Harness[2m > [22m[2m1. GET /api/connectors/status requires Bearer auth and returns sanitized flags only
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60396
+[90mstdout[2m | apps/server/tests/sourcesAndOutbox.test.ts[2m > [22m[2mGET /api/sources and per-source modes[2m > [22m[2mlists the four sources with mode auto and honest defaults, before anything has synced
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53282
 
-[90mstdout[2m | apps/server/tests/authAndHarness.test.ts[2m > [22m[2mReal OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harness[2m > [22m[2m3. GET /api/auth/google/start returns honest unconfigured status when OAuth keys absent
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60397
+[90mstdout[2m | apps/server/tests/unifiedOsHarness.test.ts[2m > [22m[2mUnified Autonomous Personal OS Harness (Web + G2 Glasses + Telegram + Music)[2m > [22m[2m3. Global Kill Switch blocks L3 routines and L4 pipelines until resumed cleanly
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53285
 
 [90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m1. /api/health returns DEMO mode when no live keys configured
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60398
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53283
 
-[90mstdout[2m | apps/server/tests/brutalStress.test.ts[2m > [22m[2mBrutal Concurrency, Live-Provider & Adversarial Stress Suite[2m > [22m[2m2. Vault-stored Claude & AssemblyAI keys immediately activate /api/health without restarting server
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60399
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mhost profile[2m > [22m[2mneeds auth and returns the whole host in one JSON without any secret
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53286
+
+[90mstdout[2m | apps/server/tests/authAndHarness.test.ts[2m > [22m[2mReal OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harness[2m > [22m[2m3. GET /api/auth/google/start returns honest unconfigured status when OAuth keys absent
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53284
+
+[90mstdout[2m | apps/server/tests/proactiveSelfHarness.test.ts[2m > [22m[2mSelf-Generating Proactive Agentic Harness & Orchestrator Router[2m > [22m[2mPOST /api/connectors/orchestrator, /api/proactive/synthesize, and /api/proactive/stage-harness (200 + 409)
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53287
 
 [90mstdout[2m | apps/server/tests/assemblyaiVoice.test.ts[2m > [22m[2mAssemblyAI 2026 voice stack & Meeting Lifecycle server suite[2m > [22m[2m6. /api/health reports OnQ identity, zero-key voiceEngine, and TTS voices
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60402
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53288
+
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mGET /api/remote/status[2m > [22m[2mreports cloudflared, tailscale guidance, tunnel state, LAN and the exposure warning
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53292
+
+[90mstdout[2m | apps/server/tests/providerScanner.test.ts[2m > [22m[2mConnect endpoints: scan-models, select-model, Notion databases, Telegram chats[2m > [22m[2mscan-models needs auth, returns the contract shape, and leaks no keys
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53290
+
+[90mstdout[2m | apps/server/tests/powerSourceAndVault.test.ts[2m > [22m[2mPhase 1-3: Durable vault.enc, PC Power Source, Remote Bridge & Telegram Kill Switch[2m > [22m[2mserver exposes /api/computer/power-source to paired glasses while keeping /api/computer/wake & /api/remote/bridge owner-only
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53297
 
 [90mstdout[2m | apps/server/tests/liveProviders.test.ts[2m > [22m[2mLive Providers, Neon Postgres Ledger, ICS & Companion Controls[2m > [22m[2m9. /api/pair/ics parses real RFC 5545 calendar events and upgrades session to LIVE mode
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60408
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53299
 
-[90mstdout[2m | apps/server/tests/authAndHarness.test.ts[2m > [22m[2mReal OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harness[2m > [22m[2m4. Full Google OAuth2 PKCE + CSRF flow sets signed HttpOnly cookie and authenticates /api/corridor + signout wipe
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60410
+[90mstdout[2m | apps/server/tests/authAndHarness.test.ts[2m > [22m[2mReal OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harness[2m > [22m[2m4. Full Google OAuth2 PKCE + CSRF flow sets signed HttpOnly cookie and authenticates /api/corridor + signout keeps saved credentials
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53311
 
-[90mstdout[2m | apps/server/tests/connectorsHub.test.ts[2m > [22m[2mConnector Hub & Multi-Model Inference Harness[2m > [22m[2m2. /api/connectors/connect encrypts Claude, OpenRouter, and ChatGPT keys without plaintext leaks
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60412
-
-[90mstdout[2m | apps/server/tests/brutalStress.test.ts[2m > [22m[2mBrutal Concurrency, Live-Provider & Adversarial Stress Suite[2m > [22m[2m3. 25x parallel commit storm on same idempotencyKey & replay storm on consumed previewToken never double-write
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60417
-
-[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m2. rejects unknown CORS Origin with HTTP 403
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60419
+[90mstdout[2m | apps/server/tests/sourcesAndOutbox.test.ts[2m > [22m[2mGET /api/sources and per-source modes[2m > [22m[2mapi pinned but not connected is off with a reason and never falls back; computer pinned without a driver is off
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53313
 
 [90mstdout[2m | apps/server/tests/assemblyaiVoice.test.ts[2m > [22m[2mAssemblyAI 2026 voice stack & Meeting Lifecycle server suite[2m > [22m[2m7. /api/tts/voices lists hardware-honest earbuds note & /api/tts/speak validates body
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60422
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53316
 
-[90mstdout[2m | apps/server/tests/connectorsHub.test.ts[2m > [22m[2mConnector Hub & Multi-Model Inference Harness[2m > [22m[2m4. POST /api/connectors/test-llm verifies live inference via Rules fallback cleanly when offline
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60424
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mGET /api/remote/status[2m > [22m[2mis owner-only: a browser without a session gets 401, a paired device 403, a tunnel request without a token 401
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53318
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m2. rejects unknown CORS Origin with HTTP 403
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53321
+
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mhost profile[2m > [22m[2m?since returns {unchanged:true} when equal and the full profile after a change; revision is monotonic
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53324
 
 [90mstdout[2m | apps/server/tests/liveProviders.test.ts[2m > [22m[2mLive Providers, Neon Postgres Ledger, ICS & Companion Controls[2m > [22m[2m10. /api/pair/inspect-notion auto-discovers live database schema
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60427
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53327
 
 [90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m3. rejects unauthenticated requests to protected routes with HTTP 401
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60430
-
-[90mstdout[2m | apps/server/tests/authAndHarness.test.ts[2m > [22m[2mReal OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harness[2m > [22m[2m5. POST /api/connectors/:provider/test exercises all 6 connectors cleanly (sandbox & live mock)
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60432
-
-[90mstdout[2m | apps/server/tests/connectorsHub.test.ts[2m > [22m[2mConnector Hub & Multi-Model Inference Harness[2m > [22m[2m5. POST /api/connectors/disconnect clears requested connector from encrypted vault
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60461
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53329
 
 [90mstdout[2m | apps/server/tests/assemblyaiVoice.test.ts[2m > [22m[2mAssemblyAI 2026 voice stack & Meeting Lifecycle server suite[2m > [22m[2m8. /api/meeting/start -> /turn -> /ask -> /wrapup -> /wipe completes full lifecycle in RAM
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60463
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53330
 
-[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m4. pairing code exchange works and locks out after 10 wrong attempts (HTTP 429)
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60466
+[90mstdout[2m | apps/server/tests/providerScanner.test.ts[2m > [22m[2mConnect endpoints: scan-models, select-model, Notion databases, Telegram chats[2m > [22m[2mselect-model validates against the scan, persists in the vault, and the router reports it live
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53334
+
+[90mstdout[2m | apps/server/tests/sourcesAndOutbox.test.ts[2m > [22m[2mGET /api/sources and per-source modes[2m > [22m[2mcomputer pinned with a ready browser driver is the browser route; api pinned with a connected source is api
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53336
+
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mstart / stop[2m > [22m[2mstart needs the right provider and confirm:true, and always carries the plain exposure notice
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53340
+
+[90mstdout[2m | apps/server/tests/authAndHarness.test.ts[2m > [22m[2mReal OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harness[2m > [22m[2m5. POST /api/connectors/:provider/test exercises all 6 connectors cleanly (sandbox & live mock)
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53342
+
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mhost profile[2m > [22m[2mdata sources are honest: sample by default, browser only with a driver and never claimed as proven
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53346
 
 [90mstdout[2m | apps/server/tests/liveProviders.test.ts[2m > [22m[2mLive Providers, Neon Postgres Ledger, ICS & Companion Controls[2m > [22m[2m11. /api/workspace/calendar/add and /gmail/incoming trigger real dynamic 409 locks
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60468
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53350
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m4. pairing code exchange works and locks out after 10 wrong attempts (HTTP 429)
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53351
+
+ [32m✓[39m apps/server/tests/proactiveSelfHarness.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 655[2mms[22m[39m
+   [33m[2m✓[22m[39m Self-Generating Proactive Agentic Harness & Orchestrator Router[2m > [22mPOST /api/connectors/orchestrator, /api/proactive/synthesize, and /api/proactive/stage-harness (200 + 409) [33m 634[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mstart / stop[2m > [22m[2mstart -> on with the address, pairing uses it, the revision moves, stop returns to loopback
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53356
+
+[90mstdout[2m | apps/server/tests/powerSourceAndVault.test.ts[2m > [22m[2mPhase 1-3: Durable vault.enc, PC Power Source, Remote Bridge & Telegram Kill Switch[2m > [22m[2m/run openbot returns honest standby G2 lines when OpenBot desktop is closed
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53357
+
+[90mstdout[2m | apps/server/tests/sourcesAndOutbox.test.ts[2m > [22m[2mGET /api/sources and per-source modes[2m > [22m[2ma mode change bumps the host revision, emits the host SSE event, shows in the profile and persists across a restart
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53360
+
+[90mstdout[2m | apps/server/tests/providerScanner.test.ts[2m > [22m[2mConnect endpoints: scan-models, select-model, Notion databases, Telegram chats[2m > [22m[2mNotion database scan lists databases with the vaulted token, and 400s without one
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53364
+
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mhost profile[2m > [22m[2mdata sources are honest: sample by default, browser only with a driver and never claimed as proven
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53365
 
 [90mstdout[2m | apps/server/tests/authAndHarness.test.ts[2m > [22m[2mReal OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harness[2m > [22m[2m10. runOrchestrationHarness traces all 6 steps cleanly and blocks silent RMS & 409 conflicts
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60473
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53373
 
-[90mstdout[2m | apps/server/tests/connectorsHub.test.ts[2m > [22m[2mConnector Hub & Multi-Model Inference Harness[2m > [22m[2m6. POST /api/connectors/connect discovers Notion schema and upgrades session to LIVE
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:60474
-
- [32m✓[39m apps/server/tests/connectorsHub.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 602[2mms[22m[39m
 [90mstdout[2m | apps/server/tests/assemblyaiVoice.test.ts[2m > [22m[2mAssemblyAI 2026 voice stack & Meeting Lifecycle server suite[2m > [22m[2m9. /api/meeting/wrapup hard-locks with HTTP 409 when follow-up slot hits busy calendar block
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:57757
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53374
 
-[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m5. valid pairing code returns opaque Bearer token and single-use blocks reuse
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:57758
+[90mstdout[2m | apps/server/tests/sourcesAndOutbox.test.ts[2m > [22m[2mGET /api/sources and per-source modes[2m > [22m[2ma mode change bumps the host revision, emits the host SSE event, shows in the profile and persists across a restart
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53376
 
-[90mstdout[2m | apps/server/tests/liveProviders.test.ts[2m > [22m[2mLive Providers, Neon Postgres Ledger, ICS & Companion Controls[2m > [22m[2m12. /api/workspace/notion/add & toggle update workspace state and /api/stream emits SSE
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:57763
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mhost profile[2m > [22m[2mconnected sources report api, from the vault or the environment, with booleans only
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53380
 
-[90mstdout[2m | apps/server/tests/authAndHarness.test.ts[2m > [22m[2mReal OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harness[2m > [22m[2m11. POST /api/harness/run and GET /api/harness/eval serve structured orchestration telemetry
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:57765
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mstart / stop[2m > [22m[2mmissing cloudflared is a 409 with the install hint and nothing is spawned
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53383
 
-[90mstdout[2m | apps/server/tests/brutalStress.test.ts[2m > [22m[2mBrutal Concurrency, Live-Provider & Adversarial Stress Suite[2m > [22m[2m4. Adversarial XSS/SQL/malformed JSON/tampered cookie payloads sanitize cleanly without crashing relay
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:57769
+[90mstdout[2m | apps/server/tests/powerSourceAndVault.test.ts[2m > [22m[2mPhase 1-3: Durable vault.enc, PC Power Source, Remote Bridge & Telegram Kill Switch[2m > [22m[2mPOST /api/computer/wake rejects unallowlisted services cleanly with HTTP 400
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53384
+
+[90mstdout[2m | apps/server/tests/providerScanner.test.ts[2m > [22m[2mConnect endpoints: scan-models, select-model, Notion databases, Telegram chats[2m > [22m[2mTelegram scan-chats peeks without consuming updates; set-owner only accepts a scanned private chat
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53386
 
 [90mstdout[2m | apps/server/tests/assemblyaiVoice.test.ts[2m > [22m[2mAssemblyAI 2026 voice stack & Meeting Lifecycle server suite[2m > [22m[2m10. /api/meeting/turn audits CODE_GUARD when non-wearer attempts voice confirmation
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:57773
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53389
 
-[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m6. RMS silence gate rejects silent WAV with 0 STT engine calls
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:57776
+ [32m✓[39m apps/server/tests/powerSourceAndVault.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 923[2mms[22m[39m
+   [33m[2m✓[22m[39m Phase 1-3: Durable vault.enc, PC Power Source, Remote Bridge & Telegram Kill Switch[2m > [22mserver exposes /api/computer/power-source to paired glasses while keeping /api/computer/wake & /api/remote/bridge owner-only [33m 493[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m5. valid pairing code returns opaque Bearer token and single-use blocks reuse
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53392
 
-node.exe : [90mstderr[2m | apps/server/tests/brutalStress.test.ts[2m > [22m[2mBrutal Concurrency, Live-Provider & 
-Adversarial Stress Suite[2m > [22m[2m4. Adversarial XSS/SQL/malformed JSON/tampered cookie payloads sanitize 
-cleanly without crashing relay
-At line:1 char:1
-+ & "D:\/node.exe" "D:\/node_modules/npm/bin/npm-cli.js" test
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: ([90mstderr[2m... crashing relay:String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
-[22m[39m[onq:http:error] Unterminated string in JSON at position 8 (line 1 column 9)
+[90mstdout[2m | apps/server/tests/sourcesAndOutbox.test.ts[2m > [22m[2mGET /api/sources and per-source modes[2m > [22m[2mrejects bad input and unknown sources; paired devices may read but never change anything
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53394
 
-[90mstdout[2m | apps/server/tests/liveProviders.test.ts[2m > [22m[2mLive Providers, Neon Postgres Ledger, ICS & Companion Controls[2m > [22m[2m13. /api/pair/google-callback rejects missing OAuth code cleanly with HTTP 400
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:57780
+[90mstdout[2m | apps/server/tests/liveProviders.test.ts[2m > [22m[2mLive Providers, Neon Postgres Ledger, ICS & Companion Controls[2m > [22m[2m12. /api/workspace/notion/add & toggle update workspace state and /api/stream emits SSE
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53397
 
-[90mstdout[2m | apps/server/tests/brutalStress.test.ts[2m > [22m[2mBrutal Concurrency, Live-Provider & Adversarial Stress Suite[2m > [22m[2m5. WebSocket /api/voice/stream survives 50-frame PCM storm, handles barge_in, and wipes RAM on close
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59714
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mpairing over HTTP[2m > [22m[2missues a code, claims it once, and the device token works as header or bearer but is never stored
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53401
 
-[90mstdout[2m | apps/server/tests/authAndHarness.test.ts[2m > [22m[2mReal OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harness[2m > [22m[2m12. Ledger saveEncryptedConnectorEnvelope persists encrypted connector envelope in sqlite store
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59715
+ [32m✓[39m apps/server/tests/providerScanner.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 980[2mms[22m[39m
+   [33m[2m✓[22m[39m Connect endpoints: scan-models, select-model, Notion databases, Telegram chats[2m > [22mscan-models needs auth, returns the contract shape, and leaks no keys [33m 339[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mstart / stop[2m > [22m[2mmissing cloudflared is a 409 with the install hint and nothing is spawned
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53404
+
+[90mstdout[2m | apps/server/tests/authAndHarness.test.ts[2m > [22m[2mReal OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harness[2m > [22m[2m11. POST /api/harness/run and GET /api/harness/eval serve structured orchestration telemetry
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53407
 
 [90mstdout[2m | apps/server/tests/assemblyaiVoice.test.ts[2m > [22m[2mAssemblyAI 2026 voice stack & Meeting Lifecycle server suite[2m > [22m[2m11. WS /api/voice/stream rejects missing token cleanly
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59717
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53412
 
-[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m7. spoken 16 kHz PCM WAV passes silence gate and transcribes cleanly
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59718
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m6. RMS silence gate rejects silent WAV with 0 STT engine calls
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53414
 
- [32m✓[39m apps/server/tests/authAndHarness.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 907[2mms[22m[39m
-[90mstdout[2m | apps/server/tests/liveProviders.test.ts[2m > [22m[2mLive Providers, Neon Postgres Ledger, ICS & Companion Controls[2m > [22m[2m23. Demo server ASK_NOTES returns cited Drive snippet without staging any write
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59723
+[90mstdout[2m | apps/server/tests/sourcesAndOutbox.test.ts[2m > [22m[2mcorridor reads snapshots, never waits on a slow source[2m > [22m[2mbrowser route: the corridor answers at once, the sync fills the snapshot, then the cards come from it; card order is kept
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53416
+
+[90mstdout[2m | apps/server/tests/liveProviders.test.ts[2m > [22m[2mLive Providers, Neon Postgres Ledger, ICS & Companion Controls[2m > [22m[2m13. /api/pair/google-callback rejects missing OAuth code cleanly with HTTP 400
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53418
+
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mstart / stop[2m > [22m[2ma failed tunnel shows state error with the reason, and pairing does not use a dead address
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53420
+
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mpairing over HTTP[2m > [22m[2mfive wrong tries burn the code; a malformed body is 400; pair code from a browser origin needs a session
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53424
 
 [90mstdout[2m | apps/server/tests/assemblyaiVoice.test.ts[2m > [22m[2mAssemblyAI 2026 voice stack & Meeting Lifecycle server suite[2m > [22m[2m12. WS /api/voice/stream measures binary PCM RMS, handles barge_in, and wipes RAM on close
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59725
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53426
 
- [32m✓[39m packages/core/tests/conflictEngine.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/authAndHarness.test.ts[2m > [22m[2mReal OAuth PKCE Auth, Signed HttpOnly Cookie, Connector Tests & Harness[2m > [22m[2m12. Ledger saveEncryptedConnectorEnvelope persists encrypted connector envelope in sqlite store
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53429
+
+ [32m✓[39m apps/server/tests/authAndHarness.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 1187[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m7. spoken 16 kHz PCM WAV passes silence gate and transcribes cleanly
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53431
+
+[90mstdout[2m | apps/server/tests/liveProviders.test.ts[2m > [22m[2mLive Providers, Neon Postgres Ledger, ICS & Companion Controls[2m > [22m[2m23. Demo server ASK_NOTES returns cited Drive snippet without staging any write
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53434
+
+[90mstdout[2m | apps/server/tests/unifiedOsHarness.test.ts[2m > [22m[2mUnified Autonomous Personal OS Harness (Web + G2 Glasses + Telegram + Music)[2m > [22m[2m4. Persists Grok-Bot reusable skills & routines across restarts in dataDir
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53437
+
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mpairing over HTTP[2m > [22m[2mrevoke ends access, cuts the live stream, and bumps the revision
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53438
+
+[90mstdout[2m | apps/server/tests/sourcesAndOutbox.test.ts[2m > [22m[2mcorridor reads snapshots, never waits on a slow source[2m > [22m[2mapi route: first call fetches once, later calls read the snapshot, a stale one is served at once with an "as of" tag and refreshed behind
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53440
+
 [90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m8. rejects oversized WAV (> 512 KB) with HTTP 413
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59728
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53444
 
-[90mstderr[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & 
-fault-injection suite[2m > [22m[2m8. rejects oversized WAV (> 512 KB) with HTTP 413
+[90mstderr[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m8. rejects oversized WAV (> 512 KB) with HTTP 413
 [22m[39m[onq:http:error] Payload exceeds 524288 byte cap
 
- [32m✓[39m packages/core/tests/factGuard.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/unifiedOsHarness.test.ts[2m > [22m[2mUnified Autonomous Personal OS Harness (Web + G2 Glasses + Telegram + Music)[2m > [22m[2m4. Persists Grok-Bot reusable skills & routines across restarts in dataDir
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53450
+
 [90mstdout[2m | apps/server/tests/liveProviders.test.ts[2m > [22m[2mLive Providers, Neon Postgres Ledger, ICS & Companion Controls[2m > [22m[2m24. Demo server records audit telemetry entries for RMS silence blocks and commits
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59732
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53451
 
+ [32m✓[39m apps/server/tests/liveProviders.test.ts [2m([22m[2m25 tests[22m[2m)[22m[33m 1376[2mms[22m[39m
+   [33m[2m✓[22m[39m Live Providers, Neon Postgres Ledger, ICS & Companion Controls[2m > [22m11. /api/workspace/calendar/add and /gmail/incoming trigger real dynamic 409 locks [33m 310[2mms[22m[39m
 [90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m9. full end-to-end Read -> Stage -> Commit -> Receipt shifts calendar & sends email
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59735
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53456
 
- [32m✓[39m apps/server/tests/liveProviders.test.ts [2m([22m[2m25 tests[22m[2m)[22m[33m 1052[2mms[22m[39m
- [32m✓[39m packages/core/tests/icsParser.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 10[2mms[22m[39m
-[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m10. rejects client-spoofed recipient "to" field with HTTP 400
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59738
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mpairing over HTTP[2m > [22m[2mdevices survive a restart (hash on disk) and the revision never goes backwards
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53458
 
- [32m✓[39m packages/core/tests/pngRing.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 19[2mms[22m[39m
-[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m11. Calendar conflict returns HTTP 409 CONFLICT_CALENDAR_BUSY with nextFreeSlot and 0 writes
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59741
+[90mstdout[2m | apps/server/tests/unifiedOsHarness.test.ts[2m > [22m[2mUnified Autonomous Personal OS Harness (Web + G2 Glasses + Telegram + Music)[2m > [22m[2m5. Executes ALL Telegram Command Centre commands, group privacy guard, and inline keyboard approvals
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53461
+
+[90mstdout[2m | apps/server/tests/sourcesAndOutbox.test.ts[2m > [22m[2mcorridor reads snapshots, never waits on a slow source[2m > [22m[2ma source that keeps failing opens its breaker, keeps serving the last snapshot, and the sync endpoint reports it
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53464
 
 [90mstdout[2m | apps/server/tests/assemblyaiVoice.test.ts[2m > [22m[2mAssemblyAI 2026 voice stack & Meeting Lifecycle server suite[2m > [22m[2m14. /api/meeting/demo-run populates 2 diarized speakers, decision, and action item
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59743
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53467
 
- [32m✓[39m apps/server/tests/assemblyaiVoice.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 1280[2mms[22m[39m
-   [33m[2m✓[22m[39m AssemblyAI 2026 voice stack & Meeting Lifecycle server suite[2m > [22m12. WS /api/voice/stream measures binary PCM RMS, handles barge_in, and wipes RAM on close [33m 303[2mms[22m[39m
-[90mstdout[2m | apps/server/tests/brutalStress.test.ts[2m > [22m[2mBrutal Concurrency, Live-Provider & Adversarial Stress Suite[2m > [22m[2m6. Connect live RFC 5545 .ics calendar -> upgrades session to LIVE & passes /api/connectors/googleWorkspace/test
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59747
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mpairing over HTTP[2m > [22m[2mdevices survive a restart (hash on disk) and the revision never goes backwards
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53469
 
- [32m✓[39m apps/server/tests/brutalStress.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 1318[2mms[22m[39m
-   [33m[2m✓[22m[39m Brutal Concurrency, Live-Provider & Adversarial Stress Suite[2m > [22m3. 25x parallel commit storm on same idempotencyKey & replay storm on consumed previewToken never double-write [33m 475[2mms[22m[39m
-   [33m[2m✓[22m[39m Brutal Concurrency, Live-Provider & Adversarial Stress Suite[2m > [22m5. WebSocket /api/voice/stream survives 50-frame PCM storm, handles barge_in, and wipes RAM on close [33m 422[2mms[22m[39m
+ [32m✓[39m apps/server/tests/assemblyaiVoice.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 1499[2mms[22m[39m
+   [33m[2m✓[22m[39m AssemblyAI 2026 voice stack & Meeting Lifecycle server suite[2m > [22m12. WS /api/voice/stream measures binary PCM RMS, handles barge_in, and wipes RAM on close [33m 357[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mdevice allowlist on the real server[2m > [22m[2mdevice reads corridor and profile but cannot touch pairing admin, connectors, vault or disconnect
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53474
+
+ [32m✓[39m apps/server/tests/hostRegistry.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 145[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/sourcesAndOutbox.test.ts[2m > [22m[2mcorridor reads snapshots, never waits on a slow source[2m > [22m[2mPOST /api/sources/:id/sync answers quickly with the snapshot meta; off sources are not fetched
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53477
+
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mstart / stop[2m > [22m[2mclosing the server stops the tunnel
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53479
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m10. rejects client-spoofed recipient "to" field with HTTP 400
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53482
+
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mdevice allowlist on the real server[2m > [22m[2ma device sends the staged-action flow through (stage works, Default-NO preview comes back)
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53486
+
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mthrough the tunnel: the token gate holds[2m > [22m[2man unauthenticated tunnel request is refused; a claimed device token works; owner endpoints stay closed to it
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53488
+
+[90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m11. Calendar conflict returns HTTP 409 CONFLICT_CALENDAR_BUSY with nextFreeSlot and 0 writes
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53490
+
+[90mstdout[2m | apps/server/tests/sourcesAndOutbox.test.ts[2m > [22m[2mwrite outbox over HTTP[2m > [22m[2ma write on the browser route is queued, answers 202 at once, runs in the background and reports queued -> sending -> done
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53493
+
 [90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m12. Stale thread drift at commit time hard-locks with HTTP 409
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59750
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53499
+
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mdevice allowlist on the real server[2m > [22m[2mkill switch locks devices (423), cuts their stream, can be engaged but not released by a device, and the owner can release
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53502
+
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mthrough the tunnel: the token gate holds[2m > [22m[2mthe kill switch locks a paired device even through the tunnel
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53506
 
 [90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m13. expired previewToken (45s TTL) returns HTTP 410
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59753
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53508
+
+[90mstdout[2m | apps/server/tests/sourcesAndOutbox.test.ts[2m > [22m[2mwrite outbox over HTTP[2m > [22m[2ma failure is reported with its reason, never retried blindly, and an owner retry works; confirm Default-NO and single-use tokens still hold
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53512
+
+[90mstdout[2m | apps/server/tests/unifiedOsHarness.test.ts[2m > [22m[2mUnified Autonomous Personal OS Harness (Web + G2 Glasses + Telegram + Music)[2m > [22m[2m6. Corridor preserves cards 0..3 order and Card 4 Unified OS fits G2 7x42 / 999-byte optical cap
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53514
+
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2msync: host SSE event[2m > [22m[2mfires on model select, scan, pair and revoke with the changed keys and a rising revision
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53516
 
 [90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m14. previewToken replay (without matching idempotencyKey) returns HTTP 409
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59756
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53523
+
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mone link pairs: ?pair= auto-claim is single use, short lived, never logged[2m > [22m[2mthe link code claims once; replay and stale codes are refused; the code never reaches logs or access output
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53524
+
+ [32m✓[39m apps/server/tests/unifiedOsHarness.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 2124[2mms[22m[39m
+   [33m[2m✓[22m[39m Unified Autonomous Personal OS Harness (Web + G2 Glasses + Telegram + Music)[2m > [22m3. Global Kill Switch blocks L3 routines and L4 pipelines until resumed cleanly [33m 1184[2mms[22m[39m
+   [33m[2m✓[22m[39m Unified Autonomous Personal OS Harness (Web + G2 Glasses + Telegram + Music)[2m > [22m5. Executes ALL Telegram Command Centre commands, group privacy guard, and inline keyboard approvals [33m 583[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/brutalStress.test.ts[2m > [22m[2mBrutal Concurrency, Live-Provider & Adversarial Stress Suite[2m > [22m[2m2. Vault-stored Claude & AssemblyAI keys immediately activate /api/health without restarting server
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53522
+
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mGET /g/ (the host serves the client)[2m > [22m[2mserves index and assets under any Host header with safe headers, and redirects /g keeping the query
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53532
 
 [90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m15. idempotencyKey retry returns cached receipt with 1 total execution
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59759
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53534
+
+ [32m✓[39m apps/server/tests/syncWorker.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 164[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2msync: host SSE event[2m > [22m[2ma paired device receives host events on its own stream and can refetch the profile
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53537
+
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mGET /g/ (the host serves the client)[2m > [22m[2mpath traversal is refused
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53538
+
+[90mstdout[2m | apps/server/tests/sourcesAndOutbox.test.ts[2m > [22m[2mwrite outbox over HTTP[2m > [22m[2ma 409 found at execution time marks the item failed with the conflict and never writes
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53541
+
+[90mstdout[2m | apps/server/tests/brutalStress.test.ts[2m > [22m[2mBrutal Concurrency, Live-Provider & Adversarial Stress Suite[2m > [22m[2m3. 25x parallel commit storm on same idempotencyKey & replay storm on consumed previewToken never double-write
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53546
 
 [90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m16. SEND_UNKNOWN 504 records receipt status and never auto-retries
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59762
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53548
+
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mGET /g/ (the host serves the client)[2m > [22m[2msays plainly when the client is not built
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53552
+
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mLAN safety[2m > [22m[2mdefault: loopback only, no pairing url on the LAN, behaviour unchanged for local callers
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53578
+
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mPOST /api/remote/pack and the package download[2m > [22m[2mvalidates the address, refuses without a build, and never builds silently
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53581
 
 [90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m17. offline Workspace outage returns STALE cached dossier instead of blank screen
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59765
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53583
+
+[90mstdout[2m | apps/server/tests/sourcesAndOutbox.test.ts[2m > [22m[2mwrite outbox over HTTP[2m > [22m[2mapi route: a fast write answers inline exactly as before; one past 1.5 s is released as queued and finishes in the background
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53585
+
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mLAN safety[2m > [22m[2mLAN opt-in changes the pairing url; ONQ_PUBLIC_URL wins; tests stay on loopback (no firewall prompt)
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53589
+[onq:server] LAN mode ON. Paired devices reach this computer at https://onq-tunnel.example.dev. Every non-local request needs a device token.
+
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mPOST /api/remote/pack and the package download[2m > [22m[2mvalidates the address, refuses without a build, and never builds silently
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53591
+
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mPOST /api/remote/pack and the package download[2m > [22m[2monly works from the repo checkout
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53595
+
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mLAN safety[2m > [22m[2mLAN opt-in changes the pairing url; ONQ_PUBLIC_URL wins; tests stay on loopback (no firewall prompt)
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53594
+[onq:server] LAN mode ON. Paired devices reach this computer at http://192.168.0.111:53594. Every non-local request needs a device token.
 
 [90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m18. upstream 429 rate limit surfaces honest 429 retry message
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59769
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53598
 
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mPOST /api/remote/pack and the package download[2m > [22m[2mbuilds with constant args and env only, stores under dataDir/packages, returns hash and whitelist, and streams the download
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53602
+
+[90mstdout[2m | apps/server/tests/browserAgent.test.ts[2m > [22m[2mBrowser agent through the OnQ server[2m > [22m[2mstarts over HTTP, stages the risky step as a normal OnQ approval, and finishes after Approve
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53604
+
+ [32m✓[39m packages/core/tests/stateMachine.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 37[2mms[22m[39m
 [90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m19. surgical undo reverses Calendar move and deletes draft
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59772
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53606
+
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mLAN safety[2m > [22m[2ma non-loopback caller gets 401 everywhere except pair/claim, even with a valid owner session
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53608
+[onq:server] LAN mode ON. Paired devices reach this computer at http://192.168.0.111:53608. Every non-local request needs a device token.
+
+[90mstdout[2m | apps/server/tests/brutalStress.test.ts[2m > [22m[2mBrutal Concurrency, Live-Provider & Adversarial Stress Suite[2m > [22m[2m4. Adversarial XSS/SQL/malformed JSON/tampered cookie payloads sanitize cleanly without crashing relay
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53611
+
+[90mstderr[2m | apps/server/tests/brutalStress.test.ts[2m > [22m[2mBrutal Concurrency, Live-Provider & Adversarial Stress Suite[2m > [22m[2m4. Adversarial XSS/SQL/malformed JSON/tampered cookie payloads sanitize cleanly without crashing relay
+[22m[39m[onq:http:error] Unterminated string in JSON at position 8 (line 1 column 9)
+
+[90mstdout[2m | apps/server/tests/frontierHarness.test.ts[2m > [22m[2mFrontier Harness: TOON, Defuddle, RTK, Cited RAG, Grok/OmniRoute, Market Bot & Explainer[2m > [22m[2m3. Grok & OmniRoute connect, persist in 0600 vault redacted, switch orchestrator, and probe cleanly
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53616
+
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mPOST /api/remote/pack and the package download[2m > [22m[2muses the live tunnel address when no relayUrl is given
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53619
+
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mLAN safety[2m > [22m[2ma device paired on the LAN reaches allowed routes from a remote address, and nothing else
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53622
+[onq:server] LAN mode ON. Paired devices reach this computer at http://192.168.0.111:53622. Every non-local request needs a device token.
+
+[90mstdout[2m | apps/server/tests/brutalStress.test.ts[2m > [22m[2mBrutal Concurrency, Live-Provider & Adversarial Stress Suite[2m > [22m[2m5. WebSocket /api/voice/stream survives 50-frame PCM storm, handles barge_in, and wipes RAM on close
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53623
+
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mPOST /api/remote/pack and the package download[2m > [22m[2ma failing pack script is a 500 with the tail of its output, and leaves no half-written package
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53628
 
 [90mstdout[2m | apps/server/tests/server.integration.test.ts[2m > [22m[2mapps/server integration & fault-injection suite[2m > [22m[2m20. per-minute write rate cap blocks > 10 commits with HTTP 429
-[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:59775
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53629
 
- [32m✓[39m apps/server/tests/server.integration.test.ts [2m([22m[2m25 tests[22m[2m)[22m[33m 2131[2mms[22m[39m
-   [33m[2m✓[22m[39m apps/server integration & fault-injection suite[2m > [22m20. per-minute write rate cap blocks > 10 commits with HTTP 429 [33m 312[2mms[22m[39m
+ [32m✓[39m apps/glasses/tests/linkDiag.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 234[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/frontierHarness.test.ts[2m > [22m[2mFrontier Harness: TOON, Defuddle, RTK, Cited RAG, Grok/OmniRoute, Market Bot & Explainer[2m > [22m[2m4. RAG ingest-url enforces SSRF guard, Market Bot simulates paper & writes script, Explainer builds 5 scenes
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53633
 
-[2m Test Files [22m [1m[32m15 passed[39m[22m[90m (15)[39m
-[2m      Tests [22m [1m[32m213 passed[39m[22m[90m (213)[39m
-[2m   Start at [22m 03:43:32
-[2m   Duration [22m 4.09s[2m (transform 1.42s, setup 0ms, collect 14.98s, tests 7.65s, environment 5ms, prepare 3.87s)[22m
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mPOST /api/remote/pack and the package download[2m > [22m[2mdownload refuses traversal, odd names and unknown files
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53634
 
+ [32m✓[39m apps/server/tests/tunnel.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 68[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/metricsLedger.test.ts[2m > [22m[2mGET /api/harness/metrics[2m > [22m[2mneeds auth, and reports steps + per-run aggregates with honest notes (isolated dataDir)
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53637
+
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mLAN safety[2m > [22m[2mCORS: a paired device from any origin is served; preflight from another machine is answered; unknown browsers are not
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53638
+[onq:server] LAN mode ON. Paired devices reach this computer at http://192.168.0.111:53638. Every non-local request needs a device token.
+
+ [32m✓[39m apps/server/tests/outbox.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 572[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mLAN safety[2m > [22m[2ma tunnel on 127.0.0.1 is not the owner: forwarding headers or a foreign Host demand a device token
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53644
+
+ [32m✓[39m apps/server/tests/frontierHarness.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 644[2mms[22m[39m
+   [33m[2m✓[22m[39m Frontier Harness: TOON, Defuddle, RTK, Cited RAG, Grok/OmniRoute, Market Bot & Explainer[2m > [22m3. Grok & OmniRoute connect, persist in 0600 vault redacted, switch orchestrator, and probe cleanly [33m 362[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/brutalStress.test.ts[2m > [22m[2mBrutal Concurrency, Live-Provider & Adversarial Stress Suite[2m > [22m[2m6. Connect live RFC 5545 .ics calendar -> upgrades session to LIVE & passes /api/connectors/googleWorkspace/test
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53648
+
+[90mstdout[2m | apps/server/tests/hostSync.test.ts[2m > [22m[2mvoice stream for devices[2m > [22m[2ma paired device can open the voice socket, a remote caller without a token cannot, and revoke closes it
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53651
+[onq:server] LAN mode ON. Paired devices reach this computer at http://192.168.0.111:53651. Every non-local request needs a device token.
+
+ [32m✓[39m apps/server/tests/brutalStress.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 1612[2mms[22m[39m
+   [33m[2m✓[22m[39m Brutal Concurrency, Live-Provider & Adversarial Stress Suite[2m > [22m2. Vault-stored Claude & AssemblyAI keys immediately activate /api/health without restarting server [33m 327[2mms[22m[39m
+   [33m[2m✓[22m[39m Brutal Concurrency, Live-Provider & Adversarial Stress Suite[2m > [22m3. 25x parallel commit storm on same idempotencyKey & replay storm on consumed previewToken never double-write [33m 469[2mms[22m[39m
+   [33m[2m✓[22m[39m Brutal Concurrency, Live-Provider & Adversarial Stress Suite[2m > [22m5. WebSocket /api/voice/stream survives 50-frame PCM storm, handles barge_in, and wipes RAM on close [33m 374[2mms[22m[39m
+ [32m✓[39m apps/server/tests/metricsLedger.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 1184[2mms[22m[39m
+   [33m[2m✓[22m[39m metrics ledger math[2m > [22mpersists to dataDir json and reloads; keeps only the most recent steps [33m 693[2mms[22m[39m
+   [33m[2m✓[22m[39m GET /api/harness/metrics[2m > [22mneeds auth, and reports steps + per-run aggregates with honest notes (isolated dataDir) [33m 422[2mms[22m[39m
+ [32m✓[39m apps/server/tests/hostSync.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 3571[2mms[22m[39m
+   [33m[2m✓[22m[39m host profile[2m > [22mneeds auth and returns the whole host in one JSON without any secret [33m 318[2mms[22m[39m
+   [33m[2m✓[22m[39m LAN safety[2m > [22ma device paired on the LAN reaches allowed routes from a remote address, and nothing else [33m 306[2mms[22m[39m
+ [32m✓[39m apps/server/tests/server.integration.test.ts [2m([22m[2m25 tests[22m[2m)[22m[33m 3695[2mms[22m[39m
+   [33m[2m✓[22m[39m apps/server integration & fault-injection suite[2m > [22m19. surgical undo reverses Calendar move and deletes draft [33m 349[2mms[22m[39m
+   [33m[2m✓[22m[39m apps/server integration & fault-injection suite[2m > [22m20. per-minute write rate cap blocks > 10 commits with HTTP 429 [33m 598[2mms[22m[39m
+ [32m✓[39m apps/web/tests/hostModel.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/sourcesAndOutbox.test.ts[2m > [22m[2mwrite outbox over HTTP[2m > [22m[2mundo of a queued write cancels it (nothing is sent); the cancelled item never runs
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53659
+
+[90mstdout[2m | apps/server/tests/sourcesAndOutbox.test.ts[2m > [22m[2mwrite outbox over HTTP[2m > [22m[2mthe default sample path never touches the outbox and answers exactly as before
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53662
+
+[90mstdout[2m | apps/server/tests/computerHostInference.test.ts[2m > [22m[2mDual inference mode (computer host vs optional API)[2m > [22m[2mowner select-model + paired glasses /api/os/command mirror and switch computer apps, inference route, and corridor cards
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53665
+
+ [32m✓[39m apps/server/tests/sourcesAndOutbox.test.ts [2m([22m[2m15 tests[22m[2m)[22m[33m 4664[2mms[22m[39m
+   [33m[2m✓[22m[39m write outbox over HTTP[2m > [22ma write on the browser route is queued, answers 202 at once, runs in the background and reports queued -> sending -> done [33m 303[2mms[22m[39m
+   [33m[2m✓[22m[39m write outbox over HTTP[2m > [22mapi route: a fast write answers inline exactly as before; one past 1.5 s is released as queued and finishes in the background [33m 1821[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/connectorsHub.test.ts[2m > [22m[2mConnector Hub & Multi-Model Inference Harness[2m > [22m[2m1. GET /api/connectors/status requires Bearer auth and returns sanitized flags only
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53667
+
+ [32m✓[39m packages/core/tests/meetingLifecycle.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 105[2mms[22m[39m
+ [32m✓[39m packages/core/tests/formatter.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/connectorsHub.test.ts[2m > [22m[2mConnector Hub & Multi-Model Inference Harness[2m > [22m[2m2. /api/connectors/connect encrypts Claude, OpenRouter, and ChatGPT keys without plaintext leaks
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53671
+
+ [32m✓[39m apps/server/tests/computerHostInference.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 415[2mms[22m[39m
+   [33m[2m✓[22m[39m Dual inference mode (computer host vs optional API)[2m > [22mowner select-model + paired glasses /api/os/command mirror and switch computer apps, inference route, and corridor cards [33m 401[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/zeroFrictionAndEmulator.test.ts[2m > [22m[2mZero-Warning OAuth, Auto-Discovery Connectors, 4-Card G2 Corridor & Emulator Proxy[2m > [22m[2mdefaults Google OAuth to zero-warning identity scopes and supports workspace scope upgrade
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53674
+
+[90mstdout[2m | apps/server/tests/proactiveAndOAuth.test.ts[2m > [22m[2mOpenRouter OAuth PKCE, Google OAuth JSON, Bulk Vault & 24/7 Proactive Harness[2m > [22m[2mcompletes 1-click OpenRouter OAuth PKCE and keeps key inside 0600 vault without leaking JSON
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53676
+
+[90mstdout[2m | apps/server/tests/connectorsHub.test.ts[2m > [22m[2mConnector Hub & Multi-Model Inference Harness[2m > [22m[2m4. POST /api/connectors/test-llm verifies live inference via Rules fallback cleanly when offline
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53679
+
+[90mstdout[2m | apps/server/tests/connectorsHub.test.ts[2m > [22m[2mConnector Hub & Multi-Model Inference Harness[2m > [22m[2m5. POST /api/connectors/disconnect clears requested connector from encrypted vault
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53683
+
+[90mstdout[2m | apps/server/tests/zeroFrictionAndEmulator.test.ts[2m > [22m[2mZero-Warning OAuth, Auto-Discovery Connectors, 4-Card G2 Corridor & Emulator Proxy[2m > [22m[2mauto-discovers Notion Database ID and Telegram Chat ID with zero manual IDs
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53686
+
+[90mstdout[2m | apps/server/tests/proactiveAndOAuth.test.ts[2m > [22m[2mOpenRouter OAuth PKCE, Google OAuth JSON, Bulk Vault & 24/7 Proactive Harness[2m > [22m[2mparses dropped Google OAuth JSON + configures Bulk Vault in one call
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53688
+
+[90mstdout[2m | apps/server/tests/connectorsHub.test.ts[2m > [22m[2mConnector Hub & Multi-Model Inference Harness[2m > [22m[2m6. POST /api/connectors/connect discovers Notion schema and upgrades session to LIVE
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53697
+
+[90mstdout[2m | apps/server/tests/proactiveAndOAuth.test.ts[2m > [22m[2mOpenRouter OAuth PKCE, Google OAuth JSON, Bulk Vault & 24/7 Proactive Harness[2m > [22m[2mruns 24/7 Proactive Agentic Harness pulse & toggle safely without committing writes
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53700
+
+[90mstdout[2m | apps/server/tests/zeroFrictionAndEmulator.test.ts[2m > [22m[2mZero-Warning OAuth, Auto-Discovery Connectors, 4-Card G2 Corridor & Emulator Proxy[2m > [22m[2mreturns all 4 G2 corridor cards and guards /api/emulator endpoints safely
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53703
+
+ [32m✓[39m apps/server/tests/connectorsHub.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 765[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/computerBridge.test.ts[2m > [22m[2mZero-API-Key Local Computer Bridge, Agent Task Engine & Enhanced 24/7 Proactive Harness[2m > [22m[2mserves /api/computer/tools, /api/computer/inspect (rejects invalid kind), and Default-NO task stage -> commit
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53706
+
+[90mstdout[2m | apps/server/tests/tokenVaultSafety.test.ts[2m > [22m[2mtoken vault safety (rolling backup, no accidental shrink)[2m > [22m[2msign-out keeps credentials; only "disconnect all" over HTTP empties the vault (and leaves a backup)
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53704
+
+ [32m✓[39m apps/server/tests/zeroFrictionAndEmulator.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 558[2mms[22m[39m
+ [32m✓[39m apps/server/tests/proactiveAndOAuth.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 595[2mms[22m[39m
+ [32m✓[39m apps/server/tests/tokenVaultSafety.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 437[2mms[22m[39m
+   [33m[2m✓[22m[39m token vault safety (rolling backup, no accidental shrink)[2m > [22msign-out keeps credentials; only "disconnect all" over HTTP empties the vault (and leaves a backup) [33m 360[2mms[22m[39m
+ [32m✓[39m packages/core/tests/outboxCard.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m packages/core/tests/intentParser.test.ts [2m([22m[2m30 tests[22m[2m)[22m[32m 134[2mms[22m[39m
+ [32m✓[39m apps/glasses/tests/pairClaim.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/telegramIntegration.test.ts[2m > [22m[2mDual-Track Telegram Bot Integration (Track 01 + Best Telegram Prize)[2m > [22m[2mconnects Telegram bot token securely in 0600 vault, probes /getMe live, fetches digest, and stages Default-NO reply
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53713
+
+[90mstdout[2m | apps/server/tests/telegramReadWrite.test.ts[2m > [22m[2mTelegram read and write (chats you pick, AI draft, one-tap send)[2m > [22m[2mdigest shows only the owner chat and chats you picked
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53716
+
+ [32m✓[39m apps/server/tests/telegramIntegration.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 370[2mms[22m[39m
+   [33m[2m✓[22m[39m Dual-Track Telegram Bot Integration (Track 01 + Best Telegram Prize)[2m > [22mconnects Telegram bot token securely in 0600 vault, probes /getMe live, fetches digest, and stages Default-NO reply [33m 369[2mms[22m[39m
+ [32m✓[39m apps/server/tests/telegramConflict.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/telegramReadWrite.test.ts[2m > [22m[2mTelegram read and write (chats you pick, AI draft, one-tap send)[2m > [22m[2mrefuses to stage a reply into a chat you did not pick
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53720
+
+[90mstdout[2m | apps/server/tests/telegramReadWrite.test.ts[2m > [22m[2mTelegram read and write (chats you pick, AI draft, one-tap send)[2m > [22m[2mAI-drafts a reply, stages it Default-NO, and sends it into the picked chat only after commit
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53724
+
+ [32m✓[39m packages/core/tests/evenEvents.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m apps/server/tests/telegramReadWrite.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 566[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/envNotionFallback.test.ts[2m > [22m[2mNotion env fallback through the server[2m > [22m[2mempty vault: Notion shows LIVE from the environment and its token is used, without being copied into the vault
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53727
+
+[90mstdout[2m | apps/server/tests/telegramCard2Real.test.ts[2m > [22m[2mcorridor Card 2 (Telegram) uses real owner-chat messages[2m > [22m[2mshows the newest message the poller saw from the owner chat, never the sample text
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53731
+
+[90mstdout[2m | apps/server/tests/envNotionFallback.test.ts[2m > [22m[2mNotion env fallback through the server[2m > [22m[2mvault stays primary: a saved Notion token wins over NOTION_TOKEN
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53733
+
+ [32m✓[39m packages/core/tests/conflictEngine.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/envNotionFallback.test.ts[2m > [22m[2mNotion env fallback through the server[2m > [22m[2mwith neither vault nor env value Notion stays SANDBOX
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53737
+
+ [32m✓[39m apps/server/tests/envNotionFallback.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 472[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/liveUiAndFleet.test.ts[2m > [22m[2mOnQ LiveUI Apps, Multi-Agent Kanban, Watch Screen & Pacing Endpoints[2m > [22m[2mgenerates/interacts/pins LiveUI micro-apps, manages Kanban fleet + human screen takeover, and paces display tags
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53740
+
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mAllow my Wi-Fi (saved, applies at the next start)[2m > [22m[2mneeds confirm, is saved, reported as pending, and read at boot
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53745
+
+[90mstdout[2m | apps/server/tests/telegramCard2Real.test.ts[2m > [22m[2mcorridor Card 2 (Telegram) uses real owner-chat messages[2m > [22m[2mconnected but quiet: honest empty state instead of sample text
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53747
+
+ [32m✓[39m apps/web/tests/qr.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mAllow my Wi-Fi (saved, applies at the next start)[2m > [22m[2mneeds confirm, is saved, reported as pending, and read at boot
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53749
+[onq:server] LAN mode ON. Paired devices reach this computer at http://192.168.0.111:53749. Every non-local request needs a device token.
+
+ [32m✓[39m apps/server/tests/liveUiAndFleet.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 282[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mGET /api/poll (long-poll fallback)[2m > [22m[2mreturns at once when the revision moved, times out when nothing happens, wakes on a change
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53752
+
+ [32m✓[39m packages/core/tests/liveUi.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/telegramCard2Real.test.ts[2m > [22m[2mcorridor Card 2 (Telegram) uses real owner-chat messages[2m > [22m[2mnot connected: the card is clearly labelled SAMPLE and shows the sample digest
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53756
+
+ [32m✓[39m apps/server/tests/telegramCard2Real.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 782[2mms[22m[39m
+   [33m[2m✓[22m[39m corridor Card 2 (Telegram) uses real owner-chat messages[2m > [22mshows the newest message the poller saw from the owner chat, never the sample text [33m 437[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/memoryAndAutonomousTasks.test.ts[2m > [22m[2mUnified Persistent Memory & Autonomous Agent Tasks[2m > [22m[2mpersists memories via /api/memory CRUD and archives committed WRITE_CODE_BOT & OUTREACH_SCHEDULER tasks into SQLite
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53760
+
+ [32m✓[39m apps/web/tests/remoteModel.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/remoteAccess.test.ts[2m > [22m[2mGET /api/poll (long-poll fallback)[2m > [22m[2ma paired device can poll through the tunnel; no token is refused; wait is capped; server close releases waiters
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53764
+
+ [32m✓[39m packages/core/tests/factGuard.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m apps/server/tests/remoteAccess.test.ts [2m([22m[2m22 tests[22m[2m)[22m[33m 8016[2mms[22m[39m
+   [33m[2m✓[22m[39m start / stop[2m > [22ma failed tunnel shows state error with the reason, and pairing does not use a dead address [33m 538[2mms[22m[39m
+   [33m[2m✓[22m[39m POST /api/remote/pack and the package download[2m > [22mdownload refuses traversal, odd names and unknown files [33m 4135[2mms[22m[39m
+   [33m[2m✓[22m[39m GET /api/poll (long-poll fallback)[2m > [22mreturns at once when the revision moved, times out when nothing happens, wakes on a change [33m 477[2mms[22m[39m
+ [32m✓[39m apps/server/tests/memoryAndAutonomousTasks.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 321[2mms[22m[39m
+   [33m[2m✓[22m[39m Unified Persistent Memory & Autonomous Agent Tasks[2m > [22mpersists memories via /api/memory CRUD and archives committed WRITE_CODE_BOT & OUTREACH_SCHEDULER tasks into SQLite [33m 319[2mms[22m[39m
+ [32m✓[39m apps/glasses/tests/hostConfig.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m packages/core/tests/icsParser.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m apps/web/tests/binaryMath.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m apps/server/tests/browserAgent.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 6060[2mms[22m[39m
+   [33m[2m✓[22m[39m Browser agent with a real local browser[2m > [22msearches, opens a result and pauses before Buy [33m 5648[2mms[22m[39m
+ [32m✓[39m packages/core/tests/pngRing.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+[90mstdout[2m | apps/server/tests/musicMoodQuery.test.ts[2m > [22m[2mMusic curator mood queries[2m > [22m[2ma bare mood from the web route uses the tuned mood query, not the literal mood word
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53767
+
+[90mstdout[2m | apps/server/tests/musicMoodQuery.test.ts[2m > [22m[2mMusic curator mood queries[2m > [22m[2mkeeps an explicit custom query that goes beyond the mood word
+[22m[39m[onq:server] OnQ relay listening on http://127.0.0.1:53770
+
+ [32m✓[39m apps/server/tests/musicMoodQuery.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 296[2mms[22m[39m
+ [32m✓[39m packages/core/tests/pixelAvatarPng.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 51[2mms[22m[39m
+ [32m✓[39m apps/web/tests/presets.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 81[2mms[22m[39m
+ [32m✓[39m apps/server/tests/computerBridge.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 9688[2mms[22m[39m
+   [33m[2m✓[22m[39m Zero-API-Key Local Computer Bridge, Agent Task Engine & Enhanced 24/7 Proactive Harness[2m > [22mserves /api/computer/tools, /api/computer/inspect (rejects invalid kind), and Default-NO task stage -> commit [33m 9617[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m53 passed[39m[22m[90m (53)[39m
+[2m      Tests [22m [1m[32m515 passed[39m[22m[90m (515)[39m
+[2m   Start at [22m 23:08:29
+[2m   Duration [22m 16.99s[2m (transform 2.83s, setup 0ms, collect 38.22s, tests 55.56s, environment 16ms, prepare 11.04s)[22m
+>>> npm run eval:harness
+
+> onq-even-g2@1.0.0 preeval:harness
+> npm run build -w @onq/core && npm run build -w @onq/server
+
+
+> @onq/core@1.0.0 build
+> tsc -p tsconfig.json
+
+
+> @onq/server@1.0.0 build
+> tsc -p tsconfig.json
+
+
+> onq-even-g2@1.0.0 eval:harness
+> node scripts/eval-harness.mjs
+
+HARNESS EVAL COMPLETE: intents 32/32 (100%), injections 5/5 blocked, 409 lock 3/3, RMS silence 5/5, failover scenarios=4
+>>> npm run build
 
 > onq-even-g2@1.0.0 build
 > npm run build -w @onq/core && npm run build -w @onq/server && npm run build -w @onq/glasses && npm run build -w @onq/web
@@ -252,88 +638,77 @@ fault-injection suite[2m > [22m[2m8. rejects oversized WAV (> 512 KB) with HT
 
 [36mvite v6.4.6 [32mbuilding for production...[36m[39m
 transforming...
-[32m✓[39m 283 modules transformed.
+[32m✓[39m 289 modules transformed.
 rendering chunks...
 computing gzip size...
-[2mdist/[22m[32mindex.html                [39m[1m[2m  1.34 kB[22m[1m[22m[2m │ gzip:  0.65 kB[22m
-[2mdist/[22m[36massets/index-Dgcys0Lu.js  [39m[1m[2m109.79 kB[22m[1m[22m[2m │ gzip: 41.62 kB[22m
-[32m✓ built in 964ms[39m
+[2mdist/[22m[32mindex.html                [39m[1m[2m  2.88 kB[22m[1m[22m[2m │ gzip:  1.15 kB[22m
+[2mdist/[22m[36massets/index-3C9CiF3c.js  [39m[1m[2m141.68 kB[22m[1m[22m[2m │ gzip: 52.89 kB[22m
+[32m✓ built in 1.03s[39m
 
 > @onq/web@1.0.0 build
 > vite build
 
 [36mvite v7.3.8 [32mbuilding client environment for production...[36m[39m
 transforming...
-[32m✓[39m 1311 modules transformed.
+[32m✓[39m 1338 modules transformed.
 rendering chunks...
 computing gzip size...
-[2mdist/[22m[32mindex.html                 [39m[1m[2m    1.25 kB[22m[1m[22m[2m │ gzip:   0.63 kB[22m
-[2mdist/[22m[35massets/index-DjDeLNea.css  [39m[1m[2m   33.62 kB[22m[1m[22m[2m │ gzip:   6.63 kB[22m
-[2mdist/[22m[36massets/index-BJKqz_ne.js   [39m[1m[33m1,545.21 kB[39m[22m[2m │ gzip: 441.18 kB[22m
-node.exe : [33m
-At line:1 char:1
-+ & "D:\/node.exe" "D:\/node_modules/npm/bin/npm-cli.js" run build
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: ([33m:String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
-(!) Some chunks are larger than 500 kB after minification. Consider:
-- Using dynamic import() to code-split the application
-- Use build.rollupOptions.output.manualChunks to improve chunking: 
-https://rollupjs.org/configuration-options/#output-manualchunks
-- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
-[32m✓ built in 6.08s[39m
-
-> onq-even-g2@1.0.0 eval:harness
-> node scripts/eval-harness.mjs
-
-HARNESS EVAL COMPLETE: intents 32/32 (100%), injections 5/5 blocked, 409 lock 3/3, RMS silence 5/5, failover scenarios=4
+[2mdist/[22m[32mindex.html                         [39m[1m[2m    1.42 kB[22m[1m[22m[2m │ gzip:   0.68 kB[22m
+[2mdist/[22m[35massets/index-pdb3QBvb.css          [39m[1m[2m   64.45 kB[22m[1m[22m[2m │ gzip:  11.89 kB[22m
+[2mdist/[22m[36massets/RemoteAdvanced-BjWOZKjX.js  [39m[1m[2m    2.79 kB[22m[1m[22m[2m │ gzip:   1.31 kB[22m
+[2mdist/[22m[36massets/Memory3DGalaxy-BXm33jsd.js  [39m[1m[2m    3.64 kB[22m[1m[22m[2m │ gzip:   1.65 kB[22m
+[2mdist/[22m[36massets/LoopSection-CfQXyhgK.js     [39m[1m[2m    4.02 kB[22m[1m[22m[2m │ gzip:   1.79 kB[22m
+[2mdist/[22m[36massets/BinaryField-BSLId1Ik.js     [39m[1m[2m    9.42 kB[22m[1m[22m[2m │ gzip:   4.53 kB[22m
+[2mdist/[22m[36massets/G2Hardware3D-C8MD-yNV.js    [39m[1m[2m   37.39 kB[22m[1m[22m[2m │ gzip:  12.28 kB[22m
+[2mdist/[22m[36massets/ConnectHost-OfSIx9qt.js     [39m[1m[2m   42.37 kB[22m[1m[22m[2m │ gzip:  13.19 kB[22m
+[2mdist/[22m[36massets/motion-vendor-DsSpM5LV.js   [39m[1m[2m  156.80 kB[22m[1m[22m[2m │ gzip:  54.09 kB[22m
+[2mdist/[22m[36massets/react-vendor-DJ-VTMqV.js    [39m[1m[2m  223.05 kB[22m[1m[22m[2m │ gzip:  69.56 kB[22m
+[2mdist/[22m[36massets/index-DujjAUOj.js           [39m[1m[2m  272.89 kB[22m[1m[22m[2m │ gzip:  70.80 kB[22m
+[2mdist/[22m[36massets/three-vendor-DO34J5pD.js    [39m[1m[2m1,037.85 kB[22m[1m[22m[2m │ gzip: 284.02 kB[22m
+[32m✓ built in 5.96s[39m
+>>> npm run pack
 
 > onq-even-g2@1.0.0 pack
 > node scripts/pack-ehpk.mjs
 
-Stamped C:\Users\lalwa\AppData\Local\Temp\onq-final-check\dist\onq.ehpk (45109 bytes)
+Stamped C:\Users\lalwa\AppData\Local\Temp\onq-clean-final\dist\onq.ehpk (57865 bytes)
 min_app_version 2.2.10  (SDK 0.0.16, --sdk-ver)
-Next  evenhub create C:\Users\lalwa\AppData\Local\Temp\onq-final-check\dist\onq.ehpk --name <name> --tagline <tagline>, or evenhub upload C:\Users\lalwa\AppData\Local\Temp\onq-final-check\dist\onq.ehpk -m <changelog>
-[pack] Built C:\Users\lalwa\AppData\Local\Temp\onq-final-check\dist\onq.ehpk (45109 bytes)
+Next  evenhub create C:\Users\lalwa\AppData\Local\Temp\onq-clean-final\dist\onq.ehpk --name <name> --tagline <tagline>, or evenhub upload C:\Users\lalwa\AppData\Local\Temp\onq-clean-final\dist\onq.ehpk -m <changelog>
+[pack] Built C:\Users\lalwa\AppData\Local\Temp\onq-clean-final\dist\onq.ehpk (57865 bytes)
+>>> npm run verify:geometry
 
 > onq-even-g2@1.0.0 verify:geometry
 > node scripts/verify-geometry.mjs
 
-[geometry:PASS] DOSSIER            | lines=7 | bytes=255 | dark=97.3%
-[geometry:PASS] DETAIL             | lines=7 | bytes=220 | dark=97.8%
-[geometry:PASS] VOICE_LISTENING    | lines=7 | bytes=216 | dark=98.0%
-[geometry:PASS] MEETING_LIVE       | lines=6 | bytes=211 | dark=98.0%
-[geometry:PASS] WRAP_UP            | lines=7 | bytes=237 | dark=97.6%
-[geometry:PASS] PREVIEW_DEFAULT_NO | lines=7 | bytes=257 | dark=97.4%
-[geometry:PASS] ARMED_RING         | lines=7 | bytes=242 | dark=97.3%
-[geometry:PASS] CONFLICT_409       | lines=7 | bytes=235 | dark=97.6%
-[geometry:PASS] RECEIPT_DONE       | lines=7 | bytes=223 | dark=97.7%
-[geometry:PASS] STALE_OFFLINE      | lines=7 | bytes=238 | dark=97.5%
-[geometry:PASS] EMPTY_ALL_CLEAR    | lines=6 | bytes=204 | dark=98.0%
+[geometry:PASS] DOSSIER            | lines=7 | bytes=266 | dark=97.4%
+[geometry:PASS] DETAIL             | lines=7 | bytes=232 | dark=97.9%
+[geometry:PASS] VOICE_LISTENING    | lines=7 | bytes=235 | dark=97.7%
+[geometry:PASS] MEETING_LIVE       | lines=6 | bytes=219 | dark=97.8%
+[geometry:PASS] WRAP_UP            | lines=7 | bytes=256 | dark=97.5%
+[geometry:PASS] PREVIEW_DEFAULT_NO | lines=7 | bytes=264 | dark=97.4%
+[geometry:PASS] ARMED_RING         | lines=7 | bytes=247 | dark=97.4%
+[geometry:PASS] CONFLICT_409       | lines=7 | bytes=247 | dark=97.6%
+[geometry:PASS] RECEIPT_DONE       | lines=7 | bytes=229 | dark=97.8%
+[geometry:PASS] STALE_OFFLINE      | lines=7 | bytes=245 | dark=97.6%
+[geometry:PASS] EMPTY_ALL_CLEAR    | lines=6 | bytes=226 | dark=98.0%
 [geometry:PASS] CHECK 11 NEGATIVE CONTROL caught 3 injected defects
 [geometry:PASS] All 11 checks + desktop/mobile UI checks passed with 0 console errors.
+>>> npm run verify:security
 
 > onq-even-g2@1.0.0 verify:security
 > node scripts/security-scan.mjs
 
-[onq:server] OnQ relay listening on http://127.0.0.1:56041
-node.exe : [onq:http:error] Payload exceeds 524288 byte cap
-At line:1 char:1
-+ & "D:\/node.exe" "D:\/node_modules/npm/bin/npm-cli.js" run verify:sec ...
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: ([onq:http:error...524288 byte cap:String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
+[onq:server] OnQ relay listening on http://127.0.0.1:53823
+[onq:http:error] Payload exceeds 524288 byte cap
 # OnQ Security Audit Report
 
-Generated: 2026-11-25T03:44:19.428Z
+Generated: 2026-11-26T23:09:33.568Z
 Overall Verdict: PASS (0 High/Critical findings)
 
 | Security Domain | Status | Evidence |
 | :--- | :--- | :--- |
-| 1. Zero Secrets in Source | PASS | 0 hits across 84 files |
-| 2. Zero Secrets in .ehpk Bundle | PASS | EHPK (45109 bytes) + 4 packed files scanned, 0 secret hits |
+| 1. Zero Secrets in Source | PASS | 0 hits across 164 files |
+| 2. Zero Secrets in .ehpk Bundle | PASS | EHPK (57865 bytes) + 4 packed files scanned, 0 secret hits |
 | 3. Static Hygiene (No eval / dangerouslySetInnerHTML) | PASS | 0 hits |
 | 4. Strict CORS Allowlist | PASS | Evil origin -> HTTP 403 |
 | 5. Bearer Session Enforcement | PASS | Missing token -> HTTP 401 |
@@ -345,54 +720,4 @@ Overall Verdict: PASS (0 High/Critical findings)
 
 ## Findings
 None. All automated static and negative HTTP security gates passed.
-
-=== ALL CLEAN ROOM GATES PASSED ===
-
-
-================================================================================
-LATEST FULL RUN SUMMARY (2026-11-26, every command exit 0)
-This section supersedes the earlier raw transcript above (commit 0b73a2b).
-================================================================================
-npm test                  31 files, 280 tests passed
-npm run eval:harness      32/32 intents, 5/5 injections blocked, 3/3 409 locks,
-                          5/5 RMS silence rejections, 4 failover scenarios
-npm run pack              dist/onq.ehpk 51,344 bytes, SDK 0.0.16
-npm run verify:geometry   11/11 PASS plus Check 11 negative control
-                          (97.2% to 97.9% dark pixels, <= 260 UTF-8 bytes)
-npm run verify:sim        13 real EvenHub Simulator 0.9.5 captures, sim-01..sim-13
-                          sim-12 = Unified OS card, sim-13 = L4 crew pipeline
-                          (sim-13 rendered 1 of 4 lines before this pass; the crew block is now
-                          one multi-line text block and shows the crew title plus 3 lines:
-                          Chief, Developer, Auditor)
-npm run verify:security   10/10 PASS, 0 vulns (npm audit --omit=dev), 125 files in a clean clone
-Web bundle                entry JS chunk 262 kB raw / 67 kB gzip (was 1,756 kB / 498 kB);
-                          Three.js and the 3D glasses load lazily in their own chunk
-modern-web-guidance       legacy-scan on apps/web/src: 0 findings across 25 files
-                          guide "tabs" applied (role=tablist/tab, aria-selected, selected tab
-                          shown with an underline, not color alone); guide
-                          "visually-stable-mixed-fonts" reviewed, not needed (only the period
-                          glyph is swapped)
-
-Live connectors (exact)
-  This run, probed with the demo session:
-    AssemblyAI STT-3.7 + TTS-1: LIVE (660 ms, 45 audio chunks, 6 words)
-    Google Workspace, Notion, Telegram: SANDBOX
-    Claude, OpenRouter, ChatGPT: fell back to Rules (Deterministic)
-  Earlier session at commit 230dd35, with the owner's connected accounts (NOT re-run this session):
-    Google OAuth LIVE 116 ms, Notion LIVE 623 ms, Telegram LIVE 27 ms
-
-Not tested: physical Even G2 glasses and R1 ring. Only the simulator 0.9.5, the Chromium
-geometry gate and the automated suites were run.
-
-Fixed in this pass
-  1. Pixel font drew "." as a plus-shaped cluster ("$0.001" read as "+"); periods now come
-     from a clean bold system sans, and the heading scramble no longer uses "+".
-  2. Studio cut from 8 tabs to 4 workspaces; 60-second guided tour added to the hero.
-  3. Music curator: a bare mood such as "coding" was the literal search term; it now uses
-     tuned queries ("lofi beats" for coding, "ambient study" for deep_focus).
-  4. Telegram getUpdates HTTP 409 (active webhook) now reports a clear message and backs off 5 minutes.
-  5. Local computer bridge on Windows: npm .cmd shims (spawn EINVAL) are skipped and a failing CLI
-     falls back to the built-in planner with a note.
-  6. sim-13 multi-line crew block (see above). 5 new tests added.
-
-Code commit: fd285b6
+CLEAN_ROOM_PASS: ALL 7 GATES EXIT 0 WITH ZERO ENV VARS ON COMMIT 41b9912
