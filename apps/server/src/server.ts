@@ -2379,6 +2379,10 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         }
 
         vault.save(next);
+        // A bot token saved after boot must start the Telegram listener now, not on the next restart.
+        if (next.telegramBotToken && !telegramCentre.isPolling() && !opts.disableProactiveTimer && !isTestEnv) {
+          telegramCentre.startPolling(5000);
+        }
         proactiveHarness.runPulse();
         recordAudit('CONNECTOR_SAVED', `Connector updated cleanly: ${prov}`);
         broadcastSse('corridor', { reason: 'connector_updated' });
