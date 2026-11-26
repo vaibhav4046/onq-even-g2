@@ -20,4 +20,4 @@ Instead of shrinking a cluttered mobile dashboard onto 576x288 monochrome glass,
 - **Zero-Friction Wrap-Up After:** Automatically stages Notion tasks, a follow-up Calendar hold, and a Gmail recap draft behind 4 safety locks (`RMS Silence Gate`, `Default-NO` preview, `2.0s` optical Undo Ring, and `HTTP 409` Conflict Hard-Lock).
 - **Connect Once, Cascade Safely:** Supports Google OAuth 2.0 PKCE, 1-click `.ics` schedules, Notion (`2026-03-11`), Claude, OpenRouter, ChatGPT, and AssemblyAI (`STT-3.7` + `TTS-1`) with automatic failover and zero keys required to try locally.
 
-Verified across **268 automated tests**, **32/32 harness intents (5/5 injection blocks)**, **11/11 Geometry Gate checks**, **13 official EvenHub Simulator 0.9.5 captures**, and **10/10 security audit domains**. (Honest disclosure: physical Even G2 + R1 hardware testing has not been done yet.)
+Verified across **280 automated tests**, **32/32 harness intents (5/5 injection blocks)**, **11/11 Geometry Gate checks**, **13 official EvenHub Simulator 0.9.5 captures**, and **10/10 security audit domains**. (Honest disclosure: physical Even G2 + R1 hardware testing has not been done yet.)

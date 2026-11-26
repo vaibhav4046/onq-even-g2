@@ -80,13 +80,13 @@ Every outbound mutation (Calendar shift, Gmail reply, Notion task write, Telegra
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Unit, HTTP, WebSocket, OAuth suites | `npm test` | `268` tests passing across `30` files |
+| Unit, HTTP, WebSocket, OAuth suites | `npm test` | `280` tests passing across `31` files |
 | AI and safety harness | `npm run eval:harness` | `32/32` intents, `5/5` injections blocked, `3/3` 409 locks, `5/5` RMS silence rejections, `4` failover scenarios |
 | Package | `npm run pack` | `dist/onq.ehpk`, `51,344` bytes, SDK `0.0.16` |
 | Geometry | `npm run verify:geometry` | `11/11` PASS plus the Check 11 negative control (`97.2%` to `97.9%` dark pixels, `<= 260` UTF-8 bytes) |
 | Simulator | `npm run verify:sim` | `13` real EvenHub Simulator `0.9.5` captures (`sim-01..sim-13`); `sim-12` is the Unified OS card, `sim-13` is the L4 crew pipeline (crew title plus Chief, Developer, Auditor; it rendered 1 of 4 lines before the crew block became one multi-line text block) |
 | Security | `npm run verify:security` | `10/10` PASS, `0` vulnerabilities (`npm audit --omit=dev`), `112` files at last run |
-| Web bundle | `npm run build` | Entry JS chunk `252 kB` raw / `64 kB` gzip (was `1,756 kB` / `498 kB`); Three.js and the 3D glasses load lazily |
+| Web bundle | `npm run build` | Entry JS chunk `262 kB` raw / `67 kB` gzip (was `1,756 kB` / `498 kB`); Three.js and the 3D glasses load lazily |
 | Modern web guidance | `legacy-scan` on `apps/web/src` | `0` findings across `25` files; `tabs` guide applied (selected tab shown with an underline, not color alone); `visually-stable-mixed-fonts` reviewed and not needed |
 
 **Live connector status, stated exactly.** In the 2026-11-25 run, probed with the demo session, AssemblyAI `STT-3.7` + `TTS-1` was LIVE (`660 ms`, `45` audio chunks, `6` words). Google Workspace, Notion and Telegram were SANDBOX in that run. Claude, OpenRouter and ChatGPT fell back to Rules (Deterministic). Earlier sessions at commit `230dd35`, with the owner's connected accounts, recorded Google OAuth LIVE `116 ms`, Notion LIVE `623 ms` and Telegram LIVE `27 ms`. That earlier result was not re-run this session.

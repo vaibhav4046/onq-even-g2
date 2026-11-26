@@ -71,13 +71,13 @@ Open `http://127.0.0.1:5173`. Boots immediately in labeled `DEMO` sandbox mode w
 
 | Verification Gate | Exact Command | Observed Result |
 | :--- | :--- | :--- |
-| **Core + Server + Auth + Avatar + Computer Bridge Suite** | `npm test` | **268 tests passing** across 30 files (core, OAuth and auto-discovery, 4-bit Pixel Avatar PNG, Local Computer Bridge, Proactive Self-Harness and Orchestrator, Telegram Bot API incl. the 409 webhook case, music mood queries, multi-line live UI, 4-tier failover, 25x concurrency races) |
+| **Core + Server + Auth + Avatar + Computer Bridge Suite** | `npm test` | **280 tests passing** across 31 files (core, OAuth and auto-discovery, 4-bit Pixel Avatar PNG, Local Computer Bridge, Proactive Self-Harness and Orchestrator, Telegram Bot API incl. the 409 webhook case, music mood queries, multi-line live UI, 4-tier failover, 25x concurrency races) |
 | **Reproducible AI & Safety Harness Eval** | `npm run eval:harness` | **32/32 intents**, **5/5 prompt injections blocked**, **3/3 409 conflict locks**, **5/5 RMS silence rejections**, **4 failover scenarios** (`docs/HARNESS_EVAL.json`) |
 | **11-Check 576x288 Geometry Gate + Negative Control** | `npm run verify:geometry` | **11/11 PASS** plus the Check 11 negative control (`97.2%` to `97.9%` dark pixels, `<= 260` UTF-8 bytes against a 999-byte budget) |
 | **Official EvenHub Simulator 0.9.5 QA** | `npm run verify:sim` | **13 real 576x288 captures** from EvenHub Simulator `0.9.5` (`sim-01..sim-13.png`). `sim-12` is the Unified OS card and `sim-13` is the L4 crew pipeline. `sim-13` used to render 1 of 4 lines; the crew block is now one multi-line text block and shows the crew title plus 3 lines (Chief, Developer, Auditor) |
 | **EvenHub `.ehpk` Packaging** | `npm run pack` | **`dist/onq.ehpk`** (51,344 bytes, SDK `0.0.16`, `min_app_version 2.2.10`) |
 | **Security Audit & Negative HTTP Tests** | `npm run verify:security` | **10/10 PASS**, `npm audit --omit=dev` reports 0 vulnerabilities (112 files scanned at last run; `SECURITY_AUDIT.md`) |
-| **Web bundle size** | `npm run build` | Entry JS chunk **252 kB raw / 64 kB gzip** (was 1,756 kB / 498 kB). Three.js and the 3D glasses load lazily in their own chunk |
+| **Web bundle size** | `npm run build` | Entry JS chunk **262 kB raw / 67 kB gzip** (was 1,756 kB / 498 kB). Three.js and the 3D glasses load lazily in their own chunk |
 | **Modern web guidance scan** | `legacy-scan` on `apps/web/src` | **0 findings across 25 files**. Guide `tabs` applied (`role=tablist` / `tab`, `aria-selected`, selected tab shown with an underline, per the guide: "Do not indicate the selected tab with color alone"). Guide `visually-stable-mixed-fonts` reviewed and not needed, because only the period glyph is swapped |
 
 ### Live connectors, stated exactly

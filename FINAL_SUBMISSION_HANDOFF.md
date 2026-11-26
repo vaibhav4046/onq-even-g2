@@ -3,7 +3,7 @@
 **Project Root:** `C:\Users\lalwa\.gemini\antigravity\scratch\oncue-even-g2`
 **Public Repository:** https://github.com/vaibhav4046/onq-even-g2
 **Live Docs & Privacy Policy:** https://vaibhav4046.github.io/onq-even-g2/ · https://vaibhav4046.github.io/onq-even-g2/privacy.html
-**Hard Safety Stop Enforced:** Full local run on 2026-11-25, every command exit 0: `npm test` (`268` tests across `30` files), `npm run eval:harness` (`32/32` intents, `5/5` injections blocked, `3/3` 409 locks, `5/5` RMS silence rejections, `4` failover scenarios), `npm run pack` (`dist/onq.ehpk`, `51,344` bytes, SDK `0.0.16`), `npm run verify:geometry` (`11/11` plus the Check 11 negative control), `npm run verify:sim` (`13` real EvenHub Simulator `0.9.5` captures, `sim-01..sim-13`), and `npm run verify:security` (`10/10` PASS, `0` vulnerabilities, `112` files at last run). The web entry chunk is `252 kB` raw / `64 kB` gzip, and the `modern-web-guidance` legacy scan found `0` issues across `25` files. **Not done:** physical Even G2 glasses and R1 ring testing (simulator, Chromium geometry gate and automated suites only), and a fresh live-connector run for Google, Notion and Telegram this session (see the connector status below). The pixel-anime film (`1:56`) and the technical walkthrough (`2:05`) are rendered. External DoraHacks / Product Hunt submission and any paid hosting remain unsubmitted for your manual review and final click.
+**Hard Safety Stop Enforced:** Full local run on 2026-11-25, every command exit 0: `npm test` (`280` tests across `31` files), `npm run eval:harness` (`32/32` intents, `5/5` injections blocked, `3/3` 409 locks, `5/5` RMS silence rejections, `4` failover scenarios), `npm run pack` (`dist/onq.ehpk`, `51,344` bytes, SDK `0.0.16`), `npm run verify:geometry` (`11/11` plus the Check 11 negative control), `npm run verify:sim` (`13` real EvenHub Simulator `0.9.5` captures, `sim-01..sim-13`), and `npm run verify:security` (`10/10` PASS, `0` vulnerabilities, `112` files at last run). The web entry chunk is `262 kB` raw / `67 kB` gzip, and the `modern-web-guidance` legacy scan found `0` issues across `25` files. **Not done:** physical Even G2 glasses and R1 ring testing (simulator, Chromium geometry gate and automated suites only), and a fresh live-connector run for Google, Notion and Telegram this session (see the connector status below). The pixel-anime film (`1:56`) and the technical walkthrough (`2:05`) are rendered. External DoraHacks / Product Hunt submission and any paid hosting remain unsubmitted for your manual review and final click.
 
 ---
 
@@ -36,13 +36,13 @@ OnQ boots cold in labeled `DEMO` sandbox mode with zero env vars. To plug in rea
 
 | Artifact | Path | Observed Verification |
 | :--- | :--- | :--- |
-| **Monorepo Source** | `packages/core`, `apps/server`, `apps/glasses`, `apps/web` | `npm ci && npm test && npm run build` passed cold (**268 tests** across **30 files**, all passing) |
+| **Monorepo Source** | `packages/core`, `apps/server`, `apps/glasses`, `apps/web` | `npm ci && npm test && npm run build` passed cold (**280 tests** across **31 files**, all passing) |
 | **Orchestration & Safety Eval** | `docs/HARNESS_EVAL.json` (`npm run eval:harness`) | **32/32 intents**, **5/5 prompt injections blocked**, **3/3 409 locks**, **5/5 RMS silence rejections**, **4 failover scenarios** |
 | **EvenHub G2 Package** | `dist/onq.ehpk` | Packed via `@evenrealities/evenhub-cli@0.2.0` (`51,344` bytes, SDK `0.0.16`, `min_app_version 2.2.10`) |
 | **Official Simulator Captures** | `docs/screenshots/sim-01..13.png` | **13 real 576x288 captures** from `@evenrealities/evenhub-simulator@0.9.5`. `sim-12` is the Unified OS card and `sim-13` is the L4 crew pipeline (crew title plus Chief, Developer and Auditor lines; it showed only 1 of 4 lines before this pass) |
 | **11-Check Geometry Gate** | `scripts/verify-geometry.mjs` + `docs/screenshots/geometry-*.png` | `11/11` PASS across all lens states (`97.2%` to `97.9%` dark pixels, `<= 260` UTF-8 bytes) plus the Check 11 negative control |
 | **Security Audit Report** | `SECURITY_AUDIT.md` (`scripts/security-scan.mjs`) | `10/10` domains PASS (`0` High/Critical findings, `npm audit --omit=dev`: `0` vulnerabilities, `112` files scanned at last run) |
-| **Web Bundle & Modern Web Guidance** | `apps/web` (`npm run build`), `legacy-scan` on `apps/web/src` | Entry JS chunk `252 kB` raw / `64 kB` gzip (was `1,756 kB` / `498 kB`); Three.js and the 3D glasses load lazily. Legacy scan: `0` findings across `25` files |
+| **Web Bundle & Modern Web Guidance** | `apps/web` (`npm run build`), `legacy-scan` on `apps/web/src` | Entry JS chunk `262 kB` raw / `67 kB` gzip (was `1,756 kB` / `498 kB`); Three.js and the 3D glasses load lazily. Legacy scan: `0` findings across `25` files |
 | **Hackathon Rubric Audit** | `docs/HACKATHON_RUBRIC_AUDIT.md` | Full rubric-to-implementation & evidence map for Even Realities × TVM Ventures × Daos Hub (DoraHacks) |
 | **Live GitHub Pages & Privacy** | `docs/index.html`, `docs/privacy.html`, `docs/terms.html` | Hosted at `https://vaibhav4046.github.io/onq-even-g2/` and `https://vaibhav4046.github.io/onq-even-g2/privacy.html` |
 | **TVM Ventures Pitch Deck** | `docs/TVM_PITCH_DECK.md` | 10-slide Demo Day pitch deck mapped to judging weights + Dual-Track Track 04 / Telegram live script |
@@ -65,7 +65,7 @@ OnQ boots cold in labeled `DEMO` sandbox mode with zero env vars. To plug in rea
 6. **Telegram 409:** `getUpdates` against an active webhook now reports "Webhook active on Telegram bot. Clear the webhook (deleteWebhook) or use the webhook endpoint instead of polling. HTTP 409" and backs off 5 minutes.
 7. **Local computer bridge on Windows:** npm `.cmd` shims (such as `claude.cmd`) failed with `spawn EINVAL`. Shims are now skipped and a failing CLI falls back to the built-in planner with a note.
 8. **sim-13 fix:** the crew block rendered 1 of 4 lines; it is now one multi-line text block and shows the crew title plus 3 lines. `sim-12` (Unified OS card) and `sim-13` (L4 crew pipeline) bring the total to 13 captures.
-9. **Web bundle:** entry JS chunk cut from `1,756 kB` / `498 kB` gzip to `252 kB` / `64 kB`; Three.js and the 3D glasses load lazily.
+9. **Web bundle:** entry JS chunk cut from `1,756 kB` / `498 kB` gzip to `262 kB` / `67 kB`; Three.js and the 3D glasses load lazily.
 10. **Modern web guidance:** `tabs` guide applied (`role=tablist` / `tab`, `aria-selected`, underline for the selected tab; the guide says "Do not indicate the selected tab with color alone"); `visually-stable-mixed-fonts` reviewed and not needed. Legacy scan: `0` findings across `25` files.
 11. **Track 04 positioning:** hero, default corridor cards, walkthrough and README lead with Google Workspace, Notion, Telegram, Claude / ChatGPT / OpenRouter and AssemblyAI voice. Music, market signals, PC tools and YouTube scouting are optional local skills. Grok and OmniRoute are optional model routes and are not pitched.
 12. **Tests:** 5 new tests (multi-line live UI, Telegram 409 x2, music mood x2).
@@ -101,13 +101,13 @@ npm run dev
 Open http://127.0.0.1:5173 for a 60-second guided tour (Confirm and undo, Double-booking lock, Morning crew), the interactive 3D Even G2 stage, the 576x288 Browser Optical Simulator, and the Connectors Hub with the AI Orchestrator (`Claude / ChatGPT / OpenRouter`, Rules fallback). The studio has 3 workspaces: Glasses Live, Personal OS and Meeting Scribe. Or sideload dist/onq.ehpk in Even Hub.
 
 ## Verified, Not Claimed
-- npm test: 268 tests passing across 30 files (core, PKCE OAuth, 4-bit Pixel Avatar, Proactive Agent, AI Orchestrator, Local Computer Bridge, Telegram Bot API including the 409 webhook case, music mood queries, multi-line live UI, 4-tier failover, 25x concurrency races, WS/AssemblyAI, Postgres, fault-injection tests, 0 keys required)
+- npm test: 280 tests passing across 31 files (core, PKCE OAuth, 4-bit Pixel Avatar, Proactive Agent, AI Orchestrator, Local Computer Bridge, Telegram Bot API including the 409 webhook case, music mood queries, multi-line live UI, 4-tier failover, 25x concurrency races, WS/AssemblyAI, Postgres, fault-injection tests, 0 keys required)
 - Reproducible Harness Eval (npm run eval:harness -> docs/HARNESS_EVAL.json): 32/32 intents, 5/5 prompt injections blocked, 3/3 HTTP 409 conflict locks, 5/5 RMS silence rejections, 4 failover scenarios
 - Geometry Gate (npm run verify:geometry): 11/11 PASS across all lens states plus the Check 11 negative control (97.2% to 97.9% dark pixels, <= 260 UTF-8 bytes)
 - 13 real 576x288 captures in @evenrealities/evenhub-simulator@0.9.5 (sim-01..sim-13.png), including the Unified OS card (sim-12) and the L4 crew pipeline (sim-13, now shows the crew title plus Chief, Developer and Auditor lines)
 - Package: dist/onq.ehpk, 51,344 bytes, SDK 0.0.16
 - Security (npm run verify:security): 10/10 PASS, npm audit --omit=dev reports 0 vulnerabilities (112 files scanned at last run)
-- Web bundle: entry JS chunk 252 kB raw / 64 kB gzip (was 1,756 kB / 498 kB); modern-web-guidance legacy scan: 0 findings across 25 files
+- Web bundle: entry JS chunk 262 kB raw / 67 kB gzip (was 1,756 kB / 498 kB); modern-web-guidance legacy scan: 0 findings across 25 files
 - Live connectors, exact: in the 2026-11-25 run with the demo session, AssemblyAI STT-3.7 + TTS-1 was LIVE (660 ms, 45 audio chunks, 6 words); Google Workspace, Notion and Telegram were SANDBOX; Claude, OpenRouter and ChatGPT fell back to Rules (Deterministic). An earlier session at commit 230dd35 with the owner's connected accounts recorded Google OAuth LIVE 116 ms, Notion LIVE 623 ms, Telegram LIVE 27 ms (earlier session, not re-run this session)
 
 ## Honest Limits & Pre-Nov 23 Disclosure
