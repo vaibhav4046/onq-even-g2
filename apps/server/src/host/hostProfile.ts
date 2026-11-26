@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { MetricStep } from '../harness/metricsLedger.js';
+import type { InferenceMode } from '../harness/modelRouter.js';
 import type { ProviderScanResult, ScannedProvider } from '../providers/providerScanner.js';
 import type { PublicDevice } from './hostRegistry.js';
 import type { BreakerState } from '../harness/syncWorker.js';
@@ -138,6 +139,9 @@ export function detectChrome(deps: ChromeProbeDeps): boolean {
 
 export const UNIFIED_COMMANDS: ReadonlyArray<{ command: string; usage: string }> = [
   { command: '/status', usage: '/status' },
+  { command: '/apps', usage: '/apps' },
+  { command: '/inference', usage: '/inference <computer|api|auto>' },
+  { command: '/use', usage: '/use <app>' },
   { command: '/calendar', usage: '/calendar' },
   { command: '/inbox', usage: '/inbox' },
   { command: '/browse', usage: '/browse <goal>' },
@@ -163,7 +167,12 @@ export interface HostProfileInput {
   revision: number;
   locked: boolean;
   scan: ProviderScanResult | null;
-  routing: { preferredLlm: string; preferredModel: string | null; active: { id: string; model: string | null; label: string } };
+  routing: {
+    inferenceMode: InferenceMode;
+    preferredLlm: string;
+    preferredModel: string | null;
+    active: { id: string; model: string | null; label: string };
+  };
   agents: Array<{ id: string; name: string; maxAutonomy: string }>;
   skills: Array<{ id: string; name: string; triggerCommand: string; approvalRule: string }>;
   browser: BrowserAvailability;

@@ -52,7 +52,9 @@ export function ThisComputerPanel({
         </div>
         {meta && <span className="text-[11px] text-[var(--lightgray)]">{meta}</span>}
       </div>
-      <p className="text-[12px] text-[var(--bright)]/90">Everything below runs on this computer. Your glasses only display and listen.</p>
+      <p className="text-[12px] text-[var(--bright)]/90">
+        This computer is your main AI host. Every AI app &amp; agent here mirrors to your glasses and can be controlled from your glasses. Cloud API keys are optional.
+      </p>
 
       {!profile.available && !profile.loading && (
         <p className="text-[11px] text-[var(--lightgray)]" role="status">
@@ -79,7 +81,15 @@ export function ThisComputerPanel({
       {missing > 0 && <p className="text-[10px] text-[var(--lightgray)]">{missing} more checked, not installed.</p>}
       {view?.routing && (
         <p className="text-[11px] text-[var(--lightgray)]">
-          Routing: {view.routing.preferredLlm}
+          Inference host:{' '}
+          <span className="text-[var(--bright)] font-medium">
+            {view.routing.inferenceMode === 'computer'
+              ? 'Hosted on this computer (main)'
+              : view.routing.inferenceMode === 'api'
+                ? 'API (optional)'
+                : 'Auto (computer + API)'}
+          </span>
+          {' · '}Routing: {view.routing.preferredLlm}
           {view.routing.preferredModel ? ` / ${view.routing.preferredModel}` : ''}
         </p>
       )}

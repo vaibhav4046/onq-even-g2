@@ -5,6 +5,7 @@
 
 export type SourceId = 'calendar' | 'gmail' | 'notion' | 'telegram';
 export type SourceMode = 'auto' | 'computer' | 'api';
+export type InferenceMode = 'computer' | 'api' | 'auto';
 export type Effective = 'api' | 'browser' | 'sample' | 'off';
 
 export const SOURCE_IDS: readonly SourceId[] = ['calendar', 'gmail', 'notion', 'telegram'];
@@ -35,7 +36,7 @@ export interface HostView {
   name: string | null;
   platform: string | null;
   uptimeSec: number | null;
-  routing: { preferredLlm: string; preferredModel: string | null } | null;
+  routing: { inferenceMode: InferenceMode; preferredLlm: string; preferredModel: string | null } | null;
   harnesses: HarnessView[];
   dataSources: Array<{ id: SourceId; effective: Effective; reason: string }>;
 }
@@ -85,11 +86,13 @@ export function normalizeProfile(raw: unknown): HostView | null {
       const effective = d.mode ?? d.effective;
       return isSourceId(id) && isEffective(effective) ? [{ id, effective, reason: str(d.evidence) ?? str(d.reason) ?? '' }] : [];
     });
+  const infRaw = routing?.inferenceMode;
+  const inferenceMode: InferenceMode = infRaw === 'computer' || infRaw === 'api' || infRaw === 'auto' ? infRaw : 'auto';
   return {
     name: str(host.name),
     platform: str(host.platform),
     uptimeSec: num(host.uptimeSec),
-    routing: routing ? { preferredLlm: str(routing.preferredLlm) ?? 'auto', preferredModel: str(routing.preferredModel) } : null,
+    routing: routing ? { inferenceMode, preferredLlm: str(routing.preferredLlm) ?? 'auto', preferredModel: str(routing.preferredModel) } : null,
     harnesses,
     dataSources,
   };

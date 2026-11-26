@@ -473,6 +473,52 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
       });
       return null;
     }
+    if (opt?.commandText === '__OS_COMPUTER_APPS__') {
+      const { data: appsRes } = await apiJson<{ g2Lines?: string[] }>('/api/os/command', {
+        method: 'POST',
+        body: JSON.stringify({ text: '/apps', surface: 'glasses' }),
+      });
+      if (appsRes.g2Lines?.length) {
+        controller.showAnswer(appsRes.g2Lines);
+      }
+      return null;
+    }
+    if (opt?.commandText === '__OS_TOGGLE_INFERENCE__') {
+      const nextMode = /LOCAL/i.test(card.provenanceLabel ?? '') ? 'api' : 'computer';
+      const { data: infRes } = await apiJson<{ g2Lines?: string[] }>('/api/os/command', {
+        method: 'POST',
+        body: JSON.stringify({ text: `/inference ${nextMode}`, surface: 'glasses' }),
+      });
+      const { data: corr } = await apiJson<{
+        cards: CorridorCard[];
+        sourceMode: SourceMode;
+        provenanceLabel: string;
+        syncedAtIso: string;
+      }>('/api/corridor');
+      controller.setCorridor(corr.cards, corr.sourceMode, corr.provenanceLabel, corr.syncedAtIso);
+      if (infRes.g2Lines?.length) {
+        controller.showAnswer(infRes.g2Lines);
+      }
+      return null;
+    }
+    if (opt?.commandText?.startsWith('__OS_USE_AI__:')) {
+      const targetId = opt.commandText.slice('__OS_USE_AI__:'.length);
+      const { data: useRes } = await apiJson<{ g2Lines?: string[] }>('/api/os/command', {
+        method: 'POST',
+        body: JSON.stringify({ text: `/use ${targetId}`, surface: 'glasses' }),
+      });
+      const { data: corr } = await apiJson<{
+        cards: CorridorCard[];
+        sourceMode: SourceMode;
+        provenanceLabel: string;
+        syncedAtIso: string;
+      }>('/api/corridor');
+      controller.setCorridor(corr.cards, corr.sourceMode, corr.provenanceLabel, corr.syncedAtIso);
+      if (useRes.g2Lines?.length) {
+        controller.showAnswer(useRes.g2Lines);
+      }
+      return null;
+    }
     if (opt?.commandText === '__OS_RUN_PIPELINE__') {
       const { data: pipeRes } = await apiJson<{ run?: { g2Lines?: string[] } }>('/api/os/pipeline/run', {
         method: 'POST',
@@ -630,7 +676,7 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
     }
     if (
       stt.transcript.startsWith('/') ||
-      /\b(kill switch|pause all|resume os|curate music|focus music|run crew|specialist crew)\b/i.test(
+      /\b(kill switch|pause all|resume os|curate music|focus music|run crew|specialist crew|computer apps|pc apps|my ai apps|list ai apps|switch to computer|switch to api|switch to auto|use computer|use api|use claude|use codex|use gemini|use ollama|use opencode|ask claude|ask codex|ask gemini|ask ollama|ask computer)\b/i.test(
         stt.transcript,
       )
     ) {

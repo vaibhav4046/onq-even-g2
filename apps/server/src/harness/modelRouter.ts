@@ -30,6 +30,8 @@ export type RemoteProviderId = 'claude' | 'openrouter' | 'chatgpt' | 'grok' | 'o
 /** Local subscription CLIs and local model servers (no API key). */
 export type LocalProviderId = 'claude_cli' | 'opencode_cli' | 'codex_cli' | 'gemini_cli' | 'ollama' | 'lmstudio';
 export const LOCAL_PROVIDER_IDS: readonly LocalProviderId[] = ['claude_cli', 'opencode_cli', 'codex_cli', 'gemini_cli', 'ollama', 'lmstudio'];
+export type InferenceMode = 'computer' | 'api' | 'auto';
+export const INFERENCE_MODES: readonly InferenceMode[] = ['computer', 'api', 'auto'];
 export type PreferredLlmProvider = 'auto' | 'rules' | RemoteProviderId | LocalProviderId;
 export const PREFERRED_LLM_PROVIDERS: readonly PreferredLlmProvider[] = [
   'auto', 'rules', 'claude', 'openrouter', 'chatgpt', 'grok', 'omniroute', ...LOCAL_PROVIDER_IDS,
@@ -98,6 +100,8 @@ export interface LlmConfig {
   omniRouteUrl?: string;
   omniRouteKey?: string;
   omniRouteModel?: string;
+  /** Which inference lane is allowed: 'computer' (local CLIs/servers only), 'api' (cloud API keys only), or 'auto' (both). */
+  inferenceMode?: InferenceMode;
   preferredProvider?: PreferredLlmProvider;
   /** Model picked for the preferred provider (from select-model). */
   preferredModel?: string;
@@ -191,11 +195,21 @@ function getProviderOrder(
   return ['claude', 'openrouter', 'chatgpt', 'grok', 'omniroute'];
 }
 
-/** Try order: an explicit pick first, then API-key providers as before, then local CLIs / servers, then Rules. */
+/**
+ * Try order respects `cfg.inferenceMode`:
+ * - 'computer': local subscription CLIs / local servers on this PC only (zero cloud API calls).
+ * - 'api': cloud API-key providers only.
+ * - 'auto' (default): explicit pick first, then API-key providers, then local CLIs / servers, then Rules.
+ */
 function buildCandidateOrder(cfg: LlmConfig, preferred: PreferredLlmProvider): Array<RemoteProviderId | LocalProviderId> {
-  const remote = getProviderOrder(preferred);
+  const mode: InferenceMode = cfg.inferenceMode ?? 'auto';
   const present = new Set((cfg.localProviders ?? []).map((l) => l.id));
   const locals = LOCAL_PROVIDER_IDS.filter((id) => present.has(id) && id !== preferred);
+  if (mode === 'computer') {
+    return isLocalProvider(preferred) && present.has(preferred) ? [preferred, ...locals] : locals;
+  }
+  const remote = getProviderOrder(preferred);
+  if (mode === 'api') return remote;
   return isLocalProvider(preferred) ? [preferred, ...remote, ...locals] : [...remote, ...locals];
 }
 

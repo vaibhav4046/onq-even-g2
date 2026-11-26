@@ -5,8 +5,8 @@ import { clipLine42 } from '@onq/core';
 import type { CorridorCard, LiveUiSurface, SourceMode } from '@onq/core';
 import type { WorkspaceSnapshot } from '../providers/types.js';
 import type { SafeInspectKind, SafeInspectResult } from '../providers/localComputerBridge.js';
-import type { LlmConfig } from './modelRouter.js';
-import { orchestrateStructuredJson } from './modelRouter.js';
+import type { InferenceMode, LlmConfig, PreferredLlmProvider } from './modelRouter.js';
+import { INFERENCE_MODES, orchestrateStructuredJson } from './modelRouter.js';
 import type { MetricsLedger } from './metricsLedger.js';
 import type { CitedKnowledgeEngine } from './ragEngine.js';
 import type { MarketResearchBotEngine } from './marketBotEngine.js';
@@ -291,6 +291,27 @@ export interface UnifiedOsHarnessDeps {
   onKillSwitchChanged?: (paused: boolean) => void;
   /** Starts a task in the user's own browser on this PC (see browserAgent.ts). */
   startBrowserTask?: (goal: string, surface: 'web' | 'glasses' | 'telegram') => { ok: boolean; id?: string; error?: string };
+  /** Computer-hosted AI apps/agents & inference route control (mirrors to Even G2 glasses). */
+  computerHost?: {
+    getHostApps: () => {
+      inferenceMode: InferenceMode;
+      active: { id: string; label: string; model: string | null };
+      apps: Array<{ id: string; name: string; kind: string; status: string; selectable: boolean }>;
+    };
+    setInferenceMode: (mode: InferenceMode) => Promise<{
+      ok: boolean;
+      inferenceMode: InferenceMode;
+      activeLabel: string;
+      error?: string;
+    }>;
+    selectAiApp: (query: string) => Promise<{
+      ok: boolean;
+      providerId?: string;
+      activeLabel: string;
+      inferenceMode: InferenceMode;
+      error?: string;
+    }>;
+  };
   onBroadcast: (event: string, data: unknown) => void;
   onAudit: (detail: string, level?: 'COMMAND' | 'APPROVAL' | 'PIPELINE' | 'KILL_SWITCH' | 'ROUTINE') => void;
   fetchImpl?: typeof fetch;
@@ -489,6 +510,9 @@ const PRIVILEGED_TELEGRAM_COMMANDS = new Set([
   '/code',
   '/settings',
   '/browse',
+  '/apps',
+  '/inference',
+  '/use',
 ]);
 
 interface PersistedOsState {
@@ -1668,6 +1692,207 @@ export class UnifiedOsHarness {
           clipLine42(`LLM: ${this.deps.getSummary().activeLlmProvider}`),
         ],
         recommendedTab: 'os',
+      });
+    }
+
+    // 14b. /apps | /computer -> mirror computer-hosted AI apps & agents onto glasses
+    if (
+      cmd === '/apps' ||
+      cmd === '/computer' ||
+      /\b(computer apps|pc apps|my ai apps|list ai apps|what ai apps|show agents)\b/i.test(raw)
+    ) {
+      const host = this.deps.computerHost?.getHostApps() ?? {
+        inferenceMode: 'auto' as InferenceMode,
+        active: { id: 'rules', label: this.deps.getSummary().activeLlmProvider, model: null },
+        apps: [],
+      };
+      const localApps = host.apps.filter((a) => a.kind !== 'api_key');
+      const readyLocal = localApps.filter((a) => a.status === 'connected');
+      const apiReady = host.apps.filter((a) => a.kind === 'api_key' && a.status === 'connected');
+      const modeTag =
+        host.inferenceMode === 'computer'
+          ? 'COMPUTER (HOSTED)'
+          : host.inferenceMode === 'api'
+            ? 'API (OPTIONAL)'
+            : 'AUTO (PC + API)';
+      const appSummary =
+        localApps.length > 0
+          ? localApps
+              .slice(0, 4)
+              .map((a) => `${a.name} (${a.status})`)
+              .join(', ')
+          : 'No local CLI/server scanned yet';
+      const snap = this.getState();
+      const readyShort = readyLocal.map((a) => a.id.replace('_cli', '').toUpperCase()).join(',') || 'NONE';
+      return recordOutcome({
+        ok: true,
+        command: '/apps',
+        domain: 'COMPUTER_APPS',
+        specialistId: 'developer',
+        autonomyLevel: 'L0_EXPLAIN',
+        reply: `Host inference: ${modeTag} | Active: ${host.active.label} | PC AI apps (${readyLocal.length} ready): ${appSummary} | API keys ready: ${apiReady.length} | OS agents: ${snap.roster.length}.`,
+        g2Lines: [
+          clipLine42(`PC HOST: ${modeTag}`),
+          clipLine42(`AI: ${host.active.label}`),
+          clipLine42(`PC APPS (${readyLocal.length}): ${readyShort}`),
+          clipLine42(`API OPT: ${apiReady.length} | CREW: ${snap.roster.length} AGENTS`),
+        ],
+        recommendedTab: 'computer',
+      });
+    }
+
+    // 14c. /inference <computer|api|auto> -> switch hosted computer inference vs optional API inference from glasses/web
+    const infVoiceMatch = raw.match(/\b(?:use|switch(?:\s+to)?)\s+(computer|local|pc|hosted|api|auto)(?:\s+(?:ai|inference|mode|keys?))?\b/i);
+    if (cmd === '/inference' || cmd === '/host' || infVoiceMatch) {
+      const token = (cmd === '/inference' || cmd === '/host' ? arg : infVoiceMatch?.[1] ?? '').trim().toLowerCase();
+      const resolved: InferenceMode | null =
+        token === 'computer' || token === 'local' || token === 'pc' || token === 'hosted'
+          ? 'computer'
+          : token === 'api' || token === 'cloud'
+            ? 'api'
+            : token === 'auto'
+              ? 'auto'
+              : null;
+      if (!resolved || !INFERENCE_MODES.includes(resolved)) {
+        return recordOutcome({
+          ok: false,
+          command: '/inference',
+          domain: 'INFERENCE_MODE',
+          specialistId: 'auditor',
+          autonomyLevel: 'L0_EXPLAIN',
+          reply: 'Specify inference route: /inference computer | /inference api | /inference auto',
+          g2Lines: ['USE: /inference computer', 'OR:  /inference api', 'OR:  /inference auto'],
+          recommendedTab: 'computer',
+        });
+      }
+      if (!this.deps.computerHost) {
+        return recordOutcome({
+          ok: false,
+          command: '/inference',
+          domain: 'INFERENCE_MODE',
+          specialistId: 'auditor',
+          autonomyLevel: 'L0_EXPLAIN',
+          reply: 'Computer host routing control is unavailable on this server instance.',
+          g2Lines: ['HOST CONTROL UNAVAILABLE'],
+          recommendedTab: 'computer',
+        });
+      }
+      const res = await this.deps.computerHost.setInferenceMode(resolved);
+      const label =
+        res.inferenceMode === 'computer'
+          ? 'COMPUTER (HOSTED)'
+          : res.inferenceMode === 'api'
+            ? 'API (OPTIONAL)'
+            : 'AUTO (PC + API)';
+      return recordOutcome({
+        ok: res.ok,
+        command: `/inference ${resolved}`,
+        domain: 'INFERENCE_MODE',
+        specialistId: 'developer',
+        autonomyLevel: 'L1_PREPARE',
+        reply: res.ok
+          ? `Inference route switched to ${label}. Active AI: ${res.activeLabel}.`
+          : res.error ?? 'Could not switch inference mode.',
+        g2Lines: res.ok
+          ? [clipLine42(`INF: ${label}`), clipLine42(`ACTIVE: ${res.activeLabel}`), 'Mirrored to Even G2 lenses']
+          : ['INFERENCE SWITCH FAILED', clipLine42(res.error ?? 'Check computer host')],
+        recommendedTab: 'computer',
+      });
+    }
+
+    // 14d. /use <app> -> select a computer AI app or optional API provider from glasses/web
+    const useVoiceMatch = raw.match(/\b(?:use|switch(?:\s+to)?)\s+(claude(?:\s+code)?|codex|gemini|opencode|ollama|lm\s*studio|openrouter|chatgpt|grok|omniroute|rules)\b/i);
+    if (cmd === '/use' || useVoiceMatch) {
+      const target = (cmd === '/use' ? arg : useVoiceMatch?.[1] ?? '').trim();
+      if (!target || !this.deps.computerHost) {
+        return recordOutcome({
+          ok: false,
+          command: '/use',
+          domain: 'COMPUTER_APPS',
+          specialistId: 'developer',
+          autonomyLevel: 'L0_EXPLAIN',
+          reply: target
+            ? 'Computer host AI switching is unavailable.'
+            : 'Specify app: /use claude, /use codex, /use gemini, /use ollama, /use openrouter, or /use rules',
+          g2Lines: ['USE: /use claude | ollama', 'OR: /use codex | gemini', 'OR: /use openrouter (API)'],
+          recommendedTab: 'computer',
+        });
+      }
+      const res = await this.deps.computerHost.selectAiApp(target);
+      return recordOutcome({
+        ok: res.ok,
+        command: `/use ${target}`,
+        domain: 'COMPUTER_APPS',
+        specialistId: 'developer',
+        autonomyLevel: 'L1_PREPARE',
+        reply: res.ok
+          ? `Active AI switched to ${res.activeLabel} (route: ${res.inferenceMode}).`
+          : res.error ?? `Could not switch to ${target}.`,
+        g2Lines: res.ok
+          ? [clipLine42(`USING: ${res.activeLabel}`), clipLine42(`ROUTE: ${res.inferenceMode.toUpperCase()}`), 'Ready on Even G2']
+          : [clipLine42(`APP NOT READY: ${target}`), clipLine42(res.error ?? 'Scan on computer first')],
+        recommendedTab: 'computer',
+      });
+    }
+
+    // 14e. /run <app> <prompt> or "ask <app> to <prompt>" -> run prompt through a specific computer AI app
+    const runMatch =
+      cmd === '/run'
+        ? arg.match(/^([a-z0-9_.-]+)\s+([\s\S]+)$/i)
+        : raw.match(/\bask\s+(claude|codex|gemini|opencode|ollama|lm ?studio|openrouter|chatgpt|grok|computer|pc)\s+(?:to\s+)?([\s\S]+)$/i);
+    if (runMatch) {
+      const alias = runMatch[1].toLowerCase().replace(/\s+/g, '');
+      const subPrompt = runMatch[2].trim();
+      const aliasMap: Record<string, PreferredLlmProvider> = {
+        claude: 'claude_cli',
+        claude_cli: 'claude_cli',
+        codex: 'codex_cli',
+        codex_cli: 'codex_cli',
+        gemini: 'gemini_cli',
+        gemini_cli: 'gemini_cli',
+        opencode: 'opencode_cli',
+        opencode_cli: 'opencode_cli',
+        ollama: 'ollama',
+        lmstudio: 'lmstudio',
+        openrouter: 'openrouter',
+        chatgpt: 'chatgpt',
+        grok: 'grok',
+      };
+      const baseCfg = this.deps.getLlmConfig();
+      const targetProvider = aliasMap[alias];
+      const targetCfg: LlmConfig = targetProvider
+        ? {
+            ...baseCfg,
+            preferredProvider: targetProvider,
+            inferenceMode: targetProvider === 'openrouter' || targetProvider === 'chatgpt' || targetProvider === 'grok' ? 'api' : 'computer',
+          }
+        : baseCfg;
+      const runOut = await orchestrateStructuredJson<{ reply: string }>(
+        {
+          systemPrompt: 'You are an AI app hosted on the owner computer, answering concisely for Even G2 smart glasses. Return strict JSON {"reply":"<=200 chars"}.',
+          userPrompt: subPrompt,
+          fallbackJson: { reply: `Completed on PC host (${alias}): "${subPrompt.slice(0, 80)}"` },
+          validate: (v) => {
+            if (!v || typeof v !== 'object') return null;
+            const r = (v as { reply?: unknown }).reply;
+            return typeof r === 'string' && r.trim() ? { reply: r.trim().slice(0, 240) } : null;
+          },
+        },
+        targetCfg,
+      );
+      return recordOutcome({
+        ok: true,
+        command: `/run ${alias}`,
+        domain: 'COMPUTER_APPS',
+        specialistId: 'developer',
+        autonomyLevel: 'L1_PREPARE',
+        reply: runOut.data.reply,
+        g2Lines: [
+          clipLine42(`AI: ${runOut.providerLabel}`),
+          clipLine42(runOut.data.reply.slice(0, 42)),
+          clipLine42(runOut.data.reply.slice(42, 84) || 'Hosted on your computer'),
+        ],
+        recommendedTab: 'computer',
       });
     }
 

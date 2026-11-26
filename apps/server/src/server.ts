@@ -90,12 +90,15 @@ import {
 import {
   clearProviderCooldowns,
   getProviderHealthStatus,
+  INFERENCE_MODES,
+  LOCAL_PROVIDER_IDS,
   orchestrateStructuredJson,
   PREFERRED_LLM_PROVIDERS,
   resolveActiveProvider,
   resolveHealthyLlmLabel,
   routeModelCompletion,
 } from './harness/modelRouter.js';
+import type { InferenceMode } from './harness/modelRouter.js';
 import { findCliBinary, ProviderScanner, publicProviders } from './providers/providerScanner.js';
 import type { ScannerDeps } from './providers/providerScanner.js';
 import { AgentTaskEngine } from './harness/agentTaskEngine.js';
@@ -446,6 +449,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       omniRouteUrl: opts.llmConfig?.omniRouteUrl ?? creds.omniRouteUrl ?? process.env.OMNIROUTE_BASE_URL,
       omniRouteKey: opts.llmConfig?.omniRouteKey ?? creds.omniRouteKey ?? process.env.OMNIROUTE_API_KEY,
       omniRouteModel: opts.llmConfig?.omniRouteModel ?? creds.omniRouteModel ?? process.env.OMNIROUTE_MODEL,
+      inferenceMode: opts.llmConfig?.inferenceMode ?? creds.inferenceMode ?? 'auto',
       preferredProvider: overrideProvider ?? opts.llmConfig?.preferredProvider ?? creds.preferredLlm ?? 'auto',
       timeoutMs: opts.llmConfig?.timeoutMs,
       fetchImpl: opts.llmConfig?.fetchImpl ?? opts.fetchImpl,
@@ -467,6 +471,120 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
   function resolveAssemblyAiKey(): string | undefined {
     const creds = vault.load();
     return creds.assemblyAiKey ?? process.env.ASSEMBLYAI_API_KEY;
+  }
+
+  const isLocalProviderId = (id: string): boolean => (LOCAL_PROVIDER_IDS as readonly string[]).includes(id);
+
+  function getComputerHostSnapshot() {
+    const creds = vault.load();
+    const scan = providerScanner.peek();
+    const llmCfg = resolveLlmConfig();
+    const active = resolveActiveProvider(llmCfg);
+    const apps = scan
+      ? publicProviders(scan.providers).map((p) => ({
+          id: p.id,
+          name: p.name,
+          kind: p.kind,
+          status: p.state,
+          selectable: p.selectable,
+        }))
+      : detectLocalComputerTools()
+          .filter((t) => ['claude_cli', 'codex_cli', 'gemini_cli', 'ollama'].includes(t.id))
+          .map((t) => ({
+            id: t.id,
+            name: t.name,
+            kind: t.id === 'ollama' ? 'local_server' : 'local_cli',
+            status: t.installed ? 'connected' : 'not_installed',
+            selectable: t.installed,
+          }));
+    return {
+      inferenceMode: (creds.inferenceMode ?? 'auto') as InferenceMode,
+      active,
+      apps,
+    };
+  }
+
+  async function applyHostInferenceControl(input: {
+    inferenceMode?: InferenceMode;
+    provider?: string;
+    model?: string;
+  }): Promise<
+    | {
+        ok: true;
+        inferenceMode: InferenceMode;
+        preferredProvider: PreferredLlmProvider;
+        preferredModel: string | null;
+        activeProvider: string;
+        activeModel: string | null;
+        activeLabel: string;
+      }
+    | { ok: false; error: string }
+  > {
+    const next = { ...vault.load() };
+    const provider = (input.provider ?? '').trim();
+    const model = (input.model ?? '').trim();
+
+    if (input.inferenceMode) {
+      next.inferenceMode = input.inferenceMode;
+      if (!provider) {
+        const cur = next.preferredLlm ?? 'auto';
+        if (input.inferenceMode === 'computer' && cur !== 'auto' && cur !== 'rules' && !isLocalProviderId(cur)) {
+          next.preferredLlm = 'auto';
+          delete next.preferredModel;
+        }
+        if (input.inferenceMode === 'api' && isLocalProviderId(cur)) {
+          next.preferredLlm = 'auto';
+          delete next.preferredModel;
+        }
+      }
+    }
+
+    if (provider) {
+      if (provider === 'auto' || provider === 'rules') {
+        next.preferredLlm = provider;
+        delete next.preferredModel;
+      } else {
+        const scan = providerScanner.cached() ?? (await providerScanner.scan());
+        const found = scan.providers.find((p) => p.id === provider);
+        if (!found || !(PREFERRED_LLM_PROVIDERS as readonly string[]).includes(provider)) {
+          return { ok: false, error: 'Unknown provider. Rescan, then pick one from the list.' };
+        }
+        if (found.state !== 'connected' || !found.selectable) {
+          return { ok: false, error: `${found.name} is not ready: ${found.fixHint || found.detail}` };
+        }
+        const chosen = model || found.defaultModel || '';
+        if (!found.models.some((m) => m.id === chosen)) {
+          return { ok: false, error: `${found.name} does not offer model "${chosen.slice(0, 80)}". Rescan to refresh models.` };
+        }
+        next.preferredLlm = provider as PreferredLlmProvider;
+        next.preferredModel = chosen;
+        if (provider === 'openrouter') next.openRouterModel = chosen;
+        if (provider === 'omniroute') next.omniRouteModel = chosen;
+        if (!input.inferenceMode) {
+          if (isLocalProviderId(provider) && next.inferenceMode === 'api') next.inferenceMode = 'computer';
+          if (!isLocalProviderId(provider) && next.inferenceMode === 'computer') next.inferenceMode = 'api';
+        }
+      }
+    }
+
+    vault.save(next, { allowShrink: true });
+    clearProviderCooldowns();
+    recordAudit(
+      'CONNECTOR_SAVED',
+      `Model selected: ${next.inferenceMode ?? 'auto'} / ${next.preferredLlm ?? 'auto'}${next.preferredModel ? ` / ${next.preferredModel}` : ''}`,
+    );
+    syncHost();
+    broadcastSse('corridor', { reason: 'orchestrator_updated' });
+    const active = resolveActiveProvider(resolveLlmConfig());
+    return {
+      ok: true,
+      inferenceMode: next.inferenceMode ?? 'auto',
+      preferredProvider: next.preferredLlm ?? 'auto',
+      preferredModel: next.preferredModel ?? null,
+      activeProvider: active.id,
+      activeModel: active.model,
+      activeLabel: active.label,
+    };
   }
 
   function parseGoogleOAuthJson(raw: string): { clientId: string; clientSecret: string } {
@@ -911,6 +1029,42 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     startBrowserTask: (goal, surface) => {
       const res = browserAgent.start(goal, surface);
       return { ok: res.ok, id: res.run?.id, error: res.error };
+    },
+    computerHost: {
+      getHostApps: () => getComputerHostSnapshot(),
+      setInferenceMode: async (mode) => {
+        const out = await applyHostInferenceControl({ inferenceMode: mode });
+        return out.ok
+          ? { ok: true, inferenceMode: out.inferenceMode, activeLabel: out.activeLabel }
+          : { ok: false, inferenceMode: vault.load().inferenceMode ?? 'auto', activeLabel: resolveHealthyLlmLabel(resolveLlmConfig()), error: out.error };
+      },
+      selectAiApp: async (query) => {
+        const key = query.trim().toLowerCase().replace(/\s+/g, '');
+        const aliasMap: Record<string, string> = {
+          claude: 'claude_cli',
+          claudecode: 'claude_cli',
+          claude_cli: 'claude_cli',
+          codex: 'codex_cli',
+          codex_cli: 'codex_cli',
+          gemini: 'gemini_cli',
+          gemini_cli: 'gemini_cli',
+          opencode: 'opencode_cli',
+          opencode_cli: 'opencode_cli',
+          ollama: 'ollama',
+          lmstudio: 'lmstudio',
+          openrouter: 'openrouter',
+          chatgpt: 'chatgpt',
+          grok: 'grok',
+          omniroute: 'omniroute',
+          auto: 'auto',
+          rules: 'rules',
+        };
+        const providerId = aliasMap[key] ?? query.trim();
+        const out = await applyHostInferenceControl({ provider: providerId });
+        return out.ok
+          ? { ok: true, providerId: out.preferredProvider, activeLabel: out.activeLabel, inferenceMode: out.inferenceMode }
+          : { ok: false, activeLabel: resolveHealthyLlmLabel(resolveLlmConfig()), inferenceMode: vault.load().inferenceMode ?? 'auto', error: out.error };
+      },
     },
     dataDir,
     getSnapshot: () => {
@@ -1633,6 +1787,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       locked: osState.killSwitch.paused,
       scan: providerScanner.peek(), // never starts a scan: reading the profile must not spend the owner's subscription
       routing: {
+        inferenceMode: creds.inferenceMode ?? 'auto',
         preferredLlm: creds.preferredLlm ?? 'auto',
         preferredModel: creds.preferredModel ?? null,
         active: resolveActiveProvider(llmCfg),
@@ -2436,23 +2591,64 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
             ],
           });
 
-          const llmLabel = resolveHealthyLlmLabel(resolveLlmConfig());
+          const creds = loadCreds();
+          const llmCfg = resolveLlmConfig();
+          const llmLabel = resolveHealthyLlmLabel(llmCfg);
+          const activeAi = resolveActiveProvider(llmCfg);
+          const inferenceMode: InferenceMode = creds.inferenceMode ?? 'auto';
+          const hostSnap = getComputerHostSnapshot();
+          const readyLocalApps = hostSnap.apps.filter((a) => a.kind !== 'api_key' && a.status === 'connected');
+          const altLocalApp = readyLocalApps.find((a) => a.id !== activeAi.id);
+          const shortAi = activeAi.label.replace(/\s*\(your subscription\)\s*/i, '').replace(/\s*\(local\)\s*/i, '').trim();
+          const appNames = readyLocalApps.map((a) => a.id.replace('_cli', '').toUpperCase()).slice(0, 4);
           const activeH = proactiveHarness.getStatus().activeHarness;
           enrichedCards.push({
             id: 'card-computer-proactive',
             sourceMode: data.sourceMode,
             syncedAtIso: nowIso,
-            provenanceLabel: 'LAPTOP',
+            provenanceLabel:
+              inferenceMode === 'computer' ? 'PC HOST · LOCAL' : inferenceMode === 'api' ? 'PC HOST · API' : 'PC HOST · AUTO',
             kind: 'MEETING',
-            title: clipLine42(activeH?.goal ?? 'Your laptop', 42),
-            timeMeta: /rules/i.test(llmLabel) ? 'RULES' : 'AI READY',
+            title: clipLine42(activeH?.goal ?? `PC Host: ${shortAi}`, 42),
+            timeMeta:
+              inferenceMode === 'computer'
+                ? 'PC AI'
+                : inferenceMode === 'api'
+                  ? 'API AI'
+                  : /rules/i.test(llmLabel)
+                    ? 'RULES'
+                    : 'AI READY',
             startIso: nowIso,
             endIso: new Date(Date.parse(nowIso) + 30 * 60_000).toISOString(),
-            contextLine1: clipLine42(activeH?.opticalCardLines?.[0] ?? lastInspectResult?.summary ?? 'Ready to help', 42),
-            contextLine2: clipLine42(activeH?.opticalCardLines?.[1] ?? 'Asks before anything sends', 42),
+            contextLine1: clipLine42(
+              activeH?.opticalCardLines?.[0] ??
+                (appNames.length > 0 ? `APPS: ${appNames.join(', ')}` : lastInspectResult?.summary ?? 'Ready to help'),
+              42,
+            ),
+            contextLine2: clipLine42(
+              activeH?.opticalCardLines?.[1] ??
+                (inferenceMode === 'computer'
+                  ? 'INF: COMPUTER (Hosted) | API opt'
+                  : inferenceMode === 'api'
+                    ? 'INF: API (Cloud) | PC host ready'
+                    : 'INF: AUTO (PC host + API opt)'),
+              42,
+            ),
             triageRule: 'IMMINENT_MTG',
-            etag: `comp-${nowIso}`,
+            etag: `comp-${inferenceMode}-${activeAi.id}-${nowIso}`,
             quickActions: [
+              {
+                id: 'qa-pc-apps',
+                label: 'PC AI apps & agents',
+                intent: 'DELEGATE_COMPUTER_TASK',
+                commandText: '__OS_COMPUTER_APPS__',
+              },
+              {
+                id: 'qa-pc-toggle-inf',
+                label: inferenceMode === 'computer' ? 'Switch AI -> API (optional)' : 'Switch AI -> Computer host',
+                intent: 'PLAN_PROJECT',
+                commandText: '__OS_TOGGLE_INFERENCE__',
+              },
               {
                 id: 'qa-pc-git',
                 label: 'Check my code',
@@ -2471,6 +2667,16 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
                 intent: 'PLAN_PROJECT',
                 commandText: '__OS_RUN_PIPELINE__',
               },
+              ...(altLocalApp
+                ? [
+                    {
+                      id: 'qa-pc-use-alt',
+                      label: clipLine42(`Use ${altLocalApp.name}`, 36),
+                      intent: 'PLAN_PROJECT' as const,
+                      commandText: `__OS_USE_AI__:${altLocalApp.id}`,
+                    },
+                  ]
+                : []),
             ],
           });
 
@@ -3471,6 +3677,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         const connected = providers.filter((p) => p.state === 'connected');
         jsonResponse(res, 200, {
           scannedAt: scan.scannedAt,
+          inferenceMode: vault.load().inferenceMode ?? 'auto',
           activeProvider: active.id,
           activeModel: active.model,
           activeLabel: active.label,
@@ -3485,48 +3692,28 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       if (req.method === 'POST' && pathname === '/api/connectors/select-model') {
         const session = await requireAuth(req, res);
         if (!session) return;
-        const body = await readJsonBody<{ provider?: unknown; model?: unknown }>(req);
+        const body = await readJsonBody<{ inferenceMode?: unknown; provider?: unknown; model?: unknown }>(req);
+        const rawMode = body.inferenceMode;
+        if (rawMode !== undefined && (typeof rawMode !== 'string' || !(INFERENCE_MODES as readonly string[]).includes(rawMode))) {
+          jsonResponse(res, 400, { error: `inferenceMode must be one of: ${INFERENCE_MODES.join(', ')}` });
+          return;
+        }
         const provider = typeof body.provider === 'string' ? body.provider.trim() : '';
         const model = typeof body.model === 'string' ? body.model.trim() : '';
-        const next = { ...vault.load() };
-        if (provider === 'auto' || provider === 'rules') {
-          next.preferredLlm = provider;
-          delete next.preferredModel;
-        } else {
-          const scan = providerScanner.cached() ?? (await providerScanner.scan());
-          const found = scan.providers.find((p) => p.id === provider);
-          if (!found || !(PREFERRED_LLM_PROVIDERS as readonly string[]).includes(provider)) {
-            jsonResponse(res, 400, { error: 'Unknown provider. Rescan, then pick one from the list.' });
-            return;
-          }
-          if (found.state !== 'connected' || !found.selectable) {
-            jsonResponse(res, 400, { error: `${found.name} is not ready: ${found.fixHint || found.detail}` });
-            return;
-          }
-          const chosen = model || found.defaultModel || '';
-          if (!found.models.some((m) => m.id === chosen)) {
-            jsonResponse(res, 400, { error: `${found.name} does not offer model "${chosen.slice(0, 80)}". Rescan to refresh models.` });
-            return;
-          }
-          next.preferredLlm = provider as PreferredLlmProvider;
-          next.preferredModel = chosen;
-          if (provider === 'openrouter') next.openRouterModel = chosen;
-          if (provider === 'omniroute') next.omniRouteModel = chosen;
+        if (!rawMode && !provider) {
+          jsonResponse(res, 400, { error: 'Provide provider or inferenceMode.' });
+          return;
         }
-        // Switching to auto / rules clears preferredModel on purpose, so this one save may drop that key.
-        vault.save(next, { allowShrink: true });
-        clearProviderCooldowns();
-        recordAudit('CONNECTOR_SAVED', `Model selected: ${next.preferredLlm}${next.preferredModel ? ` / ${next.preferredModel}` : ''}`);
-        broadcastSse('corridor', { reason: 'orchestrator_updated' });
-        const active = resolveActiveProvider(resolveLlmConfig());
-        jsonResponse(res, 200, {
-          ok: true,
-          preferredProvider: next.preferredLlm,
-          preferredModel: next.preferredModel ?? null,
-          activeProvider: active.id,
-          activeModel: active.model,
-          activeLabel: active.label,
+        const out = await applyHostInferenceControl({
+          inferenceMode: rawMode as InferenceMode | undefined,
+          provider: provider || undefined,
+          model: model || undefined,
         });
+        if (!out.ok) {
+          jsonResponse(res, 400, { error: out.error });
+          return;
+        }
+        jsonResponse(res, 200, out);
         return;
       }
 

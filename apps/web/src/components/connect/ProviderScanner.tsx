@@ -24,8 +24,11 @@ interface ScannedProvider {
   fixHint: string;
 }
 
+type InferenceMode = 'computer' | 'api' | 'auto';
+
 interface ScanResponse {
   scannedAt: string;
+  inferenceMode?: InferenceMode;
   activeProvider: string | null;
   activeModel: string | null;
   activeLabel?: string;
@@ -33,6 +36,12 @@ interface ScanResponse {
   totalModels: number;
   providers: ScannedProvider[];
 }
+
+const INFERENCE_OPTIONS: Array<{ id: InferenceMode; label: string; hint: string }> = [
+  { id: 'computer', label: 'This computer (Hosted)', hint: 'Main' },
+  { id: 'api', label: 'API', hint: 'Optional' },
+  { id: 'auto', label: 'Auto', hint: 'Both' },
+];
 
 const KIND_LABEL: Record<ProviderKind, string> = {
   local_cli: 'Your subscription',
@@ -84,6 +93,7 @@ function ProviderRow({
   onUse: (model: string) => void;
 }) {
   const [model, setModel] = useState((isActive && activeModel) || p.defaultModel || p.models[0]?.id || '');
+  const useText = isActive && model === activeModel ? 'In use' : p.kind === 'api_key' ? 'Use API' : 'Use on glasses';
   return (
     <li className="border border-[var(--hairline)] bg-black/50 px-3 py-2.5 space-y-1.5 min-w-0">
       <div className="flex flex-wrap items-center gap-2 min-w-0">
@@ -125,7 +135,7 @@ function ProviderRow({
             onClick={() => onUse(model)}
             className={smallBtnClass}
           >
-            {isActive && model === activeModel ? 'In use' : 'Use'}
+            {useText}
           </button>
         </div>
       )}
@@ -174,7 +184,7 @@ export function ProviderScanner({
 
   const selectModel = async (provider: string, model = '') => {
     setSelecting(true);
-    const out = await callApi<{ activeProvider: string; activeModel: string | null; activeLabel: string }>(
+    const out = await callApi<{ inferenceMode?: InferenceMode; activeProvider: string; activeModel: string | null; activeLabel: string }>(
       '/api/connectors/select-model',
       sessionToken,
       'POST',
@@ -185,9 +195,29 @@ export function ProviderScanner({
       onModelChanged(`Could not switch model: ${out.error}`);
       return;
     }
-    const { activeProvider, activeModel, activeLabel } = out.data;
-    setScan((prev) => (prev ? { ...prev, activeProvider, activeModel, activeLabel } : prev));
+    const { inferenceMode, activeProvider, activeModel, activeLabel } = out.data;
+    setScan((prev) => (prev ? { ...prev, inferenceMode: inferenceMode ?? prev.inferenceMode, activeProvider, activeModel, activeLabel } : prev));
     onModelChanged(`Now using ${activeLabel}${activeModel ? ` / ${activeModel}` : ''}.`);
+    scannedRef.current?.();
+  };
+
+  const selectInferenceMode = async (inferenceMode: InferenceMode) => {
+    setSelecting(true);
+    const out = await callApi<{ inferenceMode: InferenceMode; activeProvider: string; activeModel: string | null; activeLabel: string }>(
+      '/api/connectors/select-model',
+      sessionToken,
+      'POST',
+      { inferenceMode },
+    );
+    setSelecting(false);
+    if (!out.ok) {
+      onModelChanged(`Could not switch inference route: ${out.error}`);
+      return;
+    }
+    const { activeProvider, activeModel, activeLabel } = out.data;
+    setScan((prev) => (prev ? { ...prev, inferenceMode: out.data.inferenceMode, activeProvider, activeModel, activeLabel } : prev));
+    const label = inferenceMode === 'computer' ? 'This computer (Hosted)' : inferenceMode === 'api' ? 'API (Optional)' : 'Auto (Computer + API)';
+    onModelChanged(`Inference route: ${label} · Active: ${activeLabel}.`);
     scannedRef.current?.();
   };
 
@@ -200,7 +230,10 @@ export function ProviderScanner({
 
   const providers = scan?.providers ?? [];
   const connected = providers.filter((p) => p.state === 'connected');
+  const connectedLocal = connected.filter((p) => p.kind !== 'api_key');
+  const connectedApi = connected.filter((p) => p.kind === 'api_key');
   const others = providers.filter((p) => p.state !== 'connected');
+  const activeInf: InferenceMode = scan?.inferenceMode ?? 'auto';
   const activeName = providers.find((p) => p.id === scan?.activeProvider)?.name ?? scan?.activeLabel ?? 'fixed rules';
   const aiLabel = scan
     ? scan.activeModel
@@ -241,6 +274,35 @@ export function ProviderScanner({
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-2 border-y border-dashed border-white/10 py-2.5">
+        <div className="space-y-0.5">
+          <span className={labelClass}>AI Inference Route</span>
+          <p className="text-[10.5px] text-[var(--lightgray)]">
+            Hosted inference runs on this computer by default; API keys stay optional and controllable from glasses.
+          </p>
+        </div>
+        <div role="radiogroup" aria-label="AI inference host route" className="inline-flex border border-[var(--hairline)]">
+          {INFERENCE_OPTIONS.map((opt) => {
+            const on = activeInf === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                disabled={selecting || !sessionToken}
+                onClick={() => void selectInferenceMode(opt.id)}
+                className={`px-3 py-1.5 text-[11px] cursor-pointer disabled:opacity-50 border-b-2 ${
+                  on ? 'border-[var(--lime)] bg-[var(--lime)]/10 text-[var(--lime)] font-semibold' : 'border-transparent text-[var(--lightgray)] hover:text-[var(--bright)]'
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {testSummary && (
         <p className="text-[11px] text-[var(--verified)] break-words" role="status">
           {testSummary}
@@ -251,7 +313,7 @@ export function ProviderScanner({
       {scan && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className={labelClass}>AI PROVIDERS ON THIS MACHINE</span>
+            <span className={labelClass}>HOSTED ON THIS COMPUTER (MAIN · MIRRORED TO GLASSES)</span>
             <span className="text-[10px] text-[var(--lightgray)]">
               {scan.totalModels} models · scanned {new Date(scan.scannedAt).toLocaleTimeString()}
             </span>
@@ -261,18 +323,39 @@ export function ProviderScanner({
               No AI provider found yet, so OnQ uses fixed rules. See More providers for a one-line fix.
             </p>
           ) : (
-            <ul className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-              {connected.map((p) => (
-                <ProviderRow
-                  key={p.id}
-                  p={p}
-                  isActive={p.id === scan.activeProvider}
-                  activeModel={scan.activeModel}
-                  busy={selecting}
-                  onUse={(m) => void selectModel(p.id, m)}
-                />
-              ))}
-            </ul>
+            <div className="space-y-3">
+              {connectedLocal.length > 0 && (
+                <ul className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                  {connectedLocal.map((p) => (
+                    <ProviderRow
+                      key={p.id}
+                      p={p}
+                      isActive={p.id === scan.activeProvider}
+                      activeModel={scan.activeModel}
+                      busy={selecting}
+                      onUse={(m) => void selectModel(p.id, m)}
+                    />
+                  ))}
+                </ul>
+              )}
+              {connectedApi.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className={labelClass}>CLOUD API KEYS (OPTIONAL)</span>
+                  <ul className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                    {connectedApi.map((p) => (
+                      <ProviderRow
+                        key={p.id}
+                        p={p}
+                        isActive={p.id === scan.activeProvider}
+                        activeModel={scan.activeModel}
+                        busy={selecting}
+                        onUse={(m) => void selectModel(p.id, m)}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           )}
           {others.length > 0 && (
             <details className="border border-dashed border-[var(--hairline)] px-3 py-2">
