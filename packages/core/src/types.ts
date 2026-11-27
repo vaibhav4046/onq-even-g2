@@ -217,6 +217,10 @@ export interface HudState {
   ttsVoiceId?: string;
   unreadEmailCount?: number;
   avatarTick?: number;
+  /** Live ambient weather label for top lens bar, e.g. "24C Clear" */
+  weatherLabel?: string;
+  /** Compact 2x2 square-pair status grid for Agents, Crons, Browser, Morning Scheduler */
+  agentGrid?: Array<{ label: string; value: string }>;
 }
 
 export type NormalizedEvenEventKind =

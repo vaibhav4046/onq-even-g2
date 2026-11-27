@@ -101,10 +101,13 @@ import {
 import type { InferenceMode } from './harness/modelRouter.js';
 import {
   buildPcPowerSourceSnapshot,
+  discoverLocalAgentsAndCrons,
   discoverLocalMcpServers,
   wakeLocalService,
   type WakeableLocalService,
 } from './harness/pcPowerSource.js';
+import { HarnessLoadBalancer } from './harness/loadBalancer.js';
+import { LiveWeatherService } from './providers/weatherProvider.js';
 import { buildRemoteBridgeState } from './remote/tunnelBridge.js';
 import { findCliBinary, ProviderScanner, publicProviders } from './providers/providerScanner.js';
 import type { ScannerDeps } from './providers/providerScanner.js';
@@ -282,6 +285,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
   ledger: LedgerStore;
   vault: EncryptedTokenVault;
   demoProvider: DemoWorkspaceProvider;
+  osHarness: UnifiedOsHarness;
   close: () => Promise<void>;
 }> {
   const nowFn = opts.nowFn ?? (() => Date.now());
@@ -404,6 +408,15 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
   const underTest = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
   // Local CLI / server auto-detection feeds the router only outside tests (or when a test injects scanner I/O).
   const localDetectEnabled = !underTest || Boolean(opts.scannerDeps);
+  const weatherFetchImpl: typeof fetch =
+    opts.fetchImpl ??
+    (underTest
+      ? ((async () => {
+          throw new Error('Offline test weather stub');
+        }) as unknown as typeof fetch)
+      : fetch);
+  const weatherService = new LiveWeatherService(weatherFetchImpl);
+  const loadBalancer = new HarnessLoadBalancer(nowFn);
   const providerScanner = new ProviderScanner(() => {
     const cfg = baseLlmConfig();
     return {
@@ -440,6 +453,70 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
       localProviders: cfg.localProviders ?? providerScanner.routable(),
       omniRouteUrl: cfg.omniRouteUrl ?? providerScanner.detectedOmniRouteUrl(),
     };
+  }
+
+  function syncLoadBalancerNodes(): void {
+    const llmCfg = resolveLlmConfig();
+    const localApps = providerScanner.routable();
+    for (const lp of localApps) {
+      loadBalancer.registerNode({
+        id: lp.id,
+        label: lp.model ? `${lp.id} (${lp.model})` : lp.id,
+        tier: 'hosted_pc',
+        weight: lp.baseUrl ? 1.8 : 1.3,
+        healthy: true,
+        initialLatencyMs: lp.baseUrl ? 220 : 650,
+      });
+    }
+    if (llmCfg.omniRouteUrl) {
+      loadBalancer.registerNode({
+        id: 'omniroute',
+        label: `OmniRoute (${llmCfg.omniRouteModel ?? 'auto'})`,
+        tier: 'hosted_pc',
+        weight: 1.6,
+        healthy: true,
+        initialLatencyMs: 260,
+      });
+    }
+    if (llmCfg.openRouterKey) {
+      loadBalancer.registerNode({
+        id: 'openrouter',
+        label: `OpenRouter (${llmCfg.openRouterModel ?? 'free'})`,
+        tier: 'cloud_api',
+        weight: 1.1,
+        healthy: getProviderHealthStatus('openrouter') === 'READY',
+        initialLatencyMs: 480,
+      });
+    }
+    if (llmCfg.anthropicKey) {
+      loadBalancer.registerNode({
+        id: 'claude',
+        label: 'Anthropic Claude',
+        tier: 'cloud_api',
+        weight: 1.2,
+        healthy: getProviderHealthStatus('claude') === 'READY',
+        initialLatencyMs: 420,
+      });
+    }
+    if (llmCfg.openAiKey) {
+      loadBalancer.registerNode({
+        id: 'chatgpt',
+        label: 'OpenAI ChatGPT',
+        tier: 'cloud_api',
+        weight: 1.0,
+        healthy: getProviderHealthStatus('chatgpt') === 'READY',
+        initialLatencyMs: 450,
+      });
+    }
+    loadBalancer.registerNode({
+      id: 'rules',
+      label: 'Deterministic Rules',
+      tier: 'deterministic',
+      weight: 0.6,
+      maxConcurrency: 8,
+      healthy: true,
+      initialLatencyMs: 12,
+    });
   }
 
   /**
@@ -2617,7 +2694,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
             startIso: nowIso,
             endIso: new Date(Date.parse(nowIso) + 15 * 60_000).toISOString(),
             contextLine1: clipLine42(tgSample.detail, 42),
-            contextLine2: 'Watched DM | Tap to draft reply',
+            contextLine2: 'Watched DM · Reply ready',
             triageRule: 'ASK_DEADLINE',
             etag: `tg-${nowIso}`,
             quickActions: [
@@ -2737,6 +2814,23 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           // Card 4: Unified Autonomous Personal OS (L0-L5, 10 Agents, L2 Approvals, Routines, Music, Kill Switch)
           enrichedCards.push(osHarness.buildCorridorCard(nowIso, data.sourceMode));
 
+          const sched = osHarness.getScheduler();
+          const wx = await weatherService.getWeather({
+            city: sched.weatherCity,
+            lat: sched.lat,
+            lon: sched.lon,
+          });
+          const localDiscovery = localDetectEnabled
+            ? discoverLocalAgentsAndCrons()
+            : { agentsDetected: [], cronCount: 0, cronSources: [], antigravityPresent: false, hermesPresent: false, openBotPresent: false };
+          const osSnapNow = osHarness.getState();
+          const agentGrid = [
+            { label: 'AGENTS', value: String(Math.max(readyLocalApps.length, localDiscovery.agentsDetected.length)) },
+            { label: 'CRONS', value: String(localDiscovery.cronCount + osSnapNow.routines.filter((r) => !r.paused).length) },
+            { label: 'BOTS', value: String(osSnapNow.bots.filter((b) => b.enabled).length) },
+            { label: 'BRIEF', value: sched.enabled ? sched.timeHhmm : 'OFF' },
+          ];
+
           lastCorridorCache = {
             cards: enrichedCards,
             provenanceLabel: data.provenanceLabel,
@@ -2747,6 +2841,10 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
             sourceMode: data.sourceMode,
             provenanceLabel: data.provenanceLabel,
             syncedAtIso: data.syncedAtIso,
+            weatherLabel: wx.g2Label,
+            weatherWebLabel: wx.webLabel,
+            weather: wx,
+            agentGrid,
           });
         } catch (err) {
           const code = (err as { statusCode?: number }).statusCode;
@@ -5207,6 +5305,32 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         return;
       }
 
+      if (req.method === 'GET' && pathname === '/api/harness/pool') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        syncLoadBalancerNodes();
+        jsonResponse(res, 200, {
+          ok: true,
+          pool: loadBalancer.snapshot(),
+          localAgents: localDetectEnabled ? discoverLocalAgentsAndCrons() : null,
+        });
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/weather') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const sched = osHarness.getScheduler();
+        const city = parsedUrl.searchParams.get('city') ?? sched.weatherCity;
+        const latParam = parsedUrl.searchParams.get('lat');
+        const lonParam = parsedUrl.searchParams.get('lon');
+        const lat = latParam !== null && Number.isFinite(Number(latParam)) ? Number(latParam) : sched.lat;
+        const lon = lonParam !== null && Number.isFinite(Number(lonParam)) ? Number(lonParam) : sched.lon;
+        const weather = await weatherService.getWeather({ city, lat, lon });
+        jsonResponse(res, 200, { ok: true, weather });
+        return;
+      }
+
       if (req.method === 'GET' && pathname === '/api/preferences') {
         const session = await requireAuth(req, res);
         if (!session) return;
@@ -5895,6 +6019,92 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         return;
       }
 
+      if (req.method === 'GET' && pathname === '/api/os/scheduler') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        jsonResponse(res, 200, { ok: true, scheduler: osHarness.getScheduler() });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/os/scheduler') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{
+          enabled?: boolean;
+          timeHhmm?: string;
+          weatherCity?: string;
+          lat?: number;
+          lon?: number;
+          includeTelegram?: boolean;
+          includeCrons?: boolean;
+        }>(req);
+        const scheduler = osHarness.updateScheduler(body);
+        jsonResponse(res, 200, { ok: true, scheduler, state: osHarness.getState() });
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/os/bots') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        jsonResponse(res, 200, { ok: true, bots: osHarness.listBots() });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/os/bots') {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const body = await readJsonBody<{
+          op?: 'create' | 'toggle' | 'run';
+          id?: string;
+          name?: string;
+          trigger?: string;
+          action?: string;
+          enabled?: boolean;
+        }>(req);
+        const op = body.op ?? 'create';
+        if (op === 'toggle') {
+          if (!body.id) {
+            jsonResponse(res, 400, { error: 'id required' });
+            return;
+          }
+          const bot = osHarness.toggleBot(body.id, body.enabled);
+          if (!bot) {
+            jsonResponse(res, 404, { error: `Bot ${body.id} not found` });
+            return;
+          }
+          jsonResponse(res, 200, { ok: true, bot, bots: osHarness.listBots() });
+          return;
+        }
+        if (op === 'run') {
+          if (!body.id) {
+            jsonResponse(res, 400, { error: 'id required' });
+            return;
+          }
+          const outcome = await osHarness.runBot(body.id, 'web');
+          jsonResponse(res, outcome.domain === 'KILL_SWITCH' ? 423 : 200, {
+            ...outcome,
+            bots: osHarness.listBots(),
+            state: osHarness.getState(),
+          });
+          return;
+        }
+        if (!body.name?.trim() || !body.action?.trim()) {
+          jsonResponse(res, 400, { error: 'name and action required' });
+          return;
+        }
+        try {
+          const bot = osHarness.createBot({
+            name: body.name.trim(),
+            trigger: body.trigger,
+            action: body.action.trim(),
+          });
+          jsonResponse(res, 200, { ok: true, bot, bots: osHarness.listBots() });
+        } catch (err) {
+          jsonResponse(res, 403, { ok: false, error: err instanceof Error ? err.message : 'L5 blocked' });
+        }
+        return;
+      }
+
       // Browser agent: works in the user's own Chrome on this PC; risky steps become approvals.
       if (req.method === 'POST' && pathname === '/api/browser/run') {
         const session = await requireAuth(req, res);
@@ -6253,6 +6463,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
     ledger,
     vault,
     demoProvider,
+    osHarness,
     close: async () => {
       if (tokenKeepaliveTimer) clearInterval(tokenKeepaliveTimer);
       if (hostAutoSyncTimer) clearInterval(hostAutoSyncTimer);

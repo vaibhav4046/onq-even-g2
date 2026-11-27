@@ -82,26 +82,31 @@ describe('formatter.ts', () => {
     expect(utf8ByteLength('a\nb')).toBe(3);
   });
 
-  it('8. formats idle dossier within 7 lines, 42 cols, and 999 bytes', () => {
-    const state = createInitialHudState([SAMPLE_CARD], 'DEMO');
+  it('8. formats idle dossier within 7 lines, 42 cols, 999 bytes without demo/tutorial clutter', () => {
+    const state = { ...createInitialHudState([SAMPLE_CARD], 'DEMO'), weatherLabel: '24C Clear' };
     const frame = formatLensFrame(state);
     expect(frame.lines.length).toBeLessThanOrEqual(G2_MAX_LINES);
     expect(frame.utf8Bytes).toBeLessThanOrEqual(G2_MAX_UTF8_BYTES);
-    expect(frame.header).toContain('SAMPLE');
+    expect(frame.header).toContain('24C Clear');
+    expect(frame.bodyText).not.toContain('SAMPLE |');
+    expect(frame.bodyText).not.toContain('TAP:');
+    expect(frame.bodyText).not.toContain('SWIPE:');
+    expect(frame.bodyText).not.toContain('----');
+    expect(frame.provenanceTag).toBe('DEMO');
     assertLensBudget(frame.lines);
   });
 
-  it('9. formats LIVE dossier with LIVE provenance badge', () => {
+  it('9. formats LIVE dossier cleanly with LIVE provenance metadata', () => {
     const state = createInitialHudState([{ ...SAMPLE_CARD, sourceMode: 'LIVE' }], 'LIVE');
     const frame = formatLensFrame(state);
-    expect(frame.header).toContain('LIVE');
+    expect(frame.provenanceTag).toBe('LIVE');
     assertLensBudget(frame.lines);
   });
 
-  it('10. formats STALE offline state with STALE header and cached card', () => {
+  it('10. formats STALE offline state with OFFLINE header and cached card', () => {
     const state = { ...createInitialHudState([SAMPLE_CARD], 'STALE'), phase: 'stale' as const };
     const frame = formatLensFrame(state);
-    expect(frame.header).toContain('STALE');
+    expect(frame.header).toContain('OFFLINE');
     expect(frame.bodyText).toContain('CACHED:');
     assertLensBudget(frame.lines);
   });
@@ -113,7 +118,7 @@ describe('formatter.ts', () => {
     assertLensBudget(frame.lines);
   });
 
-  it('12. formats preview state with Default-NO marker highlighted', () => {
+  it('12. formats preview state with Default-NO marker highlighted cleanly', () => {
     const state = {
       ...createInitialHudState([SAMPLE_CARD], 'DEMO'),
       phase: 'preview' as const,
@@ -130,7 +135,8 @@ describe('formatter.ts', () => {
       },
     };
     const frame = formatLensFrame(state);
-    expect(frame.bodyText).toContain('> [NO-CANCEL]');
+    expect(frame.bodyText).toContain('> [NO]');
+    expect(frame.bodyText).not.toContain('SWIPE:');
     assertLensBudget(frame.lines);
   });
 

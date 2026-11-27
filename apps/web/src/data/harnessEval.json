@@ -1,6 +1,6 @@
 {
-  "generatedAtIso": "2026-11-27T14:39:44.069Z",
-  "commitHash": "065a7bf",
+  "generatedAtIso": "2026-11-27T16:50:16.179Z",
+  "commitHash": "2279126",
   "intentAccuracy": {
     "passed": 32,
     "total": 32,
@@ -59,7 +59,7 @@
       "scenario": "All Remote Fail -> Rules Engine",
       "providerUsed": "Rules (Fallback)",
       "hops": 4,
-      "latencyMs": 31,
+      "latencyMs": 29,
       "fallbackUsed": true,
       "factGuardPassed": true
     }

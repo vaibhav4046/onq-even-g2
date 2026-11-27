@@ -199,6 +199,71 @@ export function buildPcPowerSourceSnapshot(input: {
   };
 }
 
+export interface LocalAgentCronSummary {
+  agentsDetected: string[];
+  cronCount: number;
+  cronSources: Array<{ source: string; count: number }>;
+  antigravityPresent: boolean;
+  hermesPresent: boolean;
+  openBotPresent: boolean;
+}
+
+/**
+ * Inspects local agent and automation directories (directory counts/names only; never reads secrets or payloads).
+ */
+export function discoverLocalAgentsAndCrons(homedir = os.homedir()): LocalAgentCronSummary {
+  const safeCount = (dir: string): number => {
+    try {
+      if (!fs.existsSync(dir)) return 0;
+      return fs.readdirSync(dir).filter((n) => !n.startsWith('.')).length;
+    } catch {
+      return 0;
+    }
+  };
+  const safeExists = (p: string): boolean => {
+    try {
+      return fs.existsSync(p);
+    } catch {
+      return false;
+    }
+  };
+
+  const antigravityDir = path.join(homedir, '.gemini', 'antigravity');
+  const claudeJobsDir = path.join(homedir, '.claude', 'jobs');
+  const codexAutoDir = path.join(homedir, '.codex', 'automations');
+  const hermesDir = path.join(homedir, '.hermes');
+  const openBotRoaming = path.join(process.env.APPDATA ?? path.join(homedir, 'AppData', 'Roaming'), 'OpenBot');
+
+  const antigravityPresent = safeExists(antigravityDir);
+  const hermesPresent = safeExists(hermesDir);
+  const openBotPresent = safeExists(openBotRoaming);
+
+  const agentsDetected: string[] = [];
+  if (antigravityPresent) agentsDetected.push('Antigravity');
+  if (safeExists(path.join(homedir, '.claude'))) agentsDetected.push('Claude');
+  if (safeExists(path.join(homedir, '.codex'))) agentsDetected.push('Codex');
+  if (hermesPresent) agentsDetected.push('Hermes');
+  if (openBotPresent) agentsDetected.push('OpenBot');
+
+  const cronSources: Array<{ source: string; count: number }> = [];
+  const claudeJobs = safeCount(claudeJobsDir);
+  const codexAutos = safeCount(codexAutoDir);
+  const hermesCrons = safeCount(path.join(hermesDir, 'crons'));
+  if (claudeJobs > 0) cronSources.push({ source: 'claude', count: claudeJobs });
+  if (codexAutos > 0) cronSources.push({ source: 'codex', count: codexAutos });
+  if (hermesCrons > 0) cronSources.push({ source: 'hermes', count: hermesCrons });
+
+  const cronCount = claudeJobs + codexAutos + hermesCrons;
+  return {
+    agentsDetected,
+    cronCount,
+    cronSources,
+    antigravityPresent,
+    hermesPresent,
+    openBotPresent,
+  };
+}
+
 export type WakeableLocalService = 'ollama' | 'omniroute';
 
 export interface WakeServiceDeps {

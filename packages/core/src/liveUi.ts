@@ -930,8 +930,8 @@ export function reduceLiveUiAction(
 export function formatLiveUiForG2(surface: LiveUiSurface): { header: string; lines: string[]; bodyText: string } {
   const env = buildSurfaceEnv(surface);
   const lines: string[] = [
-    clipLine42(`LIVEUI | ${sanitizeLvglAscii(surface.title).toUpperCase()}`, G2_MAX_COLS),
-    '------------------------------------------',
+    clipLine42(sanitizeLvglAscii(surface.title).toUpperCase(), G2_MAX_COLS),
+    '',
   ];
 
   const driver = surface.components[0];
@@ -940,8 +940,8 @@ export function formatLiveUiForG2(surface: LiveUiSurface): { header: string; lin
     lines.push(clipLine42(`> ${driver.label ?? 'Value'}: [ ${valStr} ]  (- / +)`));
   } else if (driver?.rows && driver.rows.length > 0) {
     const idx = driver.selectedIndex ?? 0;
-    const start = Math.max(0, Math.min(driver.rows.length - 3, idx));
-    for (let i = start; i < Math.min(driver.rows.length, start + 3); i++) {
+    const start = Math.max(0, Math.min(driver.rows.length - 4, idx));
+    for (let i = start; i < Math.min(driver.rows.length, start + 4); i++) {
       const row = driver.rows[i];
       const cur = i === idx ? '>' : ' ';
       const chk = driver.kind === 'checklist' ? (row.checked ? '[x] ' : '[ ] ') : '';
@@ -953,7 +953,7 @@ export function formatLiveUiForG2(surface: LiveUiSurface): { header: string; lin
     // Keep explicit line breaks (one clipped row per line); only reflow single-line prose.
     const rows = driver.text.split('\n');
     const body = rows.length > 1 ? rows.map((r) => clipLine42(r, G2_MAX_COLS)) : wrapLine42(driver.text, G2_MAX_COLS);
-    lines.push(...body.slice(0, 3));
+    lines.push(...body.slice(0, 4));
   }
 
   const follower = surface.components[1];
@@ -968,11 +968,9 @@ export function formatLiveUiForG2(surface: LiveUiSurface): { header: string; lin
     lines.push(clipLine42(summary));
   }
 
-  lines.push('------------------------------------------');
-  lines.push(clipLine42('TAP: ACT  SWIPE: MOVE  2xTAP: CORRIDOR'));
   const clipped = lines.slice(0, 7).map((l) => clipLine42(l, G2_MAX_COLS));
   return {
-    header: clipped[0] ?? 'LIVEUI',
+    header: clipped[0] ?? 'ONQ',
     lines: clipped,
     bodyText: clipped.join('\n'),
   };

@@ -3,7 +3,7 @@ import type { RingRenderStats } from './pngRing.js';
 import type { AliveMood } from './liveUi.js';
 import type { VoiceOrbState } from './types.js';
 
-export type PixelAvatarStyle = 'muse' | 'duet' | 'dots';
+export type PixelAvatarStyle = 'orb' | 'muse' | 'duet' | 'dots';
 
 const BAYER_4 = [
   [0, 8, 2, 10],
@@ -32,7 +32,7 @@ export function renderPixelAvatar(
     return renderCountdownRing(opts.armProgress01 ?? 0.5, size);
   }
 
-  const style: PixelAvatarStyle = opts.style ?? 'muse';
+  const style: PixelAvatarStyle = opts.style ?? 'orb';
   const mood: AliveMood = opts.mood ?? 'neutral';
   const tick = opts.tick ?? 0;
   const rms = Math.max(0, Math.min(1, Number.isFinite(opts.rmsLevel) ? (opts.rmsLevel as number) : 0));
@@ -60,7 +60,67 @@ export function renderPixelAvatar(
     raw[y * rowBytes] = 0;
   }
 
-  if (style === 'muse') {
+  if (style === 'orb') {
+    // Sleek Meta-style minimal monochrome Voice Orb (preserves >= 78% pure-black waveguide field)
+    const breathe = Math.sin(tick * 0.45) * 1.4;
+    const coreR = (state === 'speaking' ? 11.5 + rms * 5.2 : state === 'listening' ? 10.5 + rms * 4.5 : 9.5) + breathe * 0.5;
+    const outerR = Math.min(size * 0.44, coreR + (state === 'listening' || state === 'speaking' ? 12 + rms * 5 : 9.5));
+
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const dx = x - cx;
+        const dy = y - cy;
+        const dist = Math.hypot(dx, dy);
+        const ang = Math.atan2(dy, dx);
+        const bayer = BAYER_4[y & 3][x & 3] / 16;
+
+        // 1. Soft dithered glowing inner sphere (crisp bright rim, airy translucent center)
+        if (dist <= coreR) {
+          const norm = dist / Math.max(1, coreR);
+          const edgeGlow = Math.pow(norm, 1.55);
+          const energy = (0.35 + 0.65 * edgeGlow) * (state === 'conflict' ? 0.95 : 1.0);
+          if (energy > bayer * 0.85 || Math.abs(dist - coreR) < 1.2) {
+            setPixel(x, y, Math.min(15, Math.round(5 + energy * 10)));
+          }
+          continue;
+        }
+
+        // 2. Orbiting tilted energy filament (Meta / Siri style fluid ring)
+        const rot = tick * (state === 'thinking' ? 0.35 : 0.16);
+        const ex = dx * Math.cos(rot) - dy * Math.sin(rot);
+        const ey = (dx * Math.sin(rot) + dy * Math.cos(rot)) * 1.65;
+        const ellip = Math.hypot(ex, ey);
+        const ellipTarget = coreR + 6.5 + Math.sin(ang * 2 + rot) * 1.1;
+        if (Math.abs(ellip - ellipTarget) < 1.15) {
+          setPixel(x, y, state === 'speaking' || state === 'listening' ? 14 : 10);
+          continue;
+        }
+
+        // 3. Outer voice-reactive acoustic halo ripple
+        if (Math.abs(dist - outerR) < 1.0) {
+          const wave = state === 'thinking'
+            ? Math.cos(ang - tick * 0.55) > -0.15
+            : state === 'conflict'
+              ? Math.floor((ang + Math.PI) / 0.4) % 2 === 0
+              : Math.sin(ang * 6 + tick * 0.4) > -0.45;
+          if (wave) {
+            setPixel(x, y, state === 'listening' || state === 'speaking' ? 12 : 7);
+          }
+        }
+      }
+    }
+
+    // 4. Compact 5-bar live voice equalizer beneath the orb when listening or speaking
+    if (state === 'listening' || state === 'speaking') {
+      const bars = [-12, -6, 0, 6, 12];
+      bars.forEach((bx, idx) => {
+        const amp = Math.max(2, Math.round((0.35 + 0.65 * rms) * (5 + 4 * Math.abs(Math.sin(tick * 0.7 + idx * 1.1)))));
+        for (let h = -amp; h <= amp; h++) {
+          setPixel(cx + bx, cy + coreR + 14 + h * 0.45, idx === 2 ? 15 : 11);
+        }
+      });
+    }
+  } else if (style === 'muse') {
     const plotDot2 = (px: number, py: number, v: number) => {
       setPixel(px, py, v);
       setPixel(px + 1, py, Math.round(v * 0.88));

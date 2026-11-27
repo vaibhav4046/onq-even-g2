@@ -9,7 +9,6 @@ import {
   EvenG2PixelSvg,
   GmailPixelSvg,
   GooglePixelSvg,
-  GrokPixelSvg,
   NotionPixelSvg,
   OmniRoutePixelSvg,
   OpenRouterPixelSvg,
@@ -45,7 +44,7 @@ interface ConnectorStatusResponse {
   accountEmail: string | null;
   vaultEncrypted: boolean;
   activeLlmProvider: string;
-  preferredLlm: 'auto' | 'claude' | 'openrouter' | 'chatgpt' | 'grok' | 'omniroute' | 'rules';
+  preferredLlm: 'auto' | 'claude' | 'openrouter' | 'chatgpt' | 'omniroute' | 'rules';
   openRouterModel: string;
   omniRouteUrl?: string;
   omniRouteModel?: string;
@@ -59,7 +58,6 @@ interface ConnectorStatusResponse {
     notion: ConnectorCardStatus;
     claude: ConnectorCardStatus;
     openrouter: ConnectorCardStatus;
-    grok?: ConnectorCardStatus;
     omniroute?: ConnectorCardStatus;
     chatgpt: ConnectorCardStatus;
     assemblyai: ConnectorCardStatus;
@@ -90,7 +88,6 @@ type ConnectorProviderId =
   | 'telegram'
   | 'claude'
   | 'openrouter'
-  | 'grok'
   | 'omniroute'
   | 'chatgpt'
   | 'assemblyai';
@@ -143,7 +140,6 @@ const IDLE_HINT: Record<ConnectorProviderId, string> = {
   telegram: 'Not connected. Paste a BotFather token.',
   claude: 'Not connected. Paste an Anthropic API key.',
   openrouter: 'Not connected. Use Connect with OpenRouter.',
-  grok: 'Not connected. Paste an xAI key.',
   omniroute: 'Not connected. Needs an OmniRoute gateway running on this computer.',
   chatgpt: 'Not connected. Paste an OpenAI API key.',
   assemblyai: 'Not connected. Voice uses the local fallback until you add a key.',
@@ -223,7 +219,6 @@ export function ConnectorsHub({
   const [claudeKey, setClaudeKey] = useState('');
   const [openRouterKey, setOpenRouterKey] = useState('');
   const [openRouterModel, setOpenRouterModel] = useState('openrouter/free');
-  const [grokKey, setGrokKey] = useState('');
   const [omniRouteUrl, setOmniRouteUrl] = useState('http://127.0.0.1:20128/v1');
   const [omniRouteKey, setOmniRouteKey] = useState('');
   const [omniRouteModel, setOmniRouteModel] = useState('auto');
@@ -510,18 +505,6 @@ export function ConnectorsHub({
       ),
       secondaryIcons: null,
       state: status?.connectors.openrouter,
-    },
-    {
-      id: 'grok' as const,
-      name: 'Grok (xAI)',
-      sub: 'Optional extra model',
-      icon: (
-        <ApplePixelTile size="lg" tint="#34F57E">
-          <GrokPixelSvg className="w-6 h-6" />
-        </ApplePixelTile>
-      ),
-      secondaryIcons: null,
-      state: status?.connectors.grok,
     },
     {
       id: 'omniroute' as const,
@@ -1191,17 +1174,7 @@ export function ConnectorsHub({
                 />
               </div>
               <div className="space-y-1">
-                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">6. GROK (OPTIONAL)</span>
-                <input
-                  type="password"
-                  placeholder="xai-..."
-                  value={grokKey}
-                  onChange={(e) => setGrokKey(e.target.value)}
-                  className="w-full bg-[var(--ink)] border border-[var(--hairline)] px-2.5 py-1.5 text-[var(--bright)]"
-                />
-              </div>
-              <div className="space-y-1">
-                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">7. OMNIROUTE (OPTIONAL)</span>
+                <span className="font-pixel text-[9px] uppercase text-[var(--lightgray)]">6. OMNIROUTE (OPTIONAL)</span>
                 <input
                   type="text"
                   placeholder="http://127.0.0.1:20128/v1"
@@ -1266,7 +1239,6 @@ export function ConnectorsHub({
                       notionDatabaseId: notionDbId || undefined,
                       openRouterKey: openRouterKey || undefined,
                       openRouterModel,
-                      xaiKey: grokKey || undefined,
                       omniRouteUrl: omniRouteUrl || undefined,
                       omniRouteKey: omniRouteKey || undefined,
                       omniRouteModel: omniRouteModel || undefined,
@@ -1312,7 +1284,6 @@ export function ConnectorsHub({
               >
                 <option value="auto">Auto: switch if one fails</option>
                 <option value="claude">Claude first</option>
-                <option value="grok">Grok first (optional)</option>
                 <option value="omniroute">OmniRoute first (optional)</option>
                 <option value="openrouter">OpenRouter first</option>
                 <option value="chatgpt">ChatGPT first</option>
@@ -1351,10 +1322,8 @@ export function ConnectorsHub({
                     ? 'openrouter'
                     : active.includes('chatgpt') || active.includes('openai')
                       ? 'chatgpt'
-                      : active.includes('grok')
-                        ? 'grok'
-                        : active.includes('omniroute')
-                          ? 'omniroute'
+                      : active.includes('omniroute')
+                        ? 'omniroute'
                           : status?.connectors.openrouter?.connected
                             ? 'openrouter'
                             : status?.connectors.chatgpt?.connected
@@ -1595,41 +1564,6 @@ export function ConnectorsHub({
                     className="px-4 py-2 bg-[var(--lime)] text-[#0a0a0a] font-semibold cursor-pointer"
                   >
                     Connect ChatGPT
-                  </button>
-                </div>
-              </>
-            )}
-
-            {openDrawer === 'grok' && (
-              <>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-pixel text-[10px] uppercase tracking-[0.16em] text-[var(--g2-phosphor)]">
-                    CONNECT GROK (OPTIONAL)
-                  </span>
-                  <a
-                    href="https://console.x.ai"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] text-[var(--lime)] underline decoration-dashed underline-offset-2"
-                  >
-                    xAI Console -&gt;
-                  </a>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="password"
-                    placeholder="xai-..."
-                    value={grokKey}
-                    onChange={(e) => setGrokKey(e.target.value)}
-                    className="flex-1 bg-[var(--ink)] border border-[var(--hairline)] px-3 py-2 text-[var(--bright)]"
-                  />
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void postConnect({ provider: 'grok', apiKey: grokKey }, 'Grok (xAI) connected & set active.')}
-                    className="px-4 py-2 bg-[var(--g2-phosphor)] text-[#0a0a0a] font-semibold cursor-pointer"
-                  >
-                    Connect Grok
                   </button>
                 </div>
               </>

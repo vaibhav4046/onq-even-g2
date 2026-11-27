@@ -64,23 +64,23 @@ const within = (c: OnQHudController) => {
 };
 
 describe('outbox progress on the existing result card', () => {
-  it('the default path is unchanged: COMMITTED with the usual undo footer', async () => {
+  it('the default path is unchanged: DONE with the clean undo footer', async () => {
     const { ctrl } = await committed(PLAIN);
     expect(ctrl.getState().phase).toBe('done');
-    expect(header(ctrl)).toContain('COMMITTED #1042');
-    expect(within(ctrl).lines.at(-1)).toBe('TAP: UNDO (30s) 2xTAP: DOSSIER'); // the existing footer, collapsed by the ASCII sanitizer
+    expect(header(ctrl)).toContain('DONE #1042');
+    expect(within(ctrl).lines.at(-1)).toBe('Undo available (30s)');
   });
 
   it('shows QUEUED, then SENDING, then DONE with the real receipt lines, all inside 7x42', async () => {
     const { ctrl } = await committed(QUEUED);
     expect(ctrl.getState().phase).toBe('done');
     expect(header(ctrl)).toContain('QUEUED #');
-    expect(within(ctrl).lines.at(-1)).toContain('CANCEL (QUEUED)'); // a queued write can still be cancelled
+    expect(within(ctrl).lines.at(-1)).toContain('Undo available (queued)'); // a queued write can still be cancelled
 
     ctrl.updateOutbox({ id: 'ob_1a2b3c4d5e', status: 'running' });
     expect(header(ctrl)).toContain('SENDING #');
     expect(ctrl.getState().receipt?.canUndo).toBe(false); // sending: too late to cancel
-    expect(within(ctrl).lines.at(-1)).toBe('TAP: DOSSIER 2xTAP: BACK');
+    expect(within(ctrl).lines.join('\n')).not.toMatch(/\b(TAP:|2xTAP:)/);
 
     ctrl.updateOutbox({ id: 'ob_1a2b3c4d5e', status: 'done', summaryLines: ['OK GCAL: 14:00 -> 14:15 via your Chrome'], canUndo: false, receiptId: 'BRW-ab12' });
     expect(header(ctrl)).toContain('DONE #ab12');
@@ -93,7 +93,7 @@ describe('outbox progress on the existing result card', () => {
     const f = within(ctrl);
     expect(f.lines[0]).toContain('FAILED #');
     expect(f.lines.join('\n')).toContain('Calendar page did not load');
-    expect(f.lines.join('\n')).toContain('NOTHING WAS CONFIRMED AS SENT');
+    expect(f.lines.join('\n')).toContain('Nothing confirmed sent');
   });
 
   it('ignores updates for another write, and a failure while idle becomes a one-line notice', async () => {

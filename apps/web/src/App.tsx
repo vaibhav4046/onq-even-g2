@@ -163,7 +163,16 @@ const GEOMETRY_SAMPLE_CARD: CorridorCard = {
 };
 
 function buildGeometryState(stateName: string): HudState {
-  const base = createInitialHudState([GEOMETRY_SAMPLE_CARD], 'DEMO');
+  const base: HudState = {
+    ...createInitialHudState([GEOMETRY_SAMPLE_CARD], 'DEMO'),
+    weatherLabel: '24C Clear',
+    agentGrid: [
+      { label: 'AGENTS', value: '5' },
+      { label: 'CRONS', value: '8' },
+      { label: 'BOTS', value: '2' },
+      { label: 'BRIEF', value: '08:00' },
+    ],
+  };
   const preview: ActionPreview = {
     previewToken: 'pt_geo',
     idempotencyKey: '9f2a11223344',
@@ -508,8 +517,13 @@ export function App() {
       sourceMode: SourceMode;
       provenanceLabel: string;
       syncedAtIso: string;
+      weatherLabel?: string;
+      agentGrid?: Array<{ label: string; value: string }>;
     };
-    ctrlRef.current?.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso);
+    ctrlRef.current?.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso, {
+      weatherLabel: data.weatherLabel,
+      agentGrid: data.agentGrid,
+    });
     setSessionMode(data.sourceMode);
     await refreshWorkspaceInspector(tok);
     return data;

@@ -228,6 +228,26 @@ export interface IntegrationCapabilityStatus {
   detail: string;
 }
 
+export interface TelegramMicroBot {
+  id: string;
+  name: string;
+  trigger: string;
+  action: string;
+  enabled: boolean;
+  createdAtIso: string;
+  lastRunAtIso: string | null;
+}
+
+export interface MorningSchedulerConfig {
+  enabled: boolean;
+  timeHhmm: string;
+  weatherCity: string;
+  lat: number;
+  lon: number;
+  includeTelegram: boolean;
+  includeCrons: boolean;
+}
+
 export interface UnifiedOsStateSnapshot {
   killSwitch: {
     paused: boolean;
@@ -238,6 +258,8 @@ export interface UnifiedOsStateSnapshot {
   roster: SpecialistProfile[];
   skills: OsSkill[];
   routines: OsRoutine[];
+  bots: TelegramMicroBot[];
+  scheduler: MorningSchedulerConfig;
   approvals: OsApprovalItem[];
   pendingApprovalCount: number;
   recentPipelines: OsPipelineRun[];
@@ -518,12 +540,38 @@ const PRIVILEGED_TELEGRAM_COMMANDS = new Set([
   '/apps',
   '/inference',
   '/use',
+  '/bot',
+  '/schedule',
 ]);
+
+const DEFAULT_SCHEDULER: MorningSchedulerConfig = {
+  enabled: true,
+  timeHhmm: '08:00',
+  weatherCity: 'Dubai',
+  lat: 25.2048,
+  lon: 55.2708,
+  includeTelegram: true,
+  includeCrons: true,
+};
+
+const DEFAULT_BOTS: TelegramMicroBot[] = [
+  {
+    id: 'bot_pr_watch',
+    name: 'PR & CI Digest Bot',
+    trigger: 'Daily 08:00',
+    action: '/code prep pr',
+    enabled: true,
+    createdAtIso: '2026-11-27T00:00:00.000Z',
+    lastRunAtIso: null,
+  },
+];
 
 interface PersistedOsState {
   killSwitch: UnifiedOsStateSnapshot['killSwitch'];
   skills: OsSkill[];
   routines: OsRoutine[];
+  bots: TelegramMicroBot[];
+  scheduler: MorningSchedulerConfig;
   approvals: OsApprovalItem[];
   pipelines: OsPipelineRun[];
   recentCommands: OsCommandLogEntry[];
@@ -608,6 +656,13 @@ export class UnifiedOsHarness {
             Array.isArray(parsed.routines) && parsed.routines.length > 0
               ? parsed.routines
               : DEFAULT_ROUTINES.map((r) => ({ ...r })),
+          bots:
+            Array.isArray(parsed.bots) && parsed.bots.length > 0
+              ? parsed.bots
+              : DEFAULT_BOTS.map((b) => ({ ...b })),
+          scheduler: parsed.scheduler
+            ? { ...DEFAULT_SCHEDULER, ...parsed.scheduler }
+            : { ...DEFAULT_SCHEDULER },
           approvals: Array.isArray(parsed.approvals) ? parsed.approvals : [],
           pipelines: Array.isArray(parsed.pipelines) ? parsed.pipelines : [],
           recentCommands: Array.isArray(parsed.recentCommands) ? parsed.recentCommands : [],
@@ -622,6 +677,8 @@ export class UnifiedOsHarness {
       killSwitch: { paused: false, updatedAtIso: nowIso },
       skills: [...DEFAULT_SKILLS],
       routines: DEFAULT_ROUTINES.map((r) => ({ ...r })),
+      bots: DEFAULT_BOTS.map((b) => ({ ...b })),
+      scheduler: { ...DEFAULT_SCHEDULER },
       approvals: [],
       pipelines: [],
       recentCommands: [],
@@ -728,6 +785,8 @@ export class UnifiedOsHarness {
       roster: SPECIALIST_ROSTER,
       skills: this.state.skills.map((s) => ({ ...s, steps: [...s.steps] })),
       routines: this.state.routines.map((r) => ({ ...r })),
+      bots: this.state.bots.map((b) => ({ ...b })),
+      scheduler: { ...this.state.scheduler },
       approvals: this.state.approvals.map((a) => ({ ...a })),
       pendingApprovalCount,
       recentPipelines: this.state.pipelines.map((p) => ({
@@ -768,6 +827,127 @@ export class UnifiedOsHarness {
     this.deps.onAudit(`Routine ${routine.id} -> ${routine.paused ? 'PAUSED' : 'ACTIVE'}`, 'ROUTINE');
     this.deps.onBroadcast('os_state', this.getState());
     return { ...routine };
+  }
+
+  getScheduler(): MorningSchedulerConfig {
+    return { ...this.state.scheduler };
+  }
+
+  updateScheduler(patch: Partial<MorningSchedulerConfig>): MorningSchedulerConfig {
+    const cur = this.state.scheduler;
+    const nextTime =
+      typeof patch.timeHhmm === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(patch.timeHhmm.trim())
+        ? patch.timeHhmm.trim()
+        : cur.timeHhmm;
+    const nextCity =
+      typeof patch.weatherCity === 'string' && patch.weatherCity.trim()
+        ? patch.weatherCity.trim().slice(0, 32)
+        : cur.weatherCity;
+    const nextLat = typeof patch.lat === 'number' && Number.isFinite(patch.lat) && patch.lat >= -90 && patch.lat <= 90 ? patch.lat : cur.lat;
+    const nextLon = typeof patch.lon === 'number' && Number.isFinite(patch.lon) && patch.lon >= -180 && patch.lon <= 180 ? patch.lon : cur.lon;
+    this.state.scheduler = {
+      enabled: typeof patch.enabled === 'boolean' ? patch.enabled : cur.enabled,
+      timeHhmm: nextTime,
+      weatherCity: nextCity,
+      lat: nextLat,
+      lon: nextLon,
+      includeTelegram: typeof patch.includeTelegram === 'boolean' ? patch.includeTelegram : cur.includeTelegram,
+      includeCrons: typeof patch.includeCrons === 'boolean' ? patch.includeCrons : cur.includeCrons,
+    };
+    const morningRoutine = this.state.routines.find((r) => r.id === 'morning_brief');
+    if (morningRoutine) {
+      morningRoutine.scheduleLabel = `Daily · ${this.state.scheduler.timeHhmm}`;
+      morningRoutine.paused = !this.state.scheduler.enabled;
+    }
+    this.saveState();
+    this.deps.onAudit(
+      `Morning Scheduler -> ${this.state.scheduler.enabled ? this.state.scheduler.timeHhmm : 'PAUSED'} (${this.state.scheduler.weatherCity})`,
+      'ROUTINE',
+    );
+    this.deps.onBroadcast('os_state', this.getState());
+    this.deps.onBroadcast('corridor', { reason: 'scheduler_updated' });
+    return { ...this.state.scheduler };
+  }
+
+  listBots(): TelegramMicroBot[] {
+    return this.state.bots.map((b) => ({ ...b }));
+  }
+
+  createBot(input: { name: string; trigger?: string; action: string }): TelegramMicroBot {
+    const cleanAction = input.action.trim().slice(0, 140);
+    const blocked = detectL5BlockedRequest(cleanAction);
+    if (blocked) {
+      throw new Error(blocked);
+    }
+    const cleanName = input.name.trim().slice(0, 48) || 'Custom Bot';
+    const slug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'bot';
+    const bot: TelegramMicroBot = {
+      id: `bot_${slug.slice(0, 14)}_${this.nowFn().toString(36).slice(-4)}`,
+      name: cleanName,
+      trigger: input.trigger?.trim().slice(0, 48) || 'On demand',
+      action: cleanAction || '/status',
+      enabled: true,
+      createdAtIso: new Date(this.nowFn()).toISOString(),
+      lastRunAtIso: null,
+    };
+    this.state.bots = [bot, ...this.state.bots].slice(0, 20);
+    this.saveState();
+    this.deps.onAudit(`Bot Studio created "${bot.name}" (${bot.id})`, 'ROUTINE');
+    this.deps.onBroadcast('os_state', this.getState());
+    return { ...bot };
+  }
+
+  toggleBot(botId: string, enabled?: boolean): TelegramMicroBot | null {
+    const bot = this.state.bots.find((b) => b.id === botId || b.name.toLowerCase() === botId.toLowerCase());
+    if (!bot) return null;
+    bot.enabled = enabled ?? !bot.enabled;
+    this.saveState();
+    this.deps.onAudit(`Bot ${bot.id} -> ${bot.enabled ? 'ENABLED' : 'PAUSED'}`, 'ROUTINE');
+    this.deps.onBroadcast('os_state', this.getState());
+    return { ...bot };
+  }
+
+  async runBot(botId: string, surface: 'web' | 'glasses' | 'telegram' = 'web'): Promise<OsCommandOutcome> {
+    if (this.state.killSwitch.paused) {
+      return {
+        ok: false,
+        command: `/bot run ${botId}`,
+        domain: 'KILL_SWITCH',
+        specialistId: 'auditor',
+        autonomyLevel: 'L0_EXPLAIN',
+        reply: 'Kill Switch active (423): bot execution is paused until resumed.',
+        g2Lines: ['KILL SWITCH (423)', 'Bot execution paused', 'Resume to run bots'],
+        recommendedTab: 'os',
+      };
+    }
+    const bot = this.state.bots.find((b) => b.id === botId || b.name.toLowerCase() === botId.toLowerCase());
+    if (!bot) {
+      return {
+        ok: false,
+        command: `/bot run ${botId}`,
+        domain: 'BOT_STUDIO',
+        specialistId: 'developer',
+        autonomyLevel: 'L0_EXPLAIN',
+        reply: `Bot "${botId}" not found. Run /bot list to see active bots.`,
+        g2Lines: ['BOT NOT FOUND', clipLine42(botId)],
+        recommendedTab: 'os',
+      };
+    }
+    if (!bot.enabled) {
+      return {
+        ok: false,
+        command: `/bot run ${bot.id}`,
+        domain: 'BOT_STUDIO',
+        specialistId: 'developer',
+        autonomyLevel: 'L0_EXPLAIN',
+        reply: `Bot "${bot.name}" is paused. Enable with /bot toggle ${bot.id}.`,
+        g2Lines: ['BOT PAUSED', clipLine42(bot.name)],
+        recommendedTab: 'os',
+      };
+    }
+    bot.lastRunAtIso = new Date(this.nowFn()).toISOString();
+    this.saveState();
+    return this.handleCommand({ text: bot.action, surface });
   }
 
   createSkill(input: {
@@ -1391,6 +1571,185 @@ export class UnifiedOsHarness {
         autonomyLevel: 'L1_PREPARE',
         reply: rtn.detail,
         g2Lines: rtn.g2Lines,
+        recommendedTab: 'os',
+      });
+    }
+
+    // 1c. /schedule [HH:MM | pause | resume | city <name>] -> Editable Morning Brief Scheduler
+    if (cmd === '/schedule') {
+      const sub = arg.trim();
+      if (!sub) {
+        const sc = this.getScheduler();
+        return recordOutcome({
+          ok: true,
+          command: '/schedule',
+          domain: 'SCHEDULER',
+          specialistId: 'chief_of_staff',
+          autonomyLevel: 'L0_EXPLAIN',
+          reply: `Morning Brief Scheduler: ${sc.enabled ? 'ON' : 'PAUSED'} at ${sc.timeHhmm} (${sc.weatherCity}). Update via /schedule 07:30, /schedule pause, /schedule resume, or /schedule city London.`,
+          g2Lines: [
+            `MORNING BRIEF ${sc.enabled ? sc.timeHhmm : 'PAUSED'}`,
+            clipLine42(`Weather: ${sc.weatherCity}`),
+            clipLine42(`Telegram: ${sc.includeTelegram ? 'ON' : 'OFF'} | Crons: ${sc.includeCrons ? 'ON' : 'OFF'}`),
+          ],
+          recommendedTab: 'os',
+        });
+      }
+      if (/^(pause|off|disable)$/i.test(sub)) {
+        const sc = this.updateScheduler({ enabled: false });
+        return recordOutcome({
+          ok: true,
+          command: '/schedule pause',
+          domain: 'SCHEDULER',
+          specialistId: 'chief_of_staff',
+          autonomyLevel: 'L1_PREPARE',
+          reply: `Morning Brief Scheduler paused (was ${sc.timeHhmm}). Run /schedule resume anytime.`,
+          g2Lines: ['MORNING BRIEF PAUSED', `Saved slot: ${sc.timeHhmm}`],
+          recommendedTab: 'os',
+        });
+      }
+      if (/^(resume|on|enable)$/i.test(sub)) {
+        const sc = this.updateScheduler({ enabled: true });
+        return recordOutcome({
+          ok: true,
+          command: '/schedule resume',
+          domain: 'SCHEDULER',
+          specialistId: 'chief_of_staff',
+          autonomyLevel: 'L1_PREPARE',
+          reply: `Morning Brief Scheduler active daily at ${sc.timeHhmm} (${sc.weatherCity}).`,
+          g2Lines: [`MORNING BRIEF ${sc.timeHhmm}`, clipLine42(`City: ${sc.weatherCity}`)],
+          recommendedTab: 'os',
+        });
+      }
+      const timeHit = sub.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+      const cityHit = sub.match(/^city\s+(.+)$/i);
+      if (timeHit) {
+        const hhmm = `${timeHit[1].padStart(2, '0')}:${timeHit[2]}`;
+        const sc = this.updateScheduler({ enabled: true, timeHhmm: hhmm });
+        return recordOutcome({
+          ok: true,
+          command: `/schedule ${hhmm}`,
+          domain: 'SCHEDULER',
+          specialistId: 'chief_of_staff',
+          autonomyLevel: 'L1_PREPARE',
+          reply: `Morning Brief Scheduler updated to daily ${sc.timeHhmm} (${sc.weatherCity}).`,
+          g2Lines: [`MORNING BRIEF ${sc.timeHhmm}`, clipLine42(`Weather: ${sc.weatherCity}`)],
+          recommendedTab: 'os',
+        });
+      }
+      if (cityHit) {
+        const sc = this.updateScheduler({ weatherCity: cityHit[1].trim() });
+        return recordOutcome({
+          ok: true,
+          command: `/schedule city`,
+          domain: 'SCHEDULER',
+          specialistId: 'chief_of_staff',
+          autonomyLevel: 'L1_PREPARE',
+          reply: `Morning Brief weather city set to ${sc.weatherCity} (${sc.timeHhmm}).`,
+          g2Lines: [`WEATHER CITY: ${sc.weatherCity}`, `Brief: ${sc.timeHhmm}`],
+          recommendedTab: 'os',
+        });
+      }
+      return recordOutcome({
+        ok: false,
+        command: '/schedule',
+        domain: 'SCHEDULER',
+        specialistId: 'chief_of_staff',
+        autonomyLevel: 'L0_EXPLAIN',
+        reply: 'Use /schedule 07:30, /schedule pause, /schedule resume, or /schedule city Dubai.',
+        g2Lines: ['USE /schedule 07:30', 'OR /schedule pause|resume'],
+        recommendedTab: 'os',
+      });
+    }
+
+    // 1d. /bot [list | create <name> | <trigger> -> <action> | toggle <id> | run <id>] -> Telegram Bot Studio
+    if (cmd === '/bot') {
+      const subParts = arg.trim().split(/\s+/);
+      const subCmd = (subParts[0] ?? 'list').toLowerCase();
+      const rest = arg.trim().slice(subCmd.length).trim();
+
+      if (!arg.trim() || subCmd === 'list') {
+        const bots = this.listBots();
+        const summary = bots
+          .map((b) => `${b.enabled ? 'ON' : 'OFF'} ${b.name} (${b.id}): ${b.trigger} -> ${b.action}`)
+          .join(' | ');
+        return recordOutcome({
+          ok: true,
+          command: '/bot list',
+          domain: 'BOT_STUDIO',
+          specialistId: 'developer',
+          autonomyLevel: 'L0_EXPLAIN',
+          reply: bots.length > 0
+            ? `Bot Studio (${bots.length} bots): ${summary}`
+            : 'Bot Studio empty. Create one with: /bot create PR Watch | Daily 08:00 -> /code prep pr',
+          g2Lines: [
+            `BOT STUDIO (${bots.filter((b) => b.enabled).length}/${bots.length} ON)`,
+            ...bots.slice(0, 2).map((b) => clipLine42(`${b.enabled ? '*' : '-'} ${b.name}: ${b.trigger}`)),
+          ],
+          recommendedTab: 'os',
+        });
+      }
+
+      if (subCmd === 'create') {
+        const arrowSplit = rest.split('->');
+        const left = (arrowSplit[0] ?? '').trim();
+        const action = (arrowSplit[1] ?? '').trim() || '/morning';
+        const pipeSplit = left.split('|');
+        const name = (pipeSplit[0] ?? '').trim() || 'Voice Micro-Bot';
+        const trigger = (pipeSplit[1] ?? '').trim() || 'On demand';
+        try {
+          const bot = this.createBot({ name, trigger, action });
+          return recordOutcome({
+            ok: true,
+            command: '/bot create',
+            domain: 'BOT_STUDIO',
+            specialistId: 'developer',
+            autonomyLevel: 'L1_PREPARE',
+            reply: `Created bot "${bot.name}" (${bot.id}): ${bot.trigger} -> ${bot.action}. Mutating actions stay behind Default-NO & Kill Switch.`,
+            g2Lines: ['BOT CREATED', clipLine42(bot.name), clipLine42(`${bot.trigger} -> ${bot.action}`)],
+            recommendedTab: 'os',
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Bot creation blocked';
+          return recordOutcome({
+            ok: false,
+            command: '/bot create',
+            domain: 'L5_BLOCKED',
+            specialistId: 'auditor',
+            autonomyLevel: 'L5_BLOCKED',
+            reply: msg,
+            g2Lines: ['L5 HARD BLOCKED', clipLine42(msg)],
+            recommendedTab: 'os',
+          });
+        }
+      }
+
+      if (subCmd === 'toggle') {
+        const bot = this.toggleBot(rest);
+        return recordOutcome({
+          ok: Boolean(bot),
+          command: '/bot toggle',
+          domain: 'BOT_STUDIO',
+          specialistId: 'developer',
+          autonomyLevel: 'L1_PREPARE',
+          reply: bot ? `Bot "${bot.name}" (${bot.id}) is now ${bot.enabled ? 'ENABLED' : 'PAUSED'}.` : `Bot "${rest}" not found.`,
+          g2Lines: [bot ? `BOT ${bot.enabled ? 'ON' : 'OFF'}` : 'BOT NOT FOUND', clipLine42(bot?.name ?? rest)],
+          recommendedTab: 'os',
+        });
+      }
+
+      if (subCmd === 'run') {
+        return this.runBot(rest, params.surface);
+      }
+
+      return recordOutcome({
+        ok: false,
+        command: '/bot',
+        domain: 'BOT_STUDIO',
+        specialistId: 'developer',
+        autonomyLevel: 'L0_EXPLAIN',
+        reply: 'Use /bot list, /bot create Name | Trigger -> /cmd, /bot toggle <id>, or /bot run <id>.',
+        g2Lines: ['USE /bot list|create', 'OR /bot toggle|run <id>'],
         recommendedTab: 'os',
       });
     }
@@ -2133,7 +2492,7 @@ export class UnifiedOsHarness {
 
     const contextLine1 = latestPending ? clipLine42(latestPending.title, 42) : 'Nothing needs you right now';
 
-    const contextLine2 = paused ? 'Tap to resume' : latestPending ? 'Tap to approve or skip' : 'Tap for morning crew';
+    const contextLine2 = paused ? 'Kill Switch active' : latestPending ? 'Approval queued' : 'Morning brief ready';
 
     return {
       id: 'card-unified-os',

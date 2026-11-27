@@ -41,7 +41,7 @@ export function installStaticJudgeDemoFetch(): void {
   let seq = 1;
   let paused = false;
   let meeting: MeetingSessionState | null = null;
-  let preferredLlm: 'auto' | 'claude' | 'openrouter' | 'chatgpt' | 'grok' | 'omniroute' | 'rules' = 'auto';
+  let preferredLlm: 'auto' | 'claude' | 'openrouter' | 'chatgpt' | 'omniroute' | 'rules' = 'auto';
 
   const initialEvents = () => [
     {
@@ -394,7 +394,57 @@ export function installStaticJudgeDemoFetch(): void {
     if (p === '/api/auth/me') return jsonRes(200, { authenticated: false });
     if (p === '/api/demo/session') return jsonRes(200, { sessionToken: 'static-judge-demo', mode: 'DEMO' });
     if (p === '/api/corridor') {
-      return jsonRes(200, { cards: buildCards(), sourceMode: 'DEMO', provenanceLabel: 'DEMO · JUDGE STUDIO', syncedAtIso: new Date().toISOString() });
+      return jsonRes(200, {
+        cards: buildCards(),
+        sourceMode: 'DEMO',
+        provenanceLabel: 'DEMO · JUDGE STUDIO',
+        syncedAtIso: new Date().toISOString(),
+        weatherLabel: '24C Clear',
+        weatherWebLabel: '24°C Clear',
+        agentGrid: [
+          { label: 'AGENTS', value: '5' },
+          { label: 'CRONS', value: '8' },
+          { label: 'BOTS', value: '2' },
+          { label: 'BRIEF', value: '08:00' },
+        ],
+      });
+    }
+    if (p === '/api/weather') {
+      return jsonRes(200, {
+        ok: true,
+        weather: { tempC: 24, condition: 'Clear', city: 'Dubai', source: 'fallback', g2Label: '24C Clear', webLabel: '24°C Clear' },
+      });
+    }
+    if (p === '/api/harness/pool') {
+      return jsonRes(200, {
+        ok: true,
+        pool: {
+          strategy: 'weighted_least_latency_circuit_breaker',
+          hostCpuCap: 8,
+          totalInflight: 0,
+          totalDispatched: 14,
+          totalFailovers: 0,
+          nodes: [
+            { id: 'ollama', label: 'Ollama qwen3:1.7b', tier: 'hosted_pc', healthy: true, circuit: 'CLOSED', ewmaLatencyMs: 180, inflight: 0, maxConcurrency: 4 },
+            { id: 'omniroute', label: 'OmniRoute Gateway', tier: 'hosted_pc', healthy: true, circuit: 'CLOSED', ewmaLatencyMs: 240, inflight: 0, maxConcurrency: 4 },
+            { id: 'rules', label: 'Deterministic Rules', tier: 'deterministic', healthy: true, circuit: 'CLOSED', ewmaLatencyMs: 8, inflight: 0, maxConcurrency: 6 },
+          ],
+        },
+      });
+    }
+    if (p === '/api/os/scheduler') {
+      return jsonRes(200, {
+        ok: true,
+        scheduler: { enabled: true, timeHhmm: '08:00', weatherCity: 'Dubai', lat: 25.2048, lon: 55.2708, includeTelegram: true, includeCrons: true },
+      });
+    }
+    if (p === '/api/os/bots') {
+      return jsonRes(200, {
+        ok: true,
+        bots: [
+          { id: 'bot_pr_watch', name: 'PR & CI Digest Bot', trigger: 'Daily 08:00', action: '/code prep pr', enabled: true },
+        ],
+      });
     }
     if (p === '/api/workspace/state') {
       return jsonRes(200, { snapshot: { calendarEvents, gmailThreads, notionTasks }, receipts, auditLog });

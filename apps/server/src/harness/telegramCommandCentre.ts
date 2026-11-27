@@ -133,6 +133,49 @@ export class TelegramCommandCentre {
         this.processedCount += 1;
         return { handled: true, reply: notice };
       }
+      if (verb === 'menu' && approvalId) {
+        const owner = this.deps.getCredentials().chatId?.trim();
+        if (!owner || cq.chatId !== owner) {
+          if (client) await client.answerCallbackQuery(cq.id, 'Owner DM required').catch(() => null);
+          return { handled: false, reply: 'Owner DM required' };
+        }
+        const cmdMap: Record<string, string> = {
+          morning: '/morning',
+          agents: '/apps',
+          bots: '/bot list',
+          schedule: '/schedule',
+          pr: '/code prep pr',
+          career: '/project career_pack AI Engineer roles',
+        };
+        const targetCmd = cmdMap[approvalId] ?? '/status';
+        const out = await this.deps.osHarness.handleCommand({
+          text: targetCmd,
+          surface: 'telegram',
+          chatId: cq.chatId,
+        });
+        if (client) {
+          await client.answerCallbackQuery(cq.id, `Ran ${targetCmd}`).catch(() => null);
+          if (out.approval && out.approval.status === 'PENDING') {
+            await client
+              .sendMessageWithInlineKeyboard(
+                out.reply,
+                [
+                  [
+                    { text: 'Approve Once', callback_data: `approve:${out.approval.id}` },
+                    { text: 'Reject', callback_data: `reject:${out.approval.id}` },
+                  ],
+                  [{ text: 'Kill Switch (Pause All)', callback_data: `killswitch:${out.approval.id}` }],
+                ],
+                cq.chatId,
+              )
+              .catch(() => null);
+          } else {
+            await client.sendMessage(out.reply, cq.chatId).catch(() => null);
+          }
+        }
+        this.processedCount += 1;
+        return { handled: true, reply: out.reply };
+      }
       if ((verb === 'approve' || verb === 'reject') && approvalId) {
         const res = await this.deps.osHarness.decideApproval(approvalId, verb, {
           surface: 'telegram',
@@ -179,7 +222,34 @@ export class TelegramCommandCentre {
       if (!isCommand && (!owner || msg.chatId !== owner)) {
         return { handled: false };
       }
-      if (word === '/myid' || word === '/start') {
+      if (word === '/myid' || word === '/start' || word === '/menu') {
+        if (!isGroup && owner && msg.chatId === owner && word !== '/myid') {
+          const reply = 'OnQ Control Center ready. Tap any action below or speak on your Even G2 glasses:';
+          if (client) {
+            await client
+              .sendMessageWithInlineKeyboard(
+                reply,
+                [
+                  [
+                    { text: 'Morning Brief', callback_data: 'menu:morning' },
+                    { text: 'PC Agents & AI', callback_data: 'menu:agents' },
+                  ],
+                  [
+                    { text: 'Bot Studio', callback_data: 'menu:bots' },
+                    { text: 'Coding PR Gate', callback_data: 'menu:pr' },
+                  ],
+                  [
+                    { text: 'Career Pack', callback_data: 'menu:career' },
+                    { text: 'Scheduler', callback_data: 'menu:schedule' },
+                  ],
+                  [{ text: 'Kill Switch (Pause All)', callback_data: 'killswitch:menu' }],
+                ],
+                msg.chatId,
+              )
+              .catch(() => null);
+          }
+          return { handled: true, reply };
+        }
         const reply = isGroup
           ? `Group chat ID is ${msg.chatId}. In OnQ -> Connect -> Telegram, click Watch to monitor this group (owner must be a private DM).`
           : `Your chat ID is ${msg.chatId}. In OnQ, open Connectors, Telegram, and paste it as the owner chat.`;
@@ -287,7 +357,11 @@ export class TelegramCommandCentre {
     this.menuRegistered = true;
     await client
       .setMyCommands([
+        { command: 'menu', description: 'Interactive OnQ Control Center buttons' },
         { command: 'status', description: 'OnQ status and pending approvals' },
+        { command: 'morning', description: 'Run Morning Brief digest' },
+        { command: 'bot', description: 'Create, list, or run personal Telegram automations' },
+        { command: 'schedule', description: 'View or set daily Morning Brief schedule' },
         { command: 'apps', description: 'PC hosted AI apps and agents' },
         { command: 'inference', description: 'Switch computer, api, or auto inference' },
         { command: 'use', description: 'Pick active AI app (ollama, claude, openrouter)' },

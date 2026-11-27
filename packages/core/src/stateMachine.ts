@@ -19,7 +19,14 @@ export interface HudControllerHooks {
   onStageSlot?: (slotStartIso: string, slotEndIso: string) => Promise<ActionPreview | ConflictLockDetail>;
   onCommitPreview?: (preview: ActionPreview) => Promise<CommitReceipt | ConflictLockDetail>;
   onUndoReceipt?: (receipt: CommitReceipt) => Promise<CommitReceipt>;
-  onRefreshCorridor?: () => Promise<{ cards: CorridorCard[]; sourceMode: SourceMode; provenanceLabel: string; syncedAtIso: string }>;
+  onRefreshCorridor?: () => Promise<{
+    cards: CorridorCard[];
+    sourceMode: SourceMode;
+    provenanceLabel: string;
+    syncedAtIso: string;
+    weatherLabel?: string;
+    agentGrid?: Array<{ label: string; value: string }>;
+  }>;
   onStartVoice?: () => void;
   onStopVoice?: () => Promise<void>;
   onExitMeeting?: () => Promise<void> | void;
@@ -104,6 +111,7 @@ export class OnQHudController {
     sourceMode: SourceMode,
     provenanceLabel: string,
     syncedAtIso = new Date(this.nowFn()).toISOString(),
+    ambient?: { weatherLabel?: string; agentGrid?: Array<{ label: string; value: string }> },
   ): void {
     if (this.state.phase === 'committing' || this.state.phase === 'armed') return;
     const boundedIdx =
@@ -113,6 +121,8 @@ export class OnQHudController {
       sourceMode,
       provenanceLabel,
       syncedAtIso,
+      ...(ambient?.weatherLabel !== undefined ? { weatherLabel: ambient.weatherLabel } : {}),
+      ...(ambient?.agentGrid !== undefined ? { agentGrid: ambient.agentGrid } : {}),
       selectedCardIndex: boundedIdx,
       phase: sourceMode === 'STALE' ? 'stale' : this.state.phase === 'stale' ? 'idle' : this.state.phase,
     });
@@ -317,7 +327,10 @@ export class OnQHudController {
       if (this.hooks.onRefreshCorridor) {
         try {
           const data = await this.hooks.onRefreshCorridor();
-          this.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso);
+          this.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso, {
+            weatherLabel: data.weatherLabel,
+            agentGrid: data.agentGrid,
+          });
         } catch {
           // Keep cached data with STALE badge
           this.setState({ phase: 'stale', sourceMode: 'STALE' });
@@ -416,7 +429,10 @@ export class OnQHudController {
           try {
             const data = await this.hooks.onRefreshCorridor();
             this.setState({ phase: 'idle' });
-            this.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso);
+            this.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso, {
+              weatherLabel: data.weatherLabel,
+              agentGrid: data.agentGrid,
+            });
             return;
           } catch {
             return;

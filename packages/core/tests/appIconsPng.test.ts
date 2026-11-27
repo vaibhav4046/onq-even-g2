@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createInitialHudState,
   renderAppBadgePng,
+  renderPixelAvatar,
   resolveHudBadgeKind,
   type AppBadgeKind,
   type CorridorCard,
@@ -81,5 +82,18 @@ describe('appIconsPng.ts', () => {
     expect(resolveHudBadgeKind(createInitialHudState(cards, 'DEMO'), 'CAREER_PACK')).toBe('career_pack');
     expect(resolveHudBadgeKind(createInitialHudState(cards, 'DEMO'), 'GLOBAL KILL SWITCH')).toBe('killswitch_423');
     expect(resolveHudBadgeKind(createInitialHudState(cards, 'DEMO'), 'MUSIC FOCUS')).toBe('focus_music');
+  });
+
+  it('renders minimal monochrome Voice Orb 4-bit Gray4 PNG with >= 75% optical black budget', () => {
+    for (const st of ['idle', 'listening', 'speaking', 'thinking', 'conflict'] as const) {
+      const orb = renderPixelAvatar(st, { style: 'orb', tick: 3, rmsLevel: 0.6, size: 76 });
+      expect(orb.width).toBe(76);
+      expect(orb.height).toBe(76);
+      expect(Array.from(orb.pngBytes.subarray(0, 8))).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+      expect(orb.pngBytes[24]).toBe(4);
+      expect(orb.pngBytes[25]).toBe(0);
+      expect(orb.blackPixelRatio).toBeGreaterThanOrEqual(0.75);
+      expect(orb.blackPixelRatio).toBeLessThan(0.99);
+    }
   });
 });

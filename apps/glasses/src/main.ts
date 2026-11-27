@@ -200,8 +200,8 @@ function buildStateSpritePng(state: HudState, frameRingProgress01?: number, live
     avatarTick += 1;
     const mode = state.phase === 'meeting_live' ? 'speaking' : 'listening';
     return {
-      png: encodePixelAvatarPng(mode, { tick: avatarTick, rmsLevel: Math.max(0.35, state.rmsLevel), style: 'muse', size: 76 }),
-      key: `avatar:${mode}:${avatarTick}`,
+      png: encodePixelAvatarPng(mode, { tick: avatarTick, rmsLevel: Math.max(0.35, state.rmsLevel), style: 'orb', size: 76 }),
+      key: `orb:${mode}:${avatarTick}`,
       wantAvatar: true,
       wantRing: false,
     };
@@ -271,7 +271,7 @@ async function paintToGlasses(state: HudState): Promise<void> {
           : /WORKING|SYNCING|SWITCHING/i.test(topAnswer)
             ? 'thinking'
             : 'speaking';
-      const png = encodePixelAvatarPng(mode, { tick: avatarTick, rmsLevel: Math.max(0.42, cur.rmsLevel), style: 'muse', size: 76 });
+      const png = encodePixelAvatarPng(mode, { tick: avatarTick, rmsLevel: Math.max(0.42, cur.rmsLevel), style: 'orb', size: 76 });
       setDomSpritePng(png);
       if (bridge) {
         void paintQueue.enqueueImage(async () => {
@@ -456,6 +456,8 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
       sourceMode: SourceMode;
       provenanceLabel: string;
       syncedAtIso: string;
+      weatherLabel?: string;
+      agentGrid?: Array<{ label: string; value: string }>;
     }>('/api/corridor');
     return data;
   },
@@ -507,8 +509,13 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
         sourceMode: SourceMode;
         provenanceLabel: string;
         syncedAtIso: string;
+        weatherLabel?: string;
+        agentGrid?: Array<{ label: string; value: string }>;
       }>('/api/corridor');
-      controller.setCorridor(corr.cards, corr.sourceMode, corr.provenanceLabel, corr.syncedAtIso);
+      controller.setCorridor(corr.cards, corr.sourceMode, corr.provenanceLabel, corr.syncedAtIso, {
+        weatherLabel: corr.weatherLabel,
+        agentGrid: corr.agentGrid,
+      });
       if (infRes.g2Lines?.length) {
         controller.showAnswer(infRes.g2Lines);
       }
@@ -525,8 +532,13 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
         sourceMode: SourceMode;
         provenanceLabel: string;
         syncedAtIso: string;
+        weatherLabel?: string;
+        agentGrid?: Array<{ label: string; value: string }>;
       }>('/api/corridor');
-      controller.setCorridor(corr.cards, corr.sourceMode, corr.provenanceLabel, corr.syncedAtIso);
+      controller.setCorridor(corr.cards, corr.sourceMode, corr.provenanceLabel, corr.syncedAtIso, {
+        weatherLabel: corr.weatherLabel,
+        agentGrid: corr.agentGrid,
+      });
       if (useRes.g2Lines?.length) {
         controller.showAnswer(useRes.g2Lines);
       }
@@ -587,8 +599,13 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
         sourceMode: SourceMode;
         provenanceLabel: string;
         syncedAtIso: string;
+        weatherLabel?: string;
+        agentGrid?: Array<{ label: string; value: string }>;
       }>('/api/corridor');
-      controller.setCorridor(corr.cards, corr.sourceMode, corr.provenanceLabel, corr.syncedAtIso);
+      controller.setCorridor(corr.cards, corr.sourceMode, corr.provenanceLabel, corr.syncedAtIso, {
+        weatherLabel: corr.weatherLabel,
+        agentGrid: corr.agentGrid,
+      });
       return null;
     }
     if (opt?.commandText === '__OS_APPROVE_LATEST__') {
@@ -773,9 +790,14 @@ async function refreshHostLine(): Promise<void> {
     sourceMode: SourceMode;
     provenanceLabel: string;
     syncedAtIso: string;
+    weatherLabel?: string;
+    agentGrid?: Array<{ label: string; value: string }>;
   }>('/api/corridor');
   if (corr.status === 200 && controller.getState().phase === 'idle' && !activeLiveUi) {
-    controller.setCorridor(corr.data.cards, corr.data.sourceMode, corr.data.provenanceLabel, corr.data.syncedAtIso);
+    controller.setCorridor(corr.data.cards, corr.data.sourceMode, corr.data.provenanceLabel, corr.data.syncedAtIso, {
+      weatherLabel: corr.data.weatherLabel,
+      agentGrid: corr.data.agentGrid,
+    });
   }
 }
 
@@ -817,9 +839,14 @@ function startSseSync(tok: string): void {
         sourceMode: SourceMode;
         provenanceLabel: string;
         syncedAtIso: string;
+        weatherLabel?: string;
+        agentGrid?: Array<{ label: string; value: string }>;
       }>('/api/corridor').then(({ data }) => {
         if (!activeLiveUi) {
-          controller.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso);
+          controller.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso, {
+            weatherLabel: data.weatherLabel,
+            agentGrid: data.agentGrid,
+          });
         }
       });
     });
@@ -906,9 +933,14 @@ function startSseSync(tok: string): void {
         sourceMode: SourceMode;
         provenanceLabel: string;
         syncedAtIso: string;
+        weatherLabel?: string;
+        agentGrid?: Array<{ label: string; value: string }>;
       }>('/api/corridor').then(({ data }) => {
         if (controller.getState().phase === 'idle' && !activeLiveUi) {
-          controller.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso);
+          controller.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso, {
+            weatherLabel: data.weatherLabel,
+            agentGrid: data.agentGrid,
+          });
         }
       });
     });
@@ -991,9 +1023,14 @@ async function loadCorridor(): Promise<void> {
     sourceMode: SourceMode;
     provenanceLabel: string;
     syncedAtIso: string;
+    weatherLabel?: string;
+    agentGrid?: Array<{ label: string; value: string }>;
   }>('/api/corridor');
   if (status !== 200 || !Array.isArray(data.cards)) throw new Error(`corridor HTTP ${status}`);
-  controller.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso);
+  controller.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso, {
+    weatherLabel: data.weatherLabel,
+    agentGrid: data.agentGrid,
+  });
 }
 
 /** Link is up: start the right transport (stream, or long-poll when the stream is blocked) and load the corridor. */
@@ -1228,8 +1265,13 @@ async function bootstrap(): Promise<void> {
         sourceMode: SourceMode;
         provenanceLabel: string;
         syncedAtIso: string;
+        weatherLabel?: string;
+        agentGrid?: Array<{ label: string; value: string }>;
       }>('/api/corridor');
-      controller.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso);
+      controller.setCorridor(data.cards, data.sourceMode, data.provenanceLabel, data.syncedAtIso, {
+        weatherLabel: data.weatherLabel,
+        agentGrid: data.agentGrid,
+      });
     }
   };
 }
