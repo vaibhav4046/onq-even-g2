@@ -9,6 +9,8 @@
 **Public Repository:** https://github.com/vaibhav4046/onq-even-g2  
 **Live Interactive G2 Studio (Zero Keys):** https://vaibhav4046.github.io/onq-even-g2/demo/  
 **Live Docs & Privacy Policy:** https://vaibhav4046.github.io/onq-even-g2/ · https://vaibhav4046.github.io/onq-even-g2/privacy.html  
+**Live DoraHacks BUIDL (Submitted · Under Review):** https://dorahacks.io/build/52193 *(Tracks: `04 · AI Assistants & Work` + `01 · Messaging & News` / Best Telegram Integration)*  
+**Unlisted Demo Film (YouTube):** https://youtu.be/NHQIVPNcYY0  
 **GitHub Release `v1.0.0` (`.ehpk` + Film v5 MP4):** https://github.com/vaibhav4046/onq-even-g2/releases/tag/v1.0.0  
 **Finalist Discord Pitch Script (Dec 1):** `docs/FINALIST_PITCH_SCRIPT.md`  
 **Hard Safety Stop Enforced:** Zero `git push` forced, zero `--no-verify`, zero DoraHacks/Product Hunt auto-submission, zero paid spend, and zero real outbound emails/remote pushes.

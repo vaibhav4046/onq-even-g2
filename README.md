@@ -2,7 +2,7 @@
 
 **Own the 90 seconds between meetings on Even Realities G2. Glance, tap once, done, with undo.**
 
-> **[Launch Live Interactive G2 Studio (Zero Keys)](https://vaibhav4046.github.io/onq-even-g2/demo/)** · **[Download `onq.ehpk` (`v1.0.0`)](https://github.com/vaibhav4046/onq-even-g2/releases/download/v1.0.0/onq.ehpk)** · **[Watch 2:45 Day-in-the-Life Film](https://github.com/vaibhav4046/onq-even-g2/releases/download/v1.0.0/onq-film-v5-day-in-life.mp4)** · **[Finalist Pitch Script](docs/FINALIST_PITCH_SCRIPT.md)**
+> **[Launch Live Interactive G2 Studio (Zero Keys)](https://vaibhav4046.github.io/onq-even-g2/demo/)** · **[Watch 2:45 Demo Film (YouTube)](https://youtu.be/NHQIVPNcYY0)** · **[Download `onq.ehpk` (`v1.0.0`)](https://github.com/vaibhav4046/onq-even-g2/releases/download/v1.0.0/onq.ehpk)** · **[DoraHacks BUIDL #52193](https://dorahacks.io/build/52193)** · **[Finalist Pitch Script](docs/FINALIST_PITCH_SCRIPT.md)**
 
 **For:** people who live in Calendar, Gmail, Notion and Telegram and walk between back-to-back meetings.
 **Track:** 04 AI Assistants & Work (Google Workspace, Notion, Claude / ChatGPT / OpenRouter) + 01 Messaging & News (Best Telegram Integration).

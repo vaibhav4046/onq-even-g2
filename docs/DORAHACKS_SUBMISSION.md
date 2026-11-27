@@ -37,7 +37,8 @@ People who live in Google Calendar, Gmail, Notion and Telegram and move between 
 - **Live Interactive G2 Studio (Zero Setup):** https://vaibhav4046.github.io/onq-even-g2/demo/
 - **Landing Page & Privacy Policy:** https://vaibhav4046.github.io/onq-even-g2/
 - **Direct `.ehpk` Download (`v1.0.0`):** https://github.com/vaibhav4046/onq-even-g2/releases/download/v1.0.0/onq.ehpk
-- **Demo Video (2:45, under 3-min cap):** https://github.com/vaibhav4046/onq-even-g2/releases/download/v1.0.0/onq-film-v5-day-in-life.mp4 *(Tip: also upload this MP4 as Unlisted YouTube if you want DoraHacks inline player embed)*
+- **DoraHacks Live BUIDL (Submitted):** https://dorahacks.io/build/52193
+- **Demo Video (2:45, Unlisted YouTube):** https://youtu.be/NHQIVPNcYY0 *(Direct MP4 backup: https://github.com/vaibhav4046/onq-even-g2/releases/download/v1.0.0/onq-film-v5-day-in-life.mp4)*
 
 **Feature Requests (Optional DoraHacks Field — 5 concrete SDK requests from `API_FEEDBACK.md`):**
 1. **Normalize Proto3 Zero-Value Enum Defaults (`@evenrealities/even_hub_sdk`):** Plain temple taps (`CLICK_EVENT = 0`) and first-row `ListContainer` selections (`index = 0`) omit fields in proto3 JSON; normalize inside `evenHubEventFromJson()`.
