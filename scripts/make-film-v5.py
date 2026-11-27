@@ -1,7 +1,9 @@
-"""OnQ Flagship Launch Film v5 ("Day in the Life with OnQ" — Photorealistic Editorial Edition):
-Real-world 16:9 editorial cinematography plates + strict in-lens Even G2 optical waveguide fit
-+ real EvenHub Simulator 0.9.5 captures + OnQ Studio typography + living monochrome Voice Orb
-+ AssemblyAI TTS-1 dual-voice + -16 LUFS mastered score.
+"""OnQ Flagship Launch Film v5 ("Day in the Life with OnQ" — Dynamic Multi-Layer Animated Edition):
+Full v4 dynamic multi-layer parallax anime cinematography (hand grab, walking street parallax,
+blinking/talking wearer, iris-zoom into lens, floating motes, reactive voice waves, film bloom/grain)
++ STRICT in-lens Even G2 optical waveguide fit (zero bezel overhang)
++ living monochrome Voice Orb + refreshed zero-clutter EvenHub Simulator 0.9.5 captures
++ OnQ Studio obsidian website typography + AssemblyAI TTS-1 dual-voice + -16 LUFS mastered score.
 Outputs 1920x1080 @ 30fps (165.0s / 2:45) to media/out/onq-film-v5-day-in-life.mp4.
 """
 import importlib.util
@@ -17,30 +19,23 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = os.getcwd()
 FILM = os.path.join(ROOT, 'media', 'film-v3')
-PLATES = os.path.join(ROOT, 'media', 'film-v5-plates')
 WORK = os.path.join(FILM, 'work')
+LAY = os.path.join(WORK, 'layers')
 CAPDIR = os.path.join(FILM, 'captures')
 FPS = 30
 DRAFT = '--draft' in sys.argv
 S = 0.5 if DRAFT else 1.0
 OW, OH = int(1920 * S), int(1080 * S)
+C0 = (1152.0, 648.0)
 
-# OnQ Studio palette (BGR for OpenCV, RGB for PIL)
-GREEN_BGR = (126, 245, 52)    # #34f57e
+GREEN = (126, 245, 52)        # BGR of #34f57e
 GREEN_RGB = (52, 245, 126)    # #34f57e
 MINT_RGB = (184, 255, 209)    # #b8ffd1
-BG_RGB = (7, 10, 8)           # #070a08 obsidian matching OnQ website
+BG_RGB = (7, 10, 8)           # #070a08 OnQ website obsidian
 PANEL_RGB = (14, 19, 16)      # #0e1310
 BORDER_RGB = (29, 44, 35)     # #1d2c23
 TEXT_RGB = (234, 243, 237)    # #eaf3ed
 MUTED_RGB = (147, 166, 152)   # #93a698
-
-PLATE_MAP = {
-    'morning': '01-morning-desk.jpg',
-    'desk': '02-coding-studio.jpg',
-    'street': '03-city-corridor.jpg',
-    'evening': '04-evening-commute.jpg',
-}
 
 SCENES = [
     ('wake', 0.0, 20.0),
@@ -61,14 +56,14 @@ SLOTS = [
 VOICE_WEARER = 'aai-kyla'
 VOICE_ONQ = 'aai-titus'
 
-# Non-overlapping dual-voice narration across 7 realistic workday acts (165.0s / 2:45)
+# Carefully timed non-overlapping dual-voice narration across 7 Day-in-the-Life acts (165.0s / 2:45)
 CAPTIONS = [
-    (1.2, VOICE_ONQ, '08:00 AM · Camera-free Even G2 glasses. Instant PC AI auto-sync.', 'Eight AM. You already own a computer running your AI tools.'),
+    (1.2, VOICE_ONQ, '08:00 AM · Put on camera-free Even G2. Instant PC AI auto-sync.', 'Eight AM. You already own a computer running your AI tools.'),
     (8.0, VOICE_ONQ, 'OnQ turns your PC into the AI brain, and Even G2 into a quiet optical window.', 'OnQ turns your PC into the brain, and Even G2 into a quiet window you wear all day.'),
     (14.6, VOICE_ONQ, 'OnQ: "PC host synced. Ollama Qwen3, load balancer, and OpenBot ready at zero cost."', 'P C host synced. Ollama Qwen three, load balancer, and OpenBot ready at zero cost.'),
     (20.6, VOICE_WEARER, '08:15 AM · Wearer: "Show my morning brief, and mark Q4 deck review done."', 'Eight fifteen. Show my morning brief, and mark Q4 deck review done.'),
     (27.2, VOICE_ONQ, 'OnQ: "Notion task staged Default-NO. Tap YES for the 2-second undo ring."', 'Notion task staged Default-NO. Tap yes for the two-second undo ring, then done with a receipt.'),
-    (36.5, VOICE_ONQ, 'OnQ: "Confirmed. Notion checked off; weather and morning schedule synced cleanly."', 'Confirmed. Notion checked off and morning schedule updated cleanly.'),
+    (36.5, VOICE_ONQ, 'OnQ: "Confirmed. Live Notion checked off; weather and schedule synced cleanly."', 'Confirmed. Notion checked off and morning schedule updated cleanly.'),
     (45.8, VOICE_WEARER, '10:30 AM · Wearer: "OnQ, run software crew and prep the PR for master."', 'Ten thirty, away from the desk. OnQ, run software crew and prep the P R for master.'),
     (53.2, VOICE_ONQ, 'OnQ: "537 tests pass on your local PC. Diff summarized. L5 blocks force push."', 'Five hundred thirty seven tests pass on your local P C. Diff summarized, L5 blocks force push.'),
     (63.2, VOICE_ONQ, 'OnQ: "PR gate staged Default-NO. Approve once on glasses or Telegram."', 'P R gate staged Default-NO. Approve once on glasses or Telegram.'),
@@ -102,144 +97,83 @@ def lerp(a, b, k):
 
 
 def _shots():
+    R = 'room'
     return [
-        # Act 1: 08:00 AM · Real Morning Desk & Instant PC Auto-Sync (0.0 -> 20.0s)
-        ('cinema', 7.5, dict(
-            plate='morning', zoom=(1.00, 1.07), pan=(0.0, -0.015), fade=0.8,
-            kicker='08:00 AM · EVEN REALITIES G2 + R1 RING',
-            headline='Your computer already runs your AI.',
-            subline='OnQ mirrors your local PC agents onto a quiet 525nm optical lens.',
-            orb=True, sfx=[(0.5, 'alarm')],
-        )),
-        ('cinema', 6.5, dict(
-            plate='morning', zoom=(1.06, 1.12), pan=(0.02, -0.02), fade=0.45,
-            kicker='LOCAL-FIRST AI POOL · $0 API TOKENS',
-            headline='Ollama · OmniRoute · Claude · OpenBot.',
-            subline='Adaptive load balancer with circuit breakers and automatic failover.',
-            orb=True, sfx=[(0.4, 'whoosh'), (1.2, 'pair')],
-        )),
-        ('lens', 6.0, dict(
-            slot='computer', plate='morning',
-            tag='08:00 AM · PC AUTO-SYNC · LOAD BALANCER READY',
-            icon='pc', orb=True, sfx=[(0.3, 'chime')],
-        )),
+        # Act 1: 08:00 AM · Wake, Grab Even G2 Off Nightstand, Put On & Instant PC Auto-Sync (0.0 -> 20.0s)
+        (R, 5.5, dict(bg='bedroom', char=dict(x=1130, y=800, s=1.12, rot=-4), cam=((1152, 700, 1.0), (1160, 690, 1.15)), fade=1.0, vignette=0.55,
+                      keys=[(0, 'sleep', 0, 0), (3.5, 'neutral', 0, 0), (4.8, 'neutral', 0, -1)], sfx=[(3.4, 'alarm')], motes=True)),
+        ('night', 5.5, dict(sfx=[(0.2, 'whoosh')])),
+        (R, 3.0, dict(bg='bedroom', char=dict(x=1130, y=800, s=1.12, rot=-4), cam=((1160, 720, 1.25), (1140, 640, 1.6)), fade=0.35,
+                      keys=[(0, 'neutral', 0, 0), (0.5, 'neutral', 1, 0), (1.4, 'smile', 1, 0)], flash=0.5, glow=[(1.0, 3.0, 0.8)], motes=True)),
+        ('lens', 6.0, dict(slot='computer', bg='desk', icon='pc', orb=True,
+                           tag='08:00 AM · PC AUTO-SYNC · LOAD BALANCER + OLLAMA ($0)',
+                           cam=((1300, 560, 1.0), (1300, 560, 1.06)), iris=(1000, 380), sfx=[(0.4, 'chime'), (1.0, 'pair')])),
 
-        # Act 2: 08:15 AM · Morning Brief & Default-NO Undo Ring (20.0 -> 45.0s)
-        ('cinema', 4.0, dict(
-            plate='morning', zoom=(1.03, 1.08), pan=(-0.02, 0.0), fade=0.4,
-            kicker='08:15 AM · VOICE COMMAND',
-            headline='"Show my morning brief, and mark Q4 deck done."',
-            subline='Zero clutter. Weather, time, calendar, mail, and Notion in one glance.',
-            orb=True, wave=True, sfx=[(0.3, 'listen')],
-        )),
-        ('lens', 5.5, dict(
-            slot='card', plate='morning',
-            tag='08:15 AM · MORNING BRIEF · CAL + GMAIL + WEATHER',
-            icon='calendar', orb=True, sfx=[(0.3, 'chime')],
-        )),
-        ('lens', 5.5, dict(
-            slot='draft', plate='morning',
-            tag='DEFAULT-NO PREVIEW · ZERO UNCONFIRMED WRITES',
-            icon='shield', orb=True, sfx=[(0.3, 'chime')],
-        )),
-        ('lens', 5.0, dict(
-            slot='ring', plate='morning',
-            tag='2.0s 4-BIT GRAY4 UNDO RING · TAP TO ABORT',
-            icon='ring', orb=False, sfx=[(0.4, 'tick'), (0.9, 'tick'), (1.4, 'tick'), (1.9, 'tick')],
-        )),
-        ('lens', 5.0, dict(
-            slot='done', plate='morning',
-            tag='RECEIPT COMMITTED · 30s SURGICAL UNDO READY',
-            icon='check', orb=True, sfx=[(0.25, 'ding')],
-        )),
+        # Act 2: 08:15 AM · Morning Brief & One-Tap Notion Completion (20.0 -> 45.0s)
+        (R, 4.0, dict(bg='bedroom', char=dict(x=1130, y=800, s=1.12, rot=-3), cam=((1150, 690, 1.2), (1150, 690, 1.15)), fade=0.4,
+                      keys=[(0, 'focused', 1, 0)], talk=[(0.6, 3.2)], glow=[(0, 4.0, 0.55)], sfx=[(0.4, 'listen')], wave=(0.6, 3.2))),
+        ('lens', 5.5, dict(slot='card', bg='bedroom', icon='calendar', orb=True,
+                           tag='08:15 AM · MORNING BRIEF · WEATHER + CAL + GMAIL',
+                           cam=((1500, 520, 1.0), (1500, 520, 1.06)), iris=(1000, 380), sfx=[(0.4, 'chime')])),
+        ('lens', 5.5, dict(slot='draft', bg='bedroom', icon='shield', orb=True,
+                           tag='DEFAULT-NO PREVIEW · ZERO UNCONFIRMED WRITES',
+                           cam=((1500, 520, 1.04), (1500, 520, 1.09)), iris=None, sfx=[(0.4, 'chime')])),
+        ('lens', 5.0, dict(slot='ring', bg='bedroom', icon='ring', orb=False,
+                           tag='2.0s 4-BIT GRAY4 UNDO RING · TAP TO ABORT',
+                           cam=((1500, 520, 1.06), (1500, 520, 1.11)), iris=(1000, 380), sfx=[(0.4, 'tick'), (0.9, 'tick'), (1.4, 'tick'), (1.9, 'tick')])),
+        ('lens', 5.0, dict(slot='done', bg='bedroom', icon='check', orb=True,
+                           tag='RECEIPT COMMITTED · LIVE NOTION UPDATED',
+                           cam=((1500, 520, 1.08), (1500, 520, 1.12)), iris=None, sfx=[(0.3, 'ding')])),
 
-        # Act 3: 10:30 AM · Real Engineering Studio & Coding PR Gate (45.0 -> 75.0s)
-        ('cinema', 4.5, dict(
-            plate='desk', zoom=(1.00, 1.07), pan=(0.01, -0.01), fade=0.45,
-            kicker='10:30 AM · HANDS-FREE ENGINEERING',
-            headline='"Run software crew and prep the PR for master."',
-            subline='Runs directly on your home PC workstation over encrypted tunnel.',
-            orb=True, wave=True, sfx=[(0.4, 'listen')],
-        )),
-        ('screen', 6.5, dict(state='term', plate='desk', sfx=[(0.2, 'whoosh')])),
-        ('lens', 6.5, dict(
-            slot='pr_gate', plate='desk',
-            tag='10:30 AM · CODING PR GATE · L5 BLOCKS FORCE PUSH',
-            icon='code', orb=True, sfx=[(0.3, 'chime')],
-        )),
-        ('lens', 6.5, dict(
-            slot='summary', plate='desk',
-            tag='L4 SPECIALIST CREW · 537 TESTS VERIFIED',
-            icon='pc', orb=True, sfx=[(0.3, 'chime')],
-        )),
-        ('lens', 6.0, dict(
-            slot='ring', plate='desk',
-            tag='TELEGRAM + G2 SYNC · SINGLE-USE APPROVAL',
-            icon='telegram', orb=False, sfx=[(0.4, 'tick'), (1.0, 'ding')],
-        )),
+        # Act 3: 10:30 AM · Coding From Glasses & Extensive PR Gate (45.0 -> 75.0s)
+        (R, 4.5, dict(bg='desk', char=dict(x=900, y=640, s=1.15, rot=-2), cam=((1152, 600, 1.0), (1100, 590, 1.08)), fade=0.45,
+                      keys=[(0, 'focused', 1, 1)], talk=[(0.7, 3.4)], glow=[(0, 4.5, 0.55)], sfx=[(0.5, 'listen')], wave=(0.7, 3.4), motes=True)),
+        ('screen', 6.5, dict(state='term', sfx=[(0.2, 'whoosh')])),
+        ('lens', 6.5, dict(slot='pr_gate', bg='desk', icon='code', orb=True,
+                           tag='10:30 AM · CODING PR GATE · L5 BLOCKS FORCE PUSH',
+                           cam=((1300, 560, 1.0), (1300, 560, 1.05)), iris=(1000, 380), sfx=[(0.4, 'chime')])),
+        ('lens', 6.5, dict(slot='summary', bg='desk', icon='pc', orb=True,
+                           tag='L4 SOFTWARE CREW · 537 TESTS VERIFIED',
+                           cam=((1300, 560, 1.03), (1300, 560, 1.08)), iris=None, sfx=[(0.4, 'chime')])),
+        ('lens', 6.0, dict(slot='ring', bg='desk', icon='telegram', orb=False,
+                           tag='TELEGRAM + G2 SYNC · SINGLE-USE APPROVAL',
+                           cam=((1300, 560, 1.05), (1300, 560, 1.1)), iris=None, sfx=[(0.4, 'tick'), (1.0, 'ding')])),
 
-        # Act 4: 13:48 PM · Real City Corridor Walk, 31ms 409 Lock & RAM Scribe (75.0 -> 102.0s)
-        ('cinema', 4.5, dict(
-            plate='street', zoom=(1.00, 1.08), pan=(0.0, 0.01), fade=0.45,
-            kicker='13:48 PM · BETWEEN MEETINGS',
-            headline='"Move investor sync to 14:45 and reply to thread."',
-            subline='Deterministic conflict check runs before any AI model touches a calendar.',
-            orb=True, wave=True, sfx=[(0.4, 'notify')],
-        )),
-        ('lens', 7.5, dict(
-            slot='conflict', plate='street',
-            tag='31ms HTTP 409 CONFLICT LOCK · 0 LLM CALLS',
-            icon='lock', orb=True, sfx=[(0.3, 'kill')],
-        )),
-        ('screen', 6.5, dict(state='voice_scribe', plate='street', sfx=[(0.2, 'whoosh'), (0.8, 'chime')])),
-        ('lens', 8.5, dict(
-            slot='video', plate='street',
-            tag='LIVE MEETING SCRIBE · RAM-ONLY · EARBUDS TTS-1',
-            icon='orb', orb=True, sfx=[(0.3, 'chime')],
-        )),
+        # Act 4: 13:48 PM · Walking Street Corridor, 31ms 409 Lock & RAM Meeting Scribe (75.0 -> 102.0s)
+        (R, 4.5, dict(bg='street', walk=True, k=0.14, char=dict(x=1152, y=745, s=1.15, rot=0), cam=((1152, 648, 1.0), (1152, 640, 1.08)), fade=0.45, strt=0.55,
+                      keys=[(0, 'neutral', 1, 0), (1.0, 'focused', 1, 0)], sfx=[(0.8, 'notify')], glow=[(0.8, 4.5, 0.7)], talk=[(1.0, 3.2)], wave=(1.0, 3.2))),
+        ('lens', 7.5, dict(slot='conflict', bg='street', icon='lock', orb=True,
+                           tag='31ms HTTP 409 CONFLICT LOCK · 0 LLM CALLS',
+                           cam=((1500, 520, 1.0), (1500, 520, 1.06)), iris=(1000, 380), sfx=[(0.4, 'kill')])),
+        ('screen', 6.5, dict(state='voice_scribe', sfx=[(0.2, 'whoosh'), (0.8, 'chime')])),
+        ('lens', 8.5, dict(slot='video', bg='street', icon='orb', orb=True,
+                           tag='LIVE MEETING SCRIBE · RAM-ONLY · EARBUDS TTS-1',
+                           cam=((1500, 520, 1.0), (1500, 520, 1.06)), iris=(1000, 380), sfx=[(0.4, 'chime')])),
 
-        # Act 5: 16:00 PM · Remote Tunnel & Career Pack (102.0 -> 130.0s)
-        ('cinema', 4.5, dict(
-            plate='street', zoom=(1.04, 1.10), pan=(-0.02, 0.0), fade=0.45,
-            kicker='16:00 PM · REMOTE WORKSTATION CONTROL',
-            headline='"Run career pack for AI Engineer roles."',
-            subline='Researcher and Career Operator run on your PC while you are in the city.',
-            orb=True, wave=True, sfx=[(0.4, 'listen')],
-        )),
-        ('screen', 7.5, dict(state='career_ui', plate='street', sfx=[(0.2, 'whoosh'), (0.8, 'notify')])),
-        ('lens', 8.5, dict(
-            slot='career', plate='street',
-            tag='CAREER PACK · NOTION TRACKER + CODE-GUARD DRAFT',
-            icon='notion', orb=True, sfx=[(0.3, 'chime')],
-        )),
-        ('lens', 7.5, dict(
-            slot='ring', plate='street',
-            tag='HUMAN GATE · ZERO BLIND SPAM · DEFAULT-NO',
-            icon='shield', orb=False, sfx=[(0.4, 'tick'), (1.0, 'ding')],
-        )),
+        # Act 5: 16:00 PM · Remote Tunnel + Automated Job Research & Career Pack (102.0 -> 130.0s)
+        (R, 4.5, dict(bg='street', walk=True, k=0.52, char=dict(x=1152, y=745, s=1.15, rot=0), cam=((1152, 648, 1.0), (1152, 648, 1.08)), fade=0.45,
+                      keys=[(0, 'focused', 1, 0)], talk=[(0.6, 3.5)], glow=[(0, 4.5, 0.55)], sfx=[(0.5, 'listen')], wave=(0.6, 3.5))),
+        ('screen', 7.5, dict(state='career_ui', sfx=[(0.2, 'whoosh'), (0.9, 'notify')])),
+        ('lens', 8.5, dict(slot='career', bg='street', icon='notion', orb=True,
+                           tag='CAREER PACK · NOTION TRACKER + CODE-GUARD DRAFT',
+                           cam=((1500, 520, 1.0), (1500, 520, 1.06)), iris=(1000, 380), sfx=[(0.4, 'chime')])),
+        ('lens', 7.5, dict(slot='ring', bg='street', icon='shield', orb=False,
+                           tag='HUMAN GATE · ZERO BLIND SPAM · DEFAULT-NO',
+                           cam=((1500, 520, 1.04), (1500, 520, 1.09)), iris=None, sfx=[(0.4, 'tick'), (1.0, 'ding')])),
 
-        # Act 6: 18:30 PM · Evening Commute, Telegram Control Center & Kill Switch (130.0 -> 148.0s)
-        ('screen', 6.0, dict(state='telegram_ui', plate='evening', sfx=[(0.2, 'whoosh'), (0.8, 'notify')])),
-        ('lens', 6.0, dict(
-            slot='recap', plate='evening',
-            tag='18:30 PM · EVENING RECAP · ALL WRITES AUDITED',
-            icon='telegram', orb=True, sfx=[(0.3, 'chime')],
-        )),
-        ('lens', 6.0, dict(
-            slot='killswitch', plate='evening',
-            tag='GLOBAL KILL SWITCH · HTTP 423 PAUSES ALL AGENTS',
-            icon='lock', orb=True, sfx=[(0.3, 'kill')],
-        )),
+        # Act 6: 18:30 PM · Evening Balcony, Telegram Control Center & Kill Switch (130.0 -> 148.0s)
+        ('screen', 6.0, dict(state='telegram_ui', sfx=[(0.2, 'whoosh'), (0.8, 'notify')])),
+        ('lens', 6.0, dict(slot='recap', bg='balcony', icon='telegram', orb=True,
+                           tag='18:30 PM · EVENING RECAP · ALL WRITES AUDITED',
+                           cam=((1500, 520, 1.0), (1500, 520, 1.05)), iris=(1000, 380), sfx=[(0.4, 'chime')])),
+        ('lens', 6.0, dict(slot='killswitch', bg='balcony', icon='lock', orb=True,
+                           tag='GLOBAL KILL SWITCH · HTTP 423 PAUSES ALL AGENTS',
+                           cam=((1500, 520, 1.02), (1500, 520, 1.06)), iris=(1000, 380), sfx=[(0.4, 'kill')])),
 
-        # Act 7: Evening Skyline & Grand OnQ Lockup (148.0 -> 165.0s)
-        ('cinema', 5.0, dict(
-            plate='evening', zoom=(1.00, 1.07), pan=(0.0, -0.01), fade=0.55,
-            kicker='PRIVATE · REVERSIBLE · LOCAL-FIRST',
-            headline='Everything your computer can do, at a glance.',
-            subline='AES-256-GCM encrypted local vault. Zero cloud middleman.',
-            orb=True, sfx=[],
-        )),
-        ('title', 12.0, dict(plate='evening', fade=0.65)),
+        # Act 7: Evening Balcony Outro & Grand OnQ Lockup (148.0 -> 165.0s)
+        (R, 5.0, dict(bg='balcony', char=dict(x=1060, y=700, s=1.15, rot=0), cam=((1152, 670, 1.0), (1120, 650, 1.1)), fade=0.55,
+                      keys=[(0, 'neutral', 1, 0), (2.2, 'smile', 1, 0)], motes=True)),
+        ('title', 12.0, dict(bg='balcony', fade=0.6)),
     ]
 
 
@@ -252,55 +186,45 @@ TOTAL = _t0
 NFRAMES = int(round(TOTAL * FPS))
 
 _cache = {}
-CLIP_LEN = {}
+MAN = None
+BGR_TINT = {
+    'bedroom': (0.98, 1.04, 0.94),
+    'street': (0.98, 1.04, 0.94),
+    'desk': (0.96, 1.04, 0.94),
+    'balcony': (0.98, 1.04, 0.94),
+}
 
 
-def font(name, size):
-    fname = {
-        'ui': 'segoeuisb.ttf',
-        'uib': 'segoeuib.ttf',
-        'mono': 'consola.ttf',
-        'monob': 'consolab.ttf',
-        'serif': 'georgiab.ttf',
-        'light': 'segoeuisl.ttf',
-    }[name]
-    p = 'C:/Windows/Fonts/' + fname
-    if not os.path.exists(p):
-        p = 'C:/Windows/Fonts/segoeuib.ttf'
-    return ImageFont.truetype(p, max(8, int(round(size * S))))
+def manifest():
+    global MAN
+    if MAN is None:
+        MAN = json.load(open(os.path.join(LAY, 'manifest.json')))
+    return MAN
 
 
-def load_plate(plate_key):
-    key = ('plate', plate_key, OW, OH)
-    if key not in _cache:
-        p = os.path.join(PLATES, PLATE_MAP[plate_key])
-        im = cv2.imread(p, cv2.IMREAD_COLOR)
-        if im is None:
-            raise FileNotFoundError(f'Missing photorealistic plate: {p}')
-        # Pre-upscale with slight 1.16x overscan for crisp Ken Burns zooms
-        tw, th = int(OW * 1.16), int(OH * 1.16)
-        up = cv2.resize(im, (tw, th), interpolation=cv2.INTER_LANCZOS4)
-        # Subtle editorial obsidian-emerald cinema color grade
-        f = up.astype(np.float32)
-        f[..., 0] *= 0.96  # B
-        f[..., 1] *= 1.02  # G
-        f[..., 2] *= 0.96  # R
-        _cache[key] = np.clip(f, 0, 255).astype(np.uint8)
-    return _cache[key]
-
-
-def sample_plate(plate_key, zoom_a, zoom_b, pan_x, pan_y, k):
-    src = load_plate(plate_key)
-    sh, sw = src.shape[:2]
-    z = lerp(zoom_a, zoom_b, k)
-    cw = min(sw, int(round(OW / z)))
-    ch = min(sh, int(round(OH / z)))
-    cx = sw * 0.5 + pan_x * sw * k
-    cy = sh * 0.5 + pan_y * sh * k
-    x0 = int(max(0, min(sw - cw, round(cx - cw / 2))))
-    y0 = int(max(0, min(sh - ch, round(cy - ch / 2))))
-    crop = src[y0:y0 + ch, x0:x0 + cw]
-    return cv2.resize(crop, (OW, OH), interpolation=cv2.INTER_LINEAR)
+def load(name, tint=None, scale=None):
+    key = (name, tint, scale)
+    if key in _cache:
+        return _cache[key]
+    im = cv2.imread(os.path.join(LAY, name + '.png'), cv2.IMREAD_UNCHANGED)
+    if im is None:
+        raise FileNotFoundError(name)
+    if im.shape[2] == 3:
+        im = np.dstack([im, np.full(im.shape[:2], 255, np.uint8)])
+    sc = S if scale is None else scale
+    if sc != 1.0:
+        im = cv2.resize(im, (max(1, int(im.shape[1] * sc)), max(1, int(im.shape[0] * sc))), interpolation=cv2.INTER_AREA)
+    im = im.astype(np.float32)
+    a = im[..., 3:4] / 255.0
+    im[..., :3] *= a
+    if tint:
+        im[..., :3] *= np.array(tint, np.float32)
+    im = np.clip(im, 0, 255).astype(np.uint8)
+    if len(_cache) > 140:
+        for k in list(_cache)[:40]:
+            _cache.pop(k)
+    _cache[key] = im
+    return im
 
 
 def over(dst, src, opacity=1.0):
@@ -317,11 +241,214 @@ def over(dst, src, opacity=1.0):
     cv2.add(bg_part, s, dst=dst)
 
 
-def pil_to_pm(im):
-    a = np.array(im).astype(np.float32)
-    bgra = np.dstack([a[..., 2], a[..., 1], a[..., 0], a[..., 3]])
-    bgra[..., :3] *= bgra[..., 3:4] / 255.0
-    return bgra.astype(np.uint8)
+def add(dst, src, k=1.0):
+    s = src[..., :3] if src.shape[2] == 4 else src
+    if k != 1.0:
+        s = (s.astype(np.float32) * k).astype(np.uint8)
+    cv2.add(dst, s, dst=dst)
+
+
+def warp(img, M):
+    return cv2.warpAffine(img, M, (OW, OH), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+
+
+def layer_M(cx, cy, z):
+    return np.array([[z, 0, (-cx * z + 960) * S], [0, z, (-cy * z + 540) * S]], np.float32)
+
+
+def eff(cam, p):
+    return (C0[0] + (cam[0] - C0[0]) * p, C0[1] + (cam[1] - C0[1]) * p, 1 + (cam[2] - 1) * p)
+
+
+def camera(shot, t):
+    a, b = shot['cam']
+    k = ease(t / shot['dur'])
+    cx, cy, z = (lerp(a[i], b[i], k) for i in range(3))
+    cx += 3.5 * math.sin(0.7 * t + shot['t0']) + 2 * math.sin(1.9 * t)
+    cy += 3.0 * math.sin(0.55 * t + 1.0) + 1.5 * math.sin(1.7 * t + 2)
+    return cx, cy, z
+
+
+FX_K = {'bedroom': 0.38, 'desk': 0.38, 'balcony': 0.7}
+STACK = {
+    'bedroom': [('bedroom_back', 0.5, 'o'), ('bedroom_mid', 0.8, 'o'), 'CHAR', ('bedroom_front', 1.12, 'o'), ('bedroom_fx', 0.9, 'a')],
+    'desk': [('desk_back', 0.5, 'o'), 'CHAR', ('desk_front', 1.1, 'o'), ('desk_fx', 0.9, 'a')],
+    'balcony': [('balcony_back', 0.35, 'o'), ('balcony_mid', 0.7, 'o'), 'CHAR', ('balcony_front', 1.15, 'o'), ('balcony_fx', 0.9, 'a')],
+    'street': [('street_far', 0.04, 'o'), ('street_mid', 0.5, 'o'), ('street_near', 1.0, 'o'), 'CHAR', ('street_fg', 1.9, 'o')],
+}
+
+
+def draw_plates(dst, bg, cam, t, shot, with_char, char_fn=None, mid_override=None):
+    tint = BGR_TINT[bg]
+    walk = shot.get('walk', False)
+    for item in STACK[bg]:
+        if item == 'CHAR':
+            if with_char and char_fn:
+                char_fn(dst)
+            continue
+        name, p, mode = item
+        if mid_override and name == 'bedroom_mid':
+            name = mid_override
+        img = load(name, tint if mode == 'o' else None)
+        if bg == 'street':
+            Wp = img.shape[1] / S
+            v = shot.get('scroll_v', 150 if walk else 0)
+            travel = v * p * shot['dur']
+            k = shot.get('k', 0.5)
+            start = 960 + travel + k * max(0, Wp - 1920 - travel)
+            cx = min(max(start - v * p * t, 960), Wp - 960)
+            cy, z = C0[1] + (cam[1] - C0[1]) * min(p, 1), 1 + (cam[2] - 1) * min(p, 1.2)
+        else:
+            cx, cy, z = eff(cam, p)
+        w = warp(img, layer_M(cx, cy, z))
+        if bg == 'street' and name == 'street_fg':
+            w = cv2.GaussianBlur(w, (0, 0), 6 * S)
+        if mode == 'o':
+            over(dst, w)
+        else:
+            add(dst, w, FX_K.get(bg, 0.5))
+
+
+def pick_key(keys, t):
+    cur = keys[0]
+    for k in keys:
+        if k[0] <= t:
+            cur = k
+    return cur
+
+
+def in_win(ws, t):
+    return any(a <= t < b for a, b in (ws or []))
+
+
+def head_name(expr, blink, talk, g, look):
+    if expr == 'sleep':
+        blink = True
+    return f"h_{expr}_{'b' if blink else 'o'}_{'o' if talk else 'c'}_g{g}_l{look}"
+
+
+def spr_M(ax_s, ay_s, wx, wy, z, rot, s, cam_c):
+    cx, cy, zz = cam_c
+    sx, sy = ((wx - cx) * zz + 960) * S, ((wy - cy) * zz + 540) * S
+    k = s * zz * S
+    r = math.radians(rot)
+    c, sn = math.cos(r) * k, math.sin(r) * k
+    return np.array([[c, -sn, sx - (c * ax_s - sn * ay_s)], [sn, c, sy - (sn * ax_s + c * ay_s)]], np.float32)
+
+
+def draw_char(dst, shot, t, cam):
+    cfg = shot['char']
+    bg = shot['bg']
+    tint = BGR_TINT[bg]
+    walk = shot.get('walk', False)
+    expr_k = pick_key(shot['keys'], t)
+    expr, g, look = expr_k[1], expr_k[2], expr_k[3]
+    blink = expr != 'sleep' and ((t * 1000 + shot['t0'] * 377) % 3300) < 130
+    talk = in_win(shot.get('talk'), t) and int(t * 7) % 2 == 0
+    man = manifest()
+    bodyi = load('body', tint, 1.0)
+    hd = load(head_name(expr, blink, talk, g, look), tint, 1.0)
+    pc = 0.0 if bg == 'street' else 1.0
+    cam_c = eff(cam, pc) if pc else (C0[0], C0[1], 1 + (cam[2] - 1) * 0.6)
+    bob = -abs(math.sin(2 * math.pi * 1.9 * t)) * 13 + 6 if walk else 0.0
+    sway = 1.6 * math.sin(2 * math.pi * 1.9 * t) if walk else 0.0
+    wx, wy = cfg['x'], cfg['y'] + bob + 1.8 * math.sin(2 * math.pi * t / 4.0)
+    s = cfg['s']
+    rot = cfg['rot'] + sway
+    hrot = rot + 1.4 * math.sin(0.9 * t + shot['t0']) + (-2.0 * look) + (1.5 * math.sin(2 * math.pi * 1.9 * t + 1) if walk else 0)
+    if expr == 'sleep':
+        hrot += 3
+    bi = spr_M(man['body']['ax'], man['body']['ay'], wx, wy, 1, rot, s * 1.14, cam_c)
+    hi = spr_M(man['head']['ax'], man['head']['ay'], wx, wy + 2, 1, hrot, s, cam_c)
+    over(dst, warp(bodyi, bi))
+    over(dst, warp(hd, hi))
+    glow = sum(v for a, b, v in shot.get('glow', []) if a <= t < b) if shot.get('glow') else 0
+    flash = shot.get('flash')
+    fl = (1 - abs(t - flash) / 0.35) if (flash is not None and abs(t - flash) < 0.35) else 0.0
+    if glow > 0 or fl > 0:
+        lx, ly = man['head']['lens']
+        pt = hi @ np.array([lx, ly, 1.0], np.float32)
+        layer = np.zeros((OH, OW, 3), np.uint8)
+        pulse = 0.75 + 0.25 * math.sin(t * 5)
+        cv2.ellipse(layer, (int(pt[0]), int(pt[1])), (int(70 * s * cam_c[2] * S), int(58 * s * cam_c[2] * S)), 0, 0, 360, tuple(int(c * glow * pulse * 0.42) for c in GREEN), -1)
+        layer = cv2.GaussianBlur(layer, (0, 0), 14 * S * s)
+        if fl > 0:
+            cv2.circle(layer, (int(pt[0]), int(pt[1])), int(34 * S * s * cam_c[2] * (1 + fl)), (int(255 * fl),) * 3, -1)
+            layer = cv2.GaussianBlur(layer, (0, 0), 10 * S)
+        add(dst, layer)
+        return pt
+    return None
+
+
+_post = {}
+
+
+def post_masks(bg):
+    if bg in _post:
+        return _post[bg]
+    yy, xx = np.mgrid[0:OH, 0:OW].astype(np.float32)
+    r = np.sqrt(((xx - OW / 2) / (OW * 0.62)) ** 2 + ((yy - OH / 2) / (OH * 0.68)) ** 2)
+    vig = np.clip(1.08 - 0.42 * r ** 2.2, 0.45, 1.05)
+    m = np.clip(np.stack([vig] * 3, -1) * 128, 0, 255).astype(np.uint8)
+    _post[bg] = m
+    return m
+
+
+def noise_bank():
+    if 'noise' not in _post:
+        rng = np.random.default_rng(3)
+        _post['noise'] = [np.clip(rng.normal(0, 4.5, (OH, OW)), 0, 12).astype(np.uint8) for _ in range(6)]
+    return _post['noise']
+
+
+def post(dst, i, bg='bedroom', bloom=0.35, grain=1.0, vignette=True):
+    small = cv2.resize(dst, (OW // 4, OH // 4), interpolation=cv2.INTER_AREA)
+    hi = cv2.GaussianBlur(cv2.subtract(small, np.full_like(small, 212)), (0, 0), 8)
+    up = cv2.resize(hi, (OW, OH), interpolation=cv2.INTER_LINEAR)
+    cv2.addWeighted(dst, 1.0, up, bloom * 1.15, 0, dst=dst)
+    if vignette:
+        dst[:] = cv2.multiply(dst, post_masks(bg), scale=1 / 128.0)
+    if grain:
+        nb = noise_bank()[i % 6]
+        n = np.roll(nb, ((i * 91) % OH, (i * 37) % OW), (0, 1))
+        cv2.add(dst, cv2.merge([n, n, n]), dst=dst)
+
+
+def motes(dst, t, bg):
+    rng = np.random.default_rng(5)
+    layer = np.zeros((OH, OW, 3), np.uint8)
+    col = (170, 235, 200) if bg != 'balcony' else (150, 245, 190)
+    for k in range(34):
+        x0, y0 = rng.uniform(0, OW), rng.uniform(0, OH)
+        vx, vy = rng.uniform(-6, 6) * S, rng.uniform(-14, -3) * S
+        x = (x0 + vx * t * 3 + 18 * S * math.sin(t * 0.7 + k)) % OW
+        y = (y0 + vy * t * 3) % OH
+        r = rng.uniform(1.2, 3.6) * S
+        a = 0.35 + 0.65 * abs(math.sin(t * 0.9 + k * 1.7))
+        cv2.circle(layer, (int(x), int(y)), max(1, int(r)), tuple(int(c * a) for c in col), -1, cv2.LINE_AA)
+    add(dst, cv2.GaussianBlur(layer, (0, 0), 1.3 * S), 0.9)
+
+
+def wave_bars(dst, t, a, b, pt):
+    if not (a <= t < b):
+        return
+    layer = np.zeros((OH, OW, 3), np.uint8)
+    x0, y0 = int(1320 * S), int(330 * S)
+    ramp = min(1, (t - a) / 0.25, (b - t) / 0.25)
+    for i in range(9):
+        h = (8 + 36 * abs(math.sin(t * 9 + i * 1.3) * math.sin(t * 3.1 + i))) * S * ramp
+        x = x0 + int(i * 15 * S)
+        cv2.line(layer, (x, int(y0 - h)), (x, int(y0 + h)), GREEN, max(2, int(6 * S)), cv2.LINE_AA)
+    add(dst, cv2.GaussianBlur(layer, (0, 0), 7 * S), 0.9)
+    add(dst, layer, 0.9)
+
+
+def font(name, size):
+    path = {'ui': 'segoeuisb.ttf', 'uib': 'segoeuib.ttf', 'mono': 'consola.ttf', 'monob': 'consolab.ttf', 'serif': 'georgiab.ttf', 'light': 'segoeuisl.ttf'}[name]
+    p = 'C:/Windows/Fonts/' + path
+    if not os.path.exists(p):
+        p = 'C:/Windows/Fonts/segoeuib.ttf'
+    return ImageFont.truetype(p, max(8, int(round(size * S))))
 
 
 def text_rgba(txt, fnt, color=(255, 255, 255), shadow=True, pad=18, bg=(8, 14, 11, 185), border=None, radius=14):
@@ -344,6 +471,45 @@ def text_rgba(txt, fnt, color=(255, 255, 255), shadow=True, pad=18, bg=(8, 14, 1
         d.text((pw - box[0] + int(2 * S), ph - box[1] + int(3 * S)), txt, font=fnt, fill=(0, 0, 0, 185))
     d.text((pw - box[0], ph - box[1]), txt, font=fnt, fill=color + (255,))
     return im
+
+
+def pil_to_pm(im):
+    a = np.array(im).astype(np.float32)
+    bgra = np.dstack([a[..., 2], a[..., 1], a[..., 0], a[..., 3]])
+    bgra[..., :3] *= bgra[..., 3:4] / 255.0
+    return bgra.astype(np.uint8)
+
+
+_capcache = {}
+
+
+def caption_layer(i):
+    if i not in _capcache:
+        _, voice, sub_txt, _ = CAPTIONS[i]
+        col = MINT_RGB if voice == VOICE_ONQ else TEXT_RGB
+        bg = (7, 20, 13, 215) if voice == VOICE_ONQ else (10, 14, 12, 205)
+        border = (52, 245, 126, 95) if voice == VOICE_ONQ else (62, 82, 70, 95)
+        sz = 34 if len(sub_txt) <= 80 else 30
+        _capcache[i] = pil_to_pm(text_rgba(sub_txt, font('ui', sz), color=col, bg=bg, border=border, pad=16, radius=14))
+    return _capcache[i]
+
+
+def draw_caption(dst, t, clip_len):
+    for i, (t0, _, _, _) in enumerate(CAPTIONS):
+        d = clip_len.get(i, 4.2)
+        t1 = t0 + d + 0.35
+        if t0 - 0.15 <= t <= t1 + 0.25:
+            a = min(ease((t - (t0 - 0.15)) / 0.25), ease((t1 + 0.25 - t) / 0.25))
+            im = caption_layer(i)
+            h, w = im.shape[:2]
+            x = max(0, (OW - w) // 2)
+            y = max(0, int(OH - 26 * S - h + (1.0 - a) * 10 * S))
+            wf = min(w, OW - x)
+            hf = min(h, OH - y)
+            roi = dst[y:y + hf, x:x + wf]
+            over(roi, im[:hf, :wf], a)
+            dst[y:y + hf, x:x + wf] = roi
+            return
 
 
 def read_captures():
@@ -372,98 +538,87 @@ def get_capture(slot):
 
 
 def hud_layer(slot):
-    """STRICT IN-LENS FIT: 576x288 simulator capture scaled to 1.62*S (933x466 px on 1080p)
-    so it sits cleanly inside the realistic matte-titanium Even G2 lens aperture with zero rim spill.
+    """STRICT IN-LENS FIT: 576x288 simulator capture scaled to 1.66*S (956x478 px on 1080p)
+    strictly inside the realistic matte-titanium Even G2 lens aperture (ZERO rim overhang).
     """
-    key = ('hud_v5', slot, S)
+    key = ('hud_dyn', slot, S)
     if key not in _cache:
         cap = get_capture(slot)
         lum = cv2.cvtColor(cap, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
         lum = np.maximum(lum, cap.max(2).astype(np.float32) / 255.0 * 0.94)
-        k = 1.62 * S
+        k = 1.66 * S
         big = np.clip(cv2.resize(lum, (int(round(576 * k)), int(round(288 * k))), interpolation=cv2.INTER_CUBIC), 0, 1)
-        # Subtle micro-LED scanlines
         rows = np.arange(big.shape[0])
-        big *= (1.0 - 0.10 * ((rows // max(1, int(round(2 * S)))) % 2))[:, None]
-        g = np.dstack([big * GREEN_BGR[0], big * GREEN_BGR[1], big * GREEN_BGR[2]]).astype(np.uint8)
-        # Subtle delicate waveguide reticle corners (strictly inside HUD bounds, no overhang)
+        big *= (1.0 - 0.11 * ((rows // max(1, int(round(2 * S)))) % 2))[:, None]
+        g = np.dstack([big * GREEN[0], big * GREEN[1], big * GREEN[2]]).astype(np.uint8)
         hh, ww = g.shape[:2]
         L = int(20 * S)
         fr = np.zeros_like(g)
         for (x, y, dx, dy) in ((0, 0, 1, 1), (ww - 1, 0, -1, 1), (0, hh - 1, 1, -1), (ww - 1, hh - 1, -1, -1)):
-            cv2.line(fr, (x, y), (x + dx * L, y), GREEN_BGR, max(1, int(2 * S)))
-            cv2.line(fr, (x, y), (x, y + dy * L), GREEN_BGR, max(1, int(2 * S)))
-        _cache[key] = cv2.add(g, (fr.astype(np.float32) * 0.42).astype(np.uint8))
+            cv2.line(fr, (x, y), (x + dx * L, y), GREEN, max(1, int(2 * S)))
+            cv2.line(fr, (x, y), (x, y + dy * L), GREEN, max(1, int(2 * S)))
+        _cache[key] = cv2.add(g, (fr.astype(np.float32) * 0.44).astype(np.uint8))
     return _cache[key]
 
 
 def lens_aperture_overlay():
-    """Realistic thin matte-titanium Even Realities G2 rectangular-panto spectacle aperture (superellipse p=3.4).
-    Safe inner optical area: ~1520x770 px on 1920x1080 — HUD (933x466) sits comfortably inside with >220px margins!
-    """
-    key = ('lens_aperture', S)
+    """Realistic thin matte-titanium Even Realities G2 rectangular-panto spectacle aperture (superellipse p=3.4)."""
+    key = ('lens_aperture_dyn', S)
     if key not in _cache:
         yy, xx = np.mgrid[0:OH, 0:OW].astype(np.float32)
         cx, cy = OW * 0.50, OH * 0.475
-        rx, ry = OW * 0.44, OH * 0.395
+        rx, ry = OW * 0.445, OH * 0.398
         p = 3.4
         d = (np.abs((xx - cx) / rx) ** p + np.abs((yy - cy) / ry) ** p) ** (1.0 / p)
         outside = np.clip((d - 0.965) / 0.045, 0.0, 1.0)
-        # Subtle peripheral frame darkening outside the glasses rim
         a = np.clip(outside * 246.0, 0, 246)
         inner_vig = np.clip((d - 0.72) / 0.28, 0.0, 1.0) ** 2.0 * 78.0
         a = np.maximum(a, inner_vig * (1.0 - outside))
         ov = np.zeros((OH, OW, 4), np.float32)
-        frame_col = np.array([14, 16, 15], np.float32)  # matte obsidian titanium
+        frame_col = np.array([14, 16, 15], np.float32)
         ov[..., :3] = frame_col * (a[..., None] / 255.0)
         ov[..., 3] = a
-        # Delicate brushed-titanium optical rim specular highlight
         rim = np.exp(-((d - 0.972) / 0.0085) ** 2)
         ang = np.arctan2(yy - cy, xx - cx)
         spec = 0.28 + 0.55 * (np.clip(np.cos(ang + 2.15), 0, 1) ** 3)
         ov[..., :3] += (rim * spec * 185.0)[..., None] * np.array([0.85, 0.96, 0.88], np.float32)
         ov[..., 3] = np.maximum(ov[..., 3], rim * spec * 185.0)
-        # Ultra-subtle diagonal anti-reflective green coating sheen on glass
         sheen = np.exp(-(((xx - cx) * 0.55 + (yy - cy) * 0.85 + 310 * S) / (75 * S)) ** 2) * np.clip(1.0 - d, 0, 1) * 14.0
         _cache[key] = (np.clip(ov, 0, 255).astype(np.uint8), np.clip(sheen, 0, 255).astype(np.uint8))
     return _cache[key]
 
 
 def draw_voice_orb(dst, cx, cy, radius, t, speaking=False):
-    """Minimal Meta-style monochrome-green glowing Voice Orb rendered cleanly inside lens or hero bottom."""
+    """Minimal Meta-style living monochrome Voice Orb strictly inside lens or title crest."""
     r = max(10, int(radius * S))
     cx, cy = int(cx), int(cy)
     layer = np.zeros((OH, OW, 3), np.uint8)
     pulse = 1.0 + (0.14 if speaking else 0.06) * math.sin(t * (7.5 if speaking else 2.8))
     rc = int(r * 0.55 * pulse)
-    # Soft outer acoustic halo
     cv2.circle(layer, (cx, cy), int(r * pulse), (48, 128, 30), max(1, int(2 * S)), cv2.LINE_AA)
-    # Rotating tilted energy ellipse filament
     ang = (t * (55 if speaking else 24)) % 360
-    cv2.ellipse(layer, (cx, cy), (int(r * 0.92), int(r * 0.44)), ang, 0, 360, GREEN_BGR, max(1, int(2 * S)), cv2.LINE_AA)
+    cv2.ellipse(layer, (cx, cy), (int(r * 0.92), int(r * 0.44)), ang, 0, 360, GREEN, max(1, int(2 * S)), cv2.LINE_AA)
     cv2.ellipse(layer, (cx, cy), (int(r * 0.86), int(r * 0.36)), -ang * 0.7 + 45, 0, 360, (180, 255, 196), max(1, int(1.5 * S)), cv2.LINE_AA)
-    # Core luminescent ring
-    cv2.circle(layer, (cx, cy), rc, GREEN_BGR, max(2, int(2.5 * S)), cv2.LINE_AA)
+    cv2.circle(layer, (cx, cy), rc, GREEN, max(2, int(2.5 * S)), cv2.LINE_AA)
     cv2.circle(layer, (cx, cy), max(3, rc // 3), (200, 255, 215), -1, cv2.LINE_AA)
     if speaking:
         for bi in range(-2, 3):
             bh = int((6 + 10 * abs(math.sin(t * 9.5 + bi * 1.1))) * S)
             bx = cx + int(bi * 8 * S)
             by = cy + r + int(14 * S)
-            cv2.line(layer, (bx, by - bh // 2), (bx, by + bh // 2), GREEN_BGR, max(1, int(3 * S)), cv2.LINE_AA)
+            cv2.line(layer, (bx, by - bh // 2), (bx, by + bh // 2), GREEN, max(1, int(3 * S)), cv2.LINE_AA)
     glow = cv2.GaussianBlur(layer, (0, 0), max(3, int(9 * S)))
     cv2.addWeighted(dst, 1.0, glow, 0.55, 0, dst=dst)
     cv2.addWeighted(dst, 1.0, layer, 0.95, 0, dst=dst)
 
 
-def draw_app_badge_glyph(dst, icon_kind, cx, cy, t):
-    """Crisp monochrome-green vector app icon badge placed strictly inside the top-left of the waveguide zone."""
+def draw_app_badge_glyph(dst, icon_kind, cx, cy):
     sz = int(34 * S)
     x0, y0 = int(cx - sz // 2), int(cy - sz // 2)
     im = Image.new('RGBA', (sz, sz), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
     g = (52, 245, 126, 235)
-    g_soft = (52, 245, 126, 90)
+    g_soft = (52, 245, 126, 95)
     w = max(1, int(2 * S))
     d.rounded_rectangle([1, 1, sz - 2, sz - 2], radius=int(8 * S), fill=(6, 26, 14, 185), outline=g_soft, width=w)
     m = int(7 * S)
@@ -484,7 +639,6 @@ def draw_app_badge_glyph(dst, icon_kind, cx, cy, t):
     elif icon_kind == 'check':
         d.line([(m, sz // 2), (sz // 2 - int(1 * S), sz - m - int(2 * S)), (sz - m, m + int(2 * S))], fill=g, width=max(2, int(2.5 * S)))
     else:
-        # PC / shield / default clean diamond node
         d.ellipse([m, m, sz - m, sz - m], outline=g, width=w)
         d.ellipse([sz // 2 - int(3 * S), sz // 2 - int(3 * S), sz // 2 + int(3 * S), sz // 2 + int(3 * S)], fill=g)
     pm = pil_to_pm(im)
@@ -493,80 +647,24 @@ def draw_app_badge_glyph(dst, icon_kind, cx, cy, t):
     dst[y0:y0 + sz, x0:x0 + sz] = roi
 
 
-def draw_cinema(dst, shot, t):
-    """Photorealistic editorial shot with subtle Ken Burns motion + clean OnQ Studio typography."""
-    k = ease(t / shot['dur'])
-    za, zb = shot.get('zoom', (1.0, 1.06))
-    px, py = shot.get('pan', (0.0, 0.0))
-    frame = sample_plate(shot['plate'], za, zb, px, py, k)
-
-    # Subtle cinematic dark gradient vignette at bottom-left for high-contrast editorial typography
-    yy, xx = np.mgrid[0:OH, 0:OW].astype(np.float32)
-    grad_b = np.clip((yy - OH * 0.42) / (OH * 0.58), 0.0, 1.0) ** 1.35 * 0.72
-    grad_l = np.clip((OW * 0.62 - xx) / (OW * 0.62), 0.0, 1.0) * 0.32
-    dim = np.clip(1.0 - np.maximum(grad_b, grad_l * 0.65), 0.24, 1.0)
-    frame = (frame.astype(np.float32) * dim[..., None]).astype(np.uint8)
-
-    # Editorial OnQ typography card (top-left kicker + clean lower-third headline above caption safe zone)
-    alpha = min(ease(t / 0.45), ease((shot['dur'] - t) / 0.4))
-    if alpha > 0.02:
-        ov_im = Image.new('RGBA', (OW, OH), (0, 0, 0, 0))
-        d = ImageDraw.Draw(ov_im)
-        kicker = shot.get('kicker', '')
-        headline = shot.get('headline', '')
-        subline = shot.get('subline', '')
-        lx = int(86 * S)
-        # Top-left pill matching OnQ web badge
-        if kicker:
-            kf = font('mono', 22)
-            kb = d.textbbox((0, 0), kicker, font=kf)
-            kw, kh = kb[2] - kb[0], kb[3] - kb[1]
-            ky = int(52 * S)
-            d.rounded_rectangle(
-                [lx, ky, lx + kw + int(34 * S), ky + kh + int(18 * S)],
-                radius=int(18 * S),
-                fill=(10, 28, 17, int(205 * alpha)),
-                outline=(52, 245, 126, int(145 * alpha)),
-                width=max(1, int(1.5 * S)),
-            )
-            d.text((lx + int(17 * S), ky + int(8 * S) - kb[1]), kicker, font=kf, fill=GREEN_RGB + (int(255 * alpha),))
-        # Lower-left editorial headline (kept safely ABOVE bottom subtitle safe zone: y ~ 695-820)
-        if headline:
-            hf = font('uib', 52 if len(headline) <= 44 else 44)
-            hy = int(685 * S + (1.0 - alpha) * 14 * S)
-            d.text((lx + int(2 * S), hy + int(3 * S)), headline, font=hf, fill=(0, 0, 0, int(190 * alpha)))
-            d.text((lx, hy), headline, font=hf, fill=TEXT_RGB + (int(255 * alpha),))
-        if subline:
-            sf = font('ui', 27)
-            sy = int(756 * S + (1.0 - alpha) * 14 * S)
-            d.text((lx + int(1 * S), sy + int(2 * S)), subline, font=sf, fill=(0, 0, 0, int(175 * alpha)))
-            d.text((lx, sy), subline, font=sf, fill=MUTED_RGB + (int(245 * alpha),))
-        over(frame, pil_to_pm(ov_im))
-
-    if shot.get('orb'):
-        draw_voice_orb(frame, OW - int(115 * S), int(92 * S), 28, t + shot['t0'], speaking=bool(shot.get('wave')))
-    dst[:] = frame
-
-
-def draw_lens(dst, shot, t):
-    """Photorealistic Even G2 wearer POV shot with STRICT in-lens waveguide fit (ZERO rim overhang)."""
-    k = ease(t / shot['dur'])
-    world = sample_plate(shot['plate'], 1.02, 1.07, 0.0, 0.0, k)
-    # Soft natural optical defocus of real-world background behind the waveguide focus plane
+def draw_lens(dst, shot, t, i):
+    """Dynamic animated background world seen THROUGH Even G2 lens with STRICT in-lens HUD fit (ZERO rim overhang)."""
+    bg = shot['bg']
+    cam = camera(shot, t)
+    world = np.zeros((OH, OW, 3), np.uint8)
+    draw_plates(world, bg, cam, t, dict(shot, walk=(bg == 'street'), scroll_v=60 if bg == 'street' else 0, k=0.55), with_char=False)
     sm = cv2.GaussianBlur(cv2.resize(world, (OW // 4, OH // 4), interpolation=cv2.INTER_AREA), (0, 0), 3.6)
     bgb = (cv2.resize(sm, (OW, OH), interpolation=cv2.INTER_CUBIC).astype(np.float32) * 0.52).astype(np.uint8)
 
     hud = hud_layer(shot['slot'])
     hh, ww = hud.shape[:2]
     k_in = ease(t / 0.42)
-    flick = 1.0 if t > 0.35 else (0.86 + 0.14 * math.sin(t * 70)) * k_in
-    # Subtle micro-breathing strictly bounded to +/- 3px so HUD never approaches lens rim
+    flick = 1.0 if t > 0.36 else (0.85 + 0.15 * math.sin(t * 72)) * k_in
     dx = int(round(3 * S * math.sin(t * 0.55)))
     dy = int(round(3 * S * math.sin(t * 0.85)))
     x = OW // 2 - ww // 2 + dx
     y = int(OH * 0.455) - hh // 2 + dy
 
-    # Translucent dark waveguide optical field ONLY behind the HUD (fits cleanly inside lens!)
     pane = np.zeros((OH // 4, OW // 4), np.float32)
     pad_p = int(26 * S)
     cv2.rectangle(
@@ -579,32 +677,28 @@ def draw_lens(dst, shot, t):
     pane = cv2.resize(cv2.GaussianBlur(pane, (0, 0), 5.0 * S), (OW, OH), interpolation=cv2.INTER_LINEAR) * 0.74 * k_in
     bgb = (bgb.astype(np.float32) * (1.0 - pane[..., None])).astype(np.uint8)
 
-    # Composite crisp 525nm monochrome HUD + realistic subtle optical phosphor bloom
     layer = np.zeros((OH, OW, 3), np.uint8)
     layer[y:y + hh, x:x + ww] = (hud.astype(np.float32) * flick).astype(np.uint8)
-    if t < 0.55:
-        sy = int(y + hh * (t / 0.55))
-        cv2.rectangle(layer, (x, max(0, sy - int(1.5 * S))), (x + ww, sy + int(1.5 * S)), tuple(int(c * 0.55) for c in GREEN_BGR), -1)
+    if t < 0.6:
+        sy = int(y + hh * (t / 0.6))
+        cv2.rectangle(layer, (x, max(0, sy - int(1.5 * S))), (x + ww, sy + int(1.5 * S)), tuple(int(c * 0.6) for c in GREEN), -1)
 
     l_sm = cv2.resize(layer, (OW // 4, OH // 4), interpolation=cv2.INTER_AREA)
-    g1 = cv2.resize(cv2.GaussianBlur(l_sm, (0, 0), 2.2 * S), (OW, OH), interpolation=cv2.INTER_LINEAR)
-    g2 = cv2.resize(cv2.GaussianBlur(l_sm, (0, 0), 7.5 * S), (OW, OH), interpolation=cv2.INTER_LINEAR)
+    g1 = cv2.resize(cv2.GaussianBlur(l_sm, (0, 0), 2.3 * S), (OW, OH), interpolation=cv2.INTER_LINEAR)
+    g2 = cv2.resize(cv2.GaussianBlur(l_sm, (0, 0), 7.8 * S), (OW, OH), interpolation=cv2.INTER_LINEAR)
     cv2.addWeighted(bgb, 1.0, layer, 1.0, 0, dst=bgb)
-    cv2.addWeighted(bgb, 1.0, g1, 0.24, 0, dst=bgb)
-    cv2.addWeighted(bgb, 1.0, g2, 0.12, 0, dst=bgb)
+    cv2.addWeighted(bgb, 1.0, g1, 0.25, 0, dst=bgb)
+    cv2.addWeighted(bgb, 1.0, g2, 0.13, 0, dst=bgb)
 
-    # Crisp monochrome app glyph strictly inside the upper-left optical safe margin + Voice Orb strictly inside bottom center of lens!
     if shot.get('icon'):
-        draw_app_badge_glyph(bgb, shot['icon'], x - int(42 * S), y + int(22 * S), t)
+        draw_app_badge_glyph(bgb, shot['icon'], x - int(42 * S), y + int(22 * S))
     if shot.get('orb'):
-        draw_voice_orb(bgb, OW // 2, y + hh + int(52 * S), 24, t + shot['t0'], speaking=True)
+        draw_voice_orb(bgb, OW // 2, y + hh + int(50 * S), 24, t + shot['t0'], speaking=True)
 
-    # Apply realistic Even G2 matte-titanium spectacle aperture frame OVER the world+HUD
     ov, sheen = lens_aperture_overlay()
     over(bgb, ov)
-    cv2.add(bgb, cv2.merge([sheen, sheen, sheen]), dst=bgb)
+    add(bgb, cv2.merge([sheen] * 3), 0.75)
 
-    # Clean non-overlapping cinema metadata pills in top frame margin (strictly outside optical glass)
     tag = shot.get('tag')
     if tag:
         tm = pil_to_pm(text_rgba(tag, font('mono', 19), color=MINT_RGB, shadow=False, pad=10, bg=(8, 22, 14, 215), border=(52, 245, 126, 110), radius=8))
@@ -614,7 +708,7 @@ def draw_lens(dst, shot, t):
         over(roi, tm)
         bgb[ty:ty + th, tx:tx + tw] = roi
 
-    bkey = ('simbadge_v5', S)
+    bkey = ('simbadge_dyn', S)
     if bkey not in _cache:
         _cache[bkey] = pil_to_pm(text_rgba('EVENHUB SIM 0.9.5 · SANDBOX', font('mono', 18), color=MUTED_RGB, shadow=False, pad=10, bg=(8, 16, 12, 210), border=(42, 74, 54, 130), radius=8))
     bm = _cache[bkey]
@@ -627,21 +721,25 @@ def draw_lens(dst, shot, t):
 
 
 def screen_frame(shot, t):
-    """OnQ Studio companion interface card matching exact OnQ website dark obsidian aesthetic (ZERO cartoon anime)."""
+    """Dynamic OnQ Studio companion interface card over animated desk depth backdrop (ZERO cartoon face)."""
     st = shot['state']
     dur = shot['dur']
-    k = ease(t / dur)
-    world = sample_plate(shot['plate'], 1.0, 1.04, 0.0, 0.0, k)
-    sm = cv2.GaussianBlur(cv2.resize(world, (OW // 4, OH // 4), interpolation=cv2.INTER_AREA), (0, 0), 5.0)
-    frame = (cv2.resize(sm, (OW, OH), interpolation=cv2.INTER_CUBIC).astype(np.float32) * 0.34).astype(np.uint8)
+    key = ('scrbg_dyn', S)
+    if key not in _cache:
+        w = cv2.warpAffine(load('desk_back', BGR_TINT['desk'], S), layer_M(1152, 700, 1.0), (OW, OH))
+        bg = np.zeros((OH, OW, 3), np.uint8)
+        bg[:] = (10, 18, 14)
+        over(bg, w)
+        small = cv2.GaussianBlur(cv2.resize(bg, (OW // 4, OH // 4), interpolation=cv2.INTER_AREA), (0, 0), 5)
+        _cache[key] = (cv2.resize(small, (OW, OH), interpolation=cv2.INTER_CUBIC) * 0.48).astype(np.uint8)
+    frame = _cache[key].copy()
 
-    z = lerp(1.0, 1.035, k)
+    z = lerp(1.0, 1.045, ease(t / dur))
     sw, sh = int(1460 * S * z), int(790 * S * z)
     img = Image.new('RGB', (sw, sh), BG_RGB)
     d = ImageDraw.Draw(img)
     px = lambda v: int(v * S * z)
 
-    # Top bar matching OnQ Studio web app
     d.rectangle([0, 0, sw, px(50)], fill=PANEL_RGB)
     d.line([(0, px(50)), (sw, px(50))], fill=BORDER_RGB, width=max(1, px(2)))
     for i, c in enumerate(((255, 96, 92), (255, 189, 68), (52, 245, 126))):
@@ -661,7 +759,7 @@ def screen_frame(shot, t):
         ]
         fnt = font('mono', 26 * z)
         y = 178
-        nch = int(t * 76)
+        nch = int(t * 78)
         for txt, col in lines:
             if nch <= 0:
                 break
@@ -690,14 +788,12 @@ def screen_frame(shot, t):
     elif st == 'voice_scribe':
         d.text((px(64), px(76)), 'LIVE MEETING SCRIBE · RAM-ONLY VOICE ORB', font=font('uib', 34 * z), fill=TEXT_RGB)
         d.text((px(64), px(120)), 'AssemblyAI STT-3.7 real-time diarization · TTS-1 audio routes to paired earbuds only', font=font('ui', 22 * z), fill=MUTED_RGB)
-        # Sleek geometric concentric Voice Orb inside left panel (NO cartoon anime face!)
         cx_, cy_, r = px(280), px(435), px(142)
         for ri, col in [(r, (24, 86, 48)), (int(r * 0.78), (38, 152, 82)), (int(r * 0.54), GREEN_RGB)]:
             pulse = 1.0 + 0.08 * math.sin(t * 6.5 + ri * 0.03)
             rr = int(ri * pulse)
             d.ellipse([cx_ - rr, cy_ - rr, cx_ + rr, cy_ + rr], outline=col, width=max(2, px(3)))
         d.ellipse([cx_ - px(32), cy_ - px(32), cx_ + px(32), cy_ + px(32)], fill=(18, 92, 48), outline=MINT_RGB, width=max(2, px(2)))
-        # Audio spectrum bars
         for bi in range(16):
             bh = px(16 + 56 * abs(math.sin(t * 8.2 + bi * 0.55)))
             bx = px(510 + bi * 52)
@@ -710,7 +806,7 @@ def screen_frame(shot, t):
 
     elif st == 'career_ui':
         d.text((px(64), px(76)), 'CAREER PACK · AUTOMATED ROLE RESEARCH', font=font('uib', 34 * z), fill=TEXT_RGB)
-        d.text((px(64), px(120)), 'Synced to Notion tracker + Code-Guard recruiter draft behind Default-NO', font=font('ui', 22 * z), fill=MUTED_RGB)
+        d.text((px(64), px(120)), 'Synced to LIVE Notion tracker + Code-Guard recruiter draft behind Default-NO', font=font('ui', 22 * z), fill=MUTED_RGB)
         roles = [
             ('01 · Staff AI Systems Engineer — Even Labs Track (94% FIT)', 'Smart eyewear + safety FSM + TypeScript · Staged for Notion Tracker', True),
             ('02 · Founding Applied AI Engineer — Edge Copilot Co (92% FIT)', 'Local Ollama + Agentic harness + Voice STT · Outreach drafted', False),
@@ -732,7 +828,7 @@ def screen_frame(shot, t):
         d.text((px(94), px(640)), '"Sharing my OnQ smart-glasses + agentic TypeScript portfolio (94% fit)."', font=font('ui', 24 * z), fill=TEXT_RGB)
 
     elif st == 'telegram_ui':
-        d.text((px(64), px(76)), 'TELEGRAM CONTROL CENTER · @onq_g2_copilot_bot', font=font('uib', 34 * z), fill=TEXT_RGB)
+        d.text((px(64), px(76)), 'TELEGRAM CONTROL CENTER · @onq_g2_copilot_bot (LIVE)', font=font('uib', 34 * z), fill=TEXT_RGB)
         d.text((px(64), px(120)), 'Interactive /menu Control Center · Bot Studio · Watched-chat privacy · Kill Switch (423)', font=font('ui', 22 * z), fill=MUTED_RGB)
         rows = [
             ('[CONTROL CENTER] /menu Inline Dashboard', 'Morning Brief · PC Agents & AI · Bot Studio · PR Gate · Career Pack · Scheduler', True),
@@ -756,28 +852,28 @@ def screen_frame(shot, t):
 
     arr = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
     x0, y0 = (OW - sw) // 2, int(OH * 0.47 - sh / 2)
-    bez = int(14 * S)
-    cv2.rectangle(frame, (x0 - bez, y0 - bez), (x0 + sw + bez, y0 + sh + bez), (22, 36, 28), -1)
+    bez = int(16 * S)
+    cv2.rectangle(frame, (x0 - bez, y0 - bez), (x0 + sw + bez, y0 + sh + bez), (18, 36, 26), -1)
+    glow_sm = cv2.GaussianBlur(cv2.rectangle(np.zeros((OH // 4, OW // 4, 3), np.uint8), (x0 // 4, y0 // 4), ((x0 + sw) // 4, (y0 + sh) // 4), (42, 160, 88), -1), (0, 0), max(1, int(12 * S)))
+    cv2.addWeighted(frame, 1, cv2.resize(glow_sm, (OW, OH), interpolation=cv2.INTER_LINEAR), 0.22, 0, dst=frame)
     frame[y0:y0 + sh, x0:x0 + sw] = arr
     return frame
 
 
 def draw_title(dst, shot, t):
-    """Grand Apple/OnQ website-matched closing lockup on twilight editorial backdrop."""
-    k_pan = ease(t / shot['dur'])
-    bgf = sample_plate(shot['plate'], 1.0, 1.08, 0.0, -0.015, k_pan)
-    sm = cv2.GaussianBlur(cv2.resize(bgf, (OW // 4, OH // 4), interpolation=cv2.INTER_AREA), (0, 0), 4.0)
+    bgf = np.zeros((OH, OW, 3), np.uint8)
+    draw_plates(bgf, 'balcony', (1120, 590, 1.2), 0, dict(shot, walk=False, dur=1), with_char=False)
+    sm = cv2.GaussianBlur(cv2.resize(bgf, (OW // 4, OH // 4), interpolation=cv2.INTER_AREA), (0, 0), 3.5)
     bgf = cv2.resize(sm, (OW, OH), interpolation=cv2.INTER_CUBIC)
     k = ease(t / 0.85) * ease((shot['dur'] - t) / 0.85)
     k_in = ease(t / 0.9)
-    bgf = (bgf.astype(np.float32) * (0.48 - 0.24 * k_in)).astype(np.uint8)
+    bgf = (bgf.astype(np.float32) * (0.54 - 0.28 * k_in)).astype(np.uint8)
 
-    # Subtle pulsing monochrome Voice Orb crest above wordmark
     if k > 0.05:
         draw_voice_orb(bgf, OW // 2, int(OH * 0.16), 34, t, speaking=False)
 
     specs = (
-        (TITLE[0], font('serif', 164), 0.34, TEXT_RGB),
+        (TITLE[0], font('serif', 168), 0.34, TEXT_RGB),
         (TITLE[1], font('uib', 52), 0.51, TEXT_RGB),
         (TITLE[2], font('mono', 28), 0.60, GREEN_RGB),
         (TITLE[3], font('ui', 26), 0.70, MUTED_RGB),
@@ -797,41 +893,28 @@ def draw_title(dst, shot, t):
         bgf[yy:yy + hf, x:x + wf] = roi
         if n == 0:
             bw = int(340 * S * ease((t - 0.45) / 0.65))
-            cv2.rectangle(bgf, (OW // 2 - bw // 2, int(OH * 0.445)), (OW // 2 + bw // 2, int(OH * 0.445) + max(2, int(4 * S))), tuple(int(c * k) for c in GREEN_BGR), -1)
+            cv2.rectangle(bgf, (OW // 2 - bw // 2, int(OH * 0.445)), (OW // 2 + bw // 2, int(OH * 0.445) + max(2, int(4 * S))), tuple(int(c * k) for c in GREEN), -1)
     dst[:] = bgf
 
 
-_capcache = {}
+def draw_night(dst, shot, t):
+    cam = (lerp(520, 360, ease(t / 2.5)), 800, 2.5 + 0.12 * ease(t / shot['dur']))
+    grab = 2.8
+    mid = 'bedroom_mid' if t < grab else 'bedroom_mid_noG2'
+    draw_plates(dst, 'bedroom', cam, 0, dict(walk=False, dur=1, bg='bedroom'), with_char=False, mid_override=mid)
+    if t > 0.5:
+        hand = 'hand' if t < grab else 'hand_g2'
+        im = load(hand, BGR_TINT['bedroom'], 1.0)
+        k1 = ease((t - 0.5) / 2.1)
+        k2 = ease((t - grab) / 2.1)
+        wx = lerp(1150, 390, k1) if t < grab else lerp(390, 520, k2)
+        wy = lerp(900, 800, k1) if t < grab else lerp(800, 380, k2)
+        if t >= grab + 1.4:
+            wx += (t - grab - 1.4) * 260
+        over(dst, warp(im, spr_M(70, 190, wx, wy, 1, -6, 0.52, cam)))
 
 
-def caption_layer(i):
-    if i not in _capcache:
-        _, voice, sub_txt, _ = CAPTIONS[i]
-        col = MINT_RGB if voice == VOICE_ONQ else TEXT_RGB
-        bg = (7, 20, 13, 215) if voice == VOICE_ONQ else (10, 14, 12, 205)
-        border = (52, 245, 126, 95) if voice == VOICE_ONQ else (62, 82, 70, 95)
-        sz = 34 if len(sub_txt) <= 80 else 30
-        _capcache[i] = pil_to_pm(text_rgba(sub_txt, font('ui', sz), color=col, bg=bg, border=border, pad=16, radius=14))
-    return _capcache[i]
-
-
-def draw_caption(dst, t, clip_len):
-    for i, (t0, _, _, _) in enumerate(CAPTIONS):
-        d = clip_len.get(i, 4.2)
-        t1 = t0 + d + 0.35
-        if t0 - 0.15 <= t <= t1 + 0.25:
-            a = min(ease((t - (t0 - 0.15)) / 0.25), ease((t1 + 0.25 - t) / 0.25))
-            im = caption_layer(i)
-            h, w = im.shape[:2]
-            x = max(0, (OW - w) // 2)
-            # Bottom cinema safe margin: strictly below lens aperture & cinema headlines (zero overlap!)
-            y = max(0, int(OH - 26 * S - h + (1.0 - a) * 10 * S))
-            wf = min(w, OW - x)
-            hf = min(h, OH - y)
-            roi = dst[y:y + hf, x:x + wf]
-            over(roi, im[:hf, :wf], a)
-            dst[y:y + hf, x:x + wf] = roi
-            return
+CLIP_LEN = {}
 
 
 def shot_at(t):
@@ -841,34 +924,66 @@ def shot_at(t):
     return SHOTS[-1]
 
 
-def render_shot(sh, t):
+def render_shot(sh, t, i):
     f = np.zeros((OH, OW, 3), np.uint8)
     kind = sh['kind']
-    if kind == 'cinema':
-        draw_cinema(f, sh, t)
-    elif kind == 'lens':
-        draw_lens(f, sh, t)
+    bg = sh.get('bg', 'bedroom')
+    if kind == 'room':
+        cam = camera(sh, t)
+        pt = [None]
+        def char_fn(d):
+            pt[0] = draw_char(d, sh, t, cam)
+        draw_plates(f, bg, cam, t, sh, True, char_fn)
+        if sh.get('motes'):
+            motes(f, t + sh['t0'], bg)
+        if sh.get('wave'):
+            wave_bars(f, t, sh['wave'][0], sh['wave'][1], pt[0])
+        post(f, i, bg, bloom=0.4 if bg != 'street' else 0.3)
+    elif kind == 'night':
+        draw_night(f, sh, t)
+        motes(f, t + 3, 'bedroom')
+        post(f, i, 'bedroom', bloom=0.4)
     elif kind == 'screen':
         f[:] = screen_frame(sh, t)
+        post(f, i, 'desk', bloom=0.32)
+    elif kind == 'lens':
+        draw_lens(f, sh, t, i)
+        post(f, i, 'bedroom', bloom=0.45, vignette=False)
     elif kind == 'title':
         draw_title(f, sh, t)
+        post(f, i, 'balcony', bloom=0.4, vignette=True)
     return f
+
+
+def iris_blend(a, b, k, center):
+    cx, cy = center[0] * S, center[1] * S
+    dkey = ('iris_d', center, OW, OH)
+    if dkey not in _cache:
+        yy, xx = np.mgrid[0:OH, 0:OW].astype(np.float32)
+        _cache[dkey] = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2)
+    d = _cache[dkey]
+    R = k * math.hypot(OW, OH) * 0.95
+    m = np.clip((R - d) / (60 * S) + 0.5, 0, 1)
+    m_u8 = (m * 255).astype(np.uint8)
+    inv3 = cv2.merge([255 - m_u8] * 3)
+    m3 = cv2.merge([m_u8] * 3)
+    return cv2.add(cv2.multiply(a, inv3, scale=1.0 / 255.0), cv2.multiply(b, m3, scale=1.0 / 255.0))
 
 
 def render_frame(i):
     t = i / FPS
     sh = shot_at(t)
     lt = t - sh['t0']
-    f = render_shot(sh, lt)
+    f = render_shot(sh, lt, i)
     idx = SHOTS.index(sh)
-    fade = sh.get('fade', 0.42)
+    fade = 0.65 if (sh['kind'] == 'lens' and sh.get('iris')) else sh.get('fade', 0.4)
     if lt < fade and idx > 0:
         prev = SHOTS[idx - 1]
-        pf = render_shot(prev, prev['dur'] - 1e-3 + lt)
+        pf = render_shot(prev, prev['dur'] - 1e-3 + lt, i)
         k = ease(lt / fade)
-        f = cv2.addWeighted(pf, 1.0 - k, f, k, 0)
-    elif lt < fade and idx == 0:
-        f = (f.astype(np.float32) * ease(lt / fade)).astype(np.uint8)
+        f = iris_blend(pf, f, k, sh['iris']) if (sh['kind'] == 'lens' and sh.get('iris')) else cv2.addWeighted(pf, 1 - k, f, k, 0)
+    elif lt < sh.get('fade', 0.0) and idx == 0:
+        f = (f.astype(np.float32) * ease(lt / sh['fade'])).astype(np.uint8)
     if t > TOTAL - 0.8:
         f = (f.astype(np.float32) * ease((TOTAL - t) / 0.8)).astype(np.uint8)
     draw_caption(f, t, CLIP_LEN)
@@ -916,6 +1031,8 @@ def build_audio(out_wav):
     for sh in SHOTS:
         for off, kind in sh.get('sfx', []):
             sfx.append((sh['t0'] + off, kind))
+        if sh['kind'] == 'lens' and sh.get('iris'):
+            sfx.append((sh['t0'] - 0.1, 'whoosh', 0.6))
     return au.mix(ROOT, WORK, TOTAL, SCENES, sfx, clips, _resolve_ffmpeg(), out_wav)
 
 
@@ -930,6 +1047,8 @@ def _work(i):
 
 def main():
     t_start = time.time()
+    if not os.path.exists(os.path.join(LAY, 'manifest.json')):
+        subprocess.run(['node', os.path.join(ROOT, 'scripts', 'make-film-v3-layers.mjs')], cwd=ROOT, check=True)
     ensure_captures()
     out_path = sys.argv[sys.argv.index('--out') + 1] if '--out' in sys.argv else os.path.join(ROOT, 'media', 'out', 'onq-film-v5-day-in-life.mp4')
 
@@ -937,15 +1056,14 @@ def main():
         pdir = os.path.join(FILM, 'preview-v5')
         os.makedirs(pdir, exist_ok=True)
         for sec, label in [
-            (3, '01_morning_cinema'),
+            (9, '01_hand_grab'),
             (17, '02_lens_computer'),
             (30, '03_lens_draft'),
-            (52, '04_screen_pr'),
-            (59, '05_lens_pr_gate'),
+            (59, '04_lens_pr_gate'),
+            (77, '05_street_walk'),
             (84, '06_lens_conflict'),
             (90, '07_screen_scribe'),
-            (132, '08_screen_telegram'),
-            (160, '09_title_lockup'),
+            (160, '08_title_lockup'),
         ]:
             cv2.imwrite(os.path.join(pdir, f'{label}.png'), render_frame(int(sec * FPS)))
         print(f'V5_PREVIEW_OK total={TOTAL}s frames={NFRAMES}')
