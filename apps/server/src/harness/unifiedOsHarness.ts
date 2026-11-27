@@ -1987,7 +1987,7 @@ export class UnifiedOsHarness {
     const runMatch =
       cmd === '/run'
         ? arg.match(/^([a-z0-9_.-]+)\s+([\s\S]+)$/i)
-        : raw.match(/\bask\s+(openbot|claude|codex|gemini|opencode|ollama|lm ?studio|openrouter|chatgpt|grok|computer|pc)\s+(?:to\s+)?([\s\S]+)$/i);
+        : raw.match(/\bask\s+(openbot|claude|codex|gemini|opencode|ollama|omniroute|lm ?studio|openrouter|chatgpt|grok|computer|pc)\s+(?:to\s+)?([\s\S]+)$/i);
     if (runMatch) {
       const alias = runMatch[1].toLowerCase().replace(/\s+/g, '');
       const subPrompt = runMatch[2].trim();
@@ -2033,6 +2033,7 @@ export class UnifiedOsHarness {
         opencode: 'opencode_cli',
         opencode_cli: 'opencode_cli',
         ollama: 'ollama',
+        omniroute: 'omniroute',
         lmstudio: 'lmstudio',
         openrouter: 'openrouter',
         chatgpt: 'chatgpt',

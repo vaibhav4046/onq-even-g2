@@ -2647,7 +2647,6 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
           const shortAi = activeAi.label.replace(/\s*\(your subscription\)\s*/i, '').replace(/\s*\(local\)\s*/i, '').trim();
           const appNames = readyLocalApps.map((a) => a.id.replace('_cli', '').toUpperCase()).slice(0, 4);
           const remotePublic = effectivePublicUrl();
-          const activeH = proactiveHarness.getStatus().activeHarness;
           enrichedCards.push({
             id: 'card-computer-proactive',
             sourceMode: data.sourceMode,
@@ -2660,7 +2659,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
                   ? 'PC HOST · API'
                   : 'PC HOST · AUTO',
             kind: 'MEETING',
-            title: clipLine42(activeH?.goal ?? `PC Host: ${shortAi}`, 42),
+            title: clipLine42(`PC Host: ${shortAi}`, 42),
             timeMeta:
               inferenceMode === 'computer'
                 ? 'PC AI'
@@ -2672,17 +2671,15 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
             startIso: nowIso,
             endIso: new Date(Date.parse(nowIso) + 30 * 60_000).toISOString(),
             contextLine1: clipLine42(
-              activeH?.opticalCardLines?.[0] ??
-                (appNames.length > 0 ? `APPS: ${appNames.join(', ')}` : lastInspectResult?.summary ?? 'Ready to help'),
+              appNames.length > 0 ? `APPS: ${appNames.join(', ')}` : (lastInspectResult?.summary ?? 'PC Host Ready'),
               42,
             ),
             contextLine2: clipLine42(
-              activeH?.opticalCardLines?.[1] ??
-                (inferenceMode === 'computer'
-                  ? 'INF: COMPUTER (Hosted) | API opt'
-                  : inferenceMode === 'api'
-                    ? 'INF: API (Cloud) | PC host ready'
-                    : 'INF: AUTO (PC host + API opt)'),
+              inferenceMode === 'computer'
+                ? 'INF: COMPUTER (Hosted) | API opt'
+                : inferenceMode === 'api'
+                  ? 'INF: API (Cloud) | PC host ready'
+                  : 'INF: AUTO (PC host + API opt)',
               42,
             ),
             triageRule: 'IMMINENT_MTG',
