@@ -32,6 +32,7 @@ import {
 } from './components/EcosystemIcons';
 import { ConnectorsHub } from './components/ConnectorsHub';
 import { VERIFIED_TEST_COUNT } from './verifiedCounts';
+import { isStaticJudgeDemo } from './staticJudgeDemo';
 // Three.js + R3F load in their own chunk so the first paint never waits on WebGL code.
 const G2Hardware3D = lazy(() => import('./components/G2Hardware3D').then((m) => ({ default: m.G2Hardware3D })));
 // Canvas motion lives in its own chunk so it never counts against the entry bundle.
@@ -676,7 +677,7 @@ export function App() {
 
   // Live SSE sync subscription
   useEffect(() => {
-    if (geometryMode || !sessionToken || typeof EventSource === 'undefined') return;
+    if (geometryMode || isStaticJudgeDemo() || !sessionToken || typeof EventSource === 'undefined') return;
     const es = new EventSource(`/api/stream?token=${encodeURIComponent(sessionToken)}`);
     es.addEventListener('corridor', () => {
       if (tokenRef.current) void refreshCorridor(tokenRef.current);

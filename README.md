@@ -2,8 +2,10 @@
 
 **Own the 90 seconds between meetings on Even Realities G2. Glance, tap once, done, with undo.**
 
+> **[Launch Live Interactive G2 Studio (Zero Keys)](https://vaibhav4046.github.io/onq-even-g2/demo/)** · **[Download `onq.ehpk` (`v1.0.0`)](https://github.com/vaibhav4046/onq-even-g2/releases/download/v1.0.0/onq.ehpk)** · **[Watch 2:45 Day-in-the-Life Film](https://github.com/vaibhav4046/onq-even-g2/releases/download/v1.0.0/onq-film-v5-day-in-life.mp4)** · **[Finalist Pitch Script](docs/FINALIST_PITCH_SCRIPT.md)**
+
 **For:** people who live in Calendar, Gmail, Notion and Telegram and walk between back-to-back meetings.
-**Track:** 04 AI Assistants & Work (Google Workspace, Notion, Claude / ChatGPT / OpenRouter) + Best Telegram Integration.
+**Track:** 04 AI Assistants & Work (Google Workspace, Notion, Claude / ChatGPT / OpenRouter) + 01 Messaging & News (Best Telegram Integration).
 
 ### Read and write in seconds (what this app is for)
 1. **Glance:** the lens shows one thing: your next meeting and the one message that needs you (Gmail or a Telegram chat you picked).
@@ -129,7 +131,7 @@ Anyone with their own glasses can connect them to their own computer. You start 
 
 - **Day-in-the-Life Product Parity:** Verified Morning Brief (`<= 7×42` Cal/Mail/Notion/TG digest) + voice Notion task check-off (`"OnQ, mark Q4 deck review done"`), Coding PR Gate (`/code prep pr` + `git_diff_stat` + secret scan + dry-run PR receipt + L5 hard-blocks for `git push --force`/`-f`/`rm -rf`/secrets), and Career Pack (`/project career_pack` + Notion tracker + Code-Guard Gmail draft behind Default-NO), backed by `12` dedicated parity & write-safety gauntlet tests (`dayInTheLifeParity.test.ts`) + `sim-16-coding-pr-gate.png` + `sim-17-career-pack.png`.
 - **Durable Vault & Computer = AI Power Source:** Encrypted `~/.onq/vault.enc` (`AES-256-GCM`, `0600`) with automatic migration and reboot-verified silent auto-reconnect, `pcPowerSource.ts` (`HOSTED · READY`/`STANDBY`, OpenBot CLI bridge, allowlisted wake), `npm run tunnel` zero-trust remote access, deterministic `31 ms` 409 pre-check, and Telegram inline `[Kill Switch (Pause All)]`.
-- **Flagship Film v5 (`media/out/onq-film-v5-day-in-life.mp4`):** 7-Act "Day in the Life with OnQ" (`2:45` / `165.00 s`, `23.22 MB`, `1920×1080 @ 30fps`, `-16.0 LUFS`) emerald cyber-anime launch film featuring dual-voice AssemblyAI `TTS-1`, real `#000000` simulator captures (`0` whiteout), and 9 verified keyframes (`media/out/onq-film-v4.mp4` preserved as backup).
+- **Flagship Film v5 (`media/out/onq-film-v5-day-in-life.mp4`):** 7-Act "Day in the Life with OnQ" (`2:45` / `165.00 s`, `23.14 MB`, `1920×1080 @ 30fps`, `-16.0 LUFS`) emerald cyber-anime launch film featuring dual-voice AssemblyAI `TTS-1`, refreshed 4-bit Gray4 real-app logo simulator captures (`0` whiteout), and `530` test suite metrics (`media/out/onq-film-v4.mp4` preserved as backup).
 - **Iterative Judging Audit (`docs/JUDGING_ROUND_REPORT.md` + `docs/ADVERSARIAL_JUDGE_VERDICT.md`):** 5/5 customer personas PASS and Round 3 4-judge controllable weighted score **9.66 / 10** (`>= 9.5/10` on every controllable rubric bucket).
 
 ---

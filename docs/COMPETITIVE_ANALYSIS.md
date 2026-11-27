@@ -15,18 +15,20 @@ This analysis evaluates **OnQ** directly against the official **Heads Up: Even R
 
 ---
 
-## 2. Head-to-Head Matrix vs Field Entries (54-Entry Audit)
+## 2. Head-to-Head Matrix vs Live DoraHacks Field (159-BUIDL Audit · Nov 27, 2026)
 
-| Metric / Capability | **OnQ (Track 04 + Best Telegram)** | *OcuClaw v2.2.1* | *TapBack & PinGuard* | *Aside, Nod, FUSE Brief, PulseHUD & WickSight* |
+Direct comparison against observed top DoraHacks competitors (`TeleGifts G2`, `Glass Wallet`, `ByYourSide App`, `Cue`, `ThreadLock G2`, `TriageG2`, `Closer`, `Callout`) across `159` total submissions (`40` in Track 04 AI Assistants & Work, `73` in Track 01 Messaging & News):
+
+| Metric / Capability | **OnQ (Track 04 + 01 + Best TG)** | *TeleGifts G2* (`/build/52023`) | *Cue* (`/build/51858`) & *TriageG2* (`/build/51976`) | *Closer*, *Callout*, *ThreadLock G2*, *ByYourSide*, *Glass Wallet* |
 | :--- | :--- | :--- | :--- | :--- |
-| **Zero-Friction Instant Start** | **1-click Browser 3D Lens + EvenHub 0.9.5 Sim + `npm run tunnel` remote HTTPS** | Requires Tailscale + Host OpenClaw/Hermes | Even Hub install / single flow | Local / sample setup only |
-| **Live Integrations** | **GCal + Gmail + Drive + Notion (`2026-03-11`) + Telegram (`28 ms` live) + `.ics` + Hosted PC AI (`Ollama`/`OpenBot`/`MCP`)** | OpenClaw / Hermes external skills only | Telegram only (*TapBack*) or Calendar only (*PinGuard*) | Notion-only (*Aside*), Gmail-only (*Nod*), offline `.ics`/`.mbox` (*FUSE Brief*), single stream (*PulseHUD*/*WickSight*) |
-| **Generative Glasses Apps & Avatar** | **LiveUI Micro-Apps + 76×76 4-bit Gray4 Monochrome Shonen Pixel Avatar + AssemblyAI `<1s` Voice** | LiveUI v3 + 22×37 marker + Soniox | Static reply / conflict cards | Static 3-line cards |
-| **Write Safety Locks** | **4 Layers (RMS Gate, Default-NO, 2.0s Ring, `31 ms` Zero-LLM 409 Hard-Lock, Code-Guard, 30s Undo, Inline Telegram Kill Switch)** | Approval prompt (no 409 etag lock) | 2s undo (*TapBack*) / 409 lock (*PinGuard*) — neither unifies all 4 | Basic prompt or read-only |
-| **AI Model Coverage** | **Hosted PC `$0` Local (`Ollama qwen3:1.7b` LIVE, CLIs, OpenBot) + Optional APIs (`Claude`, `OpenRouter`, `ChatGPT`) + Rules** | Host agent model routing | Single cloud LLM | Single LLM / scripted voice |
-| **Security & Persistence** | **10/10 Audit PASS (`0` secrets in `169` files + `.ehpk`, durable `~/.onq/vault.enc` AES-256-GCM `0600`, `0` vulns, `530` tests / `55` files)** | Host relay + Tailscale ACL | Standard env | Local storage |
+| **Zero-Key Judge Sandbox URL** | **Live GitHub Pages 3D + Lens Studio (`vaibhav4046.github.io/onq-even-g2/demo/`) + EvenHub 0.9.5 + `npm run tunnel`** | Live GitHub Pages Voice & HW Studio | Live GitHub Pages simulator | Live web sandboxes (`Closer`, `Callout`, `ThreadLock`, `ByYourSide`); *Glass Wallet* video-only |
+| **Live Integrations** | **GCal + Gmail + Drive + Notion (`2026-03-11`) + Telegram (`36 ms` live) + `.ics` + Hosted PC AI (`Ollama qwen3:1.7b` / `Claude` / `OpenBot`)** | Telegram Bot SSE + TonAPI/CoinGecko | Notion + Telegram (*Cue*); Cal + Gmail + Notion (*TriageG2*) | Gmail haggling (*Closer*), Bybit+TG (*Callout*), Deal terms (*ThreadLock*), Dementia TG (*ByYourSide*), BNB (*Glass Wallet*) |
+| **Glasses UI & 4-Bit Graphics** | **Unified `hud-split`, `13` `76×76` 4-bit Gray4 real-app logos, `76×76` Pixel Avatar, corridor pips, `MenuContainerProperty` goodies** | 256×144 4-bit waveguide charts | Gray8 QR pairing (*Cue*); 4-bit workload micro-LED (*TriageG2*) | Standard text / card flows |
+| **Write Safety Locks** | **4 Layers (RMS Gate, Default-NO, 2.0s Ring, `31 ms` Zero-LLM 409 Lock, Code-Guard, 30s Undo, Inline Telegram Kill Switch `HTTP 423`)** | P1/P2/P3 triage + `👀` status | Basic confirm / guardrails | Single-tap confirm (*Glass Wallet*/*ByYourSide*) or Demo mode (*Callout*) |
+| **Automated Test & Gate Proof** | **`530` tests / `55` files, `32/32` eval, `11/11` Geometry Gate, `17` Sim `0.9.5` PNGs (`0` errors), `10/10` Security (`0` vulns), `v1.0.0` `.ehpk`** | `259` tests + `.ehpk` | `evenhub-simulator@0.9.5` + `.ehpk` | Standard tests; partial `.ehpk` links (`11/159` direct in field) |
+| **Hardware Parity Honesty** | **Explicitly disclosed as Simulator `0.9.5` Verified (`0` fake HW claims); audio via paired earbuds** | Simulator `0.9.5` tested | Simulator `0.9.5` tested | Overwhelmingly simulator-tested across 32/32 inspected builds |
 
-*OcuClaw v2.2.1 comparison grounded in shipped package analysis via REA (`ev_c80bd92...` / `ev_f364f504...`) and public `ocuclaw/ocuclaw` & `ocuclaw-openclaw-plugin` repositories.*
+*Prior comparison also benchmarked shipped package analysis (`OcuClaw v2.2.1`) and public Track 04 reference flows (`TapBack`, `PinGuard`, `Aside`, `Nod`, `FUSE Brief`).*
 
 ---
 

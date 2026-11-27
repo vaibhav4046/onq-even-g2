@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { isStaticJudgeDemo } from '../../staticJudgeDemo';
 import { callApi } from './api';
 import {
   normalizeDevices,
@@ -82,7 +83,7 @@ export function useHostData(sessionToken: string | null) {
       void loadOutbox();
     }, POLL_MS);
     let es: EventSource | null = null;
-    if (typeof EventSource !== 'undefined') {
+    if (!isStaticJudgeDemo() && typeof EventSource !== 'undefined') {
       es = new EventSource(`/api/stream?token=${encodeURIComponent(sessionToken)}`);
       es.addEventListener('host', () => {
         void loadProfile();

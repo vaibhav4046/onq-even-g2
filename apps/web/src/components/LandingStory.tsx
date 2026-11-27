@@ -8,6 +8,7 @@ function LoopVideo({ name, label }: { name: string; label: string }) {
   const ref = useRef<HTMLVideoElement | null>(null);
   const inView = useInView(ref, { amount: 0.35 });
   const reduced = useReducedMotion();
+  const base = import.meta.env.BASE_URL;
 
   useEffect(() => {
     const v = ref.current;
@@ -23,8 +24,8 @@ function LoopVideo({ name, label }: { name: string; label: string }) {
   return (
     <video
       ref={ref}
-      src={`/clips/${name}.mp4`}
-      poster={`/clips/${name}.jpg`}
+      src={`${base}clips/${name}.mp4`}
+      poster={`${base}clips/${name}.jpg`}
       aria-label={label}
       muted
       loop
@@ -127,12 +128,14 @@ interface Chapter {
   cta: { label: string; run: keyof DayStoryActions };
 }
 
+const BASE_STILL = `${import.meta.env.BASE_URL}stills`;
+
 const CHAPTERS: Chapter[] = [
   {
     time: '07:15',
     title: 'Pair & install once',
     body: 'Scan one QR from your computer. Your accounts stay off the glasses; only signed bursts reach the lenses.',
-    img: '/stills/sim-01-dossier.png',
+    img: `${BASE_STILL}/sim-01-dossier.png`,
     imgAlt: 'Simulator capture: paired OnQ corridor ready on glasses',
     cta: { label: 'Open pairing QR', run: 'pairGlasses' },
   },
@@ -140,7 +143,7 @@ const CHAPTERS: Chapter[] = [
     time: '08:00',
     title: 'Morning brief & unread email',
     body: 'First meeting countdown, priority email alerts, and unread summary waiting quietly on the top corridor.',
-    img: '/stills/sim-01-dossier.png',
+    img: `${BASE_STILL}/sim-01-dossier.png`,
     imgAlt: 'Simulator capture: morning brief and email alert on G2',
     cta: { label: 'Run Morning Brief', run: 'runMorning' },
   },
@@ -148,7 +151,7 @@ const CHAPTERS: Chapter[] = [
     time: '09:50',
     title: 'Office coding & PR status',
     body: 'Check branch health, open pull requests, and ask OnQ to draft review notes or local automation scripts.',
-    img: '/stills/sim-11-computer.png',
+    img: `${BASE_STILL}/sim-11-computer.png`,
     imgAlt: 'Simulator capture: computer and PR check on lens',
     cta: { label: 'Check PR & Repo', run: 'runCodingPr' },
   },
@@ -156,7 +159,7 @@ const CHAPTERS: Chapter[] = [
     time: '11:30',
     title: 'Telegram groups on the lens',
     body: 'Only chats and groups you explicitly watch reach the glasses. Read the group digest, stage the reply, confirm with R1.',
-    img: '/stills/sim-10-telegram.png',
+    img: `${BASE_STILL}/sim-10-telegram.png`,
     imgAlt: 'Simulator capture: Telegram group card on the lens',
     cta: { label: 'Stage Telegram Brief', run: 'stageTelegram' },
   },
@@ -164,7 +167,7 @@ const CHAPTERS: Chapter[] = [
     time: '13:00',
     title: 'Hands-free lunch AI talk',
     body: 'Tap Talking Avatar to ask across calendar, email, Notion, and Telegram while the 2-second ring guards every write.',
-    img: '/stills/sim-05-armed-ring.png',
+    img: `${BASE_STILL}/sim-05-armed-ring.png`,
     imgAlt: 'Simulator capture: 2-second confirm ring while speaking',
     cta: { label: 'Run Shift + Reply', run: 'runLate' },
   },
@@ -172,7 +175,7 @@ const CHAPTERS: Chapter[] = [
     time: '14:30',
     title: 'Meeting scribe & 409 lock',
     body: 'RAM-only speaker diarization wraps into tasks, while double-booked slots trigger an instant 409 conflict fence.',
-    img: '/stills/sim-07-conflict-409.png',
+    img: `${BASE_STILL}/sim-07-conflict-409.png`,
     imgAlt: 'Simulator capture: slot busy, next free time offered',
     cta: { label: 'Try Conflict Lock', run: 'tryLock' },
   },
@@ -180,7 +183,7 @@ const CHAPTERS: Chapter[] = [
     time: '20:00',
     title: 'Evening recap & Kill Switch',
     body: 'One-tap summary of receipts committed, open threads left, and global pause for scheduled automations.',
-    img: '/stills/sim-14-evening-recap.png',
+    img: `${BASE_STILL}/sim-14-evening-recap.png`,
     imgAlt: 'Simulator capture: evening recap on G2 lens',
     cta: { label: 'Run Evening Recap', run: 'runEvening' },
   },

@@ -7,8 +7,11 @@
 **Project Root:** `C:\Users\lalwa\.gemini\antigravity\scratch\oncue-even-g2`  
 **Verified Clean-Room Code Commit:** `dbd50ca` *(all 7 clean-room gates exit `0` with zero env vars; transcript in `docs/VERIFICATION_LOG.txt`)*  
 **Public Repository:** https://github.com/vaibhav4046/onq-even-g2  
+**Live Interactive G2 Studio (Zero Keys):** https://vaibhav4046.github.io/onq-even-g2/demo/  
 **Live Docs & Privacy Policy:** https://vaibhav4046.github.io/onq-even-g2/ · https://vaibhav4046.github.io/onq-even-g2/privacy.html  
-**Hard Safety Stop Enforced:** Zero `git push`, zero `--no-verify`, zero DoraHacks/Product Hunt auto-submission, zero paid spend, and zero real outbound emails/remote pushes.
+**GitHub Release `v1.0.0` (`.ehpk` + Film v5 MP4):** https://github.com/vaibhav4046/onq-even-g2/releases/tag/v1.0.0  
+**Finalist Discord Pitch Script (Dec 1):** `docs/FINALIST_PITCH_SCRIPT.md`  
+**Hard Safety Stop Enforced:** Zero `git push` forced, zero `--no-verify`, zero DoraHacks/Product Hunt auto-submission, zero paid spend, and zero real outbound emails/remote pushes.
 
 ---
 
@@ -25,7 +28,7 @@
 | **Web Bundle & Modern Web Guidance** | `apps/web` (`npm run build`), `legacy-scan` | Entry JS chunk **`283.85 kB` raw / `74.21 kB` gzip** (`@onq/glasses`: `148.38 kB` / `55.34 kB` gzip); Three.js lazy-loaded; `modern-web-guidance legacy-scan`: **`0` findings across `41` files** |
 | **Live Stack, Reboot & Mobile Audit** | `scripts/brutal-live-check.mjs` + `390×844` + reboot + `/api/os/command` | **`BRUTAL_LIVE_CHECK_PASS`**: `0` console/page errors, `0` horizontal overflow at `1280×800`, `1024×768`, `390×844`; reboot preserves `Telegram=LIVE \| AssemblyAI=LIVE`; `/code prep pr` (`L2_APPROVAL`), `/project career_pack` (`L2_APPROVAL`), `/run ollama` OK, `git push --force` (`L5_BLOCKED`) |
 | **Clean-Room Verification Log** | `docs/VERIFICATION_LOG.txt` | Fresh zero-env isolated clone in `%TEMP%\onq-overnight-clean` (`npm ci`, `527` tests, `eval`, `build`, `pack`, `geometry`, `security` — all exit `0`) |
-| **Primary Launch Film v5** | `media/out/onq-film-v5-day-in-life.mp4` | **7-Act "Day in the Life with OnQ": `1920×1080`, `30 fps`, `165.00 s` (`2:45` `<= 170s`), `23.22 MB` (`24,352,060` bytes), `-16.0 LUFS`**, dual-voice AssemblyAI `TTS-1` (`aai-kyla` + `aai-titus`), real simulator captures, 9 frames visually verified (`0` overlap). *Backup preserved at `media/out/onq-film-v4.mp4` (`2:40`, `26.10 MB`).* |
+| **Primary Launch Film v5** | `media/out/onq-film-v5-day-in-life.mp4` | **7-Act "Day in the Life with OnQ": `1920×1080`, `30 fps`, `165.00 s` (`2:45` `<= 170s`), `23.14 MB` (`24,265,305` bytes), `-16.0 LUFS`**, dual-voice AssemblyAI `TTS-1` (`aai-kyla` + `aai-titus`), refreshed 4-bit Gray4 real-app logo simulator captures, `530` test count, 9 frames visually verified (`0` overlap). *Backup preserved at `media/out/onq-film-v4.mp4` (`2:40`, `26.10 MB`).* |
 | **Adversarial & Judging Reports** | `docs/ADVERSARIAL_JUDGE_VERDICT.md`, `docs/JUDGING_ROUND_REPORT.md` | **5/5 customer personas PASS**, Round 3 4-judge controllable weighted score **`9.66 / 10`** (`>= 9.5/10` on every controllable rubric bucket) |
 | **Hackathon Rubric & Pitch Docs** | `docs/HACKATHON_RUBRIC_AUDIT.md`, `docs/TVM_PITCH_DECK.md`, `docs/COMPETITIVE_ANALYSIS.md`, `docs/DORAHACKS_SUBMISSION.md` | Fully synced with exact verified numbers & honest physical-G2 disclosure |
 | **API Feedback Deliverable** | `API_FEEDBACK.md` | 5 concrete Even Hub SDK `0.0.16`, Simulator `0.9.5`, and WebView OAuth PKCE requests |
@@ -39,6 +42,6 @@
 
 1. *(Optional, 30s)* Open `http://127.0.0.1:5173/#connectors` to save Google OAuth or Notion token into `~/.onq/vault.enc` if you want live Google/Notion during Demo Day.
 2. Push local `master` commits to GitHub (`git push -u origin master`) and confirm GitHub Pages (`https://vaibhav4046.github.io/onq-even-g2/`) & Privacy Policy are live.
-3. Upload **`media/out/onq-film-v5-day-in-life.mp4`** (`2:45`, `23.22 MB`, `1080p`, backup `onq-film-v4.mp4`) to YouTube/DoraHacks and attach **`dist/onq.ehpk`** (`60,341` bytes).
+2. GitHub Releases `v1.0.0` (`onq.ehpk` + `onq-film-v5-day-in-life.mp4`) and GitHub Pages (`https://vaibhav4046.github.io/onq-even-g2/demo/`) are live — *(optional, 60s)* upload **`media/out/onq-film-v5-day-in-life.mp4`** (`2:45`, `23.14 MB`, `1080p`, backup `onq-film-v4.mp4`) as Unlisted YouTube if you want an inline player embed alongside the direct `v1.0.0` MP4 link.
 4. Paste **`docs/DORAHACKS_SUBMISSION.md`** + the 5 SDK requests from **`API_FEEDBACK.md`** into DoraHacks before **Sunday, 29 Nov 2026, 19:59 GMT** and click Submit.
 5. *(Optional)* Publish Product Hunt using `media/product-hunt/gallery-01..04.png`, `thumbnail-240x240.gif`, and `media/product-hunt/PRODUCT_HUNT_LAUNCH_COPY.md`.

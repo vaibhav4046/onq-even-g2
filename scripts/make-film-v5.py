@@ -54,7 +54,7 @@ CAPTIONS = [
     (27.2, VOICE_ONQ, 'OnQ: "Notion task staged Default-NO. Tap YES for the 2-second undo ring."', 'Notion task staged Default-NO. Tap yes for the two-second undo ring, then done with a receipt.'),
     (36.5, VOICE_ONQ, 'OnQ: "Confirmed. Notion checked off; morning schedule updated cleanly."', 'Confirmed. Notion checked off and morning schedule updated cleanly.'),
     (45.8, VOICE_WEARER, '10:30 AM · Wearer: "OnQ, run software crew and prep the PR for master."', 'Ten thirty, away from the desk. OnQ, run software crew and prep the P R for master.'),
-    (53.2, VOICE_ONQ, 'OnQ: "527 tests pass on your local PC. Diff summarized. L5 blocks force push."', 'Five hundred twenty seven tests pass on your local P C. Diff summarized, L5 blocks force push.'),
+    (53.2, VOICE_ONQ, 'OnQ: "530 tests pass on your local PC. Diff summarized. L5 blocks force push."', 'Five hundred thirty tests pass on your local P C. Diff summarized, L5 blocks force push.'),
     (63.2, VOICE_ONQ, 'OnQ: "PR gate staged Default-NO. Approve once on glasses or Telegram."', 'P R gate staged Default-NO. Approve once on glasses or Telegram.'),
     (75.8, VOICE_WEARER, '13:48 PM · Wearer: "Move VC sync to 14:45 and reply to Priya."', 'One forty eight, walking into V C sync. Move sync to two forty five.'),
     (82.0, VOICE_ONQ, 'OnQ: "Blocked in 31ms: HTTP 409 busy slot. Zero LLM calls; 15:45 is free."', 'Blocked in thirty one milliseconds. H T T P 409 conflict lock; fifteen forty five is free.'),
@@ -70,8 +70,8 @@ CAPTIONS = [
 TITLE = (
     'OnQ.',
     'Your PC AI brain, on Even G2.',
-    '527 Tests · 17 Sim PNGs · 32/32 Eval · 11/11 Geometry · 10/10 Security · $7/mo Pro · Sim-Verified',
-    'github.com/vaibhav4046/onq-even-g2',
+    '530 Tests · 17 Sim PNGs · 32/32 Eval · 11/11 Geometry · 10/10 Security · $7/mo Pro · Sim-Verified',
+    'vaibhav4046.github.io/onq-even-g2/demo/ · github.com/vaibhav4046/onq-even-g2',
 )
 
 
@@ -633,7 +633,7 @@ def screen_frame(shot, t):
         lines = [
             ('$ onq /code prep pr --host ollama:qwen3:1.7b', (210, 240, 220)),
             ('host     Ollama (local) · OmniRoute (295 models) · $0 API', (134, 220, 170)),
-            ('tests    PASS  527/527 Vitest · 32/32 Eval · 0 TS errors', (52, 245, 126)),
+            ('tests    PASS  530/530 Vitest · 32/32 Eval · 0 TS errors', (52, 245, 126)),
             ('pr gate  branch master · diff verified -> Default-NO ready', (184, 255, 209)),
         ]
         fnt = font('mono', 31 * z)
