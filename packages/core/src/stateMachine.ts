@@ -118,6 +118,20 @@ export class OnQHudController {
     });
   }
 
+  /** Selects a specific corridor card directly from the companion app dock. */
+  selectCard(index: number): void {
+    if (this.state.phase === 'committing' || this.state.phase === 'armed') return;
+    if (this.state.cards.length === 0) return;
+    const bounded = Math.max(0, Math.min(index, this.state.cards.length - 1));
+    this.setState({
+      phase: 'idle',
+      selectedCardIndex: bounded,
+      selectedActionIndex: 0,
+      answerLines: [],
+      errorMessage: null,
+    });
+  }
+
   stagePreview(preview: ActionPreview, isWrapUp = false): void {
     this.clearArmTimer();
     this.setState({
@@ -465,6 +479,7 @@ export class OnQHudController {
       this.setState({
         selectedCardIndex: (this.state.selectedCardIndex + 1) % cardCount,
         selectedActionIndex: 0,
+        answerLines: [],
       });
       return;
     }
@@ -472,6 +487,7 @@ export class OnQHudController {
       this.setState({
         selectedCardIndex: (this.state.selectedCardIndex - 1 + cardCount) % cardCount,
         selectedActionIndex: 0,
+        answerLines: [],
       });
       return;
     }

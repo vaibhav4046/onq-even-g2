@@ -3,6 +3,7 @@ export * from './formatter.js';
 export * from './evenEvents.js';
 export * from './pngRing.js';
 export * from './pixelAvatarPng.js';
+export * from './appIconsPng.js';
 export * from './intentParser.js';
 export * from './factGuard.js';
 export * from './conflictEngine.js';

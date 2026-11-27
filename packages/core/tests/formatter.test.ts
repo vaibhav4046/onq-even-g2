@@ -185,4 +185,16 @@ describe('formatter.ts', () => {
     expect(() => assertLensBudget(Array(8).fill('ok'))).toThrow();
     expect(() => assertLensBudget(['bad \u2014 dash'])).toThrow();
   });
+
+  it('17. renders answerLines overlay cleanly even when corridor cards are present', () => {
+    const state = {
+      ...createInitialHudState([SAMPLE_CARD], 'DEMO'),
+      answerLines: ['PR GATE | master @ 065a7bf', '38 files changed | ALL SUITES PASS', 'DEFAULT-NO | TAP YES / 2s RING'],
+    };
+    const frame = formatLensFrame(state);
+    expect(frame.header).toContain('BRIEF');
+    expect(frame.bodyText).toContain('PR GATE | master @ 065a7bf');
+    expect(frame.bodyText).not.toContain('Investor call');
+    assertLensBudget(frame.lines);
+  });
 });

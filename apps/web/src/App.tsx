@@ -947,6 +947,50 @@ export function App() {
     }
   };
 
+  const runOsGoodie = async (cmdText: string, label: string) => {
+    const tok = tokenRef.current;
+    if (!tok) {
+      setVoiceFeedback('Relay offline. Start local server with npm run dev.');
+      return;
+    }
+    setThinkingNow(true);
+    try {
+      const res = await fetch('/api/os/command', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: cmdText, surface: 'web' }),
+      });
+      const data = (await res.json()) as { g2Lines?: string[]; reply?: string; approval?: { title?: string } };
+      if (Array.isArray(data.g2Lines) && data.g2Lines.length > 0) {
+        ctrlRef.current?.showAnswer(data.g2Lines);
+      }
+      setVoiceFeedback(`${label}: ${data.reply ?? data.approval?.title ?? 'Ready on lens.'}`);
+      await refreshWorkspaceInspector(tok);
+    } finally {
+      setThinkingNow(false);
+    }
+  };
+
+  const toggleKillSwitchGoodie = async () => {
+    const tok = tokenRef.current;
+    if (!tok) return;
+    const res = await fetch('/api/os/killswitch', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: 'Web goodies bar toggle' }),
+    });
+    const data = (await res.json()) as { state?: { killSwitch?: { paused?: boolean } } };
+    const paused = Boolean(data.state?.killSwitch?.paused);
+    ctrlRef.current?.showAnswer(
+      paused
+        ? ['KILL SWITCH LOCKED (423)', 'L3/L4 routines PAUSED', 'Writes: 0 sent (blocked)', 'Tap again to resume']
+        : ['OS RESUMED (LIVE)', 'All corridor guards ready', 'Default-NO safety active'],
+    );
+    setVoiceFeedback(paused ? 'Kill Switch LOCKED (HTTP 423) — all routines paused.' : 'Kill Switch released — OnQ OS resumed.');
+    await refreshCorridor(tok);
+    await refreshWorkspaceInspector(tok);
+  };
+
   const wipeMeetingScribe = async () => {
     const tok = tokenRef.current;
     if (!tok) return;
@@ -1864,6 +1908,95 @@ export function App() {
                       </div>
                     </div>
                   )}
+
+                  {/* Real-App Logo Corridor Dock + Creative Goodies Launcher */}
+                  <div className="space-y-2 border-t border-dashed border-white/10 pt-3">
+                    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Switch active G2 app card">
+                      {(
+                        [
+                          { idx: 0, label: 'Cal + Mail', icon: <span className="inline-flex items-center gap-1"><CalendarPixelSvg className="w-3.5 h-3.5" /><GmailPixelSvg className="w-3.5 h-3.5" /></span> },
+                          { idx: 1, label: 'Notion', icon: <NotionPixelSvg className="w-3.5 h-3.5" /> },
+                          { idx: 2, label: 'Telegram', icon: <TelegramPixelSvg className="w-3.5 h-3.5" /> },
+                          { idx: 3, label: 'PC AI', icon: <ClaudePixelSvg className="w-3.5 h-3.5" /> },
+                          { idx: 4, label: 'OnQ OS', icon: <EvenG2PixelSvg className="w-5 h-3" /> },
+                        ] as const
+                      ).map((app) => {
+                        const available = app.idx < hudState.cards.length;
+                        const active = hudState.phase === 'idle' && hudState.selectedCardIndex === app.idx;
+                        return (
+                          <button
+                            key={app.label}
+                            type="button"
+                            disabled={!available}
+                            aria-pressed={active}
+                            onClick={() => ctrlRef.current?.selectCard(app.idx)}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-[8px] border transition-colors cursor-pointer disabled:opacity-35 ${
+                              active
+                                ? 'border-[var(--g2-phosphor)] bg-[var(--lime-deep)]/65 text-[var(--bright)]'
+                                : 'border-white/10 bg-white/[0.03] text-[var(--lightgray)] hover:text-[var(--bright)] hover:border-white/25'
+                            }`}
+                          >
+                            {app.icon}
+                            <span>{app.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="One-tap G2 simulator goodies">
+                      <span className="font-pixel text-[9px] uppercase tracking-[0.14em] text-[var(--g2-phosphor)] mr-1">
+                        GOODIES:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void runOsGoodie('/morning', 'Morning Brief')}
+                        className="retro-btn-glass inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-[var(--bright)] hover:text-[var(--lime)] cursor-pointer"
+                      >
+                        <CalendarPixelSvg className="w-3 h-3" />
+                        Morning Brief
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runOsGoodie('/code prep pr for master', 'Coding PR Gate')}
+                        className="retro-btn-glass inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-[var(--bright)] hover:text-[var(--lime)] cursor-pointer"
+                      >
+                        <OpenRouterPixelSvg className="w-3 h-3" />
+                        Coding PR Gate
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runOsGoodie('/project career_pack AI Engineer roles', 'Career Pack')}
+                        className="retro-btn-glass inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-[var(--bright)] hover:text-[var(--lime)] cursor-pointer"
+                      >
+                        <NotionPixelSvg className="w-3 h-3" />
+                        Career Pack
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runLiveMeetingDemo()}
+                        className="retro-btn-glass inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-[var(--bright)] hover:text-[var(--lime)] cursor-pointer"
+                      >
+                        <AssemblyAiPixelSvg className="w-3 h-3" />
+                        Live Scribe
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runOsGoodie('/music deep_focus 45m', 'Focus Music')}
+                        className="retro-btn-glass inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-[var(--bright)] hover:text-[var(--lime)] cursor-pointer"
+                      >
+                        <ChatGptPixelSvg className="w-3 h-3" />
+                        Focus Music
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void toggleKillSwitchGoodie()}
+                        className="retro-btn-glass inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-[var(--danger)] border-[var(--danger)]/40 hover:border-[var(--danger)] cursor-pointer"
+                      >
+                        <ShieldPixelSvg className="w-3 h-3" />
+                        Kill Switch
+                      </button>
+                    </div>
+                  </div>
 
                   {/* Perplexity-Style Voice & Command Bar */}
                   <div className="space-y-3 border-t border-dashed border-[var(--hairline)] pt-4">

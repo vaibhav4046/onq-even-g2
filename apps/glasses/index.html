@@ -32,7 +32,13 @@
       .ring-wrap {
         display: flex;
         align-items: center;
-        gap: 16px;
+        justify-content: space-between;
+        gap: 12px;
+        width: 100%;
+      }
+      #lens-text {
+        flex: 1;
+        min-width: 0;
       }
       #g2-preview { max-width: 100%; }
       #link-status {
@@ -78,8 +84,8 @@
     </svg>
     <div id="g2-preview">
       <div class="ring-wrap">
-        <img id="ring-img" alt="OnQ 525nm monochrome green optical sprite" />
         <pre id="lens-text">ONQ | INITIALIZING...</pre>
+        <img id="ring-img" alt="OnQ 525nm monochrome green optical sprite" />
       </div>
     </div>
     <p id="link-status" role="status" aria-live="polite"></p>

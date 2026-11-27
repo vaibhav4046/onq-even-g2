@@ -274,14 +274,19 @@ export function formatLensFrame(state: HudState): FormattedLensFrame {
     }
     footer = 'SWIPE: PICK  TAP: STAGE  HOLD: VOICE';
   } else {
-    // idle dossier
+    // idle dossier or active OnQ answer overlay
     const total = state.cards.length;
     const card = state.cards[state.selectedCardIndex];
     const mailBadge = (state.unreadEmailCount ?? 0) > 0 ? `M:${state.unreadEmailCount} ` : '';
     const counter = total > 0 ? `${mailBadge}${clock} ${state.selectedCardIndex + 1}/${total}` : `${mailBadge}${clock}`;
-    const subTag = state.provenanceLabel === displayTag ? 'CORRIDOR' : state.provenanceLabel;
+    const subTag = state.answerLines.length > 0 ? 'BRIEF' : state.provenanceLabel === displayTag ? 'CORRIDOR' : state.provenanceLabel;
     header = padHeaderLine(`${displayTag} | ${subTag}`, counter);
-    if (card) {
+    if (state.answerLines.length > 0) {
+      for (const ln of state.answerLines.slice(0, 3)) {
+        body.push(clipLine42(ln));
+      }
+      footer = '2xTAP: CORRIDOR  HOLD: VOICE';
+    } else if (card) {
       const [l1Tag, l2Tag] =
         card.id === 'card-telegram-bridge'
           ? ['TG:', 'CHAT:']
@@ -295,15 +300,12 @@ export function formatLensFrame(state: HudState): FormattedLensFrame {
       body.push(clipLine42(`${card.timeMeta} | ${card.title}`));
       body.push(clipLine42(fmtCtx(l1Tag, card.contextLine1, 'Ready')));
       body.push(clipLine42(fmtCtx(l2Tag, card.contextLine2, 'Clear')));
-    } else if (state.answerLines.length > 0) {
-      for (const ln of state.answerLines.slice(0, 3)) {
-        body.push(clipLine42(ln));
-      }
+      footer = 'TAP: ACT  HOLD: VOICE  SWIPE: NEXT';
     } else {
       body.push('ALL CLEAR - NO CORRIDOR TASKS DUE');
       body.push('NEXT 6H CALENDAR & INBOX CLEAR');
+      footer = 'TAP: ACT  HOLD: VOICE  SWIPE: NEXT';
     }
-    footer = 'TAP: ACT  HOLD: VOICE  SWIPE: NEXT';
   }
 
   const sep = '------------------------------------------';

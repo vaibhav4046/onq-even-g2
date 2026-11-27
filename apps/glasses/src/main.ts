@@ -5,6 +5,8 @@ import {
   ImageRawDataUpdate,
   ListContainerProperty,
   ListItemContainerProperty,
+  MenuContainerProperty,
+  MenuItemProperty,
   RebuildPageContainer,
   TextContainerProperty,
   TextContainerUpgrade,
@@ -15,7 +17,7 @@ import {
   BlePaintQueue,
   clipLine42,
   createInitialHudState,
-  encodeCornerMarkerPng,
+  encodeAppBadgePng,
   encodeCountdownRingPng,
   encodePixelAvatarPng,
   formatLensFrame,
@@ -23,6 +25,7 @@ import {
   normalizeEvenEvent,
   OnQHudController,
   PcmRingBuffer,
+  resolveHudBadgeKind,
 } from '@onq/core';
 import type {
   ActionPreview,
@@ -99,7 +102,8 @@ const ringImgEl = document.getElementById('ring-img') as HTMLImageElement | null
 
 let bridge: EvenAppBridge | null = null;
 let sessionToken: string | null = null;
-let containerMode: 'text-only' | 'detail-list' | 'ring-split' | null = null;
+let containerMode: 'hud-split' | 'detail-list' | null = null;
+let lastRenderedImageKey = '';
 let sseSource: EventSource | null = null;
 let activeLiveUi: LiveUiSurface | null = null;
 let avatarTick = 0;
@@ -161,38 +165,67 @@ async function apiJson<T>(path: string, init: RequestInit = {}): Promise<{ statu
   return { status: res.status, data };
 }
 
+function buildG2ContextMenu(): MenuContainerProperty {
+  return new MenuContainerProperty({
+    menuItems: [
+      new MenuItemProperty({ itemID: 1, itemName: 'Morning Brief' }),
+      new MenuItemProperty({ itemID: 2, itemName: 'Coding PR Gate' }),
+      new MenuItemProperty({ itemID: 3, itemName: 'Career Pack' }),
+      new MenuItemProperty({ itemID: 4, itemName: 'Live Scribe' }),
+      new MenuItemProperty({ itemID: 5, itemName: 'Focus Music 45m' }),
+      new MenuItemProperty({ itemID: 6, itemName: 'Kill Switch (Pause)' }),
+    ],
+  });
+}
+
+function setDomSpritePng(png: Uint8Array): void {
+  if (!ringImgEl) return;
+  const blob = new Blob([new Uint8Array(png)], { type: 'image/png' });
+  const url = URL.createObjectURL(blob);
+  const prev = ringImgEl.dataset.blobUrl;
+  if (prev) URL.revokeObjectURL(prev);
+  ringImgEl.dataset.blobUrl = url;
+  ringImgEl.src = url;
+  ringImgEl.style.display = 'block';
+}
+
+function buildStateSpritePng(state: HudState, frameRingProgress01?: number, liveUiTitle?: string): { png: Uint8Array; key: string; wantAvatar: boolean; wantRing: boolean } {
+  const wantRing = state.phase === 'armed' && frameRingProgress01 !== undefined;
+  const wantAvatar = state.phase === 'listening' || state.phase === 'meeting_live';
+  if (wantRing && frameRingProgress01 !== undefined) {
+    const step = Math.round(frameRingProgress01 * 20);
+    return { png: encodeCountdownRingPng(frameRingProgress01, 76), key: `ring:${step}`, wantAvatar: false, wantRing: true };
+  }
+  if (wantAvatar) {
+    avatarTick += 1;
+    const mode = state.phase === 'meeting_live' ? 'speaking' : 'listening';
+    return {
+      png: encodePixelAvatarPng(mode, { tick: avatarTick, rmsLevel: Math.max(0.35, state.rmsLevel), style: 'muse', size: 76 }),
+      key: `avatar:${mode}:${avatarTick}`,
+      wantAvatar: true,
+      wantRing: false,
+    };
+  }
+  const badge = resolveHudBadgeKind(state, liveUiTitle);
+  const key = `badge:${badge}:${state.selectedCardIndex}:${state.cards.length}`;
+  return {
+    png: encodeAppBadgePng(badge, {
+      size: 76,
+      tick: avatarTick,
+      cardIndex: state.selectedCardIndex,
+      cardTotal: state.cards.length,
+    }),
+    key,
+    wantAvatar: false,
+    wantRing: false,
+  };
+}
+
 function renderLocalDom(state: HudState): void {
   const frame = formatLensFrame(state);
   if (lensEl) lensEl.textContent = frame.bodyText;
-  if (ringImgEl) {
-    if (state.phase === 'armed' && frame.ringProgress01 !== undefined) {
-      const png = encodeCountdownRingPng(frame.ringProgress01, 76);
-      const blob = new Blob([new Uint8Array(png)], { type: 'image/png' });
-      const url = URL.createObjectURL(blob);
-      const prev = ringImgEl.dataset.blobUrl;
-      if (prev) URL.revokeObjectURL(prev);
-      ringImgEl.dataset.blobUrl = url;
-      ringImgEl.src = url;
-      ringImgEl.style.display = 'block';
-    } else if (state.phase === 'listening' || state.phase === 'meeting_live') {
-      avatarTick += 1;
-      const png = encodePixelAvatarPng(state.phase === 'meeting_live' ? 'speaking' : 'listening', {
-        tick: avatarTick,
-        rmsLevel: Math.max(0.35, state.rmsLevel),
-        style: 'muse',
-        size: 76,
-      });
-      const blob = new Blob([new Uint8Array(png)], { type: 'image/png' });
-      const url = URL.createObjectURL(blob);
-      const prev = ringImgEl.dataset.blobUrl;
-      if (prev) URL.revokeObjectURL(prev);
-      ringImgEl.dataset.blobUrl = url;
-      ringImgEl.src = url;
-      ringImgEl.style.display = 'block';
-    } else {
-      ringImgEl.style.display = 'none';
-    }
-  }
+  const sprite = buildStateSpritePng(state, frame.ringProgress01, activeLiveUi?.title);
+  setDomSpritePng(sprite.png);
   (window as unknown as Record<string, unknown>).__ONQ_G2__ = {
     phase: state.phase,
     sourceMode: state.sourceMode,
@@ -218,19 +251,11 @@ async function paintToGlasses(state: HudState): Promise<void> {
   if (!bridge) return;
 
   const frame = formatLensFrame(state);
-  const wantRing = state.phase === 'armed' && frame.ringProgress01 !== undefined;
-  const wantAvatar =
-    state.phase === 'listening' ||
-    state.phase === 'meeting_live' ||
-    (state.phase === 'idle' && state.cards.length === 0 && (state.answerLines?.length ?? 0) > 0);
-  const wantImage = wantRing || wantAvatar;
-  if (wantAvatar && avatarAnimTimer === null) {
+  const sprite = buildStateSpritePng(state, frame.ringProgress01, activeLiveUi?.title);
+  if (sprite.wantAvatar && avatarAnimTimer === null) {
     avatarAnimTimer = window.setInterval(() => {
       const cur = controller.getState();
-      const stillAvatar =
-        cur.phase === 'listening' ||
-        cur.phase === 'meeting_live' ||
-        (cur.phase === 'idle' && cur.cards.length === 0 && (cur.answerLines?.length ?? 0) > 0);
+      const stillAvatar = cur.phase === 'listening' || cur.phase === 'meeting_live';
       if (!stillAvatar) {
         if (avatarAnimTimer !== null) {
           window.clearInterval(avatarAnimTimer);
@@ -247,6 +272,7 @@ async function paintToGlasses(state: HudState): Promise<void> {
             ? 'thinking'
             : 'speaking';
       const png = encodePixelAvatarPng(mode, { tick: avatarTick, rmsLevel: Math.max(0.42, cur.rmsLevel), style: 'muse', size: 76 });
+      setDomSpritePng(png);
       if (bridge) {
         void paintQueue.enqueueImage(async () => {
           if (!bridge) return;
@@ -256,20 +282,17 @@ async function paintToGlasses(state: HudState): Promise<void> {
         }, false);
       }
     }, 350);
-  } else if (!wantAvatar && avatarAnimTimer !== null) {
+  } else if (!sprite.wantAvatar && avatarAnimTimer !== null) {
     window.clearInterval(avatarAnimTimer);
     avatarAnimTimer = null;
   }
   const wantList = state.phase === 'detail' && (state.cards[state.selectedCardIndex]?.quickActions.length ?? 0) > 0;
-  const desiredMode: 'text-only' | 'detail-list' | 'ring-split' = wantImage
-    ? 'ring-split'
-    : wantList
-      ? 'detail-list'
-      : 'text-only';
+  const desiredMode: 'hud-split' | 'detail-list' = wantList ? 'detail-list' : 'hud-split';
 
   if (containerMode !== desiredMode || desiredMode === 'detail-list') {
     const isInitial = containerMode === null;
     containerMode = desiredMode;
+    lastRenderedImageKey = '';
     await paintQueue.enqueueOp(async () => {
       if (!bridge) return;
 
@@ -313,6 +336,7 @@ async function paintToGlasses(state: HudState): Promise<void> {
               }),
             }),
           ],
+          menuObject: buildG2ContextMenu(),
         };
         if (isInitial) {
           await bridge.createStartUpPageContainer(new CreateStartUpPageContainer(payload));
@@ -323,9 +347,9 @@ async function paintToGlasses(state: HudState): Promise<void> {
       }
 
       const textProp = new TextContainerProperty({
-        xPosition: wantImage ? 104 : 12,
+        xPosition: 12,
         yPosition: 10,
-        width: wantImage ? 460 : 552,
+        width: 462,
         height: 268,
         containerID: TEXT_CONTAINER_ID,
         containerName: 'main-hud',
@@ -336,23 +360,22 @@ async function paintToGlasses(state: HudState): Promise<void> {
         textColor: 4,
       });
 
-      const imageObject = wantImage
-        ? [
-            new ImageContainerProperty({
-              xPosition: 14,
-              yPosition: 106,
-              width: 76,
-              height: 76,
-              containerID: RING_CONTAINER_ID,
-              containerName: 'undo-ring',
-            }),
-          ]
-        : undefined;
+      const imageObject = [
+        new ImageContainerProperty({
+          xPosition: 486,
+          yPosition: 106,
+          width: 76,
+          height: 76,
+          containerID: RING_CONTAINER_ID,
+          containerName: 'undo-ring',
+        }),
+      ];
 
       const payload = {
-        containerTotalNum: wantImage ? 2 : 1,
+        containerTotalNum: 2,
         textObject: [textProp],
-        ...(imageObject ? { imageObject } : {}),
+        imageObject,
+        menuObject: buildG2ContextMenu(),
       };
 
       if (isInitial) {
@@ -376,36 +399,18 @@ async function paintToGlasses(state: HudState): Promise<void> {
     });
   }
 
-  if (wantRing && frame.ringProgress01 !== undefined) {
-    const png = encodeCountdownRingPng(frame.ringProgress01, 76);
+  if (desiredMode === 'hud-split' && sprite.key !== lastRenderedImageKey) {
+    lastRenderedImageKey = sprite.key;
     await paintQueue.enqueueImage(async () => {
       if (!bridge) return;
       await bridge.updateImageRawData(
         new ImageRawDataUpdate({
           containerID: RING_CONTAINER_ID,
           containerName: 'undo-ring',
-          imageData: Array.from(png),
+          imageData: Array.from(sprite.png),
         }),
       );
-    }, frame.ringProgress01 === 0);
-  } else if (wantAvatar) {
-    avatarTick += 1;
-    const png = encodePixelAvatarPng(state.phase === 'meeting_live' ? 'speaking' : 'listening', {
-      tick: avatarTick,
-      rmsLevel: Math.max(0.35, state.rmsLevel),
-      style: 'muse',
-      size: 76,
-    });
-    await paintQueue.enqueueImage(async () => {
-      if (!bridge) return;
-      await bridge.updateImageRawData(
-        new ImageRawDataUpdate({
-          containerID: RING_CONTAINER_ID,
-          containerName: 'undo-ring',
-          imageData: Array.from(png),
-        }),
-      );
-    }, false);
+    }, sprite.wantRing && frame.ringProgress01 === 0);
   }
 }
 
@@ -554,6 +559,21 @@ const controller: OnQHudController = new OnQHudController(createInitialHudState(
       });
       if (rtnRes.g2Lines?.length) {
         controller.showAnswer(rtnRes.g2Lines);
+      }
+      return null;
+    }
+    if (opt?.commandText === '__OS_PREP_PR__' || opt?.commandText === '__OS_CAREER_PACK__') {
+      const cmdText =
+        opt.commandText === '__OS_PREP_PR__'
+          ? '/code prep pr for master'
+          : '/project career_pack AI Engineer roles';
+      controller.showAnswer(['PC HOST | WORKING...', clipLine42(cmdText), 'Running local safety checks']);
+      const { data: cmdRes } = await apiJson<{ g2Lines?: string[] }>('/api/os/command', {
+        method: 'POST',
+        body: JSON.stringify({ text: cmdText, surface: 'glasses' }),
+      });
+      if (cmdRes.g2Lines?.length) {
+        controller.showAnswer(cmdRes.g2Lines);
       }
       return null;
     }
@@ -914,19 +934,11 @@ function startSseSync(tok: string): void {
           activeLiveUi = parsed.surface;
           const formatted = formatLiveUiForG2(activeLiveUi);
           if (lensEl) lensEl.textContent = formatted.bodyText;
-          if (ringImgEl) {
-            avatarTick += 1;
-            const png = encodeCornerMarkerPng('focused', avatarTick);
-            const blob = new Blob([new Uint8Array(png)], { type: 'image/png' });
-            const url = URL.createObjectURL(blob);
-            const prev = ringImgEl.dataset.blobUrl;
-            if (prev) URL.revokeObjectURL(prev);
-            ringImgEl.dataset.blobUrl = url;
-            ringImgEl.src = url;
-            ringImgEl.style.display = 'block';
-          }
+          const badgeKind = resolveHudBadgeKind(controller.getState(), activeLiveUi.title);
+          const png = encodeAppBadgePng(badgeKind, { size: 76, tick: avatarTick });
+          setDomSpritePng(png);
           if (bridge) {
-            if (containerMode === 'detail-list') {
+            if (containerMode !== 'hud-split') {
               await paintToGlasses({ ...controller.getState(), phase: 'idle', answerLines: formatted.lines, cards: [] });
             } else {
               void paintQueue.enqueueOp(async () => {
@@ -937,6 +949,13 @@ function startSseSync(tok: string): void {
                     contentOffset: 0,
                     contentLength: Math.min(999, new TextEncoder().encode(formatted.bodyText).length),
                     content: formatted.bodyText,
+                  }),
+                );
+                await bridge.updateImageRawData(
+                  new ImageRawDataUpdate({
+                    containerID: RING_CONTAINER_ID,
+                    containerName: 'undo-ring',
+                    imageData: Array.from(png),
                   }),
                 );
               });
@@ -1075,6 +1094,41 @@ async function bootstrap(): Promise<void> {
       }
       if (ev.kind === 'FOREGROUND_EXIT') {
         void persistSnapshot();
+      }
+      if (ev.kind === 'MENU_CLICK') {
+        const menuMap: Record<number, { text: string; isScribe?: boolean; isKill?: boolean }> = {
+          1: { text: '/morning' },
+          2: { text: '/code prep pr for master' },
+          3: { text: '/project career_pack AI Engineer roles' },
+          4: { text: 'Live Scribe', isScribe: true },
+          5: { text: '/music deep_focus 45m' },
+          6: { text: 'Kill Switch', isKill: true },
+        };
+        const hit = ev.menuItemId ? menuMap[ev.menuItemId] : undefined;
+        if (hit?.isScribe) {
+          void apiJson('/api/meeting/start', {
+            method: 'POST',
+            body: JSON.stringify({ attendees: ['Investor contact', 'Partner contact'] }),
+          }).then(() =>
+            apiJson<MeetingSessionState>('/api/meeting/turn', {
+              method: 'POST',
+              body: JSON.stringify({ speakerLabel: 'Speaker A', text: 'Live scribe active.', isFinal: true }),
+            }),
+          ).then((r) => controller.setMeetingSession(r.data));
+        } else if (hit?.isKill) {
+          void apiJson('/api/os/killswitch', {
+            method: 'POST',
+            body: JSON.stringify({ reason: 'G2 context menu toggle' }),
+          }).then(() => loadCorridor());
+        } else if (hit) {
+          void apiJson<{ g2Lines?: string[] }>('/api/os/command', {
+            method: 'POST',
+            body: JSON.stringify({ text: hit.text, surface: 'glasses' }),
+          }).then((r) => {
+            if (r.data.g2Lines?.length) controller.showAnswer(r.data.g2Lines);
+          });
+        }
+        return;
       }
       if (activeLiveUi) {
         if (ev.kind === 'DOUBLE_CLICK') {

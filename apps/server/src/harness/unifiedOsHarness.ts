@@ -2172,6 +2172,24 @@ export class UnifiedOsHarness {
           commandText: '__OS_RUN_ROUTINE__',
         },
         {
+          id: 'qa-os-pr',
+          label: 'Coding PR gate',
+          intent: 'DELEGATE_COMPUTER_TASK',
+          commandText: '__OS_PREP_PR__',
+        },
+        {
+          id: 'qa-os-career',
+          label: 'Career pack AI roles',
+          intent: 'PLAN_PROJECT',
+          commandText: '__OS_CAREER_PACK__',
+        },
+        {
+          id: 'qa-os-music',
+          label: 'Focus music 45m',
+          intent: 'CREATE_ACTION_PACK',
+          commandText: '__OS_MUSIC_FOCUS__',
+        },
+        {
           id: 'qa-os-killswitch',
           label: paused ? 'Resume' : 'Pause everything',
           intent: 'DELEGATE_COMPUTER_TASK',

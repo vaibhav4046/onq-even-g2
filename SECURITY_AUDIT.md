@@ -1,12 +1,12 @@
 # OnQ Security Audit Report
 
-Generated: 2026-11-27T06:37:09.761Z
+Generated: 2026-11-27T14:40:30.621Z
 Overall Verdict: PASS (0 High/Critical findings)
 
 | Security Domain | Status | Evidence |
 | :--- | :--- | :--- |
-| 1. Zero Secrets in Source | PASS | 0 hits across 167 files |
-| 2. Zero Secrets in .ehpk Bundle | PASS | EHPK (57865 bytes) + 4 packed files scanned, 0 secret hits |
+| 1. Zero Secrets in Source | PASS | 0 hits across 169 files |
+| 2. Zero Secrets in .ehpk Bundle | PASS | EHPK (60341 bytes) + 4 packed files scanned, 0 secret hits |
 | 3. Static Hygiene (No eval / dangerouslySetInnerHTML) | PASS | 0 hits |
 | 4. Strict CORS Allowlist | PASS | Evil origin -> HTTP 403 |
 | 5. Bearer Session Enforcement | PASS | Missing token -> HTTP 401 |

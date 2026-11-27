@@ -2617,7 +2617,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
             startIso: nowIso,
             endIso: new Date(Date.parse(nowIso) + 15 * 60_000).toISOString(),
             contextLine1: clipLine42(tgSample.detail, 42),
-            contextLine2: 'Tap to reply. Nothing sends without yes',
+            contextLine2: 'Watched DM | Tap to draft reply',
             triageRule: 'ASK_DEADLINE',
             etag: `tg-${nowIso}`,
             quickActions: [
@@ -2689,34 +2689,40 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
             etag: `comp-${inferenceMode}-${activeAi.id}-${nowIso}`,
             quickActions: [
               {
+                id: 'qa-pc-pr-gate',
+                label: 'Prep PR Gate (/code prep pr)',
+                intent: 'DELEGATE_COMPUTER_TASK' as const,
+                commandText: '__OS_PREP_PR__',
+              },
+              {
+                id: 'qa-pc-career',
+                label: 'Career Pack (/jobs AI roles)',
+                intent: 'PLAN_PROJECT' as const,
+                commandText: '__OS_CAREER_PACK__',
+              },
+              {
                 id: 'qa-pc-apps',
                 label: 'PC AI apps & agents',
-                intent: 'DELEGATE_COMPUTER_TASK',
+                intent: 'DELEGATE_COMPUTER_TASK' as const,
                 commandText: '__OS_COMPUTER_APPS__',
               },
               {
                 id: 'qa-pc-toggle-inf',
                 label: inferenceMode === 'computer' ? 'Switch AI -> API (optional)' : 'Switch AI -> Computer host',
-                intent: 'PLAN_PROJECT',
+                intent: 'PLAN_PROJECT' as const,
                 commandText: '__OS_TOGGLE_INFERENCE__',
-              },
-              {
-                id: 'qa-pc-git',
-                label: 'Check my code',
-                intent: 'DELEGATE_COMPUTER_TASK',
-                commandText: 'Check git status and open GitHub PRs',
               },
               {
                 id: 'qa-synth-ai',
                 label: 'Plan my next hour',
-                intent: 'PLAN_PROJECT',
+                intent: 'PLAN_PROJECT' as const,
                 commandText: '__SYNTHESIZE_PROACTIVE__',
               },
               {
-                id: 'qa-pc-os-crew',
-                label: 'Run crew',
-                intent: 'PLAN_PROJECT',
-                commandText: '__OS_RUN_PIPELINE__',
+                id: 'qa-pc-music',
+                label: 'Focus Music 45m',
+                intent: 'CREATE_ACTION_PACK' as const,
+                commandText: '__OS_MUSIC_FOCUS__',
               },
               ...(altLocalApp
                 ? [
@@ -2728,7 +2734,7 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
                     },
                   ]
                 : []),
-            ],
+            ].slice(0, 6),
           });
 
           // Card 4: Unified Autonomous Personal OS (L0-L5, 10 Agents, L2 Approvals, Routines, Music, Kill Switch)

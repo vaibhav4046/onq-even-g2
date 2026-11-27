@@ -2,7 +2,7 @@
 
 > **Event:** Heads Up: Even Realities Hackathon (DoraHacks — Track 04: AI Assistants & Work + Best Telegram Integration)  
 > **Controllable Weighted Score Progression:** `8.13 / 10` (Round 1) -> `9.50 / 10` (Round 2) -> **`9.66 / 10` (Round 3 Final)** *(>= 9.5/10 across all controllable buckets)*  
-> **Hardware Honesty Statement:** Verified across **`527` tests (`54` files)**, **`17` real `@evenrealities/evenhub-simulator@0.9.5` captures (`sim-01..17.png`)**, **`11/11` Geometry Gate (`97.4%–97.9%` black pixels)**, **`10/10` Security Audit (`0` secrets, `0` prod vulns)**, live Playwright desktop/mobile (`0` errors, `0` overflow), reboot durability, and zero-env clean-room `git clone`. **Physical Even Realities G2 glasses & R1 ring hardware testing has NOT been performed** (camera-free, speakerless G2 audio is routed via paired phone/earbuds using `AssemblyAI-TTS-1`).
+> **Hardware Honesty Statement:** Verified across **`530` tests (`55` files)**, **`17` real `@evenrealities/evenhub-simulator@0.9.5` captures (`sim-01..17.png` with `76×76` 4-bit Gray4 real-app logos + native goodies)**, **`11/11` Geometry Gate (`97.2%–97.8%` black pixels)**, **`10/10` Security Audit (`0` secrets in `169` files + `60,341`-byte `.ehpk`, `0` prod vulns)**, live Playwright desktop/mobile (`0` errors, `0` overflow), reboot durability, and zero-env clean-room `git clone`. **Physical Even Realities G2 glasses & R1 ring hardware testing has NOT been performed** (camera-free, speakerless G2 audio is routed via paired phone/earbuds using `AssemblyAI-TTS-1`).
 
 ---
 

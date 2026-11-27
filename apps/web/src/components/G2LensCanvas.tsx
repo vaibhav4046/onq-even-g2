@@ -1,11 +1,41 @@
 import { useId, useMemo } from 'react';
-import { encodeCountdownRingPng, encodePixelAvatarPng, formatLensFrame } from '@onq/core';
-import type { HudState } from '@onq/core';
+import {
+  encodeAppBadgePng,
+  encodeCountdownRingPng,
+  encodePixelAvatarPng,
+  formatLensFrame,
+  resolveHudBadgeKind,
+} from '@onq/core';
+import type { AppBadgeKind, HudState } from '@onq/core';
 
 interface G2LensCanvasProps {
   hudState: HudState;
   opticsMode: 'waveguide' | 'raw';
   negativeControlOverflow?: boolean;
+}
+
+const BADGE_LABELS: Record<AppBadgeKind, string> = {
+  calendar_gmail: 'CAL + MAIL',
+  notion: 'NOTION',
+  telegram: 'TELEGRAM',
+  pc_ai_host: 'PC AI',
+  onq_os: 'ONQ OS',
+  coding_pr: 'GIT PR',
+  career_pack: 'CAREER',
+  safety_no: 'DEFAULT-NO',
+  conflict_409: '409 LOCK',
+  receipt_ok: 'VERIFIED',
+  killswitch_423: 'KILL LOCK',
+  stale_offline: 'OFFLINE',
+  focus_music: 'MUSIC',
+};
+
+function bytesToDataUrl(pngBytes: Uint8Array): string {
+  let bin = '';
+  for (let i = 0; i < pngBytes.length; i++) {
+    bin += String.fromCharCode(pngBytes[i]);
+  }
+  return `data:image/png;base64,${btoa(bin)}`;
 }
 
 export function G2LensCanvas({
@@ -15,37 +45,54 @@ export function G2LensCanvas({
 }: G2LensCanvasProps) {
   const phosphorId = useId().replace(/:/g, '');
   const frame = useMemo(() => formatLensFrame(hudState), [hudState]);
+  const liveTitleHint = hudState.phase === 'idle' && hudState.answerLines.length > 0 ? hudState.answerLines.join(' ') : undefined;
+  const badgeKind = useMemo(() => resolveHudBadgeKind(hudState, liveTitleHint), [hudState, liveTitleHint]);
 
-  const ringDataUrl = useMemo(() => {
-    if (hudState.phase !== 'armed' || frame.ringProgress01 === undefined) return null;
-    const pngBytes = encodeCountdownRingPng(frame.ringProgress01, 76);
-    let bin = '';
-    for (let i = 0; i < pngBytes.length; i++) {
-      bin += String.fromCharCode(pngBytes[i]);
+  const sprite = useMemo(() => {
+    if (hudState.phase === 'armed' && frame.ringProgress01 !== undefined) {
+      return {
+        url: bytesToDataUrl(encodeCountdownRingPng(frame.ringProgress01, 76)),
+        label: '2.0s RING',
+        alt: '2.0 second countdown undo ring',
+      };
     }
-    return `data:image/png;base64,${btoa(bin)}`;
-  }, [hudState.phase, frame.ringProgress01]);
-
-  const avatarDataUrl = useMemo(() => {
-    const isAnswering = hudState.phase === 'idle' && hudState.answerLines.length > 0;
-    if (hudState.phase !== 'listening' && hudState.phase !== 'meeting_live' && !isAnswering) return null;
-    const pngBytes = encodePixelAvatarPng(
-      hudState.phase === 'meeting_live' || isAnswering ? 'speaking' : 'listening',
-      {
-        tick: hudState.avatarTick ?? hudState.meeting?.turns.length ?? 2,
-        rmsLevel: Math.max(0.35, hudState.rmsLevel),
-        style: 'muse',
-        size: 76,
-      },
-    );
-    let bin = '';
-    for (let i = 0; i < pngBytes.length; i++) {
-      bin += String.fromCharCode(pngBytes[i]);
+    if (hudState.phase === 'listening' || hudState.phase === 'meeting_live') {
+      return {
+        url: bytesToDataUrl(
+          encodePixelAvatarPng(hudState.phase === 'meeting_live' ? 'speaking' : 'listening', {
+            tick: hudState.avatarTick ?? hudState.meeting?.turns.length ?? 2,
+            rmsLevel: Math.max(0.35, hudState.rmsLevel),
+            style: 'muse',
+            size: 76,
+          }),
+        ),
+        label: hudState.phase === 'meeting_live' ? 'SCRIBE LIVE' : 'ONQ VOICE',
+        alt: 'OnQ 4-bit Anime Dots avatar',
+      };
     }
-    return `data:image/png;base64,${btoa(bin)}`;
-  }, [hudState.phase, hudState.rmsLevel, hudState.avatarTick, hudState.answerLines.length, hudState.meeting?.turns.length]);
-
-  const sideImgUrl = ringDataUrl ?? avatarDataUrl;
+    return {
+      url: bytesToDataUrl(
+        encodeAppBadgePng(badgeKind, {
+          size: 76,
+          tick: hudState.avatarTick ?? 0,
+          cardIndex: hudState.selectedCardIndex,
+          cardTotal: hudState.cards.length,
+        }),
+      ),
+      label: BADGE_LABELS[badgeKind],
+      alt: `Even G2 4-bit ${BADGE_LABELS[badgeKind]} badge`,
+    };
+  }, [
+    hudState.phase,
+    hudState.rmsLevel,
+    hudState.avatarTick,
+    hudState.answerLines.length,
+    hudState.meeting?.turns.length,
+    hudState.selectedCardIndex,
+    hudState.cards.length,
+    frame.ringProgress01,
+    badgeKind,
+  ]);
 
   if (negativeControlOverflow) {
     // Deliberate defect injection mode used ONLY by Check 11 of verify-geometry.mjs
@@ -75,34 +122,8 @@ export function G2LensCanvas({
       data-utf8-bytes={frame.utf8Bytes}
       className={`g2-lens-canvas ${opticsMode === 'waveguide' ? 'g2-lens-waveguide' : 'g2-lens-raw'}`}
     >
-      <div className="flex items-start gap-3 min-w-0">
-        {sideImgUrl && (
-          <>
-            <svg width="0" height="0" aria-hidden="true" className="absolute pointer-events-none">
-              <filter id={`g2-phosphor-${phosphorId}`} colorInterpolationFilters="sRGB">
-                <feColorMatrix
-                  type="matrix"
-                  values="0.204 0 0 0 0  0.961 0 0 0 0  0.494 0 0 0 0  0 0 0 1 0"
-                />
-              </filter>
-            </svg>
-            <img
-              src={sideImgUrl}
-              width={76}
-              height={76}
-              alt={ringDataUrl ? '2.0 second countdown undo ring' : 'OnQ 4-bit Anime Dots avatar'}
-              className="shrink-0 mt-4"
-              style={{
-                imageRendering: 'pixelated',
-                filter:
-                  opticsMode === 'waveguide'
-                    ? `url(#g2-phosphor-${phosphorId}) drop-shadow(0 0 4px rgba(52, 245, 126, 0.42))`
-                    : `url(#g2-phosphor-${phosphorId})`,
-              }}
-            />
-          </>
-        )}
-        <div className="flex flex-col w-full min-w-0">
+      <div className="flex items-center justify-between gap-2.5 min-w-0 w-full h-full">
+        <div className="flex flex-col flex-1 min-w-0">
           {frame.lines.map((line, idx) => (
             <div
               key={idx}
@@ -119,6 +140,34 @@ export function G2LensCanvas({
               {line}
             </div>
           ))}
+        </div>
+
+        <div className="w-[82px] shrink-0 flex flex-col items-center justify-center gap-1">
+          <svg width="0" height="0" aria-hidden="true" className="absolute pointer-events-none">
+            <filter id={`g2-phosphor-${phosphorId}`} colorInterpolationFilters="sRGB">
+              <feColorMatrix
+                type="matrix"
+                values="0.204 0 0 0 0  0.961 0 0 0 0  0.494 0 0 0 0  0 0 0 1 0"
+              />
+            </filter>
+          </svg>
+          <img
+            src={sprite.url}
+            width={76}
+            height={76}
+            alt={sprite.alt}
+            className="shrink-0"
+            style={{
+              imageRendering: 'pixelated',
+              filter:
+                opticsMode === 'waveguide'
+                  ? `url(#g2-phosphor-${phosphorId}) drop-shadow(0 0 4px rgba(52, 245, 126, 0.42))`
+                  : `url(#g2-phosphor-${phosphorId})`,
+            }}
+          />
+          <span className="font-plex text-[9px] tracking-[0.12em] uppercase text-[#1ea352] whitespace-nowrap">
+            {sprite.label}
+          </span>
         </div>
       </div>
     </div>
