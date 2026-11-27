@@ -123,6 +123,7 @@ import { LiveWorkspaceProvider } from './providers/liveProvider.js';
 import {
   detectLocalComputerTools,
   executeDelegatedTask,
+  executeSafePrDryRun,
   runSafeReadInspection,
 } from './providers/localComputerBridge.js';
 import type { SafeInspectKind, SafeInspectResult } from './providers/localComputerBridge.js';
@@ -1147,6 +1148,10 @@ export async function createOnQServer(opts: ServerOptions = {}): Promise<{
         return browserAgent.resumeAfterApproval(item.id);
       }
       if (item.destination === 'COMPUTER') {
+        if (item.payloadPreview.startsWith('DRY_RUN_PR_PUSH:')) {
+          const dry = await executeSafePrDryRun(process.cwd());
+          return { ok: dry.ok, detail: dry.detail };
+        }
         const res = await executeDelegatedTask({
           kind: 'PLAN_PROJECT',
           title: item.title,

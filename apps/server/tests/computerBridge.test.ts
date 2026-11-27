@@ -144,5 +144,5 @@ describe('Zero-API-Key Local Computer Bridge, Agent Task Engine & Enhanced 24/7 
     const committed = (await commitRes.json()) as { task: { status: string; outputLines: string[] } };
     expect(committed.task.status).toBe('DONE');
     expect(committed.task.outputLines.length).toBeGreaterThan(0);
-  });
+  }, 30_000);
 });

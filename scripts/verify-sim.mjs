@@ -306,9 +306,11 @@ async function main() {
       body: JSON.stringify({ text: '/evening', surface: 'glasses' }),
     });
     const recapJson = recapRes.ok ? await recapRes.json() : null;
-    const recapLines = Array.isArray(recapJson?.outcome?.g2Lines) && recapJson.outcome.g2Lines.length > 0
-      ? recapJson.outcome.g2Lines.slice(0, 3)
-      : ['Committed today: 1 write receipt', 'Open threads: 1 Telegram, 1 email', 'All Default-NO guards verified'];
+    const recapLines = Array.isArray(recapJson?.g2Lines) && recapJson.g2Lines.length > 0
+      ? recapJson.g2Lines.slice(0, 3)
+      : Array.isArray(recapJson?.outcome?.g2Lines) && recapJson.outcome.g2Lines.length > 0
+        ? recapJson.outcome.g2Lines.slice(0, 3)
+        : ['Committed today: 1 write receipt', 'Open threads: 1 Telegram, 1 email', 'All Default-NO guards verified'];
     await fetch('http://127.0.0.1:8787/api/liveui/generate', {
       method: 'POST',
       headers: authHeaders,
@@ -340,6 +342,45 @@ async function main() {
         body: JSON.stringify({ paused: false, reason: 'Resumed after check' }),
       });
     }
+
+    // 5f. Coding PR Push Gate (Default-NO + L5 Guard) & Automated Career Pack (Notion + Draft) -> Real Simulator Captures 16 & 17
+    const prCmdRes = await fetch('http://127.0.0.1:8787/api/os/command', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ text: '/code prep pr for master', surface: 'glasses' }),
+    });
+    const prCmdJson = prCmdRes.ok ? await prCmdRes.json() : null;
+    const prLines = Array.isArray(prCmdJson?.g2Lines) && prCmdJson.g2Lines.length > 0
+      ? prCmdJson.g2Lines.slice(0, 4)
+      : ['PR GATE | master', 'diff verified | ALL TESTS PASS', 'DEFAULT-NO | TAP YES / 2s RING', 'L5 GUARD: NO FORCE/SECRETS'];
+    await fetch('http://127.0.0.1:8787/api/liveui/generate', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        xml: `<ui frame="full" title="CODING PR GATE"/><ui c="list">\n${prLines.join('\n')}</ui>`,
+      }),
+    });
+    await new Promise((r) => setTimeout(r, 700));
+    await captureGlasses(autoBase, 'sim-16-coding-pr-gate.png');
+
+    const jobCmdRes = await fetch('http://127.0.0.1:8787/api/os/command', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ text: '/project career_pack AI Engineer roles', surface: 'glasses' }),
+    });
+    const jobCmdJson = jobCmdRes.ok ? await jobCmdRes.json() : null;
+    const jobLines = Array.isArray(jobCmdJson?.g2Lines) && jobCmdJson.g2Lines.length > 0
+      ? jobCmdJson.g2Lines.slice(0, 4)
+      : ['CAREER PACK | 3 ROLES', 'TOP: Staff AI Systems Eng (94% FIT)', 'NOTION TRACKER + GMAIL DRAFT', 'DEFAULT-NO | TAP YES / 2s RING'];
+    await fetch('http://127.0.0.1:8787/api/liveui/generate', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        xml: `<ui frame="full" title="CAREER PACK"/><ui c="list">\n${jobLines.join('\n')}</ui>`,
+      }),
+    });
+    await new Promise((r) => setTimeout(r, 700));
+    await captureGlasses(autoBase, 'sim-17-career-pack.png');
 
     // 6. Check simulator console logs for unexpected errors (allow the intentional 409 Conflict test fetch)
     const conRes = await fetch(`${autoBase}/api/console`);

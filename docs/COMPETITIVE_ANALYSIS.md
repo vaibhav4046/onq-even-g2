@@ -11,7 +11,7 @@ This analysis evaluates **OnQ** directly against the official **Heads Up: Even R
 | **Read in Seconds** | Surface one critical brief cleanly on the 576x288 monochrome optical waveguide | Fuses Calendar countdown + latest Gmail thread + Google Drive snippet + Notion tasks into 1 scannable card (`<= 7` lines, `<= 42` cols, `<= 999` UTF-8 bytes, `97.3%-98.0%` black optical field). |
 | **Write via Voice / R1 Ring** | Immediate voice reply or confirmation tap from glasses / R1 ring | Hands-free voice (`"OnQ, ..."` / `"Cue, ..."`) via `AssemblyAI STT-3.7` or local Whisper, staged behind Default-NO + `2.0s` 4-bit Gray8 PNG Countdown Ring. |
 | **Open APIs & Track 04 Breadth** | Real integrations across Claude, ChatGPT, OpenRouter, Notion, Google Workspace | Live Google OAuth 2.0 + `S256` PKCE + `HttpOnly` cookie, 1-click `.ics`, Notion `2026-03-11` `data_sources` auto-schema, 4-tier cascading failover (`Claude -> OpenRouter -> ChatGPT -> Rules`), and `AssemblyAI STT-3.7` / `TTS-1`. |
-| **Hardware Integrity** | Respects true G2 constraints (no camera, no speaker, proto3 zero-enum quirks) | Zero camera/speaker assumptions (`TTS-1` routes to earbuds), proto3 zero-value `CLICK_EVENT` normalization (`normalizeEvenEvent`), `dist/onq.ehpk` (`57,865` bytes, SDK `0.0.16`), `15` real EvenHub Simulator `0.9.5` PNGs, `11/11` Chromium geometry gate (`97.4%–98.0%` dark). |
+| **Hardware Integrity** | Respects true G2 constraints (no camera, no speaker, proto3 zero-enum quirks) | Zero camera/speaker assumptions (`TTS-1` routes to earbuds), proto3 zero-value `CLICK_EVENT` normalization (`normalizeEvenEvent`), `dist/onq.ehpk` (`57,865` bytes, SDK `0.0.16`), `17` real EvenHub Simulator `0.9.5` PNGs (`sim-01..17.png`), `11/11` Chromium geometry gate (`97.4%–97.9%` dark, `<= 266` UTF-8 bytes). |
 
 ---
 
@@ -24,7 +24,7 @@ This analysis evaluates **OnQ** directly against the official **Heads Up: Even R
 | **Generative Glasses Apps & Avatar** | **LiveUI Micro-Apps + 76×76 4-bit Gray4 Monochrome Shonen Pixel Avatar + AssemblyAI `<1s` Voice** | LiveUI v3 + 22×37 marker + Soniox | Static reply / conflict cards | Static 3-line cards |
 | **Write Safety Locks** | **4 Layers (RMS Gate, Default-NO, 2.0s Ring, `31 ms` Zero-LLM 409 Hard-Lock, Code-Guard, 30s Undo, Inline Telegram Kill Switch)** | Approval prompt (no 409 etag lock) | 2s undo (*TapBack*) / 409 lock (*PinGuard*) — neither unifies all 4 | Basic prompt or read-only |
 | **AI Model Coverage** | **Hosted PC `$0` Local (`Ollama qwen3:1.7b` LIVE, CLIs, OpenBot) + Optional APIs (`Claude`, `OpenRouter`, `ChatGPT`) + Rules** | Host agent model routing | Single cloud LLM | Single LLM / scripted voice |
-| **Security & Persistence** | **10/10 Audit PASS (`0` secrets in `167` files + `.ehpk`, durable `~/.onq/vault.enc` AES-256-GCM `0600`, `0` vulns, `515` tests)** | Host relay + Tailscale ACL | Standard env | Local storage |
+| **Security & Persistence** | **10/10 Audit PASS (`0` secrets in `167` files + `.ehpk`, durable `~/.onq/vault.enc` AES-256-GCM `0600`, `0` vulns, `527` tests / `54` files)** | Host relay + Tailscale ACL | Standard env | Local storage |
 
 *OcuClaw v2.2.1 comparison grounded in shipped package analysis via REA (`ev_c80bd92...` / `ev_f364f504...`) and public `ocuclaw/ocuclaw` & `ocuclaw-openclaw-plugin` repositories.*
 

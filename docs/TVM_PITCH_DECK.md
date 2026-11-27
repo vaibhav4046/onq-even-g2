@@ -48,7 +48,7 @@ Even Realities judges **Read + Write** first:
   - 1-click **AI Orchestrator (`Auto Smart Failover`, `Claude`, `ChatGPT`, `OpenRouter`, `Rules`; local CLIs are an optional extra)** via `POST /api/connectors/orchestrator` with automatic 5-minute upstream quota/credit cooldown bypass + **AssemblyAI** speech-to-text, and honest `LIVE` / `SANDBOX` / `STALE` status pills in the lens header.
   - **Self-Harnessing 24/7 Proactive Agent (`ProactiveAgenticHarness.synthesizeHarness()`):** continuously scans Calendar, Gmail, Notion, Telegram, and Local Computer signals, synthesizes Code-Guard-verified 42-column action plans (`POST /api/proactive/synthesize`), pushes live `proactive` SSE updates to G2 while `idle`, and stages only behind `Default-NO` (`POST /api/proactive/stage-harness`).
 - **Even Hub Pack Ready:**
-  - Ships cleanly as `.ehpk` (`npm run pack`) targeting authentic **576×288 4-bit Gray4 monochrome phosphor green** waveguide geometry (`npm run verify:geometry`) with **76×76 Monochrome Shonen Pixel Avatars** (`>= 75%` black optical field) and a **2.0s 4-bit Gray4 countdown ring**. Last full run (2026-11-26): `dist/onq.ehpk` is `57,359` bytes (SDK `0.0.16`), geometry gate `11/11` PASS, `15` EvenHub Simulator `0.9.5` captures (`13` core + Evening Recap & Kill Switch).
+  - Ships cleanly as `.ehpk` (`npm run pack`) targeting authentic **576×288 4-bit Gray4 monochrome phosphor green** waveguide geometry (`npm run verify:geometry`) with **76×76 Monochrome Shonen Pixel Avatars** (`>= 75%` black optical field) and a **2.0s 4-bit Gray4 countdown ring**. Last full run (2026-11-27): `dist/onq.ehpk` is `57,865` bytes (SDK `0.0.16`), geometry gate `11/11` PASS, `17` EvenHub Simulator `0.9.5` captures (`sim-01..17.png`, incl. Coding PR Gate & Career Pack).
 
 ---
 
@@ -89,12 +89,12 @@ Even Realities judges **Read + Write** first:
 
 ---
 
-## Verified Facts Behind This Deck (final run, 2026-11-26)
+## Verified Facts Behind This Deck (final run, 2026-11-27)
 
-- `npm test`: `515` tests across `53` files, all passing. `npm run eval:harness`: `32/32` intents, `5/5` injections blocked, `3/3` 409 locks, `5/5` RMS silence rejections, `4` failover scenarios.
-- `dist/onq.ehpk`: `57,865` bytes, SDK `0.0.16`. `npm run verify:geometry`: `11/11` PASS plus the Check 11 negative control (`97.4%–98.0%` black optical field). `npm run verify:sim`: `15` real EvenHub Simulator `0.9.5` captures (`0` console errors). `npm run verify:security`: `10/10` PASS, `0` vulnerabilities, `167` source files + `.ehpk`.
-- Web entry chunk `272.89 kB` raw / `70.80 kB` gzip (`apps/glasses`: `141.68 kB` raw / `52.89 kB` gzip). `modern-web-guidance legacy-scan`: `0` findings across `41` files.
-- Live connectors, exactly: durable `~/.onq/vault.enc` auto-reconnected `Telegram=LIVE` (`@onq_g2_copilot_bot`, `28 ms`) and `AssemblyAI=LIVE` (`633 ms`, `47` TTS chunks); local `Ollama qwen3:1.7b` LIVE (`$0` API cost, `1,759 ms` wrap-up, `31 ms` zero-LLM 409 lock) + `OmniRoute` (`295` models) + `8` local MCP server names. Google Workspace and Notion run honestly in `SANDBOX` (`1 ms`) until credentials are connected in `#connectors`.
+- `npm test`: `527` tests across `54` files, all passing. `npm run eval:harness`: `32/32` intents, `5/5` injections blocked, `3/3` 409 locks, `5/5` RMS silence rejections, `4` failover scenarios.
+- `dist/onq.ehpk`: `57,865` bytes, SDK `0.0.16`. `npm run verify:geometry`: `11/11` PASS plus the Check 11 negative control (`97.4%–97.9%` black optical field, `<= 266` UTF-8 bytes). `npm run verify:sim`: `17` real EvenHub Simulator `0.9.5` captures (`sim-01..17.png`, `0` console errors). `npm run verify:security`: `10/10` PASS, `0` vulnerabilities, `167` source files + `.ehpk`.
+- Web entry chunk `272.89 kB` raw / `70.80 kB` gzip (`@onq/glasses`: `141.68 kB` raw / `52.89 kB` gzip). `modern-web-guidance legacy-scan`: `0` findings across `41` files.
+- Live connectors, exactly: durable `~/.onq/vault.enc` auto-reconnected across server restart (`Telegram=LIVE` `@onq_g2_copilot_bot` `28–34 ms`, `AssemblyAI=LIVE` `648 ms`, `45–47` TTS chunks); local `Ollama qwen3:1.7b` LIVE (`$0` API cost, `1,759 ms` wrap-up, `31 ms` zero-LLM 409 lock, live `/run ollama` PASS) + `OmniRoute` (`295` models) + `8` local MCP server names. Google Workspace and Notion run honestly in `SANDBOX` (`1 ms`) until credentials are connected in `#connectors`.
 - Optional local skills (music, market signals, PC tools, YouTube scouting) are not part of the Track 04 pitch and sit behind a collapsed `<details>` disclosure.
-- **Not done:** physical Even G2 glasses and R1 ring testing (simulator, Chromium geometry gate, live Playwright check, clean-room zero-env build, and automated suites only).
-- Launch video: emerald cyber-anime film `media/out/onq-film-v4.mp4` (`2:40`, `26.10 MB`, `1080p @ 30fps`, `-17.88 LUFS`, dual-voice AssemblyAI TTS-1); technical walkthrough `media/out/onq-launch-demo.mp4` (`2:05`).
+- **Not done:** physical Even G2 glasses and R1 ring testing (simulator, Chromium geometry gate, live Playwright desktop/mobile check, clean-room zero-env build, and automated suites only).
+- Launch video: flagship 7-Act emerald cyber-anime film `media/out/onq-film-v5-day-in-life.mp4` (`2:45` / `165.00 s`, `23.22 MB`, `1080p @ 30fps`, `-16.0 LUFS`, dual-voice AssemblyAI TTS-1); backup `media/out/onq-film-v4.mp4` (`2:40`, `26.10 MB`).

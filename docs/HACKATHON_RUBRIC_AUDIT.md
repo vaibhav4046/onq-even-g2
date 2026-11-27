@@ -67,28 +67,28 @@ Every outbound mutation (Calendar shift, Gmail reply, Notion task write, Telegra
 | :--- | :--- | :--- |
 | **Public GitHub Repo** | `https://github.com/vaibhav4046/onq-even-g2` | Monorepo (`packages/core`, `apps/server`, `apps/glasses`, `apps/web`) with zero-key cold-start `DEMO` mode. |
 | **GitHub Pages & Privacy Policy** | `https://vaibhav4046.github.io/onq-even-g2/` & `.../privacy.html` | Static self-contained HTML (`docs/index.html`, `docs/privacy.html`, `docs/terms.html`, `docs/.nojekyll`). |
-| **Demo Video (`<= 2:45`)** | `media/out/onq-film-v4.mp4` | `2:40` (`160.0s`, `26.10 MB`, `1920x1080 @ 30fps`, `-17.88 LUFS`) emerald cyber-anime launch film with dual-voice AssemblyAI TTS-1 (`aai-kyla` + `aai-titus`), Computer = AI Power Source + live Ollama Qwen3 + watched-group Telegram + opaque `#000000` simulator captures (`0` whiteout). |
+| **Demo Video (`<= 2:45`)** | `media/out/onq-film-v5-day-in-life.mp4` | `2:45` (`165.00 s`, `23.22 MB`, `1920x1080 @ 30fps`, `-16.0 LUFS`) 7-Act "Day in the Life with OnQ" emerald cyber-anime launch film with dual-voice AssemblyAI TTS-1 (`aai-kyla` + `aai-titus`) and opaque `#000000` simulator captures (`0` whiteout). Backup: `media/out/onq-film-v4.mp4` (`2:40`, `26.10 MB`). |
 | **Packaged EvenHub App** | `dist/onq.ehpk` (`npm run pack`) | `57,865` bytes, SDK `0.0.16` (supports `ONQ_RELAY_ORIGIN` / `ONQ_RELAY_URL` for remote tunnel builds). Scanned inside `npm run verify:security` (`0` secret hits). |
 | **EvenHub API Feedback** | `API_FEEDBACK.md` | 5 actionable SDK `0.0.16`, Simulator `0.9.5`, and WebView PKCE requests. |
-| **Verification Evidence** | `npm test`, `npm run eval:harness`, `npm run verify:geometry`, `npm run verify:sim`, `npm run verify:security` | Reproducible suites (`docs/HARNESS_EVAL.json`, `SECURITY_AUDIT.md`, `docs/VERIFICATION_LOG.txt`, `docs/ADVERSARIAL_JUDGE_VERDICT.md`, `docs/screenshots/sim-01..15.png`). |
+| **Verification Evidence** | `npm test`, `npm run eval:harness`, `npm run verify:geometry`, `npm run verify:sim`, `npm run verify:security` | Reproducible suites (`docs/HARNESS_EVAL.json`, `SECURITY_AUDIT.md`, `docs/VERIFICATION_LOG.txt`, `docs/JUDGING_ROUND_REPORT.md`, `docs/ADVERSARIAL_JUDGE_VERDICT.md`, `docs/screenshots/sim-01..17.png`). |
 
 > **Honest Physical Hardware Disclosure:** Optical layouts, container rebuilds, 4-bit Gray4 PNG updates, input normalization, safety gates, and flows are verified in `@evenrealities/evenhub-simulator@0.9.5`, our 11-check Chromium `576×288` Geometry Gate, and automated Vitest / HTTP / WebSocket suites. **Physical Even Realities G2 glasses and R1 ring hardware testing is NOT done** because physical hardware is not attached in the build environment. Audio responses route to the companion phone / Bluetooth earbuds (`AssemblyAI-TTS-1`) because Even G2 has no built-in speaker.
 
 ---
 
-## 6. Verified Numbers (final run, 2026-11-26, every command exit 0)
+## 6. Verified Numbers (final run, 2026-11-27, every command exit 0)
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Unit, HTTP, WebSocket, OAuth suites | `npm test` | `515` tests passing across `53` files (incl. durable `~/.onq/vault.enc`, PC Power Source, remote bridge, Telegram inline Kill Switch, zero-LLM 409 pre-check) |
+| Unit, HTTP, WebSocket, OAuth suites | `npm test` | `527` tests passing across `54` files (incl. Morning Brief + Notion check-off, Coding PR Gate + L5 hard-blocks, Career Pack, durable `~/.onq/vault.enc`, PC Power Source, remote bridge, Telegram inline Kill Switch, zero-LLM 409 pre-check) |
 | AI and safety harness | `npm run eval:harness` | `32/32` intents, `5/5` injections blocked, `3/3` 409 locks, `5/5` RMS silence rejections, `4` failover scenarios |
 | Package | `npm run pack` | `dist/onq.ehpk`, `57,865` bytes, SDK `0.0.16` |
-| Geometry | `npm run verify:geometry` | `11/11` PASS plus the Check 11 negative control (`97.4%` to `98.0%` dark pixels, `<= 266` UTF-8 bytes) |
-| Simulator | `npm run verify:sim` | `15` real EvenHub Simulator `0.9.5` captures (`sim-01..sim-15`: `13` core + Evening Recap & Kill Switch; `0` console errors) |
+| Geometry | `npm run verify:geometry` | `11/11` PASS plus the Check 11 negative control (`97.4%` to `97.9%` dark pixels, `<= 266` UTF-8 bytes) |
+| Simulator | `npm run verify:sim` | `17` real EvenHub Simulator `0.9.5` captures (`sim-01..sim-17.png`: `13` core + Evening Recap, Kill Switch, Coding PR Gate & Career Pack; `0` console errors) |
 | Security | `npm run verify:security` | `10/10` PASS, `0` vulnerabilities (`npm audit --omit=dev`), `167` source files scanned + `dist/onq.ehpk` |
 | Web bundle | `npm run build` | Entry JS chunk `272.89 kB` raw / `70.80 kB` gzip (`@onq/glasses`: `141.68 kB` raw / `52.89 kB` gzip); Three.js and the 3D glasses load lazily |
 | Modern web guidance | `legacy-scan` on `apps/web/src` | `0` findings across `41` files; `tabs` & `content-first-noise-reduction` (`<details>` drawer) guides applied |
 
-**Live connector status, stated exactly.** Durable `~/.onq/vault.enc` auto-reconnect verified live (`Telegram=LIVE` `@onq_g2_copilot_bot` `28 ms`, `AssemblyAI=LIVE` `633 ms` + `TTS-1` `47` audio chunks), plus **Ollama `qwen3:1.7b` LIVE** (`$0` local cost, `1,759 ms` wrap-up draft, `31 ms` zero-LLM 409 conflict lock) and **OmniRoute** (`295` models) + `8` local MCP server names. Google Workspace and Notion run honestly in `SANDBOX` (`1 ms`) until credentials are saved at `http://127.0.0.1:5173/#connectors`.
+**Live connector status, stated exactly.** Durable `~/.onq/vault.enc` auto-reconnect verified live across reboot (`Telegram=LIVE` `@onq_g2_copilot_bot` `28–34 ms`, `AssemblyAI=LIVE` `648 ms` + `TTS-1` `45–47` chunks), plus **Ollama `qwen3:1.7b` LIVE** (`$0` local cost, `1,759 ms` wrap-up draft, `31 ms` zero-LLM 409 conflict lock, live `/run ollama` PASS) and **OmniRoute** (`295` models) + `8` local MCP server names. Google Workspace and Notion run honestly in `SANDBOX` (`1 ms`) until credentials are saved at `http://127.0.0.1:5173/#connectors`.
 
-**Final-pass changes.** Durable `~/.onq/vault.enc` migration + 45m OAuth keepalive, Computer = AI Power Source (`pcPowerSource.ts` + OpenBot CLI bridge + allowlisted wake), zero-trust `npm run tunnel` + `tunnelBridge.ts`, `31 ms` zero-LLM 409 pre-check, `1.76 s` Ollama wrap-up cap, `sim-11` double-prefix fix, Telegram inline `[Kill Switch (Pause All)]`, Film v4 (`2:40`, `26.10 MB`), and 5-persona + 4-judge adversarial verdict (`9.50 / 10` controllable score in `docs/ADVERSARIAL_JUDGE_VERDICT.md`).
+**Final-pass changes.** Day-in-the-Life product parity (Morning Brief, Notion voice check-off, Coding PR Gate + `git_diff_stat` + dry-run PR receipt + L5 hard-blocks, Career Pack + Code-Guard draft), durable `~/.onq/vault.enc` migration + 45m OAuth keepalive, Computer = AI Power Source + `npm run tunnel`, `31 ms` zero-LLM 409 pre-check, Film v5 (`2:45`, `23.22 MB`, `-16.0 LUFS`), and Round 3 5-persona + 4-judge adversarial verdict (`9.66 / 10` controllable score in `docs/JUDGING_ROUND_REPORT.md` and `docs/ADVERSARIAL_JUDGE_VERDICT.md`).
