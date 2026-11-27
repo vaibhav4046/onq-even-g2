@@ -284,7 +284,7 @@ export function installStaticJudgeDemoFetch(): void {
     title: 'OnQ Judge Studio · 4-Layer Safety',
     subtitle: 'Tap any control to test live G2 state transitions without keys',
     components: [
-      { id: 'c1', kind: 'kpi', label: 'TESTS', value: '530 PASS', status: 'ok' },
+      { id: 'c1', kind: 'kpi', label: 'TESTS', value: '537 PASS', status: 'ok' },
       { id: 'c2', kind: 'kpi', label: '409 LOCK', value: '31 ms · 0 LLM', status: 'ok' },
       { id: 'c3', kind: 'toggle', label: 'Kill Switch', active: false },
     ],
@@ -533,7 +533,7 @@ export function installStaticJudgeDemoFetch(): void {
         return jsonRes(200, { ok: true, command: cmd, domain: 'morning', specialistId: 'chief', autonomyLevel: 'L1_SUGGEST', reply: 'Morning Brief synced across Calendar, Gmail, Notion, and Telegram.', g2Lines: ['MORNING BRIEF (08:15)', 'GCAL: Investor call 14:00', 'MAIL: Push 15m? Q4 deck ready', 'NOTION: Finalize Q4 deck notes', 'TG: @investor_alex watched DM'] });
       }
       if (low.startsWith('/code')) {
-        return jsonRes(200, { ok: true, command: cmd, domain: 'code', specialistId: 'developer', autonomyLevel: 'L2_APPROVAL', reply: 'Coding PR Gate ready: 530/530 tests pass, 0 secrets leaked, L5 blocks force push.', g2Lines: ['CODING PR GATE (LOCAL PC)', 'TESTS: 530/530 PASS · 0 SEC', 'DIFF: +42 -11 clean TS/G2', 'L5: Force push HARD BLOCKED', 'STAGE: Default-NO -> PR Draft'] });
+        return jsonRes(200, { ok: true, command: cmd, domain: 'code', specialistId: 'developer', autonomyLevel: 'L2_APPROVAL', reply: 'Coding PR Gate ready: 537/537 tests pass, 0 secrets leaked, L5 blocks force push.', g2Lines: ['CODING PR GATE (LOCAL PC)', 'TESTS: 537/537 PASS · 0 SEC', 'DIFF: +42 -11 clean TS/G2', 'L5: Force push HARD BLOCKED', 'STAGE: Default-NO -> PR Draft'] });
       }
       if (low.startsWith('/project career_pack') || low.startsWith('/jobs')) {
         return jsonRes(200, { ok: true, command: cmd, domain: 'career', specialistId: 'career_scout', autonomyLevel: 'L2_APPROVAL', reply: 'Career Pack: 3 AI Engineer roles logged to Notion tracker + Code-Guard recruiter draft (Default-NO).', g2Lines: ['CAREER PACK (TUNNEL)', 'MATCHES: 3 Staff AI roles', 'NOTION: Tracker row staged', 'GMAIL: Code-Guard draft ready', 'GATE: Zero spam (Default-NO)'] });
@@ -541,7 +541,7 @@ export function installStaticJudgeDemoFetch(): void {
       if (low.startsWith('/music')) {
         return jsonRes(200, { ok: true, command: cmd, domain: 'music', specialistId: 'chief', autonomyLevel: 'L1_SUGGEST', reply: 'Deep Focus 45m audio session armed (plays on paired phone/earbuds; G2 has no speaker).', g2Lines: ['FOCUS MUSIC · 45:00', 'STREAM: Paired Earbuds Only', 'MODE: Deep Focus 92 BPM', 'DO NOT DISTURB: Active'] });
       }
-      return jsonRes(200, { ok: true, command: cmd, domain: 'os', specialistId: 'chief', autonomyLevel: 'L1_SUGGEST', reply: `Executed "${cmd}" in zero-key Judge Studio.`, g2Lines: ['ONQ UNIFIED OS (DEMO)', `CMD: ${cmd.slice(0, 36)}`, '530 Tests · 10/10 Security', 'Ready on G2 & Telegram'] });
+      return jsonRes(200, { ok: true, command: cmd, domain: 'os', specialistId: 'chief', autonomyLevel: 'L1_SUGGEST', reply: `Executed "${cmd}" in zero-key Judge Studio.`, g2Lines: ['ONQ UNIFIED OS (DEMO)', `CMD: ${cmd.slice(0, 36)}`, '537 Tests · 10/10 Security', 'Ready on G2 & Telegram'] });
     }
     if (p === '/api/os/killswitch' && method === 'POST') {
       paused = typeof body.paused === 'boolean' ? body.paused : !paused;

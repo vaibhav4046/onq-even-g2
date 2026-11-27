@@ -24,7 +24,7 @@
 
 ## 0:55 – 1:25 · PC-as-`$0`-Brain + Coding PR Gate + Telegram Kill Switch (Tech Execution · 20% + Telegram `$1,000` Bounty)
 > "Even G2 has no camera and no speaker, and most builders forget people already run local models and coding agents on their computer.
-> - Click **Coding PR Gate**: OnQ inspects `git diff`, verifies `530/530` tests locally via **Ollama `qwen3:1.7b` at `$0` marginal API cost**, hard-blocks `git push --force` and leaked secrets at layer L5, and stages a Default-NO approval on both G2 and **Telegram `@onq_g2_copilot_bot`**.
+> - Click **Coding PR Gate**: OnQ inspects `git diff`, verifies `537/537` tests locally via **Ollama `qwen3:1.7b` at `$0` marginal API cost**, hard-blocks `git push --force` and leaked secrets at layer L5, and stages a Default-NO approval on both G2 and **Telegram `@onq_g2_copilot_bot`**.
 > - In Telegram, OnQ only surfaces chats you explicitly watch, stays silent in groups, and lets you tap inline **`[Approve Once]`** or **`[Kill Switch (Pause All)]`** (instant `HTTP 423` global freeze)."
 
 *(Action on screen: click **Coding PR Gate**, click **Kill Switch** twice to demonstrate instant lock & resume.)*
@@ -33,7 +33,7 @@
 
 ## 1:25 – 1:50 · Proof, Honesty & Business Model (Business & Safety · 10%)
 > "Everything is reproducible in one command — and zero-key playable right now at **`vaibhav4046.github.io/onq-even-g2/demo/`**:
-> - **530 passing tests** across **55 files**, **32/32** harness evals, **17 real EvenHub Simulator 0.9.5 captures**, **11/11** geometry gate (`97.2%–97.8%` black optical field), **10/10** security audit (`0` vulns), and packaged **`onq.ehpk`** (`60.3 KB`).
+> - **537 passing tests** across **56 files**, **32/32** harness evals, **17 real EvenHub Simulator 0.9.5 captures**, **11/11** geometry gate (`97.3%–98.5%` black optical field, `<= 178` UTF-8 bytes), **10/10** security audit (`0` vulns), and packaged **`onq.ehpk`** (`60,271` bytes).
 > - Physical G2 hardware isn't on my desk yet, so we disclose *Sim-Verified* honestly everywhere and route all TTS audio cleanly to paired earbuds.
 > - **Business:** Free BYO-PC local tier (`$0` LLM cost), **$7/mo Pro** for managed HTTPS relay + AssemblyAI voice, **$19/seat Team**."
 
@@ -51,5 +51,5 @@
 | **"Did you test on physical Even G2 glasses?"** | "Not yet — we tested strictly on `@evenrealities/evenhub-simulator@0.9.5` (17 PNGs, 0 errors), our 11-check `576×288` Chromium geometry gate, and packaged `dist/onq.ehpk` with all G2 limits enforced (no camera, no speaker, proto3 `CLICK_EVENT` normalization, `<= 42×7` text, `<= 999` UTF-8 bytes)." |
 | **"What happens if an LLM hallucinates an email address or double-books?"** | "Two deterministic code gates block it before sending: `Code-Guard` pins recipients strictly from workspace thread metadata (client `to` overrides return HTTP 400), and Calendar conflicts trigger HTTP `409` in `31 ms` with `0` LLM calls." |
 | **"How does Google sign-in work inside EvenHub WebView?"** | "Google blocks `disallowed_useragent` in embedded WebViews, so auth happens on the companion host via OAuth 2.0 + `S256` PKCE, stored AES-256-GCM (`0600`) in `~/.onq/vault.enc` outside the repo, while glasses pair via short-lived Bearer code." |
-| **"Why do you stand out vs `TeleGifts G2`, `Cue`, or `TriageG2`?"** | "OnQ unifies all 4 Track 04 pillars + watched-chat Telegram behind 4-layer write safety (`RMS -> Default-NO -> 2s ring -> 31 ms 409 lock + 30s undo + HTTP 423 Kill Switch`), local `$0` Ollama hosting, 13 `76×76` 4-bit real-app sprites, and `530` verified tests." |
+| **"Why do you stand out vs `TeleGifts G2`, `Cue`, or `TriageG2`?"** | "OnQ unifies all 4 Track 04 pillars + watched-chat Telegram behind 4-layer write safety (`RMS -> Default-NO -> 2s ring -> 31 ms 409 lock + 30s undo + HTTP 423 Kill Switch`), local `$0` Ollama hosting, minimal Voice Orb + 13 `76×76` 4-bit real-app sprites, and `537` verified tests." |
 | **"How do I try it right now without API keys?"** | "Open `vaibhav4046.github.io/onq-even-g2/demo/` — every button (`Cal + Mail`, `Notion`, `Telegram`, `PC AI`, `Morning Brief`, `Coding PR Gate`, `Kill Switch`, `Test Conflict Lock`) runs stateful in your browser with zero keys." |

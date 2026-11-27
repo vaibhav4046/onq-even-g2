@@ -47,7 +47,7 @@ The first time, OnQ opens a separate Chrome window with its own profile. Sign in
 ## Limits you should know
 
 - **Your computer must be on** and OnQ running. Telegram only works while it runs.
-- **Glasses cannot reach your computer yet.** The glasses app only allows `localhost`. To use real G2 glasses you need a phone-hosted or HTTPS relay first. Do not rely on this until it is tested.
+- **Remote glasses access requires an HTTPS tunnel.** By default the local relay runs on `localhost`; to reach it away from home, start the optional Cloudflare tunnel (`npm run tunnel` or **Start my tunnel** under **Remote access for your own glasses** below). Note: physical Even G2 glasses have not been tested yet.
 - Writes to Google and Notion are real once connected. Start with a test calendar and a test Notion database.
 - If you also set a webhook on the same bot, polling stops. OnQ shows "Webhook active on Telegram bot" and waits 5 minutes before retrying.
 - The old video and docs say "simulator verified". That is the honest status.
